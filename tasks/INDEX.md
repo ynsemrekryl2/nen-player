@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **32** task · ✅ done 10 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 22
+Toplam **32** task · ✅ done 11 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 21
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -21,7 +21,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | ID | Başlık | Boyut | Durum | Bağımlılık |
 |---|---|---|---|---|
 | [NEN-005](backlog/NEN-005-ci-skeleton.md) | CI skeleton | S | ⚪ backlog | NEN-004 NEN-007 |
-| [NEN-006](backlog/NEN-006-log-redaction.md) | Log redaction helpers and guard test | M | ⚪ backlog | NEN-001 NEN-007 |
+| [NEN-006](done/NEN-006-log-redaction.md) | Log redaction helpers and guard test | M | ✅ done | NEN-001 NEN-007 |
 | [NEN-007](done/NEN-007-ffi-skeleton.md) | Rust workspace and UniFFI skeleton | M | ✅ done | NEN-004 |
 | [NEN-008](done/NEN-008-spike-large-cue-lists.md) | Spike - large cue list across FFI | M | ✅ done | NEN-007 |
 | [NEN-009](done/NEN-009-spike-async-cancellation.md) | Spike - async progress and cancellation | M | ✅ done | NEN-007 |
@@ -64,6 +64,5 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 
 - **NEN-005** — CI skeleton
-- **NEN-006** — Log redaction helpers and guard test
 - **NEN-010** — Spike - typed error mapping
 - **NEN-029** — Playback/renderer reverse-FFI boundary spike

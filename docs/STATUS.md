@@ -3,7 +3,7 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-24** (NEN-032 kapanışı)
+> Son güncelleme: **2026-08-24** (NEN-006 kapanışı)
 
 ## Nerede duruyoruz
 
@@ -11,11 +11,35 @@
 |---|---|
 | **Mevcut milestone** | **M1 — Core Technical Spike** (M0 kapandı) |
 | **Aktif task** | *yok* — `tasks/active/` boş |
-| **Son tamamlanan** | `NEN-032` — doctor.sh'ta swift'in milestone seviyesi M3 → M1 |
-| **Sıradaki READY** | `NEN-005` `NEN-006` `NEN-010` `NEN-029` |
-| **Task sayısı** | 32 · done 10 · active 0 · blocked 0 · backlog 22 |
+| **Son tamamlanan** | `NEN-006` — log redaction yardımcıları ve guard test |
+| **Sıradaki READY** | `NEN-005` `NEN-010` `NEN-029` |
+| **Task sayısı** | 32 · done 11 · active 0 · blocked 0 · backlog 21 |
 
-**`NEN-032` kapandı.** `doctor.sh`, `swift`i M3'ten M1'e taşıdı: NEN-007
+**`NEN-006` kapandı.** `nen-domain` (bağımlılıksız değer crate'i) içine bir
+`redact` modülü eklendi: `Redacted<T>` (Debug/Display her koşulda
+`<redacted>` basar), `extension()`, `size_class()`, `redact_host()` — hepsi
+`docs/security-policy.md` §1'in "Loglanabilecekler" listesiyle sınırlı.
+Guard test (`tests/guard_redaction.rs`), K23'ün 8 yasaklı deseninin
+(medya URL, token query, tam özel yol, cue metni, raw provider response,
+API key, OpenSubtitles private file ID, özel hash/filename) elle yazılmış
+`Debug` kullanan örnek tiplerin `{:?}` çıktısında **hiç** görünmediğini
+kanıtlıyor. **Negatif kanıt** (güvenlik task'ı için zorunlu):
+`#[derive(Debug)]` ile yazılmış kasıtlı bozuk bir fixture aynı deseni
+gerçekten sızdırıyor — yani kontrolün boşta dönmediği, gerçek bir
+`derive(Debug)` hatasını yakalayacağı ayrıca kanıtlandı (NEN-032'nin
+shadow-PATH kanıtıyla aynı biçim). Typed error tarafı: örnek `ErrorFixture`
+enum'ının üç varyantı payload'a hiç dokunmadan, yalnız discriminant
+üzerinden ayrıştırılabiliyor. `nen-domain`'in sıfır bağımlılık özelliği
+korundu (`cargo tree` tek düğüm); `cargo clippy -D warnings` ve
+`cargo fmt --check` (yalnız `nen-domain` kapsamında) temiz. Ayrıntı ve
+tam test çıktısı task'ın kanıt kaydında.
+
+`NEN-006`'nın `adr:` alanı `[5]` → **`[]`** olarak düzeltildi — NEN-007/008/009
+ile aynı gerekçe: ADR-0005 dosyası `docs/adr/` altında henüz yok, task onu
+kararlaştırmıyor, yalnız zaten kabul edilmiş `docs/security-policy.md`'yi
+koda döküyor.
+
+`NEN-032` kapandı. `doctor.sh`, `swift`i M3'ten M1'e taşıdı: NEN-007
 (`test-apple.sh`) ve NEN-008 (`spike-cues.sh`) M1 içinde zaten Swift'e
 bağımlıydı, ama doctor bunu M3'e kadar blocker saymıyordu — Swift'siz bir
 makinede `doctor.sh M1` yanlışlıkla çıkış 0 verip hatayı ilk Swift
@@ -166,11 +190,15 @@ $ bash scripts/doctor.sh M1
 SONUÇ: M1 için tüm blocker'lar hazır.            → exit 0
 
 $ cargo test --manifest-path core/Cargo.toml --workspace
-spike_cue_transfer 8 · spike_async_cancel 6 · nen-app 1 · nen-ffi 1
-16 passed, 0 failed                              → exit 0
+spike_cue_transfer 8 · spike_async_cancel 6 · nen-app 1 · nen-ffi 1 ·
+nen-domain 4 (unit) + 6 (guard_redaction) = 10
+26 passed, 0 failed                              → exit 0
 
 $ cargo tree -p nen-domain --edges normal
 nen-domain v0.1.0                                → tek düğüm, sıfır bağımlılık
+
+$ cargo clippy -p nen-domain --all-targets --manifest-path core/Cargo.toml -- -D warnings
+                                                  → exit 0, uyarı yok (NEN-006)
 
 $ bash scripts/build-apple.sh                     → binding temiz üretildi
 $ bash scripts/test-apple.sh
@@ -214,6 +242,9 @@ yalnız fixture'daydı ve `NEN-031` ile kapandı.
 
 - **Kod var** (NEN-007 ile): `core/` altında Cargo workspace + 11 crate,
   `core/rust-toolchain.toml`, `Cargo.lock`.
+- `core/crates/nen-domain/src/redact.rs` — NEN-006'nın redaction yardımcıları
+  (`Redacted<T>`, `extension()`, `size_class()`, `redact_host()`); crate hâlâ
+  bağımlılıksız. Guard test `core/crates/nen-domain/tests/guard_redaction.rs`.
 - `core/spikes/spike-cue-transfer/` — NEN-008'in ölçüm crate'i ve içinde kendi
   Swift harness'ı (`apple-harness/`). **Ürün kodu değil, terfi etmez**; kendi
   FFI kapısını ADR-0028 sayesinde açıyor. Üretilen binding commit edilmiyor.
