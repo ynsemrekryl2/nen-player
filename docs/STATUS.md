@@ -3,17 +3,53 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-24** (NEN-029 kapanışı, ADR-0026 accepted)
+> Son güncelleme: **2026-08-24** (NEN-005 kapanışı)
 
 ## Nerede duruyoruz
 
 | | |
 |---|---|
 | **Mevcut milestone** | **M1 — Core Technical Spike** (M0 kapandı) |
-| **Aktif task** | `NEN-005` — CI skeleton |
-| **Son tamamlanan** | `NEN-029` — spike: playback/renderer reverse-FFI boundary |
+| **Aktif task** | *yok* — `tasks/active/` boş |
+| **Son tamamlanan** | `NEN-005` — CI skeleton |
 | **Sıradaki READY** | `NEN-011` |
-| **Task sayısı** | 32 · done 13 · active 1 · blocked 0 · backlog 18 |
+| **Task sayısı** | 32 · done 14 · active 0 · blocked 0 · backlog 18 |
+
+**`NEN-005` kapandı.** `.github/workflows/ci.yml` — macOS runner'da her
+push/PR'da `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test
+--workspace`, `cargo deny check` (yeni `core/deny.toml`), `scripts/test.sh`,
+`task-index.sh --check`, `check-docs.sh` koşuyor; cargo registry+target
+cache'leniyor, aynı branch'te eski koşu iptal ediliyor. Bu task için
+`github.com/ynsemrekryl2/nen-player` adında private bir repo kuruldu (bu
+repoda daha önce remote yoktu).
+
+İlk gerçek koşu, yerelde tekrarlanamayan **3 gerçek kusur** buldu — üçü de bu
+task kapsamında düzeltildi: (1) `rust-toolchain.toml`'ın 1.98.0 pin'i yalnız
+cwd `core/` altındayken tetikleniyor, `--manifest-path` yetmiyor — fmt/clippy/
+test adımları `working-directory: core` ile düzeltildi; (2)
+`EmbarkStudios/cargo-deny-action` bir Docker container action, macOS
+runner'da çalışmıyor — `taiki-e/install-action` + düz `cargo deny check`'e
+geçildi; (3) **`scripts/doctor.sh`'ın `detect_jdk`'sında gerçek bir doğruluk
+hatası bulundu**: diğer tüm `detect_*`'lerin aksine `command -v java`
+guard'ı yoktu, `run_timeout`'un dayandığı perl `exec LIST` PATH'te java hiç
+yokken sessizce exit 0 dönüyordu — yani "JDK yok" "JDK var" raporlanıyordu.
+Yerel Mac'lerde bu gizli kaldı (CLT'li Mac'te JDK kurulu olmasa da
+`/usr/bin/java` çalıştırılınca gerçekten hata veren bir stub'tır); GitHub'ın
+macOS runner image'ında `/usr/bin/java` gerçek ve çalışan bir JDK olduğundan
+kusur ilk kez CI'da ortaya çıktı. Düzeltildi; `doctor.test.sh`'ın S4 senaryosu
+S7'nin (swift) kullandığı shadow-PATH tekniğiyle güncellendi.
+
+DoD'un 4 kasıtlı ihlal kanıtı zincirleme commit'lerle toplandı (pipeline
+sıralı olduğundan her biri bir öncekini düzeltip bir sonrakini bozuyor):
+kasıtlı `cargo fmt` ihlali → 🔴 24s, clippy ihlali (`bool_comparison`) → 🔴
+35s, bayat `INDEX.md` → 🔴 1m9s (bu koşu `scripts/test.sh`'ın CI'da fiilen
+koştuğunu da doğruladı), `doctor.test.sh`'ta kasıtlı bozuk assertion → 🔴
+45s, temiz duruma dönüş → 🟢. Yeşil koşu süresi: **3m58s** (soğuk cache, ilk
+koşu) → **52s** (sıcak cache, sonraki koşular). Ayrıntı ve tüm run linkleri
+task'ın kanıt kaydında.
+
+Ayrıca bu task için `cargo-deny` bu makineye Homebrew ile kuruldu (0.20.2) —
+toolchain tablosundaki B2 dışı "soon" eksiği kapandı.
 
 **`NEN-029` kapandı ve `ADR-0026` accepted oldu.**
 `core/spikes/spike-reverse-ffi/` — NEN-009'un delivery-gate deseni tek bir
@@ -225,7 +261,7 @@ Aynı kusur NEN-008'de bu kapanışta giderildi; geriye **`NEN-011`** kaldı.
 | Araç | Durum | M1'deki seviyesi |
 |---|---|---|
 | `cargo` / `rustc` | ✅ 1.98.0 (2026-08-18) | blocker — **karşılandı** |
-| `cargo-deny` | ❌ eksik | soon — NEN-005 öncesi |
+| `cargo-deny` | ✅ 0.20.2 (Homebrew, NEN-005) | soon — **karşılandı** |
 | JDK | ❌ eksik | soon — NEN-011 (Kotlin/JVM parity) öncesi |
 | `swift` | ✅ Apple Swift 6.4 | M1 (blocker) — NEN-007 testi ve NEN-008 harness'ı kullanıyor |
 | Tam Xcode | ❌ yalnız `/Library/Developer/CommandLineTools` | M3 — **M1 blocker'ı değil** |
@@ -364,13 +400,16 @@ yalnız fixture'daydı ve `NEN-031` ile kapandı.
 - `platforms/apple-shared/` — SwiftPM paketi (`Package.swift` + swift-testing
   test target'ı). Üretilen binding `generated/` altında ve **commit edilmiyor**.
 - Diğer `platforms/*` dizinleri hâlâ boş iskelet.
+- `.github/workflows/ci.yml` — NEN-005'in CI skeleton'ı; `core/deny.toml` —
+  cargo-deny lisans/advisory/kaynak kapısı.
 - Var olan: 6 ana doküman · 12 milestone dosyası · **4 accepted ADR**
   (0001, 0006, 0026, 0028) · 32 task · 10 script + 2 shell testi ·
   `fixtures/` iskeleti.
 - Depo kökünde **`LICENSE` dosyası bilerek yok** — bkz. [`licensing.md`](licensing.md).
-- Git: `main` branch. **Bu dosya commit hash'i tutmaz** — commit geçmişi
-  kanonik kayıttır ve elle tutulan hash satırı her kapanışta bayatlar
-  (CLAUDE.md → "Commit politikası").
+- Git: `main` branch. Remote: `github.com/ynsemrekryl2/nen-player` (private —
+  NEN-005 ile kuruldu, CI'ın koşabilmesi için gerekliydi). **Bu dosya commit
+  hash'i tutmaz** — commit geçmişi kanonik kayıttır ve elle tutulan hash
+  satırı her kapanışta bayatlar (CLAUDE.md → "Commit politikası").
 
 ## Bu dosyayı kim günceller
 
