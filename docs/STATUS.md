@@ -3,7 +3,7 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-24** (NEN-009 kapanışı)
+> Son güncelleme: **2026-08-24** (NEN-032 kapanışı)
 
 ## Nerede duruyoruz
 
@@ -11,9 +11,22 @@
 |---|---|
 | **Mevcut milestone** | **M1 — Core Technical Spike** (M0 kapandı) |
 | **Aktif task** | *yok* — `tasks/active/` boş |
-| **Son tamamlanan** | `NEN-009` — async progress + cooperative cancellation ölçümü |
-| **Sıradaki READY** | `NEN-005` `NEN-006` `NEN-010` `NEN-029` `NEN-032` |
-| **Task sayısı** | 32 · done 9 · active 0 · blocked 0 · backlog 23 |
+| **Son tamamlanan** | `NEN-032` — doctor.sh'ta swift'in milestone seviyesi M3 → M1 |
+| **Sıradaki READY** | `NEN-005` `NEN-006` `NEN-010` `NEN-029` |
+| **Task sayısı** | 32 · done 10 · active 0 · blocked 0 · backlog 22 |
+
+**`NEN-032` kapandı.** `doctor.sh`, `swift`i M3'ten M1'e taşıdı: NEN-007
+(`test-apple.sh`) ve NEN-008 (`spike-cues.sh`) M1 içinde zaten Swift'e
+bağımlıydı, ama doctor bunu M3'e kadar blocker saymıyordu — Swift'siz bir
+makinede `doctor.sh M1` yanlışlıkla çıkış 0 verip hatayı ilk Swift
+komutuna erteliyordu. `requirement()`'ta `swift` kendi satırına ayrıldı
+(`swift:M1|swift:M3` → blocker), Xcode/libmpv'nin M3 grubu ve tam
+Xcode/M1 istisnası dokunulmadan kaldı. Yeni test senaryosu (S7) "swift
+yok" durumunu doğruladı — CLT kurulu bir Mac'te `/usr/bin/swift` gerçek
+bir binary olduğundan, `command -v swift`'in onu bulamaması için
+`/usr/bin`'in geri kalanı swift hariç bir gölge dizine bağlanıp PATH ona
+yönlendirildi. `bash scripts/test.sh` ve `bash scripts/check-docs.sh`
+yeşil; ayrıntı task'ın kanıt kaydında.
 
 **`NEN-009` kapandı.** FFI sınırından geçen bir işin kooperatif iptali,
 `Mutex<Option<Arc<dyn ProgressSink>>>` "delivery gate" tasarımıyla ölçüldü:
@@ -105,7 +118,7 @@ Aynı kusur NEN-008'de bu kapanışta giderildi; geriye **`NEN-011`** kaldı.
 | `cargo` / `rustc` | ✅ 1.98.0 (2026-08-18) | blocker — **karşılandı** |
 | `cargo-deny` | ❌ eksik | soon — NEN-005 öncesi |
 | JDK | ❌ eksik | soon — NEN-011 (Kotlin/JVM parity) öncesi |
-| `swift` | ✅ Apple Swift 6.4 | doctor'da M3, **gerçekte M1** — NEN-007 testi ve NEN-008 harness'ı kullanıyor; düzeltme `NEN-032` |
+| `swift` | ✅ Apple Swift 6.4 | M1 (blocker) — NEN-007 testi ve NEN-008 harness'ı kullanıyor |
 | Tam Xcode | ❌ yalnız `/Library/Developer/CommandLineTools` | M3 — **M1 blocker'ı değil** |
 | libmpv | ❌ eksik | M3 — **M1 blocker'ı değil** |
 | Gradle | ❌ eksik | hiçbir milestone'da blocker değil (wrapper) |

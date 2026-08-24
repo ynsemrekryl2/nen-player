@@ -141,7 +141,26 @@ echo "  S6: büyük/küçük harf duyarsızlık"
 setup_scenario rust fullxcode jdk mpv
 run_doctor m1; expect_exit 0 "S6 'm1' = 'M1'"
 
-echo "  S7: hiçbir kurulum komutu çalıştırılmadı"
+echo "  S7: swift yok"
+setup_scenario rust fullxcode jdk mpv
+rm -f "$BIN/swift"
+# CLT kurulu bir Mac'te /usr/bin/swift gerçek bir binary'dir — PATH'te
+# /usr/bin durduğu sürece "command -v swift" onu bulur. Swift'in gerçekten
+# yokmuş gibi görünmesi için /usr/bin'in geri kalanını (grep/head/perl/...)
+# swift HARİÇ bir gölge dizine sembolik bağlayıp PATH'i ona yönlendiriyoruz.
+SHADOW="$TMP/usr-bin-no-swift"; rm -rf "$SHADOW"; mkdir -p "$SHADOW"
+for f in /usr/bin/*; do
+  b="$(basename "$f")"
+  [ "$b" = "swift" ] && continue
+  ln -s "$f" "$SHADOW/$b" 2>/dev/null
+done
+export PATH="$BIN:$SHADOW:/bin"
+run_doctor; expect_exit 0 "S7 parametresiz (bilgilendirici)"
+run_doctor M1; expect_exit 1 "S7 M1 blocker (swift yok)"
+expect_contains "BLOCKER" "S7 M1 çıktısı BLOCKER bölümü içeriyor"
+run_doctor M3; expect_exit 1 "S7 M3 blocker (kümülatif)"
+
+echo "  S8: hiçbir kurulum komutu çalıştırılmadı"
 if [ -e "$SENTINEL" ]; then
   fail "KURULUM DENEMESİ TESPİT EDİLDİ:"; cat "$SENTINEL" >&2
 else

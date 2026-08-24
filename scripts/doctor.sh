@@ -67,7 +67,8 @@ requirement() { # <tool> <milestone> -> blocker|soon|info
     jdk:M10)                echo blocker ;;
     jdk:*)                  echo info ;;
     gradle:*)               echo info ;;
-    xcode:M3|swift:M3|libmpv:M3) echo blocker ;;
+    swift:M1|swift:M3)      echo blocker ;;
+    xcode:M3|libmpv:M3)     echo blocker ;;
     xcode:*|swift:*|libmpv:*)    echo info ;;
     android_sdk:M10)        echo blocker ;;
     android_sdk:*)          echo info ;;
@@ -83,7 +84,7 @@ need_note() {
     jdk)         echo "M1 · NEN-011 öncesi · M10" ;;
     gradle)      echo "Wrapper tercih edilir — blocker değil" ;;
     xcode)       echo "M3" ;;
-    swift)       echo "M3" ;;
+    swift)       echo "M1" ;;
     libmpv)      echo "M3 · development/binding" ;;
     android_sdk) echo "M10" ;;
   esac
