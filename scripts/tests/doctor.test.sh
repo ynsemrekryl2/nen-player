@@ -149,7 +149,7 @@ run_doctor M1 M3; expect_exit 1 "S5 fazla argüman"
 
 echo "  S6: büyük/küçük harf duyarsızlık"
 setup_scenario rust fullxcode jdk mpv
-run_doctor m1; expect_exit 0 "S6 'm1' = 'M1'"
+run_doctor m1; expect_exit 1 "S6 'm1' = 'M1' — INTENTIONAL DoD PROOF, expected 0"
 
 echo "  S7: swift yok"
 setup_scenario rust fullxcode jdk mpv
