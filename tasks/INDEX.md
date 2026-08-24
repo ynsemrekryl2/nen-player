@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **31** task · ✅ done 8 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 23
+Toplam **32** task · ✅ done 8 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 24
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -31,6 +31,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-029](backlog/NEN-029-playback-reverse-ffi-spike.md) | Playback/renderer reverse-FFI boundary spike | M | ⚪ backlog | NEN-007 NEN-009 |
 | [NEN-030](done/NEN-030-milestone-aware-doctor.md) | Milestone-aware doctor and STATUS consistency checks | S | ✅ done | — |
 | [NEN-031](done/NEN-031-check-docs-test-fixture-independence.md) | Make check-docs test fixture independent of live repo state | S | ✅ done | — |
+| [NEN-032](backlog/NEN-032-doctor-swift-milestone-level.md) | Move swift to M1 in doctor's milestone levels | S | ⚪ backlog | NEN-030 |
 
 ## M2 — Subtitle Core
 
@@ -66,3 +67,4 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-006** — Log redaction helpers and guard test
 - **NEN-009** — Spike - async progress and cancellation
 - **NEN-010** — Spike - typed error mapping
+- **NEN-032** — Move swift to M1 in doctor's milestone levels

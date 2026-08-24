@@ -12,8 +12,8 @@
 | **Mevcut milestone** | **M1 — Core Technical Spike** (M0 kapandı) |
 | **Aktif task** | *yok* — `tasks/active/` boş |
 | **Son tamamlanan** | `NEN-008` — büyük cue listesinin FFI'dan geçiş ölçümü |
-| **Sıradaki READY** | `NEN-005` `NEN-006` `NEN-009` `NEN-010` |
-| **Task sayısı** | 31 · done 8 · active 0 · blocked 0 · backlog 23 |
+| **Sıradaki READY** | `NEN-005` `NEN-006` `NEN-009` `NEN-010` `NEN-032` |
+| **Task sayısı** | 32 · done 8 · active 0 · blocked 0 · backlog 24 |
 
 **`NEN-008` kapandı — M1'in ilk sayıları var.** 50 000 cue'luk bir doküman
 (3.1 MiB) Swift'e iki yoldan geçirilip ölçüldü (release · Apple M5 · macOS 27.0):
@@ -75,7 +75,7 @@ Aynı kusur NEN-008'de bu kapanışta giderildi; geriye **`NEN-011`** kaldı.
 | `cargo` / `rustc` | ✅ 1.98.0 (2026-08-18) | blocker — **karşılandı** |
 | `cargo-deny` | ❌ eksik | soon — NEN-005 öncesi |
 | JDK | ❌ eksik | soon — NEN-011 (Kotlin/JVM parity) öncesi |
-| `swift` | ✅ Apple Swift 6.4 | M3 — ama NEN-007 testi ve NEN-008 harness'ı zaten kullanıyor |
+| `swift` | ✅ Apple Swift 6.4 | doctor'da M3, **gerçekte M1** — NEN-007 testi ve NEN-008 harness'ı kullanıyor; düzeltme `NEN-032` |
 | Tam Xcode | ❌ yalnız `/Library/Developer/CommandLineTools` | M3 — **M1 blocker'ı değil** |
 | libmpv | ❌ eksik | M3 — **M1 blocker'ı değil** |
 | Gradle | ❌ eksik | hiçbir milestone'da blocker değil (wrapper) |
@@ -172,7 +172,7 @@ yalnız fixture'daydı ve `NEN-031` ile kapandı.
   test target'ı). Üretilen binding `generated/` altında ve **commit edilmiyor**.
 - Diğer `platforms/*` dizinleri hâlâ boş iskelet.
 - Var olan: 6 ana doküman · 12 milestone dosyası · **3 accepted ADR**
-  (0001, 0006, 0028) · 31 task · 6 script + 2 shell testi · `fixtures/` iskeleti.
+  (0001, 0006, 0028) · 32 task · 6 script + 2 shell testi · `fixtures/` iskeleti.
 - Depo kökünde **`LICENSE` dosyası bilerek yok** — bkz. [`licensing.md`](licensing.md).
 - Git: `main` branch. **Bu dosya commit hash'i tutmaz** — commit geçmişi
   kanonik kayıttır ve elle tutulan hash satırı her kapanışta bayatlar
