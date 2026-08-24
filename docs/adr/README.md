@@ -9,6 +9,7 @@ Süreç: [`0001-adr-process.md`](0001-adr-process.md) · Şablon:
 |---|---|---|---|
 | [0001](0001-adr-process.md) | ADR süreci | ✅ accepted | M0 |
 | [0006](0006-monorepo-and-crate-boundaries.md) | Monorepo yapısı ve crate sınırları | ✅ accepted | M1 |
+| [0028](0028-spike-ffi-surface.md) | Spike'ların geçici FFI yüzeyi | ✅ accepted | M1 |
 
 ## Planlanan
 

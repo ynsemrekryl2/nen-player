@@ -3,10 +3,10 @@ id: NEN-008
 title: Spike - large cue list across FFI
 milestone: M1
 size: M
-state: backlog
+state: active
 depends_on: [NEN-007]
 blocks: [NEN-011]
-adr: [3]
+adr: [28]
 ---
 
 # NEN-008 — Spike: large cue list across FFI

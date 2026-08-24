@@ -3,17 +3,29 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-24** (NEN-031 kapanışı)
+> Son güncelleme: **2026-08-24** (ADR-0028 kabulü · NEN-008 açılışı)
 
 ## Nerede duruyoruz
 
 | | |
 |---|---|
 | **Mevcut milestone** | **M1 — Core Technical Spike** (M0 kapandı) |
-| **Aktif task** | *yok* — `tasks/active/` boş |
+| **Aktif task** | **`NEN-008`** — spike: büyük cue listesinin FFI'dan geçişi |
 | **Son tamamlanan** | `NEN-031` — check-docs test fixture bağımsızlığı |
-| **Sıradaki READY** | `NEN-005` `NEN-006` `NEN-008` `NEN-009` `NEN-010` |
-| **Task sayısı** | 31 · done 7 · active 0 · blocked 0 · backlog 24 |
+| **Sıradaki READY** | `NEN-005` `NEN-006` `NEN-009` `NEN-010` |
+| **Task sayısı** | 31 · done 7 · active 1 · blocked 0 · backlog 23 |
+
+**`NEN-008` açıldı** ve ön koşulu olan **ADR-0028 kabul edildi**: ADR-0006
+kural 2 ("`nen-ffi` tek dış kapıdır") ile kural 3 ve CLAUDE.md kural 7 birlikte,
+M1'in FFI ölçümlerine yer bırakmıyordu. ADR-0028 kural 2'nin kapsamını **ürün
+koduyla** sınırlıyor; `core/spikes/*` altındaki bir spike crate yalnız ölçüm
+için kendi atılabilir kapısını açabiliyor. Sınırlar grep + `cargo metadata` ile
+mekanik doğrulanıyor. ADR-0006 **düzenlenmedi** — yalnız "Notlar"ına işaret
+eklendi (ADR-0001'in izin verdiği istisna).
+
+`NEN-008`'in `adr:` alanı `[3]` → **`[28]`** olarak düzeltildi; NEN-007'de
+yapılan düzeltmenin aynısı (ADR-0003 spike ölçümleri olmadan `accepted` olamaz,
+üstelik dosyası da yok). Aynı kusur artık yalnız **`NEN-011`**'de duruyor.
 
 `NEN-031` kapandı: `scripts/tests/check-docs.test.sh` artık **kendi task
 fixture'ını kuruyor** — canlı `tasks/` ve `INDEX.md` okunmuyor. Denetim 8'in her
@@ -130,8 +142,8 @@ yalnız fixture'daydı ve `NEN-031` ile kapandı.
 - `platforms/apple-shared/` — SwiftPM paketi (`Package.swift` + swift-testing
   test target'ı). Üretilen binding `generated/` altında ve **commit edilmiyor**.
 - Diğer `platforms/*` dizinleri hâlâ boş iskelet.
-- Var olan: 6 ana doküman · 12 milestone dosyası · **2 accepted ADR**
-  (0001, 0006) · 31 task · 6 script + 2 shell testi · `fixtures/` iskeleti.
+- Var olan: 6 ana doküman · 12 milestone dosyası · **3 accepted ADR**
+  (0001, 0006, 0028) · 31 task · 6 script + 2 shell testi · `fixtures/` iskeleti.
 - Depo kökünde **`LICENSE` dosyası bilerek yok** — bkz. [`licensing.md`](licensing.md).
 - Git: `main` branch. **Bu dosya commit hash'i tutmaz** — commit geçmişi
   kanonik kayıttır ve elle tutulan hash satırı her kapanışta bayatlar

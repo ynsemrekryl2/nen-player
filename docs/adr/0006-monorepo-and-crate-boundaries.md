@@ -145,4 +145,4 @@ katman grafiği aynen taşınır.
 
 ## Notlar
 
-<!-- Karar sonrası gözlemler -->
+2026-08-24 — Yukarıdaki **kural 2**'nin ("`nen-ffi` tek dış kapıdır") kapsamı [ADR-0028](0028-spike-ffi-surface.md) ile netleştirildi: kural ürün kodu (`core/crates/*` ve platform paketlerinin linklediği her şey) için değişmeden bağlayıcıdır; `core/spikes/*` altındaki bir spike crate yalnız ölçüm amacıyla kendi atılabilir FFI kapısını açabilir. Kural 3'ün ok yönü (`spikes → crates`) aynen geçerlidir. Bu ADR'nin gövdesi değişmedi (ADR-0001 → "Değişiklik").
