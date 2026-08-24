@@ -3,7 +3,7 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-24** (NEN-012 kapanışı — M1 kapandı)
+> Son güncelleme: **2026-08-24** (NEN-013 kapanışı — M2'nin ilk ürün kodu)
 
 ## Nerede duruyoruz
 
@@ -11,11 +11,45 @@
 |---|---|
 | **Mevcut milestone** | **M2 — Subtitle Core** (M1 kapandı) |
 | **Aktif task** | *yok* — `tasks/active/` boş |
-| **Son tamamlanan** | `NEN-012` — Spike raporu ve core dil kararı (ADR-0002, ADR-0027 accepted) |
-| **Sıradaki READY** | `NEN-013` (ayrıca `NEN-018`, `NEN-021` bağımlılığı da tamamlanmış durumda) |
-| **Task sayısı** | 32 · done 16 · active 0 · blocked 0 · backlog 16 |
+| **Son tamamlanan** | `NEN-013` — Strict SRT parser |
+| **Sıradaki READY** | `NEN-014`, `NEN-015`, `NEN-016`, `NEN-018`, `NEN-020`, `NEN-021` |
+| **Task sayısı** | 32 · done 17 · active 0 · blocked 0 · backlog 15 |
 
-**`NEN-012` kapandı — M1 kilitlendi.** Beş spike'ın (NEN-008/009/010/011/029)
+**`NEN-013` kapandı — M2'nin ilk ürün kodu ayakta.** `nen-domain`'e subtitle
+değer tipleri (`CueId` · `TimeSpan` · `Cue` · `SubtitleDocument`),
+`nen-subtitle`'a strict SRT parser'ı ve **17 varyantlı** `SrtError` eklendi.
+Fixture korpusu: 7 geçerli dosya + 7 `.golden` snapshot, **25 malformed**
+dosya (her biri tek bozukluk), ve 17 varyantın hepsi en az bir fixture'la
+kapsanıyor. Test sayısı 42 → **72**; `nen-domain` sıfır bağımlılıklı kaldı,
+`nen-subtitle` yalnız `nen-domain`'e bağlı (ADR-0006 grafiği). Tam kanıt:
+`tasks/done/NEN-013-*.md`.
+
+**Üç tasarım kararı** kapanışta kayda geçti: (1) **çakışan cue'lar kabul
+ediliyor** — farklı konuşmacı SRT'lerinde meşru, reddetmek NEN-025'te
+kullanıcının geçerli dosyasını kırardı; sıra yine zorlanıyor
+(`NonMonotonicCue`, eşit başlangıç serbest). (2) Index dizisi **tam** 1,2,3,…
+olmak zorunda — atlama/tekrar/sıra bozukluğu tek varyantla ifade ediliyor.
+(3) BOM **reddediliyor, atlanmıyor**; encoding NEN-015'in işi ve parser'ın
+girdisi `&str`, yani kapsam sınırı tipte duruyor.
+
+**Fuzz `cargo-fuzz` ile değil, deterministik smoke ile yapıldı** — nightly
+toolchain gerektirirdi ve `doctor.sh`'a yeni bir gereksinim eklerdi. Sabit
+tohumlu (`0x4E45_4E30_3133`) xorshift64* üreteci **16 281 vaka** üretiyor
+(781 truncation · 10 500 mutation · 5 000 noise), 0.07 s'de koşuyor ve her
+`cargo test` ile CI'da otomatik tekrarlanıyor. İddia yalnız "panik yok"
+değil: `Ok` dönen her vakada doküman kendi invariant'larından geçiriliyor.
+
+`NEN-013`'ün `adr:` alanı `[7]` → **`[]`** olarak düzeltildi — NEN-006/007/
+008/009/010/011 ile aynı precedent: ADR-0007'nin konusu (cue kimliği ve
+timeline fingerprint algoritması) **NEN-016**'nın kararı; NEN-013 yalnız
+ADR-0006'nın zaten çizdiği crate sınırlarını dolduruyor.
+
+**Yan bulgu (bu task'ın kapsamı değil):** depoda iki untracked yol var —
+`AGENTS.md` (CLAUDE.md'nin birebir kopyası) ve `.agents/skills/`
+(`.claude/skills/`'in kopyası). Commit'e dahil edilmedi; commit mi /
+`.gitignore` mı / symlink mi olacağı ayrı bir karar.
+
+**Eski `NEN-012` kapanışı — M1 kilitlendi.** Beş spike'ın (NEN-008/009/010/011/029)
 ölçümleri `ADR-0002`'de sentezlendi: **Rust shared core dili olarak kabul
 edildi** (go), I1–I5 invariant'larının hepsi kanıtlı, M1'in üç no-go
 koşulundan hiçbiri tetiklenmedi. Reddedilen alternatifler (Kotlin
@@ -386,14 +420,27 @@ SONUÇ: M1 için tüm blocker'lar hazır.            → exit 0
 $ cargo test --manifest-path core/Cargo.toml --workspace
 spike_cue_transfer 8 · spike_async_cancel 6 · spike_typed_errors 5 ·
 spike_reverse_ffi 11 · nen-app 1 · nen-ffi 1 ·
-nen-domain 4 (unit) + 6 (guard_redaction) = 10
-42 passed, 0 failed                              → exit 0
+nen-domain 10 (unit) + 9 (guard_redaction) = 19 ·
+nen-subtitle 7 (unit) + 3 (golden_valid) + 3 (malformed) +
+             4 (fuzz_smoke) + 4 (guard_error_debug) = 21
+72 passed, 0 failed                              → exit 0 (NEN-013 ile 42 → 72)
 
 $ cargo tree -p nen-domain --edges normal
 nen-domain v0.1.0                                → tek düğüm, sıfır bağımlılık
+$ cargo tree -p nen-subtitle --edges normal
+nen-subtitle → nen-domain                        → tek kenar (ADR-0006)
 
-$ cargo clippy -p nen-domain --all-targets --manifest-path core/Cargo.toml -- -D warnings
-                                                  → exit 0, uyarı yok (NEN-006)
+$ cargo clippy --workspace --all-targets --manifest-path core/Cargo.toml -- -D warnings
+                                                  → exit 0, uyarı yok
+$ cargo fmt --check --manifest-path core/Cargo.toml → exit 0
+$ cargo deny check --manifest-path core/Cargo.toml
+  advisories ok · bans ok · licenses ok · sources ok → exit 0
+
+$ cargo test -p nen-subtitle --manifest-path core/Cargo.toml
+  golden_valid   3 ✓   7 geçerli fixture, .golden snapshot'larıyla byte-eşit
+  malformed      3 ✓   25 vaka, 17 varyantın hepsi kapsanıyor
+  fuzz_smoke     4 ✓   16 281 vaka (781 trunc · 10 500 mut · 5 000 noise), 0.07 s
+  guard_error_debug 4 ✓ hiçbir SrtError varyantı cue metni sızdırmıyor
 
 $ bash scripts/build-apple.sh                     → binding temiz üretildi
 $ bash scripts/test-apple.sh
@@ -453,7 +500,21 @@ yalnız fixture'daydı ve `NEN-031` ile kapandı.
   `core/rust-toolchain.toml`, `Cargo.lock`.
 - `core/crates/nen-domain/src/redact.rs` — NEN-006'nın redaction yardımcıları
   (`Redacted<T>`, `extension()`, `size_class()`, `redact_host()`); crate hâlâ
-  bağımlılıksız. Guard test `core/crates/nen-domain/tests/guard_redaction.rs`.
+  bağımlılıksız. Guard test `core/crates/nen-domain/tests/guard_redaction.rs`
+  (NEN-013 ile `Cue`/`SubtitleDocument` kapsamı eklendi).
+- `core/crates/nen-domain/src/subtitle.rs` — NEN-013'ün subtitle değer tipleri:
+  `CueId` · `TimeSpan` (invariant tipte: `start < end`) · `Cue` ·
+  `SubtitleDocument`. `Cue` ve `SubtitleDocument` cue metni taşıdığı için
+  `Debug` **elle yazılmış** (K23 #4).
+- `core/crates/nen-subtitle/src/srt.rs` — NEN-013'ün strict SRT parser'ı ve 17
+  varyantlı `SrtError`'ı. Crate `lib.rs`'inde panik lint kapısı
+  (`unwrap_used`/`expect_used`/`panic`/`unreachable`/`indexing_slicing`,
+  `cfg_attr(not(test))`). Testler: `golden_valid` · `malformed` · `fuzz_smoke`
+  · `guard_error_debug`.
+- `fixtures/subtitles/valid/` — 7 SRT fixture + 7 `.golden` snapshot;
+  `fixtures/subtitles/malformed/` — 25 fixture, her biri tek bozukluk.
+  Golden biçimi: `cues\t<n>` başlığı + cue başına
+  `id \t start_ms \t end_ms \t line_count \t escape'li metin`.
 - `core/spikes/spike-cue-transfer/` — NEN-008'in ölçüm crate'i; kendi Swift
   harness'ı (`apple-harness/`) VE kendi Kotlin/JVM harness'ı (`jvm-harness/`,
   NEN-011 — Gradle wrapper tabanlı, `scripts/spike-cues-jvm.sh` üretir).
@@ -484,7 +545,8 @@ yalnız fixture'daydı ve `NEN-031` ile kapandı.
   cargo-deny lisans/advisory/kaynak kapısı.
 - Var olan: 6 ana doküman · 12 milestone dosyası · **4 accepted ADR**
   (0001, 0006, 0026, 0028) · 32 task · 13 script + 2 shell testi ·
-  `fixtures/` iskeleti.
+  `fixtures/subtitles/` dolu (NEN-013), `fixtures/media|providers/` hâlâ
+  iskelet.
 - Depo kökünde **`LICENSE` dosyası bilerek yok** — bkz. [`licensing.md`](licensing.md).
 - Git: `main` branch. Remote: `github.com/ynsemrekryl2/nen-player` (private —
   NEN-005 ile kuruldu, CI'ın koşabilmesi için gerekliydi). **Bu dosya commit

@@ -1,0 +1,7 @@
+1
+00:59:59,999 --> 01:00:00,500
+Crossing the hour
+
+2
+99:59:59,998 --> 99:59:59,999
+Last representable millisecond

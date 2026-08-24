@@ -1,0 +1,4 @@
+cues	3
+1	1000	5000	1	- Speaker A holds the floor
+2	2000	4000	1	- Speaker B interrupts
+3	2000	3000	1	- Speaker C starts at the same millisecond

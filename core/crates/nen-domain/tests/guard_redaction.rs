@@ -1,13 +1,16 @@
 //! Guard test for `docs/security-policy.md` §1 (K23): none of the 8
 //! forbidden patterns may ever appear in `{:?}` output of a sensitive type.
 //!
-//! These fixture types are illustrative only (see NEN-006's scope) — the
-//! real domain types (`MediaRef` etc.) are introduced by later M2 tasks.
+//! Most fixture types here are illustrative (see NEN-006's scope) — the real
+//! domain types are introduced by M2 tasks as they land. `Cue` and
+//! `SubtitleDocument` (NEN-013) are the first real ones, covered at the
+//! bottom of this file.
 
 use std::fmt;
 use std::path::PathBuf;
 
 use nen_domain::redact::extension;
+use nen_domain::subtitle::{Cue, CueId, SubtitleDocument, TimeSpan};
 
 /// The 8 forbidden patterns from `docs/security-policy.md` §1, each
 /// represented by a concrete sample value of that kind.
@@ -218,5 +221,56 @@ fn derived_debug_on_a_sensitive_type_is_caught_by_the_pattern_check() {
         debug.contains(API_KEY),
         "expected the derived Debug to leak the API key, proving the guard \
          test can actually catch a #[derive(Debug)] mistake; got {debug:?}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Real domain types (NEN-013)
+// ---------------------------------------------------------------------------
+
+fn cue_carrying_dialogue() -> Cue {
+    Cue::new(
+        CueId::new(1),
+        TimeSpan::new(1_000, 3_000).expect("fixture span is valid"),
+        vec![CUE_TEXT.to_string(), "…and then she left.".to_string()],
+    )
+}
+
+#[test]
+fn cue_debug_has_no_forbidden_pattern() {
+    let debug = format!("{:?}", cue_carrying_dialogue());
+    assert_no_forbidden_pattern("Cue", &debug);
+    // The safe derived value — how many lines there were — is allowed.
+    assert!(debug.contains("line_count: 2"), "{debug}");
+}
+
+#[test]
+fn subtitle_document_debug_has_no_forbidden_pattern() {
+    let document = SubtitleDocument::new(vec![cue_carrying_dialogue()]);
+    let debug = format!("{document:?}");
+    assert_no_forbidden_pattern("SubtitleDocument", &debug);
+    assert!(debug.contains("cue_count: 1"), "{debug}");
+}
+
+/// Negative test for the cue-text rule (K23 #4), same shape as
+/// `BadFixtureWithDerivedDebug` above: what `Cue` would print if someone
+/// replaced its hand-written `Debug` with a derive.
+#[derive(Debug)]
+struct BadCueWithDerivedDebug {
+    #[allow(dead_code)] // the derive is exactly how this field leaks below
+    lines: Vec<String>,
+}
+
+#[test]
+fn derived_debug_over_cue_lines_is_caught_by_the_pattern_check() {
+    let bad = BadCueWithDerivedDebug {
+        lines: vec![CUE_TEXT.to_string()],
+    };
+    let debug = format!("{bad:?}");
+
+    assert!(
+        debug.contains(CUE_TEXT),
+        "expected the derived Debug to leak the cue text, proving the Cue \
+         guard above is not vacuous; got {debug:?}"
     );
 }
