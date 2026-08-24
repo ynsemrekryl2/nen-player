@@ -3,8 +3,9 @@
 Üst görünüm. Task ayrıntısı için `tasks/INDEX.md`, milestone ayrıntısı için
 `docs/milestones/`.
 
-**Şu anki konum: M0 kapandı → M1 hazır.** Sıradaki task: **NEN-030**
-(toolchain gerektirmez). Güncel durum: [`docs/STATUS.md`](STATUS.md) ·
+**Şu anki konum: M1 kapandı → M2 hazır.** ADR-0002 (Rust) ve ADR-0026
+(playback ownership) kabul edildi; M2'nin ilk task'ı **NEN-013**.
+Güncel durum: [`docs/STATUS.md`](STATUS.md) ·
 Kararlar: [`docs/DECISIONS.md`](DECISIONS.md)
 
 ## Milestone tablosu
@@ -12,8 +13,8 @@ Kararlar: [`docs/DECISIONS.md`](DECISIONS.md)
 | M | Ad | Bitince ne doğru olur | Durum |
 |---|---|---|---|
 | **M0** | Foundation | Repo, roadmap/task sistemi, ADR süreci, CI, toolchain doctor, log redaction politikası hazır. | ✅ kapandı |
-| **M1** | Core Technical Spike | Rust↔Swift↔Kotlin binding'in async/cancel/typed-error/50k-cue davranışı ölçülmüş; ADR-0002 ile core dili kilitlenmiş (go/no-go); playback ownership yönü ADR-0026 ile karara bağlanmış. | 🔵 sıradaki |
-| **M2** | Subtitle Core | SRT strict parse, WebVTT yazımı, encoding, timeline fingerprint, indeksli cue lookup, media evidence, source catalog — headless test edilmiş. | ⚪ |
+| **M1** | Core Technical Spike | Rust↔Swift↔Kotlin binding'in async/cancel/typed-error/50k-cue davranışı ölçülmüş; ADR-0002 ile core dili kilitlenmiş (go/no-go); playback ownership yönü ADR-0026 ile karara bağlanmış. | ✅ kapandı |
+| **M2** | Subtitle Core | SRT strict parse, WebVTT yazımı, encoding, timeline fingerprint, indeksli cue lookup, media evidence, source catalog — headless test edilmiş. | 🔵 sıradaki |
 | **M3** | macOS Vertical Slice | Dosya aç → oynat → katalog (embedded + sidecar) → altyazı menüsü → seç → ekranda göster. **İlk gerçek ürün.** | ⚪ |
 | **M4** | Stremio Handoff (macOS) | Stremio'dan açılan medya macOS'ta doğru pozisyondan oynuyor; argüman/URL loglanmıyor. | ⚪ |
 | **M5** | Translation Core | Blok pipeline + strict validation + checkpoint/cancel + artifact/cache; mock provider ile uçtan uca doğrulanmış. | ⚪ |

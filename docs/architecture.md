@@ -3,13 +3,13 @@
 > Bu dosya yaşayan mimaridir. Buradaki bir kural değişiyorsa önce ADR yazılır
 > (bkz. `docs/adr/0001-adr-process.md`).
 
-> **Karar statüsü — okumadan önce.** Bu belgedeki **teknoloji adları**, M1
-> spike'ı ve ADR-0002/0003 tamamlanana kadar **adaydır**, kabul edilmiş karar
-> değildir:
+> **Karar statüsü — okumadan önce.** Bu belgedeki geri kalan **teknoloji
+> adları**, ilgili ADR'ler kabul edilene kadar **adaydır**, kabul edilmiş
+> karar değildir. **Rust artık aday değil** — shared core dili olarak
+> [ADR-0002](adr/0002-core-language.md) ile kilitlendi (2026-08-24).
 >
 > | Aday | Rol | Kararı verecek |
 > |---|---|---|
-> | Rust | shared core dili | ADR-0002 (NEN-012) |
 > | UniFFI | Swift/Kotlin binding | ADR-0003 |
 > | SwiftUI | macOS UI | ADR-0011 dönemi |
 > | Rust HTTP / rustls | paylaşılan HTTP adapter | ADR-0019 dönemi |

@@ -49,6 +49,8 @@ ADR metnini tekrarlamaz, onlara işaret eder.
 | Swift testleri **swift-testing** ile yazılır (XCTest değil) | 2026-08-24 | CommandLineTools `XCTest.framework` getirmiyor, `Testing.framework` getiriyor. Tam Xcode zorunluluğu M3'e kadar ertelenmiş olsun. Uygulama: `scripts/test-apple.sh` (NEN-007) |
 | Spike crate'i **kendi geçici FFI kapısını** açabilir; "tek kapı" kuralı ürün koduyla sınırlı | 2026-08-24 | ADR-0006 kural 2+3 ile CLAUDE.md kural 7 birlikte M1'in FFI ölçümlerini imkânsız kılıyordu. Kural 2'nin koruduğu şey K23 redaction'ının **ürün** yüzeyinde tek noktada denetlenmesi; ürüne linklenmeyen ölçüm binary'si o yüzeyi genişletmiyor. Sınırlar mekanik olarak grep/`cargo metadata` ile doğrulanıyor. Karar: [ADR-0028](adr/0028-spike-ffi-surface.md) |
 | Commit **doğrulanmış kapanışta** otomatik atılır; onay kapısı push'a taşındı | 2026-08-24 | Eski kural (kullanıcı istemeden commit yok) her task kapanışında gereksiz bir el sıkışma üretiyordu. Korunmak istenen şey onay değil, **kayıt altına alınanın doğrulanmış olması**: kanıt dolu, testler yeşil, `check-docs.sh` çıkış 0. Geri döndürülmesi pahalı olan işlemler (push, amend, rebase, reset, force, tag) kullanıcıda kaldı |
+| **Shared core dili Rust olarak kilitlendi** | 2026-08-24 | NEN-008/009/010/011/029'un beş ölçümü de I1–I5'i kanıtladı, M1'in üç no-go koşulundan hiçbiri tetiklenmedi (reverse-FFI dahil — bkz. ADR-0026). Kotlin Multiplatform/Swift+ayrı Android/C++ hiçbiri ayrı ölçülmedi; zaten kanıtlanmış bir adaydan spike'sız bir alternatife geçmenin gerekçesi yoktu. Karar: [ADR-0002](adr/0002-core-language.md) |
+| Beş M1 baseline'ından **marjlı performans bütçesi** kabul edildi | 2026-08-24 | Tek cihaz (Apple M5) ve tek fixture boyutunda ölçülen p50/p95'in üzerine 4–11× marj eklendi; sıkı eşik değil, "bu aralığın dışına çıkarsan tasarımını gözden geçir" işareti. Karar: [ADR-0027](adr/0027-performance-budget.md) |
 
 ## 3. Cevaplanan açık sorular
 
@@ -65,10 +67,8 @@ ADR metnini tekrarlamaz, onlara işaret eder.
 
 | Konu | Ne zaman | Bağlı olduğu |
 |---|---|---|
-| Shared core dili (aday: Rust) | M1 sonu | ADR-0002 ← NEN-012 ← NEN-008/009/010/011/029 |
 | Binding (aday: UniFFI + C ABI) | M1 | ADR-0003 |
 | Playback ownership yönü (core-owned vs. shell-owned) | M1 | ADR-0026 ← NEN-029 |
-| Performans bütçeleri | M1 sonrası | ADR-0027 ← M1 baseline'ları |
 | macOS motor + libmpv linkleme/lisans | M3 öncesi | ADR-0012 |
 | Lisans ailesi ve public dağıtım | M3 öncesi / sonrası | S11, S12, ADR-0012 → [`licensing.md`](licensing.md) |
 | Persistence adapter (aday: SQLite + CAS) | M5 | ADR-0017 |
@@ -76,11 +76,16 @@ ADR metnini tekrarlamaz, onlara işaret eder.
 
 ## 5. Teknoloji karar statüsü
 
+**Kararlı** — ilgili ADR `accepted`:
+
+| Teknoloji | Rol | Karar |
+|---|---|---|
+| Rust | shared core dili | [ADR-0002](adr/0002-core-language.md) |
+
 **Aday** — ilgili ADR kabul edilene kadar karar sayılmaz:
 
 | Aday | Rol | Kararı verecek |
 |---|---|---|
-| Rust | shared core dili | ADR-0002 |
 | UniFFI | Swift/Kotlin binding | ADR-0003 |
 | C ABI | Windows/Linux binding | ADR-0003 |
 | SwiftUI | macOS UI | M3 dönemi |

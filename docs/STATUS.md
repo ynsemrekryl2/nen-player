@@ -3,19 +3,34 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-24** (NEN-011 kapanışı)
+> Son güncelleme: **2026-08-24** (NEN-012 kapanışı — M1 kapandı)
 
 ## Nerede duruyoruz
 
 | | |
 |---|---|
-| **Mevcut milestone** | **M1 — Core Technical Spike** (M0 kapandı) |
+| **Mevcut milestone** | **M2 — Subtitle Core** (M1 kapandı) |
 | **Aktif task** | *yok* — `tasks/active/` boş |
-| **Son tamamlanan** | `NEN-011` — Spike: Kotlin binding parity |
-| **Sıradaki READY** | `NEN-012` |
-| **Task sayısı** | 32 · done 15 · active 0 · blocked 0 · backlog 17 |
+| **Son tamamlanan** | `NEN-012` — Spike raporu ve core dil kararı (ADR-0002, ADR-0027 accepted) |
+| **Sıradaki READY** | `NEN-013` (ayrıca `NEN-018`, `NEN-021` bağımlılığı da tamamlanmış durumda) |
+| **Task sayısı** | 32 · done 16 · active 0 · blocked 0 · backlog 16 |
 
-**`NEN-011` kapandı.** NEN-008/009/010'un ölçtüğü üç Rust crate'ine
+**`NEN-012` kapandı — M1 kilitlendi.** Beş spike'ın (NEN-008/009/010/011/029)
+ölçümleri `ADR-0002`'de sentezlendi: **Rust shared core dili olarak kabul
+edildi** (go), I1–I5 invariant'larının hepsi kanıtlı, M1'in üç no-go
+koşulundan hiçbiri tetiklenmedi. Reddedilen alternatifler (Kotlin
+Multiplatform · Swift core + ayrı Android · C++ core) ayrı spike edilmedi —
+zaten kanıtlanmış bir adaydan geçmenin ölçülmüş gerekçesi yoktu. Aynı task
+kapsamında `ADR-0027` (dört FFI performans bütçesi, ölçülen p50/p95'in
+üzerine 4–11× marj) de `accepted` oldu. `docs/architecture.md`,
+`docs/DECISIONS.md` ve `docs/roadmap.md` güncellendi (Rust artık "aday"
+değil; M1 → kapandı, M2 → sıradaki). Tam kanıt: `tasks/done/NEN-012-*.md`.
+
+**Yan bulgu (ayrı arka plan görevine yönlendirildi, NEN-012 kapsamı değil):**
+`docs/DECISIONS.md`'nin "Ertelenmiş kararlar" tablosu `ADR-0026`'yı hâlâ
+bekleyen olarak listeliyor — `NEN-029` kapanışında güncellenmemiş bir kusur.
+
+**Eski `NEN-011` kapanışı.** NEN-008/009/010'un ölçtüğü üç Rust crate'ine
 dokunulmadan, her birine Swift'teki `apple-harness/`'in eşi bir
 `jvm-harness/` (Gradle wrapper tabanlı Kotlin/JVM projesi) eklendi — binding
 üretimi aynı `spike-*-uniffi-bindgen` binary'lerinden, yalnız
