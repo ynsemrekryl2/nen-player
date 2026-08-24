@@ -17,6 +17,10 @@ allow = [
     "Apache-2.0 WITH LLVM-exception",
     "Unicode-3.0",
     "MPL-2.0",
+    # encoding_rs (ADR-0008, NEN-015) is licensed "(Apache-2.0 OR MIT) AND
+    # BSD-3-Clause" — the BSD-3-Clause half covers its WHATWG-derived index
+    # data specifically, not the crate as a whole.
+    "BSD-3-Clause",
 ]
 confidence-threshold = 0.8
 

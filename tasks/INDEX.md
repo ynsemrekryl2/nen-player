@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **32** task · ✅ done 18 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 14
+Toplam **32** task · ✅ done 19 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 13
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -39,7 +39,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 |---|---|---|---|---|
 | [NEN-013](done/NEN-013-strict-srt-parser.md) | Strict SRT parser | M | ✅ done | NEN-012 |
 | [NEN-014](done/NEN-014-webvtt-writer.md) | WebVTT writer | S | ✅ done | NEN-013 |
-| [NEN-015](backlog/NEN-015-encoding-detection.md) | Encoding detection and sanitization | M | ⚪ backlog | NEN-013 |
+| [NEN-015](done/NEN-015-encoding-detection.md) | Encoding detection and sanitization | M | ✅ done | NEN-013 |
 | [NEN-016](backlog/NEN-016-document-and-fingerprint.md) | SubtitleDocument and timeline fingerprint | M | ⚪ backlog | NEN-013 |
 | [NEN-017](backlog/NEN-017-indexed-cue-lookup.md) | Indexed cue lookup | M | ⚪ backlog | NEN-016 |
 | [NEN-018](backlog/NEN-018-media-evidence-and-hash.md) | Media evidence, OS-compatible hash, release name parser | M | ⚪ backlog | NEN-012 |
@@ -63,7 +63,6 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 
 Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 
-- **NEN-015** — Encoding detection and sanitization
 - **NEN-016** — SubtitleDocument and timeline fingerprint
 - **NEN-018** — Media evidence, OS-compatible hash, release name parser
 - **NEN-020** — Subtitle language detection with confidence threshold

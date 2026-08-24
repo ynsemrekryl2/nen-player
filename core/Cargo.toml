@@ -32,6 +32,10 @@ nen-app       = { path = "crates/nen-app" }
 # Dış bağımlılıklar. UniFFI ADAYDIR — ADR-0003 kabul edilene kadar karar değil.
 uniffi = "0.32.0"
 
+# encoding_rs — ADR-0008 ile kabul edildi (NEN-015): BOM/legacy code page
+# tespiti. WHATWG Encoding Standard'ın Firefox/Servo'daki implementasyonu.
+encoding_rs = "0.8"
+
 [profile.release]
 lto = true
 codegen-units = 1

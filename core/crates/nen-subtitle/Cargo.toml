@@ -8,3 +8,4 @@ publish.workspace = true
 
 [dependencies]
 nen-domain.workspace = true
+encoding_rs.workspace = true

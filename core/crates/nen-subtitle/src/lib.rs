@@ -18,5 +18,6 @@
     )
 )]
 
+pub mod encoding;
 pub mod srt;
 pub mod webvtt;

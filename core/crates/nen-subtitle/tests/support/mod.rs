@@ -37,6 +37,13 @@ pub fn read(path: &Path) -> String {
     fs::read_to_string(path).unwrap_or_else(|err| panic!("cannot read {}: {err}", path.display()))
 }
 
+/// Reads a fixture as raw bytes rather than requiring it to already be valid
+/// UTF-8 text — needed for the encoding corpus, which is deliberately not
+/// UTF-8 for most of its files.
+pub fn read_bytes(path: &Path) -> Vec<u8> {
+    fs::read(path).unwrap_or_else(|err| panic!("cannot read {}: {err}", path.display()))
+}
+
 /// The file's name, for use in assertion messages.
 pub fn name(path: &Path) -> String {
     path.file_name()

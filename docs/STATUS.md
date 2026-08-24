@@ -3,7 +3,7 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-24** (NEN-014 kapanışı — WebVTT writer)
+> Son güncelleme: **2026-08-24** (NEN-015 kapanışı — encoding detection and sanitization)
 
 ## Nerede duruyoruz
 
@@ -11,11 +11,32 @@
 |---|---|
 | **Mevcut milestone** | **M2 — Subtitle Core** (M1 kapandı) |
 | **Aktif task** | *yok* — `tasks/active/` boş |
-| **Son tamamlanan** | `NEN-014` — WebVTT writer |
-| **Sıradaki READY** | `NEN-015`, `NEN-016`, `NEN-018`, `NEN-020`, `NEN-021` |
-| **Task sayısı** | 32 · done 18 · active 0 · blocked 0 · backlog 14 |
+| **Son tamamlanan** | `NEN-015` — Encoding detection and sanitization |
+| **Sıradaki READY** | `NEN-016`, `NEN-018`, `NEN-020`, `NEN-021` |
+| **Task sayısı** | 32 · done 19 · active 0 · blocked 0 · backlog 13 |
 
-**`NEN-014` kapandı.** `nen-subtitle`'a bir WebVTT writer (`webvtt::write`)
+**`NEN-015` kapandı.** `nen-subtitle`'a `srt::parse`'ın önünde çalışan bir
+encoding/sanitization katmanı (`encoding::decode`) eklendi: BOM sniff (UTF-8 →
+UTF-16LE → UTF-16BE), BOM yoksa önce sıkı UTF-8 denemesi, başarısız olursa
+**Windows-1254**'e (tek legacy fallback) düşüş; ardından kontrol karakteri
+(`\n`/`\r` hariç), bidi override ("Trojan Source" sınıfı) ve zero-width
+karakter temizliği. 10 MiB boyut sınırı decode denenmeden önce uygulanıyor.
+Workspace'in ilk gerçek dış bağımlılığı **`encoding_rs`** (WHATWG Encoding
+Standard implementasyonu, Firefox/Servo) eklendi — lisansı
+`(Apache-2.0 OR MIT) AND BSD-3-Clause` çıktığı için `core/deny.toml`'a
+`BSD-3-Clause` eklendi, `cargo deny check` yeşil. Fixture korpusu
+(`fixtures/subtitles/encodings/`) 8 byte-precise dosya: 7 pozitif (BOM'lu
+UTF-8/UTF-16LE/UTF-16BE, BOM'suz CP1254 Türkçe metin, BOM'suz CP1252 Batı
+Avrupa metni, bidi-override enjeksiyonu, zero-width enjeksiyonu) + 1 negatif
+(UTF-16LE BOM + eşleşmeyen surrogate). Test sayısı 82 → **100**.
+
+**`ADR-0008` kabul edildi** (`Karar 1`: `encoding_rs`; `Karar 2`: BOM'suz
+durumda CP1252 ile otomatik ayrım **yapılmıyor** — yalnız Windows-1254,
+CP1254/CP1252 ayrımı BOM'suz genel durumda çözülemez ve dil tahmini
+NEN-020'nin kapsamı; `Karar 3`: bidi/zero-width karakterler escape değil
+**silinir**). `docs/adr/README.md` "Yazılmış" tablosuna taşındı.
+
+**Eski `NEN-014` kapanışı — WebVTT writer.** `nen-subtitle`'a bir WebVTT writer (`webvtt::write`)
 eklendi: `SubtitleDocument` → `WEBVTT` başlığı, cue başına identifier
 (`CueId`) + `HH:MM:SS.mmm --> HH:MM:SS.mmm` zaman satırı + `&`/`<`/`>` kaçışlı
 metin satırları, BOM hiç yazılmıyor. Fixture korpusu 7 → **8** geçerli dosyaya
@@ -431,26 +452,32 @@ $ cargo test --manifest-path core/Cargo.toml --workspace
 spike_cue_transfer 8 · spike_async_cancel 6 · spike_typed_errors 5 ·
 spike_reverse_ffi 11 · nen-app 1 · nen-ffi 1 ·
 nen-domain 10 (unit) + 9 (guard_redaction) = 19 ·
-nen-subtitle 7 (unit) + 3 (golden_valid) + 3 (malformed) +
-             4 (fuzz_smoke) + 4 (guard_error_debug) = 21
-72 passed, 0 failed                              → exit 0 (NEN-013 ile 42 → 72)
+nen-subtitle 21 (unit) + 4 (encoding_golden) + 7 (encoding_negative) +
+             4 (fuzz_smoke) + 3 (golden_valid) + 4 (guard_error_debug) +
+             3 (malformed) + 3 (webvtt_roundtrip) = 49
+100 passed, 0 failed                             → exit 0 (NEN-015 ile 82 → 100)
 
 $ cargo tree -p nen-domain --edges normal
 nen-domain v0.1.0                                → tek düğüm, sıfır bağımlılık
 $ cargo tree -p nen-subtitle --edges normal
-nen-subtitle → nen-domain                        → tek kenar (ADR-0006)
+nen-subtitle → encoding_rs → cfg-if
+nen-subtitle → nen-domain                        → yeni dış kenar, NEN-015/ADR-0008
 
 $ cargo clippy --workspace --all-targets --manifest-path core/Cargo.toml -- -D warnings
                                                   → exit 0, uyarı yok
-$ cargo fmt --check --manifest-path core/Cargo.toml → exit 0
+$ cargo fmt --all --check --manifest-path core/Cargo.toml → exit 0
 $ cargo deny check --manifest-path core/Cargo.toml
-  advisories ok · bans ok · licenses ok · sources ok → exit 0
+  advisories ok · bans ok · licenses ok (BSD-3-Clause NEN-015 ile eklendi) ·
+  sources ok                                      → exit 0
 
 $ cargo test -p nen-subtitle --manifest-path core/Cargo.toml
   golden_valid   3 ✓   7 geçerli fixture, .golden snapshot'larıyla byte-eşit
   malformed      3 ✓   25 vaka, 17 varyantın hepsi kapsanıyor
   fuzz_smoke     4 ✓   16 281 vaka (781 trunc · 10 500 mut · 5 000 noise), 0.07 s
   guard_error_debug 4 ✓ hiçbir SrtError varyantı cue metni sızdırmıyor
+  encoding_golden   4 ✓ 7 pozitif fixture, .decoded.golden'larıyla byte-eşit
+  encoding_negative 7 ✓ boyut sınırı · undecodable · bidi/zero-width/kontrol
+                        karakteri sanitization · EncodingError sızıntı yok
 
 $ bash scripts/build-apple.sh                     → binding temiz üretildi
 $ bash scripts/test-apple.sh
@@ -525,11 +552,22 @@ yalnız fixture'daydı ve `NEN-031` ile kapandı.
   (`write(&SubtitleDocument) -> String`). `WEBVTT` başlığı, cue identifier +
   `HH:MM:SS.mmm` zaman satırı, `&`/`<`/`>` kaçışlı metin, BOM'suz. Test:
   `webvtt_roundtrip` (SRT → doc → WebVTT round-trip golden).
+- `core/crates/nen-subtitle/src/encoding.rs` — NEN-015'in encoding/sanitization
+  katmanı (ADR-0008), `srt::parse`'ın önünde çalışır. `decode(&[u8]) ->
+  Result<String, EncodingError>`: BOM sniff (UTF-8/UTF-16LE/UTF-16BE) → sıkı
+  UTF-8 denemesi → Windows-1254 fallback (tek legacy code page); `sanitize`
+  kontrol karakteri/bidi override/zero-width temizliyor. `encoding_rs`'e
+  bağımlı (workspace'in ilk gerçek dış bağımlılığı). Testler:
+  `encoding_golden` · `encoding_negative` + 10 birim testi.
 - `fixtures/subtitles/valid/` — 8 SRT fixture + 8 `.golden` (SRT parse)
   snapshot + 8 `.vtt` (WebVTT yazım, NEN-014) snapshot;
-  `fixtures/subtitles/malformed/` — 25 fixture, her biri tek bozukluk.
-  Golden biçimi: `cues\t<n>` başlığı + cue başına
-  `id \t start_ms \t end_ms \t line_count \t escape'li metin`.
+  `fixtures/subtitles/malformed/` — 25 fixture, her biri tek bozukluk;
+  `fixtures/subtitles/encodings/` — 8 byte-precise fixture (NEN-015): 7
+  pozitif + `.decoded.golden` snapshot'ları, 1 negatif
+  (`undecodable-garbage.srt`). Golden biçimi (`valid/`): `cues\t<n>` başlığı +
+  cue başına `id \t start_ms \t end_ms \t line_count \t escape'li metin`;
+  `encodings/`'in golden'ı ise decode edilmiş tam UTF-8 metin (cue yapısı
+  değil, decode doğruluğu kanıtlanıyor).
 - `core/spikes/spike-cue-transfer/` — NEN-008'in ölçüm crate'i; kendi Swift
   harness'ı (`apple-harness/`) VE kendi Kotlin/JVM harness'ı (`jvm-harness/`,
   NEN-011 — Gradle wrapper tabanlı, `scripts/spike-cues-jvm.sh` üretir).
@@ -558,9 +596,9 @@ yalnız fixture'daydı ve `NEN-031` ile kapandı.
 - Diğer `platforms/*` dizinleri hâlâ boş iskelet.
 - `.github/workflows/ci.yml` — NEN-005'in CI skeleton'ı; `core/deny.toml` —
   cargo-deny lisans/advisory/kaynak kapısı.
-- Var olan: 6 ana doküman · 12 milestone dosyası · **4 accepted ADR**
-  (0001, 0006, 0026, 0028) · 32 task · 13 script + 2 shell testi ·
-  `fixtures/subtitles/` dolu (NEN-013), `fixtures/media|providers/` hâlâ
+- Var olan: 6 ana doküman · 12 milestone dosyası · **5 accepted ADR**
+  (0001, 0006, 0008, 0026, 0028) · 32 task · 13 script + 2 shell testi ·
+  `fixtures/subtitles/` dolu (NEN-013/015), `fixtures/media|providers/` hâlâ
   iskelet.
 - Depo kökünde **`LICENSE` dosyası bilerek yok** — bkz. [`licensing.md`](licensing.md).
 - Git: `main` branch. Remote: `github.com/ynsemrekryl2/nen-player` (private —
