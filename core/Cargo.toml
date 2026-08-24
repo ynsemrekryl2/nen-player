@@ -36,6 +36,10 @@ uniffi = "0.32.0"
 # tespiti. WHATWG Encoding Standard'ın Firefox/Servo'daki implementasyonu.
 encoding_rs = "0.8"
 
+# blake3 — ADR-0007 ile kabul edildi (NEN-016): timeline/source fingerprint
+# hash'i. Saf Rust, deterministic.
+blake3 = "1"
+
 [profile.release]
 lto = true
 codegen-units = 1

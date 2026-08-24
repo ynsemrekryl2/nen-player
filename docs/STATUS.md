@@ -3,7 +3,7 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-24** (NEN-015 kapanışı — encoding detection and sanitization)
+> Son güncelleme: **2026-08-25** (NEN-016 kapanışı — SubtitleDocument and timeline fingerprint; ADR-0007 accepted)
 
 ## Nerede duruyoruz
 
@@ -11,11 +11,28 @@
 |---|---|
 | **Mevcut milestone** | **M2 — Subtitle Core** (M1 kapandı) |
 | **Aktif task** | *yok* — `tasks/active/` boş |
-| **Son tamamlanan** | `NEN-015` — Encoding detection and sanitization |
-| **Sıradaki READY** | `NEN-016`, `NEN-018`, `NEN-020`, `NEN-021` |
-| **Task sayısı** | 32 · done 19 · active 0 · blocked 0 · backlog 13 |
+| **Son tamamlanan** | `NEN-016` — SubtitleDocument and timeline fingerprint |
+| **Sıradaki READY** | `NEN-017`, `NEN-018`, `NEN-020`, `NEN-021` |
+| **Task sayısı** | 32 · done 20 · active 0 · blocked 0 · backlog 12 |
 
-**`NEN-015` kapandı.** `nen-subtitle`'a `srt::parse`'ın önünde çalışan bir
+**`NEN-016` kapandı — `ADR-0007` accepted oldu.** `nen-subtitle`'a
+(`nen-domain`'e değil — `docs/architecture.md`'nin crate tablosu "timeline"ı
+zaten `nen-subtitle`'a veriyor ve bu, `nen-domain`'in her kapanışta
+doğrulanan sıfır-bağımlılık özelliğini korur) bir `fingerprint` modülü
+eklendi: `TimelineFingerprint::of` yalnız cue zamanlarını (`blake3` ile, `u32
+LE` cue sayısı + sıralı `start_ms`/`end_ms`), `SourceFingerprint::of` aynısını
++ cue başına satır sayısı + uzunluk-önekli satır byte'larını hash'liyor.
+`CueId` hiçbir hash'e dahil değil — sıra zaten doküman-sırası iterasyonuyla
+kodlanıyor. `ADR-0007` ayrıca `subtitle.rs`'nin NEN-013'ten beri açık bıraktığı
+"stable, cross-source cue identity" sorusunu kapattı: yeni bir kimlik tipi
+**yok**, kaynaklar arası eşleştirme doküman-düzeyi fingerprint üzerinden
+yapılacak (M5/M7). `blake3`'ün lisansı (`CC0-1.0 OR Apache-2.0`) `deny.toml`
+değişikliği gerektirmedi — `Apache-2.0` kolu zaten izinli listedeydi. 8 yeni
+unit test (DoD'un 4 maddesi + `CueId` etkisizliği + satır bölünmesi
+ayrışması + boş doküman paniksizliği), test sayısı 100 → **108**. Tam kanıt:
+`tasks/done/NEN-016-*.md`.
+
+**Eski `NEN-015` kapanışı — encoding detection and sanitization.** `nen-subtitle`'a `srt::parse`'ın önünde çalışan bir
 encoding/sanitization katmanı (`encoding::decode`) eklendi: BOM sniff (UTF-8 →
 UTF-16LE → UTF-16BE), BOM yoksa önce sıkı UTF-8 denemesi, başarısız olursa
 **Windows-1254**'e (tek legacy fallback) düşüş; ardından kontrol karakteri
@@ -441,7 +458,7 @@ Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
 
-2026-08-24, tümü bu makinede çalıştırıldı (Apple M5 · arm64 · macOS 27.0
+2026-08-25, tümü bu makinede çalıştırıldı (Apple M5 · arm64 · macOS 27.0
 26A5416b · rustc/cargo 1.98.0 · Swift 6.4 · uniffi 0.32.0):
 
 ```
@@ -452,23 +469,24 @@ $ cargo test --manifest-path core/Cargo.toml --workspace
 spike_cue_transfer 8 · spike_async_cancel 6 · spike_typed_errors 5 ·
 spike_reverse_ffi 11 · nen-app 1 · nen-ffi 1 ·
 nen-domain 10 (unit) + 9 (guard_redaction) = 19 ·
-nen-subtitle 21 (unit) + 4 (encoding_golden) + 7 (encoding_negative) +
-             4 (fuzz_smoke) + 3 (golden_valid) + 4 (guard_error_debug) +
-             3 (malformed) + 3 (webvtt_roundtrip) = 49
-100 passed, 0 failed                             → exit 0 (NEN-015 ile 82 → 100)
+nen-subtitle 21 (unit) + 8 (fingerprint) + 4 (encoding_golden) +
+             7 (encoding_negative) + 4 (fuzz_smoke) + 3 (golden_valid) +
+             4 (guard_error_debug) + 3 (malformed) + 3 (webvtt_roundtrip) = 57
+108 passed, 0 failed                             → exit 0 (NEN-016 ile 100 → 108)
 
 $ cargo tree -p nen-domain --edges normal
 nen-domain v0.1.0                                → tek düğüm, sıfır bağımlılık
 $ cargo tree -p nen-subtitle --edges normal
 nen-subtitle → encoding_rs → cfg-if
-nen-subtitle → nen-domain                        → yeni dış kenar, NEN-015/ADR-0008
+nen-subtitle → blake3 → ...                      → yeni dış kenar, NEN-016/ADR-0007
+nen-subtitle → nen-domain
 
 $ cargo clippy --workspace --all-targets --manifest-path core/Cargo.toml -- -D warnings
                                                   → exit 0, uyarı yok
 $ cargo fmt --all --check --manifest-path core/Cargo.toml → exit 0
-$ cargo deny check --manifest-path core/Cargo.toml
-  advisories ok · bans ok · licenses ok (BSD-3-Clause NEN-015 ile eklendi) ·
-  sources ok                                      → exit 0
+$ (cd core && cargo deny check)
+  advisories ok · bans ok · licenses ok (blake3'ün Apache-2.0 kolu zaten
+  izinliydi, deny.toml'a dokunulmadı) · sources ok → exit 0
 
 $ cargo test -p nen-subtitle --manifest-path core/Cargo.toml
   golden_valid   3 ✓   7 geçerli fixture, .golden snapshot'larıyla byte-eşit
@@ -559,6 +577,11 @@ yalnız fixture'daydı ve `NEN-031` ile kapandı.
   kontrol karakteri/bidi override/zero-width temizliyor. `encoding_rs`'e
   bağımlı (workspace'in ilk gerçek dış bağımlılığı). Testler:
   `encoding_golden` · `encoding_negative` + 10 birim testi.
+- `core/crates/nen-subtitle/src/fingerprint.rs` — NEN-016'nın timeline/source
+  fingerprint'i (ADR-0007). `TimelineFingerprint::of`/`SourceFingerprint::of`
+  `[u8; 32]` (`blake3`) döndürür; ikisi de `Display`/`Debug`'ı küçük harf hex
+  olarak basar. `CueId` hiçbir hash'e dahil değil. `blake3`'e bağımlı
+  (crate'in ikinci dış bağımlılığı, `encoding_rs`'ten sonra). 8 unit test.
 - `fixtures/subtitles/valid/` — 8 SRT fixture + 8 `.golden` (SRT parse)
   snapshot + 8 `.vtt` (WebVTT yazım, NEN-014) snapshot;
   `fixtures/subtitles/malformed/` — 25 fixture, her biri tek bozukluk;
@@ -596,8 +619,8 @@ yalnız fixture'daydı ve `NEN-031` ile kapandı.
 - Diğer `platforms/*` dizinleri hâlâ boş iskelet.
 - `.github/workflows/ci.yml` — NEN-005'in CI skeleton'ı; `core/deny.toml` —
   cargo-deny lisans/advisory/kaynak kapısı.
-- Var olan: 6 ana doküman · 12 milestone dosyası · **5 accepted ADR**
-  (0001, 0006, 0008, 0026, 0028) · 32 task · 13 script + 2 shell testi ·
+- Var olan: 6 ana doküman · 12 milestone dosyası · **6 accepted ADR**
+  (0001, 0006, 0007, 0008, 0026, 0028) · 32 task · 13 script + 2 shell testi ·
   `fixtures/subtitles/` dolu (NEN-013/015), `fixtures/media|providers/` hâlâ
   iskelet.
 - Depo kökünde **`LICENSE` dosyası bilerek yok** — bkz. [`licensing.md`](licensing.md).

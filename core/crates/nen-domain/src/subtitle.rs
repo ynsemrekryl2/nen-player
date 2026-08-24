@@ -17,9 +17,12 @@ pub const MAX_TIMESTAMP_MS: u32 = 359_999_999;
 
 /// Identifier of a cue within its source document.
 ///
-/// For SRT this is the block index as written in the file. NEN-016 will define
-/// the stable, cross-source cue identity on top of this; until then a `CueId`
-/// only means "the n-th cue of this document, as the source numbered it".
+/// For SRT this is the block index as written in the file. Per ADR-0007
+/// (NEN-016) this stays document-local — there is no separate stable,
+/// cross-source cue identity; cross-source/cross-translation matching is done
+/// at the whole-document fingerprint level (`nen_subtitle::fingerprint`), not
+/// per cue. A `CueId` only ever means "the n-th cue of this document, as the
+/// source numbered it".
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct CueId(u32);
 
@@ -63,8 +66,8 @@ impl std::error::Error for TimeSpanError {}
 /// A half-open display interval in milliseconds, valid by construction:
 /// `start_ms < end_ms` always holds.
 ///
-/// Callers downstream (NEN-016 fingerprint, NEN-017 lookup) may rely on that
-/// invariant without re-checking it.
+/// Callers downstream (`nen_subtitle::fingerprint`, NEN-017 lookup) may rely
+/// on that invariant without re-checking it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TimeSpan {
     start_ms: u32,
@@ -152,9 +155,9 @@ impl fmt::Debug for Cue {
 
 /// A parsed subtitle document — for now just its cues, in source order.
 ///
-/// NEN-016 extends this with the timeline/source fingerprint; NEN-017 adds
-/// indexed lookup. Nothing here decides those, so nothing here should be read
-/// as fixing their design.
+/// `nen_subtitle::fingerprint` computes the timeline/source fingerprint from
+/// this (ADR-0007, NEN-016); NEN-017 adds indexed lookup. Nothing here
+/// decides those, so nothing here should be read as fixing their design.
 #[derive(Clone, PartialEq, Eq, Default)]
 pub struct SubtitleDocument {
     cues: Vec<Cue>,
