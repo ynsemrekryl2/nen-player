@@ -3,29 +3,47 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-24** (ADR-0028 kabulü · NEN-008 açılışı)
+> Son güncelleme: **2026-08-24** (NEN-008 kapanışı)
 
 ## Nerede duruyoruz
 
 | | |
 |---|---|
 | **Mevcut milestone** | **M1 — Core Technical Spike** (M0 kapandı) |
-| **Aktif task** | **`NEN-008`** — spike: büyük cue listesinin FFI'dan geçişi |
-| **Son tamamlanan** | `NEN-031` — check-docs test fixture bağımsızlığı |
+| **Aktif task** | *yok* — `tasks/active/` boş |
+| **Son tamamlanan** | `NEN-008` — büyük cue listesinin FFI'dan geçiş ölçümü |
 | **Sıradaki READY** | `NEN-005` `NEN-006` `NEN-009` `NEN-010` |
-| **Task sayısı** | 31 · done 7 · active 1 · blocked 0 · backlog 23 |
+| **Task sayısı** | 31 · done 8 · active 0 · blocked 0 · backlog 23 |
 
-**`NEN-008` açıldı** ve ön koşulu olan **ADR-0028 kabul edildi**: ADR-0006
-kural 2 ("`nen-ffi` tek dış kapıdır") ile kural 3 ve CLAUDE.md kural 7 birlikte,
-M1'in FFI ölçümlerine yer bırakmıyordu. ADR-0028 kural 2'nin kapsamını **ürün
-koduyla** sınırlıyor; `core/spikes/*` altındaki bir spike crate yalnız ölçüm
-için kendi atılabilir kapısını açabiliyor. Sınırlar grep + `cargo metadata` ile
-mekanik doğrulanıyor. ADR-0006 **düzenlenmedi** — yalnız "Notlar"ına işaret
-eklendi (ADR-0001'in izin verdiği istisna).
+**`NEN-008` kapandı — M1'in ilk sayıları var.** 50 000 cue'luk bir doküman
+(3.1 MiB) Swift'e iki yoldan geçirilip ölçüldü (release · Apple M5 · macOS 27.0):
+
+| | tam liste | pencere/handle |
+|---|---|---|
+| p50 | 37.7 ms | **44.3 µs** (40 cue'luk pencere) |
+| en uzun main-thread bloğu | **48.4 ms** (~3 kare @60fps) | **0.08 ms** |
+| peak RSS | 19.5 MiB | 11.7 MiB |
+
+**Öneri: pencereli erişim** — ama iki kayıtla: (1) pencere cue **başına** %47
+daha pahalı, kazancı hızdan değil ödemediği cue'lardan geliyor; (2) dokümanın
+*tamamı* gerçekten gerekiyorsa tek çağrı %35 daha ucuz (37.7 ms'e karşı
+50.7 ms), yani "her şey pencereli olsun" kuralı yanlış olur. `activeCue`
+**1.50 µs** — playback sırasında cue aramanın FFI maliyeti pratikte yok; bu
+sayı NEN-029'a ve M7'nin position çözünürlüğüne girdi. Ayrıntı, debug/release
+karşılaştırması ve doğrulama çıktıları task'ın kanıt kaydında.
+**Bunlar baseline'dır, eşik değil** — bütçe ADR-0027 ile kabul edilecek.
+
+Ön koşul olarak **ADR-0028 kabul edildi**: ADR-0006 kural 2 ("`nen-ffi` tek dış
+kapıdır"), kural 3 ve CLAUDE.md kural 7 birlikte M1'in FFI ölçümlerine yer
+bırakmıyordu. ADR-0028 kural 2'nin kapsamını **ürün koduyla** sınırlıyor;
+`core/spikes/*` altındaki bir spike crate yalnız ölçüm için kendi atılabilir
+kapısını açabiliyor. Üç sınır grep + `cargo metadata` ile mekanik doğrulanıyor
+ve çıktıları kanıt kaydında. ADR-0006 **düzenlenmedi** — yalnız "Notlar"ına
+işaret eklendi (ADR-0001'in izin verdiği istisna).
 
 `NEN-008`'in `adr:` alanı `[3]` → **`[28]`** olarak düzeltildi; NEN-007'de
 yapılan düzeltmenin aynısı (ADR-0003 spike ölçümleri olmadan `accepted` olamaz,
-üstelik dosyası da yok). Aynı kusur artık yalnız **`NEN-011`**'de duruyor.
+üstelik dosyası da yok).
 
 `NEN-031` kapandı: `scripts/tests/check-docs.test.sh` artık **kendi task
 fixture'ını kuruyor** — canlı `tasks/` ve `INDEX.md` okunmuyor. Denetim 8'in her
@@ -37,7 +55,8 @@ koşuluydu**.
 Ondan önce `NEN-007` ile repository kod içermeye başlamıştı: Cargo workspace,
 ADR-0006'nın tarif ettiği 11 crate ve `nen-ffi` üzerinden Swift'e geçen bir
 `version()` fonksiyonu ayakta. Milestone sırası önerisi (`M1-core-spike.md`)
-NEN-008/009/010 ile devam ediyor.
+**NEN-009 ve NEN-010** ile devam ediyor — ikisi de aynı spike zeminini
+kullanacak.
 
 **UniFFI hâlâ aday.** NEN-007 binding teknolojisini seçmedi; ADR-0003
 NEN-011/NEN-012'de karara bağlanacak. Kabul edilen mimari karar **ADR-0006** —
@@ -45,7 +64,7 @@ monorepo yapısı, crate sınırları ve `nen-ffi`'ın tek dış kapı olması.
 
 NEN-007'nin `adr:` alanı `[3, 6]` → **`[6]`** olarak düzeltildi: ADR-0003 spike
 ölçümleri olmadan `accepted` olamaz, yani task'ın kapanışını kilitliyordu.
-Aynı kusur `NEN-008` ve `NEN-011`'de duruyor — sırası gelince ele alınacak.
+Aynı kusur NEN-008'de bu kapanışta giderildi; geriye **`NEN-011`** kaldı.
 
 ## Toolchain
 
@@ -56,7 +75,7 @@ Aynı kusur `NEN-008` ve `NEN-011`'de duruyor — sırası gelince ele alınacak
 | `cargo` / `rustc` | ✅ 1.98.0 (2026-08-18) | blocker — **karşılandı** |
 | `cargo-deny` | ❌ eksik | soon — NEN-005 öncesi |
 | JDK | ❌ eksik | soon — NEN-011 (Kotlin/JVM parity) öncesi |
-| `swift` | ✅ Apple Swift 6.4 | M3 — ama NEN-007 testi zaten kullanıyor |
+| `swift` | ✅ Apple Swift 6.4 | M3 — ama NEN-007 testi ve NEN-008 harness'ı zaten kullanıyor |
 | Tam Xcode | ❌ yalnız `/Library/Developer/CommandLineTools` | M3 — **M1 blocker'ı değil** |
 | libmpv | ❌ eksik | M3 — **M1 blocker'ı değil** |
 | Gradle | ❌ eksik | hiçbir milestone'da blocker değil (wrapper) |
@@ -96,24 +115,26 @@ Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
 
-2026-08-24, tümü bu makinede çalıştırıldı (macOS 27.0 · arm64 · rustc/cargo
-1.98.0 · Swift 6.4 · uniffi 0.32.0 · debug build):
+2026-08-24, tümü bu makinede çalıştırıldı (Apple M5 · arm64 · macOS 27.0
+26A5416b · rustc/cargo 1.98.0 · Swift 6.4 · uniffi 0.32.0):
 
 ```
 $ bash scripts/doctor.sh M1
 SONUÇ: M1 için tüm blocker'lar hazır.            → exit 0
 
-$ cd core && cargo test --workspace
-nen-app::tests::version_combines_domain_constant_and_crate_version ... ok
-nen-ffi::tests::exported_version_matches_app_layer ... ok
-2 passed, 0 failed (23 target)                   → exit 0
+$ cargo test --manifest-path core/Cargo.toml --workspace
+spike_cue_transfer  8 passed          nen-app 1 passed          nen-ffi 1 passed
+10 passed, 0 failed (26 target)                  → exit 0
 
-$ cd core && cargo tree -p nen-domain --edges normal
+$ cargo tree -p nen-domain --edges normal
 nen-domain v0.1.0                                → tek düğüm, sıfır bağımlılık
 
 $ bash scripts/build-apple.sh                     → binding temiz üretildi
 $ bash scripts/test-apple.sh
 ✔ Test run with 2 tests in 1 suite passed        → exit 0
+
+$ bash scripts/spike-cues.sh                      → NEN-008 release baseline
+$ bash scripts/spike-cues.sh --debug              → NEN-008 debug karşılaştırması
 
 $ bash scripts/check-docs.sh
   8/8 denetim geçti                              → exit 0
@@ -122,6 +143,11 @@ $ bash scripts/test.sh
   check-docs.test.sh ✓ (11 doğrulama)
   doctor.test.sh     ✓ (24 doğrulama)            → exit 0
 ```
+
+**Ölçüm build tipi artık kayıt altında.** NEN-007'nin kanıtı debug'dı; NEN-008
+ikisini de koştu ve farkı ölçtü: debug, tam liste geçişini **1.75×**, pencere
+erişimini **1.24×** yavaşlatıyor. İki koşunun Swift tarafındaki checksum'ları
+birebir aynı — fark yalnız hızda, veride değil.
 
 `scripts/test.sh` **`tasks/active/` dolu ve boşken ayrı ayrı** koşuldu; iki
 koşunun `check-docs.test.sh` çıktısı birebir aynı (NEN-031 kanıt kaydı).
@@ -138,7 +164,10 @@ yalnız fixture'daydı ve `NEN-031` ile kapandı.
 ## Repository'nin gerçek durumu
 
 - **Kod var** (NEN-007 ile): `core/` altında Cargo workspace + 11 crate,
-  `core/rust-toolchain.toml`, `Cargo.lock`. `core/spikes/` hâlâ boş.
+  `core/rust-toolchain.toml`, `Cargo.lock`.
+- `core/spikes/spike-cue-transfer/` — NEN-008'in ölçüm crate'i ve içinde kendi
+  Swift harness'ı (`apple-harness/`). **Ürün kodu değil, terfi etmez**; kendi
+  FFI kapısını ADR-0028 sayesinde açıyor. Üretilen binding commit edilmiyor.
 - `platforms/apple-shared/` — SwiftPM paketi (`Package.swift` + swift-testing
   test target'ı). Üretilen binding `generated/` altında ve **commit edilmiyor**.
 - Diğer `platforms/*` dizinleri hâlâ boş iskelet.

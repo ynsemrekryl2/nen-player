@@ -21,6 +21,7 @@ local.properties
 
 # Generated bindings
 /platforms/**/generated/
+/core/spikes/**/generated/
 
 # Local secrets — asla commit edilmez (K22)
 .env
