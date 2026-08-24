@@ -3,7 +3,7 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-24** (NEN-005 kapanışı)
+> Son güncelleme: **2026-08-24** (NEN-011 kapanışı)
 
 ## Nerede duruyoruz
 
@@ -11,11 +11,62 @@
 |---|---|
 | **Mevcut milestone** | **M1 — Core Technical Spike** (M0 kapandı) |
 | **Aktif task** | *yok* — `tasks/active/` boş |
-| **Son tamamlanan** | `NEN-005` — CI skeleton |
-| **Sıradaki READY** | `NEN-011` |
-| **Task sayısı** | 32 · done 14 · active 0 · blocked 0 · backlog 18 |
+| **Son tamamlanan** | `NEN-011` — Spike: Kotlin binding parity |
+| **Sıradaki READY** | `NEN-012` |
+| **Task sayısı** | 32 · done 15 · active 0 · blocked 0 · backlog 17 |
 
-**`NEN-005` kapandı.** `.github/workflows/ci.yml` — macOS runner'da her
+**`NEN-011` kapandı.** NEN-008/009/010'un ölçtüğü üç Rust crate'ine
+dokunulmadan, her birine Swift'teki `apple-harness/`'in eşi bir
+`jvm-harness/` (Gradle wrapper tabanlı Kotlin/JVM projesi) eklendi — binding
+üretimi aynı `spike-*-uniffi-bindgen` binary'lerinden, yalnız
+`--language kotlin` ile (`scripts/spike-cues-jvm.sh`,
+`spike-async-jvm.sh`, `spike-typed-errors-jvm.sh`).
+
+**Ön koşul: B2 kapandı.** Bu makinede gerçek bir JDK yoktu (yalnız CLT'nin
+çalışmayan `/usr/bin/java` stub'ı). `brew install --cask temurin` sudo şifresi
+istediği için bu ortamda başarısız oldu; `brew install openjdk` (formula,
+sudo gerektirmez) kullanıldı, `/opt/homebrew/opt/openjdk/bin` `~/.zshrc`'ye
+PATH eklendi. `bash scripts/doctor.sh M1` artık JDK'yi ✓ gösteriyor. Bootstrap
+için `brew install gradle` (9.7.1) geçici kuruldu — yalnız üç `jvm-harness/`'ta
+bir kere `gradle wrapper` çalıştırıp kendi `gradlew`'lerini üretmek için;
+bundan sonra hiçbir geliştiricinin sistem Gradle'ı kurmasına gerek yok.
+
+**Kotlin'e özgü iki isimlendirme sapması kaynak incelemesiyle doğrulandı**
+(`uniffi_bindgen` 0.32 `bindings/kotlin/gen_kotlin/mod.rs`): (1) adı "Error"
+ile biten bir `uniffi::Error` tipi Kotlin'de otomatik "Exception" ile
+değiştiriliyor — Rust/Swift `AppError`, Kotlin'de **`AppException`**; (2) düz
+`uniffi::Enum` varyantları Kotlin'de **SCREAMING_SNAKE_CASE** (Swift'te
+camelCase'ti) — Swift'in zaten bulduğu "hata PascalCase / enum camelCase"
+asimetrisine üçüncü bir kural ekleniyor.
+
+**Cue-transfer checksum'ları Swift'le birebir aynı** (`75001045577800` /
+`34337591381145`, 50 000 cue, NEN-008 ile aynı fixture) — I5'in ("semantik
+sonuçlar Swift ve Kotlin arasında aynı") doğrudan kanıtı. Coroutine iptali
+gerçek Rust `JobHandle.cancel()`'ı tetikliyor (Rust tarafı `async fn` değil,
+`JobHandleCoroutines.kt`'nin `suspendCancellableCoroutine` +
+`invokeOnCancellation` sarmalayıcısı üzerinden) — I1/I2/I4 invariant'ları
+Kotlin/JVM tarafında da (3/3 test) deterministik kanıtlandı. En büyük ölçüm
+sapması: `checkpoint_every=1`'de dispatch-penceresi kaçağı Swift'te 0/800,
+Kotlin/JVM'de 193/800 (I1'in kendisini etkilemiyor — yalnız "kullanıcı
+iptale karar verdi" ile "cancel() fiilen çağrıldı" arasındaki gevşek
+pencere, JVM thread scheduling + GC nedeniyle daha geniş). Typed-error eşleme
+maliyeti Kotlin/JVM'de Swift'in p50'de ~5.5×, p95'te ~23×'ü — JIT ısınması +
+GC, bug değil. Tüm sapmalar ve M10 etkileri task'ın kanıt kaydında "Metodolojik
+sapmalar" tablosunda.
+
+**Yan bulgu (ayrı backlog task'ına yönlendirildi, NEN-011 kapsamı değil):**
+`scripts/doctor.sh`'ın `run_timeout` helper'ı `java -version`'ın (stderr'e
+yazan) çıktısını kendi içindeki `2>/dev/null` ile siliyor — `doctor.sh`
+raporunda "✓ JDK" satırının sürüm detayı hep boş kalıyor. Kozmetik (M1
+gate'inin exit kodunu etkilemiyor); önceki hiçbir makinede gerçek bir JDK
+çalışmadığı için şimdiye kadar ortaya çıkmamıştı.
+
+`NEN-011`'in `adr:` alanı `[3]` → **`[28]`** olarak düzeltildi — NEN-006/
+007/008/009/010 ile aynı gerekçe: ADR-0003 henüz `accepted` değil ve bu task
+onu kararlaştırmıyor (sonuçları NEN-012 üzerinden ADR-0003'e girdi olacak);
+gerçek dayanak spike-local FFI kapısını açan ADR-0028.
+
+**Eski `NEN-005` kapanışı.** `.github/workflows/ci.yml` — macOS runner'da her
 push/PR'da `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test
 --workspace`, `cargo deny check` (yeni `core/deny.toml`), `scripts/test.sh`,
 `task-index.sh --check`, `check-docs.sh` koşuyor; cargo registry+target
@@ -262,15 +313,22 @@ Aynı kusur NEN-008'de bu kapanışta giderildi; geriye **`NEN-011`** kaldı.
 |---|---|---|
 | `cargo` / `rustc` | ✅ 1.98.0 (2026-08-18) | blocker — **karşılandı** |
 | `cargo-deny` | ✅ 0.20.2 (Homebrew, NEN-005) | soon — **karşılandı** |
-| JDK | ❌ eksik | soon — NEN-011 (Kotlin/JVM parity) öncesi |
+| JDK | ✅ OpenJDK 26.0.2.1 (Homebrew `openjdk`, NEN-011) | soon — **karşılandı** |
 | `swift` | ✅ Apple Swift 6.4 | M1 (blocker) — NEN-007 testi ve NEN-008 harness'ı kullanıyor |
 | Tam Xcode | ❌ yalnız `/Library/Developer/CommandLineTools` | M3 — **M1 blocker'ı değil** |
 | libmpv | ❌ eksik | M3 — **M1 blocker'ı değil** |
-| Gradle | ❌ eksik | hiçbir milestone'da blocker değil (wrapper) |
+| Gradle | ✅ 9.7.1 (Homebrew, yalnız wrapper bootstrap için — NEN-011) | hiçbir milestone'da blocker değil (wrapper) |
 | Android SDK | ❌ eksik | M10 |
 
 Rust `rustup` ile kuruldu (2026-08-24). Workspace `core/rust-toolchain.toml` ile
 **1.98.0'a pinli** — M1 ölçümlerinin başka makinede karşılaştırılabilmesi için.
+
+JDK, `brew install --cask temurin` sudo istediği için `brew install openjdk`
+(formula) ile kuruldu; `/opt/homebrew/opt/openjdk/bin` `~/.zshrc`'ye PATH
+eklendi (Homebrew'ün kendi "keg-only" uyarısının önerdiği sudo'suz yol).
+Gradle yalnız üç `jvm-harness/`'ın kendi `gradlew` wrapper'ını üretmek için
+geçici bootstrap amacıyla kuruldu — NEN-011 kapandıktan sonra hiçbir
+geliştiricinin sistem Gradle'ı kurmasına gerek yok.
 
 `doctor.sh M1` → **çıkış 0** · `doctor.sh` (parametresiz) →
 **çıkış 0** (bilgilendirici). Kurulum komutları çıktıda; script **hiçbir şey
@@ -281,11 +339,11 @@ kurmaz** — bu, `scripts/tests/doctor.test.sh` S7 ile mekanik olarak kanıtlan�
 | # | Blocker | Kimi durduruyor | Çözüm |
 |---|---|---|---|
 | ~~B1~~ | ~~Rust kurulu değil~~ | — | ✅ **çözüldü** 2026-08-24 — rustup, 1.98.0 |
-| B2 | JDK yok | `NEN-011` (M1 içinde, sıra gelmedi) | `brew install --cask temurin` |
+| ~~B2~~ | ~~JDK yok~~ | — | ✅ **çözüldü** 2026-08-24 — `brew install openjdk`, NEN-011 |
 | B3 | Tam Xcode + libmpv yok | M3; Swift testleri CommandLineTools'ta ek bayrak istiyor (`scripts/test-apple.sh` hallediyor) | App Store'dan Xcode + `brew install mpv` |
 | ~~B4~~ | ~~`check-docs.test.sh` fixture'ı canlı repo durumuna bağlı~~ | — | ✅ **çözüldü** 2026-08-24 — `NEN-031` |
 
-**Gerçek blocker kalmadı.** B2 ve B3 sıradaki task'ları engellemiyor.
+**Gerçek blocker kalmadı.** B3 sıradaki task'ları engellemiyor.
 
 ## Kullanıcı kararı bekleyenler
 
@@ -381,16 +439,23 @@ yalnız fixture'daydı ve `NEN-031` ile kapandı.
 - `core/crates/nen-domain/src/redact.rs` — NEN-006'nın redaction yardımcıları
   (`Redacted<T>`, `extension()`, `size_class()`, `redact_host()`); crate hâlâ
   bağımlılıksız. Guard test `core/crates/nen-domain/tests/guard_redaction.rs`.
-- `core/spikes/spike-cue-transfer/` — NEN-008'in ölçüm crate'i ve içinde kendi
-  Swift harness'ı (`apple-harness/`). **Ürün kodu değil, terfi etmez**; kendi
-  FFI kapısını ADR-0028 sayesinde açıyor. Üretilen binding commit edilmiyor.
-- `core/spikes/spike-async-cancel/` — NEN-009'un ölçüm crate'i; kendi Swift
+- `core/spikes/spike-cue-transfer/` — NEN-008'in ölçüm crate'i; kendi Swift
+  harness'ı (`apple-harness/`) VE kendi Kotlin/JVM harness'ı (`jvm-harness/`,
+  NEN-011 — Gradle wrapper tabanlı, `scripts/spike-cues-jvm.sh` üretir).
+  **Ürün kodu değil, terfi etmez**; kendi FFI kapısını ADR-0028 sayesinde
+  açıyor. Üretilen binding'ler commit edilmiyor.
+- `core/spikes/spike-async-cancel/` — NEN-009'un ölçüm crate'i; Swift
   harness'ı hem CLI ölçüm hedefi hem swift-testing invariant test hedefi
-  içeriyor (`apple-harness/Tests/`). Aynı ADR-0028 kapısı, aynı terfi yasağı.
+  içeriyor (`apple-harness/Tests/`); Kotlin/JVM harness'ı (`jvm-harness/`,
+  NEN-011) aynı invariant'ları `kotlin.test` ile ve bir
+  `suspendCancellableCoroutine` sarmalayıcısıyla (coroutine iptali → gerçek
+  `JobHandle.cancel()`) kanıtlıyor. Aynı ADR-0028 kapısı, aynı terfi yasağı.
 - `core/spikes/spike-typed-errors/` — NEN-010'un ölçüm crate'i; `nen-domain`'e
-  bağımlı (redaction yardımcıları), kendi Swift harness'ı hem switch/redaction
+  bağımlı (redaction yardımcıları), Swift harness'ı hem switch/redaction
   test hedefi (`apple-harness/Tests/`) hem baseline ölçüm hedefi
-  (`apple-harness/Sources/`) içeriyor. Aynı ADR-0028 kapısı, aynı terfi yasağı.
+  (`apple-harness/Sources/`) içeriyor; Kotlin/JVM harness'ı (`jvm-harness/`,
+  NEN-011) aynı ölçümü `AppException` (Kotlin'in "Error"→"Exception" son ek
+  kuralı) ile tekrarlıyor. Aynı ADR-0028 kapısı, aynı terfi yasağı.
 - `core/spikes/spike-reverse-ffi/` — NEN-029'un ölçüm crate'i; A (`ReverseEngine`,
   foreign `PlaybackObserver` trait'ini tekrar çağıran fake motor) ve B
   (`ForwardSession`, düz forward çağrılar) tek crate'te. Swift harness'ı hem
@@ -403,7 +468,7 @@ yalnız fixture'daydı ve `NEN-031` ile kapandı.
 - `.github/workflows/ci.yml` — NEN-005'in CI skeleton'ı; `core/deny.toml` —
   cargo-deny lisans/advisory/kaynak kapısı.
 - Var olan: 6 ana doküman · 12 milestone dosyası · **4 accepted ADR**
-  (0001, 0006, 0026, 0028) · 32 task · 10 script + 2 shell testi ·
+  (0001, 0006, 0026, 0028) · 32 task · 13 script + 2 shell testi ·
   `fixtures/` iskeleti.
 - Depo kökünde **`LICENSE` dosyası bilerek yok** — bkz. [`licensing.md`](licensing.md).
 - Git: `main` branch. Remote: `github.com/ynsemrekryl2/nen-player` (private —

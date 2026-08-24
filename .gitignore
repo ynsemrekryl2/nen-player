@@ -14,6 +14,8 @@ xcuserdata/
 .gradle/
 /platforms/android/build/
 /platforms/android/**/build/
+/core/spikes/**/jvm-harness/build/
+/core/spikes/**/jvm-harness/.gradle/
 local.properties
 
 # macOS
