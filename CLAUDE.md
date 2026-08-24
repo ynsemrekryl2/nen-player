@@ -81,11 +81,13 @@ auto-sync'i onaysız uygulamak · protected/DRM audio extraction.
 ## Doğrulama
 
 ```bash
-bash scripts/doctor.sh          # tüm toolchain durumu (bilgilendirici, hep 0)
-bash scripts/doctor.sh M1       # yalnız M1 kapısı — eksikse çıkış 1
+bash scripts/doctor.sh          # tüm toolchain durumu (bilgilendirici, daima 0)
+bash scripts/doctor.sh M1       # yalnız M1 kapısı — blocker eksikse çıkış 1
+bash scripts/test.sh            # shell testleri (doctor + check-docs)
 bash scripts/task-index.sh      # INDEX.md üret
 bash scripts/check-docs.sh      # task/ADR/index/STATUS tutarlılığı
 ```
 
-> `doctor.sh`'ın milestone parametresi **NEN-030** ile geliyor; o task
-> kapanana kadar script yalnız parametresiz çalışır.
+> Milestone gereksinimleri **kümülatif**: `doctor.sh M3` core araçlarını da
+> ister. Gereklilik seviyeleri: `blocker` (milestone'a başlanamaz) ·
+> `soon` (milestone içinde bir task'tan önce, çıkış kodunu etkilemez) · `info`.

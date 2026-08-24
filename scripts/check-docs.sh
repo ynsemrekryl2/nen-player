@@ -168,6 +168,35 @@ else
   echo "      Yapılacak: bash scripts/task-index.sh" >&2
 fi
 
+echo "== 8. STATUS.md ↔ INDEX ready listesi =="
+STATUS="$ROOT/docs/STATUS.md"
+if [ ! -f "$STATUS" ]; then
+  err "docs/STATUS.md yok."
+  echo "      Yapılacak: STATUS.md'yi oluşturun; 'Sıradaki READY' satırı zorunludur." >&2
+else
+  idx_ready="$(awk "/^## Sıradaki uygun task/{f=1;next} f" "$TASKS/INDEX.md" \
+              | grep -o 'NEN-[0-9][0-9][0-9]' | sort -u)"
+  st_row="$(grep -F '**Sıradaki READY**' "$STATUS" | head -1)"
+  if [ -z "$st_row" ]; then
+    err "docs/STATUS.md içinde '**Sıradaki READY**' satırı yok."
+    echo "      Yapılacak: durum tablosuna | **Sıradaki READY** | ... | satırını ekleyin." >&2
+  else
+    st_ready="$(printf '%s' "$st_row" | grep -o 'NEN-[0-9][0-9][0-9]' | sort -u)"
+    if [ "$idx_ready" = "$st_ready" ]; then
+      if [ -z "$idx_ready" ]; then
+        ok "ready listesi boş, STATUS.md de task listelemiyor"
+      else
+        ok "STATUS.md ready listesi INDEX ile uyumlu ($(printf '%s' "$idx_ready" | tr '\n' ' '))"
+      fi
+    else
+      err "docs/STATUS.md 'Sıradaki READY' satırı INDEX ile uyuşmuyor."
+      echo "      INDEX  : $(printf '%s' "$idx_ready" | tr '\n' ' ')" >&2
+      echo "      STATUS : $(printf '%s' "$st_ready" | tr '\n' ' ')" >&2
+      echo "      Yapılacak: docs/STATUS.md'deki satırı güncelleyin (INDEX üretilendir)." >&2
+    fi
+  fi
+fi
+
 echo
 if [ "$ERRORS" -gt 0 ]; then
   echo "SONUÇ: $ERRORS hata." >&2

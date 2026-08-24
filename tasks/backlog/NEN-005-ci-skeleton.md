@@ -25,6 +25,7 @@ cargo fmt --check
 cargo clippy -- -D warnings
 cargo test --workspace
 cargo deny check
+bash scripts/test.sh
 bash scripts/task-index.sh --check
 bash scripts/check-docs.sh
 ```
@@ -43,6 +44,7 @@ bash scripts/check-docs.sh
 - [ ] Kasıtlı `cargo fmt` ihlali içeren commit'te CI kırmızı, düzeltince yeşil
 - [ ] Kasıtlı clippy uyarısı CI'ı kırıyor
 - [ ] Bayat `INDEX.md` CI'ı kırıyor
+- [ ] `scripts/test.sh` CI'da koşuyor; kasıtlı bozulan bir shell testi CI'ı kırıyor
 - [ ] Yeşil koşunun süresi kaydedildi
 
 ## Kanıt kaydı

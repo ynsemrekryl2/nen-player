@@ -14,6 +14,7 @@
 | **Security** | Reddedilmesi gerekenin reddedildiği | ilgili crate | Negatif test adı + reddetme sebebi |
 | **Platform** | Adapter'ın gerçek OS API'siyle davranışı | `platforms/*/Tests` | Test adı + platform/sürüm |
 | **Cihaz acceptance** | Gerçek cihazda uçtan uca kullanıcı senaryosu | elle, senaryo dosyasıyla | Adım listesi + ekran/video kaydı yolu |
+| **Tooling** | Repo script'lerinin davranışı (doctor, check-docs) | `scripts/tests/*.test.sh` | `bash scripts/test.sh` çıktısı |
 
 ## Kanıt formatı — task tipine göre
 
@@ -154,8 +155,13 @@ cargo fmt --check
 cargo clippy -- -D warnings
 cargo test --workspace
 cargo deny check
+bash scripts/test.sh
 bash scripts/task-index.sh --check
 bash scripts/check-docs.sh
 ```
+
+Son üçü Rust gerektirmez. `scripts/test.sh`, repo tooling'inin (doctor,
+check-docs) shell testlerini çalıştırır ve gerçek makine toolchain'inden
+bağımsızdır — PATH shim'leri kullanır.
 
 Platform ve cihaz testleri CI'da çalışmaz; kanıtları elle kaydedilir.
