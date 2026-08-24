@@ -10,10 +10,10 @@
 | | |
 |---|---|
 | **Mevcut milestone** | **M1 — Core Technical Spike** (M0 kapandı) |
-| **Aktif task** | *yok* — `tasks/active/` boş |
+| **Aktif task** | `NEN-005` — CI skeleton |
 | **Son tamamlanan** | `NEN-029` — spike: playback/renderer reverse-FFI boundary |
-| **Sıradaki READY** | `NEN-005` `NEN-011` |
-| **Task sayısı** | 32 · done 13 · active 0 · blocked 0 · backlog 19 |
+| **Sıradaki READY** | `NEN-011` |
+| **Task sayısı** | 32 · done 13 · active 1 · blocked 0 · backlog 18 |
 
 **`NEN-029` kapandı ve `ADR-0026` accepted oldu.**
 `core/spikes/spike-reverse-ffi/` — NEN-009'un delivery-gate deseni tek bir

@@ -3,7 +3,7 @@ id: NEN-005
 title: CI skeleton
 milestone: M1
 size: S
-state: backlog
+state: active
 depends_on: [NEN-004, NEN-007]
 blocks: []
 adr: []
