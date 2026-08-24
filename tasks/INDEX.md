@@ -64,3 +64,5 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 
 - **NEN-011** — Spike - Kotlin binding parity
+
+<!-- stale marker: intentional CI DoD proof -->

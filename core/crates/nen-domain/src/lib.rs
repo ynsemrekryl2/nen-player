@@ -6,10 +6,6 @@
 
 pub mod redact;
 
-pub fn intentional_clippy_violation(x: bool) -> bool {
-    x == true
-}
-
 /// Stable identifier of the shared core, used to prove that a value really
 /// travelled `nen-domain` → `nen-app` → `nen-ffi` → platform.
 pub const CORE_NAME: &str = "nen-core";
