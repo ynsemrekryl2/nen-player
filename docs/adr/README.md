@@ -9,6 +9,7 @@ Süreç: [`0001-adr-process.md`](0001-adr-process.md) · Şablon:
 |---|---|---|---|
 | [0001](0001-adr-process.md) | ADR süreci | ✅ accepted | M0 |
 | [0006](0006-monorepo-and-crate-boundaries.md) | Monorepo yapısı ve crate sınırları | ✅ accepted | M1 |
+| [0026](0026-playback-renderer-ownership.md) | Playback/renderer ownership yönü | ✅ accepted | M1 |
 | [0028](0028-spike-ffi-surface.md) | Spike'ların geçici FFI yüzeyi | ✅ accepted | M1 |
 
 ## Planlanan
@@ -44,7 +45,6 @@ karar verilmiş sayılmaz (bkz. `docs/architecture.md` → "Karar statüsü").
 | 0023 | Audio auto-sync pipeline ve confidence eşikleri | M8 |
 | 0024 | Audio privacy modeli: localOnly varsayılanı, remote izin akışı | M8 |
 | 0025 | Android motor kararı: Media3 vs. alternatif | M10 |
-| **0026** | **Playback/renderer ownership yönü** — merkezi Rust session (reverse callback) vs. platform-owned session | **M1** (NEN-029) |
 | **0027** | **Performans bütçeleri** — M1 baseline'ları ve gerçek kullanım sonrası kabul | **M1 sonrası** |
 
 ## Kritik üçü

@@ -129,23 +129,29 @@ sessiz no-op olmaz.
 
 Kullanıcı motor adını görmez ve motor seçmez (şartname §4).
 
-### Ownership yönü — spike bekliyor
+### Ownership yönü — core-owned session (ADR-0026)
 
-> **Bu belge tercih edilen yönü gösterir, doğrulanmış yönü değil.** Tercih:
-> merkezi Rust application-session, platform playback/renderer adapter'larını
-> **reverse callback** ile yönetir. Rust core'un Swift/Kotlin adapter'larını bu
-> şekilde geri arayabildiği **henüz ölçülmedi**.
->
-> Karşılaştırılan iki yön (NEN-029 → ADR-0026):
->
-> - **A —** Core, `PlaybackEngine`/`SubtitleRenderer` callback interface'lerini
->   çağırır ve session'ın sahibidir. *(şu anki tercih)*
-> - **B —** Platform shell motorun sahibidir; core'a coarse-grained state,
->   position ve track snapshot gönderir.
->
-> `PlaybackEngine` ve `SubtitleRenderer` portları **her iki sonuçta da kalır**;
-> değişebilecek olan yalnızca session'ın sahibidir. `NEN-021` (port contract),
-> ADR-0026 kabul edilmeden başlamaz.
+Merkezi Rust application-session, platform playback/renderer adapter'larını
+**reverse callback** ile yönetir — `NEN-029`'un fake-adapter ölçümüyle
+doğrulandı, `ADR-0026` ile kabul edildi. Karşılaştırılan iki yönden (A:
+core-owned/reverse callback, B: shell-owned/forward call) **A** seçildi:
+ölçülen maliyeti (60 Hz'de bile ~5 ms/sn mertebesinde) hiçbir makul UI
+bütçesini zorlamıyor, I1/I4 dahil hiçbir invariant ihlal edilmedi.
+
+`PlaybackEngine` ve `SubtitleRenderer` portları değişmedi — A/B ayrımı yalnız
+session'ın sahibini etkiliyordu. `NEN-021` (port contract) artık başlayabilir.
+
+**NEN-021'in kontratının açıkça ele alması gereken iki ölçülmüş risk**
+(ADR-0026 → "Karar"):
+
+- **Backpressure/backgrounding.** Callback teslimatı, üreticiyi (Rust) tüketici
+  (platform shell) hazır olmasa da bağımsız tutuyor — sınırsız birikme yerine
+  sınırlı/coalescing bir kuyruk ya da demand-driven bir teslimat deseni gerekir.
+- **Reentrancy disiplini.** Bir callback içinden, delivery gate'in kilidini
+  isteyen bir core metodu (`cancel()` benzeri) aynı thread'den senkron
+  çağrılamaz — kontrat bunu ya yasaklamalı ya da asenkron dispatch'e zorlamalı.
+
+Tam ölçüm tablosu ve gerekçe: `docs/adr/0026-playback-renderer-ownership.md`.
 
 ## FFI kontratı
 
