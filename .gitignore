@@ -1,0 +1,36 @@
+# Rust
+/core/target/
+**/target/
+Cargo.lock.bak
+
+# Swift / Xcode
+.build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+
+# Android / Gradle
+.gradle/
+/platforms/android/build/
+/platforms/android/**/build/
+local.properties
+
+# macOS
+.DS_Store
+
+# Generated bindings
+/platforms/**/generated/
+
+# Local secrets — asla commit edilmez (K22)
+.env
+*.local.toml
+secrets/
+
+# Claude Code: settings.json paylaşılır, local override kişiseldir
+.claude/settings.local.json
+
+# Test çıktıları ve kanıt kayıtları
+/artifacts/
+/evidence/**/*.mov
+/evidence/**/*.mp4

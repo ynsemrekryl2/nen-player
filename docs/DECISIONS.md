@@ -1,0 +1,100 @@
+# Kararlar
+
+Bu dosya **karar defteridir** — ne verildiği, ne zaman ve neden. Şartname veya
+ADR metnini tekrarlamaz, onlara işaret eder.
+
+- Ürün davranışının kanonik tanımı: [`product-spec.md`](product-spec.md)
+- Mimari kararların tam metni: [`adr/`](adr/)
+- Bugünkü durum: [`STATUS.md`](STATUS.md)
+
+---
+
+## 1. Kilitli ürün kararları
+
+Şartnameden gelen, tartışmaya kapalı kararlar. Tam metin `product-spec.md`'de.
+
+| Konu | Karar | Spec |
+|---|---|---|
+| Mimari model | Platform-native UI → application API → cihaz içi shared core → portlar. **Node/Express/localhost/browser/web dashboard yok** | §3 |
+| Playback | `PlaybackEngine` **capability tabanlı port**. Kullanıcı motoru ne görür ne seçer | §4 |
+| Playback önceliği | Medya; subtitle discovery ve AI çeviriyi **beklemez**. Subtitle hatası playback'i durdurmaz | §4 |
+| Stremio | Nen Player add-on **değil**; external player olarak açılma ana özellik | §5 |
+| Medya kimliği | Kullanıcıdan **teknik ID istenmez** (IMDb/Stremio yok) | §6 |
+| Katalog | **Tek** `SubtitleSourceCatalog`, tek altyazı düğmesi, ayrı "AI subtitle mode" yok | §7, §8 |
+| Çeviri tetikleme | Kaynak seçmek çeviri **başlatmaz**; yalnız açık kullanıcı komutu | §9 |
+| Çeviri bütünlüğü | Blok 40 (30–60), overlap 6; cue ID/sıra/zaman **aynen korunur** | §10 |
+| Provider güveni | Provider cevabı **untrusted**; local validation **authoritative** | §10 |
+| Yayınlama | **Progressive/yarım subtitle yayını yok**; final yalnız tüm belge doğrulanınca, atomik commit | §10, §11 |
+| Cache | Prompt/schema/pipeline semantiği değişince **uyumsuz cache kullanılmaz** | §11 |
+| Senkronizasyon | Orijinal cue zamanları **değişmez**; düzeltme ayrı `SyncProfile` | §12 |
+| Auto-sync onayı | **High confidence bile** kullanıcı onayı olmadan kalıcı uygulanmaz | §13 |
+| Audio gizliliği | Varsayılan `localOnly`; raw audio loglanmaz; remote gönderim açık izinle | §13 |
+| Cue lookup | Lineer tam-liste taraması **yasak**; seek sonrası doğru cue anında | §14 |
+| Secret | Platform secure storage; plaintext config yasak; loglanmaz, artifact'e girmez | §15 |
+| Yasaklar | Scraping · DRM bypass · torrent/debrid · path traversal · symlink · testlerde gerçek provider kotası | §16 |
+
+## 2. Süreç kararları
+
+| Karar | Tarih | Gerekçe |
+|---|---|---|
+| Task sistemi **repo içi markdown** (GitHub Issues değil) | 2026-08-24 | Agent ve insan aynı kaynağı okur, offline çalışır, PR diff'inde görünür |
+| Doküman dili **Türkçe**; kod/tip/dosya adı/commit **İngilizce** | 2026-08-24 | İletişim diliyle tutarlı, kod evrensel |
+| Milestone sırasında **subtitle core ile translation core ayrıldı**, macOS slice araya alındı | 2026-08-24 | FFI kontratı ve capability modeli, en ağır core işi yazılmadan gerçek bir UI'a karşı doğrulansın. Gerekçe: [`roadmap.md`](roadmap.md) → "Şartnameden sapma" |
+| NEN-005 (CI) ve NEN-006 (redaction) M0'dan **M1'e taşındı** | 2026-08-24 | İkisi de Rust crate'i gerektiriyor; M0'ın "araç gerektirmez" özelliği korundu |
+| `doctor.sh` parametresiz **daima çıkış 0**; kapı görevini milestone'lu çağrı yapar | 2026-08-24 | Gelecek milestone eksiği mevcut blocker gibi görünmesin. Uygulama: NEN-030 |
+| Kanıt yükü **task tipine göre** belirlenir | 2026-08-24 | "Her task'a benchmark veya ekran kaydı" ya sahte kanıt ya kapanmayan task üretir. Güvenlik task'larında negatif test zorunluluğu **korundu** |
+| Ölçülmemiş performans eşikleri **baseline'a çevrildi** | 2026-08-24 | `< 100 MB`, `< 250 ms` hiçbir ölçüme dayanmıyordu. Invariant'lar (I1–I5) pass/fail kaldı; bütçe ADR-0027 ile kabul edilecek |
+| Kökte placeholder `LICENSE` **tutulmuyor** | 2026-08-24 | GitHub `LICENSE*`'ı hukuki metadata olarak okur; placeholder yanıltıcı. Bkz. [`licensing.md`](licensing.md) |
+
+## 3. Cevaplanan açık sorular
+
+| # | Soru | Karar | Tarih |
+|---|---|---|---|
+| **S1** | Dağıtım modeli | **Kişisel kullanım + side-loading.** Public dağıtım ertelendi → S11 | 2026-08-24 |
+| **S2** | AI çeviri maliyeti | Kullanıcı **kendi** OpenSubtitles/OpenAI/OpenRouter anahtarını girer. **Hosted backend yok** | 2026-08-24 |
+| **S5** | Uzak medya kapsamı | Genel **file/http/https** açma desteklenir. Stremio önemli bir giriş kaynağı, **tek remote kaynak değil** | 2026-08-24 |
+| **S6** | Auto-sync gizliliği *(kısmen)* | Varsayılan **localOnly**; remote audio analizi **açık izin** ister. Model seçimi ve kaynak bütçesi hâlâ açık | 2026-08-24 |
+| **S8** | Cihazlar arası tercih taşıma | **Cloud sync ilk ürün için non-goal** | 2026-08-24 |
+| **S10** | Telemetri / crash raporlama | **İlk ürün için yok** | 2026-08-24 |
+
+## 4. Ertelenmiş kararlar
+
+| Konu | Ne zaman | Bağlı olduğu |
+|---|---|---|
+| Shared core dili (aday: Rust) | M1 sonu | ADR-0002 ← NEN-012 ← NEN-008/009/010/011/029 |
+| Binding (aday: UniFFI + C ABI) | M1 | ADR-0003 |
+| Playback ownership yönü (core-owned vs. shell-owned) | M1 | ADR-0026 ← NEN-029 |
+| Performans bütçeleri | M1 sonrası | ADR-0027 ← M1 baseline'ları |
+| macOS motor + libmpv linkleme/lisans | M3 öncesi | ADR-0012 |
+| Lisans ailesi ve public dağıtım | M3 öncesi / sonrası | S11, S12, ADR-0012 → [`licensing.md`](licensing.md) |
+| Persistence adapter (aday: SQLite + CAS) | M5 | ADR-0017 |
+| Android motor (aday: Media3) | M10 | ADR-0025 |
+
+## 5. Teknoloji karar statüsü
+
+**Aday** — ilgili ADR kabul edilene kadar karar sayılmaz:
+
+| Aday | Rol | Kararı verecek |
+|---|---|---|
+| Rust | shared core dili | ADR-0002 |
+| UniFFI | Swift/Kotlin binding | ADR-0003 |
+| C ABI | Windows/Linux binding | ADR-0003 |
+| SwiftUI | macOS UI | M3 dönemi |
+| Rust HTTP / rustls | paylaşılan HTTP adapter | ADR-0019 dönemi |
+| SQLite + content-addressed files | persistence adapter | ADR-0017 |
+| libmpv | masaüstü playback motoru | ADR-0012 |
+| Media3 | Android playback motoru | ADR-0025 |
+
+**Aday olmayan** (mimari yönün kendisi, spike'tan bağımsız): port sınırları ·
+capability modeli · HTTP/persistence **politika sahipliği** · `nen-domain`'in
+I/O'suzluğu · tek FFI kapısı (`nen-ffi`).
+
+## 6. ADR indeksi
+
+| Durum | ADR |
+|---|---|
+| ✅ accepted | [0001](adr/0001-adr-process.md) — ADR süreci |
+| 📋 planlanan | 0002–0027 — bkz. [`adr/README.md`](adr/README.md) |
+
+En kritik üçü: **0002** (core dili, M1 kapısı) · **0026** (playback ownership,
+NEN-021'in ön koşulu) · **0012** (libmpv linkleme, lisansın ön koşulu).
