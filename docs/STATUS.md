@@ -3,7 +3,7 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-24** (NEN-013 kapanışı — M2'nin ilk ürün kodu)
+> Son güncelleme: **2026-08-24** (NEN-014 kapanışı — WebVTT writer)
 
 ## Nerede duruyoruz
 
@@ -11,11 +11,21 @@
 |---|---|
 | **Mevcut milestone** | **M2 — Subtitle Core** (M1 kapandı) |
 | **Aktif task** | *yok* — `tasks/active/` boş |
-| **Son tamamlanan** | `NEN-013` — Strict SRT parser |
-| **Sıradaki READY** | `NEN-014`, `NEN-015`, `NEN-016`, `NEN-018`, `NEN-020`, `NEN-021` |
-| **Task sayısı** | 32 · done 17 · active 0 · blocked 0 · backlog 15 |
+| **Son tamamlanan** | `NEN-014` — WebVTT writer |
+| **Sıradaki READY** | `NEN-015`, `NEN-016`, `NEN-018`, `NEN-020`, `NEN-021` |
+| **Task sayısı** | 32 · done 18 · active 0 · blocked 0 · backlog 14 |
 
-**`NEN-013` kapandı — M2'nin ilk ürün kodu ayakta.** `nen-domain`'e subtitle
+**`NEN-014` kapandı.** `nen-subtitle`'a bir WebVTT writer (`webvtt::write`)
+eklendi: `SubtitleDocument` → `WEBVTT` başlığı, cue başına identifier
+(`CueId`) + `HH:MM:SS.mmm --> HH:MM:SS.mmm` zaman satırı + `&`/`<`/`>` kaçışlı
+metin satırları, BOM hiç yazılmıyor. Fixture korpusu 7 → **8** geçerli dosyaya
+çıktı (`html-special-chars.srt`, kaçış kapsamını kanıtlamak için eklendi);
+8 dosyanın hepsi için SRT → doc → WebVTT round-trip `.vtt` golden'ı commit
+edildi. Test sayısı 72 → **82**. `adr:` alanı `[7]` → **`[]`** düzeltildi —
+NEN-013'teki aynı gerekçe: ADR-0007'nin konusu NEN-016'nın kararı. Tam kanıt:
+`tasks/done/NEN-014-*.md`.
+
+**Eski `NEN-013` kapanışı — M2'nin ilk ürün kodu.** `nen-domain`'e subtitle
 değer tipleri (`CueId` · `TimeSpan` · `Cue` · `SubtitleDocument`),
 `nen-subtitle`'a strict SRT parser'ı ve **17 varyantlı** `SrtError` eklendi.
 Fixture korpusu: 7 geçerli dosya + 7 `.golden` snapshot, **25 malformed**
@@ -511,7 +521,12 @@ yalnız fixture'daydı ve `NEN-031` ile kapandı.
   (`unwrap_used`/`expect_used`/`panic`/`unreachable`/`indexing_slicing`,
   `cfg_attr(not(test))`). Testler: `golden_valid` · `malformed` · `fuzz_smoke`
   · `guard_error_debug`.
-- `fixtures/subtitles/valid/` — 7 SRT fixture + 7 `.golden` snapshot;
+- `core/crates/nen-subtitle/src/webvtt.rs` — NEN-014'ün WebVTT writer'ı
+  (`write(&SubtitleDocument) -> String`). `WEBVTT` başlığı, cue identifier +
+  `HH:MM:SS.mmm` zaman satırı, `&`/`<`/`>` kaçışlı metin, BOM'suz. Test:
+  `webvtt_roundtrip` (SRT → doc → WebVTT round-trip golden).
+- `fixtures/subtitles/valid/` — 8 SRT fixture + 8 `.golden` (SRT parse)
+  snapshot + 8 `.vtt` (WebVTT yazım, NEN-014) snapshot;
   `fixtures/subtitles/malformed/` — 25 fixture, her biri tek bozukluk.
   Golden biçimi: `cues\t<n>` başlığı + cue başına
   `id \t start_ms \t end_ms \t line_count \t escape'li metin`.

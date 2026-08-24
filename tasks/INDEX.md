@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **32** task · ✅ done 17 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 15
+Toplam **32** task · ✅ done 18 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 14
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -38,7 +38,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | ID | Başlık | Boyut | Durum | Bağımlılık |
 |---|---|---|---|---|
 | [NEN-013](done/NEN-013-strict-srt-parser.md) | Strict SRT parser | M | ✅ done | NEN-012 |
-| [NEN-014](backlog/NEN-014-webvtt-writer.md) | WebVTT writer | S | ⚪ backlog | NEN-013 |
+| [NEN-014](done/NEN-014-webvtt-writer.md) | WebVTT writer | S | ✅ done | NEN-013 |
 | [NEN-015](backlog/NEN-015-encoding-detection.md) | Encoding detection and sanitization | M | ⚪ backlog | NEN-013 |
 | [NEN-016](backlog/NEN-016-document-and-fingerprint.md) | SubtitleDocument and timeline fingerprint | M | ⚪ backlog | NEN-013 |
 | [NEN-017](backlog/NEN-017-indexed-cue-lookup.md) | Indexed cue lookup | M | ⚪ backlog | NEN-016 |
@@ -63,7 +63,6 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 
 Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 
-- **NEN-014** — WebVTT writer
 - **NEN-015** — Encoding detection and sanitization
 - **NEN-016** — SubtitleDocument and timeline fingerprint
 - **NEN-018** — Media evidence, OS-compatible hash, release name parser

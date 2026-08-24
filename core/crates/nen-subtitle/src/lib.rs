@@ -19,3 +19,4 @@
 )]
 
 pub mod srt;
+pub mod webvtt;
