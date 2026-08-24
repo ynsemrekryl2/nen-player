@@ -109,6 +109,7 @@ detect_cargo_deny() {
 }
 
 detect_jdk() {
+  command -v java >/dev/null 2>&1 || return 1
   run_timeout 15 java -version >/dev/null 2>&1 || return 1
   run_timeout 15 java -version 2>&1 | head -1
 }

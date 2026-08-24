@@ -126,6 +126,16 @@ expect_contains "TAM XCODE DEĞİL" "S3 M3 CommandLineTools'u tam Xcode saymıyo
 echo "  S4: JDK yok (Rust var)"
 setup_scenario rust fullxcode nojdk mpv
 unset ANDROID_HOME
+# GitHub Actions'ın macOS runner image'ında /usr/bin/java gerçekten çalışan
+# bir JDK'dır (CLT-only bir Mac'teki boş stub'ın aksine) — S7'nin swift için
+# yaptığı gibi, java hariç bir gölge /usr/bin bağlanıp PATH ona yönlendirilir.
+JAVA_SHADOW="$TMP/usr-bin-no-java"; rm -rf "$JAVA_SHADOW"; mkdir -p "$JAVA_SHADOW"
+for f in /usr/bin/*; do
+  b="$(basename "$f")"
+  [ "$b" = "java" ] && continue
+  ln -s "$f" "$JAVA_SHADOW/$b" 2>/dev/null
+done
+export PATH="$BIN:$JAVA_SHADOW:/bin"
 run_doctor; expect_exit 0 "S4 parametresiz"
 run_doctor M1; expect_exit 0 "S4 M1 — JDK 'soon', blocker değil"
 expect_contains "YAKINDA GEREKLİ" "S4 M1 çıktısı 'yakında gerekli' bölümü içeriyor"
