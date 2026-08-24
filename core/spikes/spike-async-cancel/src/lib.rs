@@ -229,8 +229,7 @@ pub fn start_job(params: JobParams, sink: Arc<dyn ProgressSink>) -> Arc<JobHandl
             for block in 0..params.total_blocks {
                 busy_wait(Duration::from_micros(params.block_micros));
                 let done = block + 1;
-                let at_checkpoint =
-                    done % checkpoint_every == 0 || done == params.total_blocks;
+                let at_checkpoint = done % checkpoint_every == 0 || done == params.total_blocks;
                 if !at_checkpoint {
                     continue;
                 }
@@ -304,7 +303,12 @@ fn notify(sink: &Sink, job_id: u64, phase: Phase, done: u32, total: u32) -> bool
     let guard = sink.lock().expect("sink mutex poisoned");
     match guard.as_ref() {
         Some(s) => {
-            s.on_progress(ProgressUpdate { job_id, phase, done, total });
+            s.on_progress(ProgressUpdate {
+                job_id,
+                phase,
+                done,
+                total,
+            });
             true
         }
         None => false,
@@ -340,7 +344,12 @@ mod tests {
     }
 
     fn params(total_blocks: u32, checkpoint_every: u32, attempt_late_commit: bool) -> JobParams {
-        JobParams { total_blocks, block_micros: 50, checkpoint_every, attempt_late_commit }
+        JobParams {
+            total_blocks,
+            block_micros: 50,
+            checkpoint_every,
+            attempt_late_commit,
+        }
     }
 
     #[test]
