@@ -51,6 +51,7 @@ ADR metnini tekrarlamaz, onlara işaret eder.
 | Commit **doğrulanmış kapanışta** otomatik atılır; onay kapısı push'a taşındı | 2026-08-24 | Eski kural (kullanıcı istemeden commit yok) her task kapanışında gereksiz bir el sıkışma üretiyordu. Korunmak istenen şey onay değil, **kayıt altına alınanın doğrulanmış olması**: kanıt dolu, testler yeşil, `check-docs.sh` çıkış 0. Geri döndürülmesi pahalı olan işlemler (push, amend, rebase, reset, force, tag) kullanıcıda kaldı |
 | **Shared core dili Rust olarak kilitlendi** | 2026-08-24 | NEN-008/009/010/011/029'un beş ölçümü de I1–I5'i kanıtladı, M1'in üç no-go koşulundan hiçbiri tetiklenmedi (reverse-FFI dahil — bkz. ADR-0026). Kotlin Multiplatform/Swift+ayrı Android/C++ hiçbiri ayrı ölçülmedi; zaten kanıtlanmış bir adaydan spike'sız bir alternatife geçmenin gerekçesi yoktu. Karar: [ADR-0002](adr/0002-core-language.md) |
 | Beş M1 baseline'ından **marjlı performans bütçesi** kabul edildi | 2026-08-24 | Tek cihaz (Apple M5) ve tek fixture boyutunda ölçülen p50/p95'in üzerine 4–11× marj eklendi; sıkı eşik değil, "bu aralığın dışına çıkarsan tasarımını gözden geçir" işareti. Karar: [ADR-0027](adr/0027-performance-budget.md) |
+| **Playback/renderer ownership yönü A (core-owned session, reverse callback)** kabul edildi | 2026-08-24 | `NEN-029`'un fake-adapter ölçümleri A'nın mutlak maliyetinin (60 Hz'de bile ~5 ms/sn, 1000 ms/sn kare bütçesinin binde biri) hiçbir makul UI bütçesini zorlamadığını gösterdi; B'nin ~60× daha ucuz olması bu farkı kararı değiştirecek büyüklükte yapmadı. Asıl gerekçe zaten performans değildi — subtitle sync ve çeviri tetikleme gibi mantığın tek, platformdan bağımsız bir kaynaktan yönetilmesiydi. `NEN-021` port contract'ını bu yön üzerine kurar. Karar: [ADR-0026](adr/0026-playback-renderer-ownership.md) |
 
 ## 3. Cevaplanan açık sorular
 
@@ -68,7 +69,6 @@ ADR metnini tekrarlamaz, onlara işaret eder.
 | Konu | Ne zaman | Bağlı olduğu |
 |---|---|---|
 | Binding (aday: UniFFI + C ABI) | M1 | ADR-0003 |
-| Playback ownership yönü (core-owned vs. shell-owned) | M1 | ADR-0026 ← NEN-029 |
 | macOS motor + libmpv linkleme/lisans | M3 öncesi | ADR-0012 |
 | Lisans ailesi ve public dağıtım | M3 öncesi / sonrası | S11, S12, ADR-0012 → [`licensing.md`](licensing.md) |
 | Persistence adapter (aday: SQLite + CAS) | M5 | ADR-0017 |
