@@ -1,0 +1,10 @@
+[package]
+name = "nen-ports"
+description = "Port traits and shared contract test kits"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+nen-domain.workspace = true

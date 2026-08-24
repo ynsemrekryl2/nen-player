@@ -1,0 +1,22 @@
+[package]
+name = "nen-ffi"
+description = "The single external FFI gate for the Nen Player core (ADR-0006)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lib]
+# staticlib → Apple hedefleri, cdylib → uniffi-bindgen --library modu.
+crate-type = ["lib", "staticlib", "cdylib"]
+name = "nen_ffi"
+
+# Binding üretici. Ayrı bir araç kurulmasına gerek kalmasın diye workspace
+# içinde yaşar; scripts/build-apple.sh bunu çağırır.
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+
+[dependencies]
+nen-app.workspace = true
+uniffi = { workspace = true, features = ["cli"] }

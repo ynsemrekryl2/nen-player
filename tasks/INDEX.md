@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **30** task · ✅ done 5 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 25
+Toplam **31** task · ✅ done 6 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 25
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -22,7 +22,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 |---|---|---|---|---|
 | [NEN-005](backlog/NEN-005-ci-skeleton.md) | CI skeleton | S | ⚪ backlog | NEN-004 NEN-007 |
 | [NEN-006](backlog/NEN-006-log-redaction.md) | Log redaction helpers and guard test | M | ⚪ backlog | NEN-001 NEN-007 |
-| [NEN-007](backlog/NEN-007-ffi-skeleton.md) | Rust workspace and UniFFI skeleton | M | ⚪ backlog | NEN-004 |
+| [NEN-007](done/NEN-007-ffi-skeleton.md) | Rust workspace and UniFFI skeleton | M | ✅ done | NEN-004 |
 | [NEN-008](backlog/NEN-008-spike-large-cue-lists.md) | Spike - large cue list across FFI | M | ⚪ backlog | NEN-007 |
 | [NEN-009](backlog/NEN-009-spike-async-cancellation.md) | Spike - async progress and cancellation | M | ⚪ backlog | NEN-007 |
 | [NEN-010](backlog/NEN-010-spike-typed-errors.md) | Spike - typed error mapping | S | ⚪ backlog | NEN-007 |
@@ -30,6 +30,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-012](backlog/NEN-012-adr-core-language.md) | Spike report and core language decision | S | ⚪ backlog | NEN-011 NEN-029 |
 | [NEN-029](backlog/NEN-029-playback-reverse-ffi-spike.md) | Playback/renderer reverse-FFI boundary spike | M | ⚪ backlog | NEN-007 NEN-009 |
 | [NEN-030](done/NEN-030-milestone-aware-doctor.md) | Milestone-aware doctor and STATUS consistency checks | S | ✅ done | — |
+| [NEN-031](backlog/NEN-031-check-docs-test-fixture-independence.md) | Make check-docs test fixture independent of live repo state | S | ⚪ backlog | — |
 
 ## M2 — Subtitle Core
 
@@ -61,4 +62,9 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 
 Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 
-- **NEN-007** — Rust workspace and UniFFI skeleton
+- **NEN-005** — CI skeleton
+- **NEN-006** — Log redaction helpers and guard test
+- **NEN-008** — Spike - large cue list across FFI
+- **NEN-009** — Spike - async progress and cancellation
+- **NEN-010** — Spike - typed error mapping
+- **NEN-031** — Make check-docs test fixture independent of live repo state

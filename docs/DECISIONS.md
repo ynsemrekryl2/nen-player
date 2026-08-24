@@ -45,6 +45,8 @@ ADR metnini tekrarlamaz, onlara işaret eder.
 | Kanıt yükü **task tipine göre** belirlenir | 2026-08-24 | "Her task'a benchmark veya ekran kaydı" ya sahte kanıt ya kapanmayan task üretir. Güvenlik task'larında negatif test zorunluluğu **korundu** |
 | Ölçülmemiş performans eşikleri **baseline'a çevrildi** | 2026-08-24 | `< 100 MB`, `< 250 ms` hiçbir ölçüme dayanmıyordu. Invariant'lar (I1–I5) pass/fail kaldı; bütçe ADR-0027 ile kabul edilecek |
 | Kökte placeholder `LICENSE` **tutulmuyor** | 2026-08-24 | GitHub `LICENSE*`'ı hukuki metadata olarak okur; placeholder yanıltıcı. Bkz. [`licensing.md`](licensing.md) |
+| Task'ın `adr:` alanı, kararın **verildiği** task'a yazılır — kullandığı task'a değil | 2026-08-24 | `NEN-007` hem ADR-0003'ü hem 0006'yı referans ediyordu; ADR-0003 spike ölçümleri olmadan `accepted` olamayacağı için task'ın kapanışını kilitliyordu. Alan `[6]`'ya indirildi, binding kararı NEN-011/NEN-012'de kaldı. Aynı kusur `NEN-008` ve `NEN-011`'de duruyor |
+| Swift testleri **swift-testing** ile yazılır (XCTest değil) | 2026-08-24 | CommandLineTools `XCTest.framework` getirmiyor, `Testing.framework` getiriyor. Tam Xcode zorunluluğu M3'e kadar ertelenmiş olsun. Uygulama: `scripts/test-apple.sh` (NEN-007) |
 
 ## 3. Cevaplanan açık sorular
 

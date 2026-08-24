@@ -1,0 +1,6 @@
+# Toolchain pinlenir: M1'in her ölçümü "toolchain sürümü" bağlamıyla
+# raporlanmak zorunda (docs/milestones/M1-core-spike.md → Baseline ölçümleri).
+# Pin olmadan başka makinedeki sayı karşılaştırılabilir değildir.
+[toolchain]
+channel = "1.98.0"
+components = ["rustfmt", "clippy"]

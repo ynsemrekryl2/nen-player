@@ -18,7 +18,7 @@ bağlanıp bağlanamadığı bu milestone'da belirlenir. Çıktı kod değil **k
 - Aynı üçünün Kotlin/JVM paritesi
 - **Reverse-FFI ownership spike'ı** (NEN-029): core mu platform shell mi
   playback session'ın sahibi?
-- Milestone-aware toolchain doctor (NEN-030)
+- Milestone-aware toolchain doctor (NEN-030) ve test fixture düzeltmesi (NEN-031)
 - CI iskeleti ve log redaction yardımcıları (ikisi de crate gerektirdiği için
   M0'dan buraya taşındı)
 - Spike raporu ve ADR-0002
@@ -94,7 +94,7 @@ dışındaki tüm plan yeniden yazılır.
 ## Task'lar
 
 `NEN-005` · `NEN-006` · `NEN-007` · `NEN-008` · `NEN-009` · `NEN-010` ·
-`NEN-011` · `NEN-012` · `NEN-029` · `NEN-030`
+`NEN-011` · `NEN-012` · `NEN-029` · `NEN-030` · `NEN-031`
 
 ## Bağımlılıklar
 

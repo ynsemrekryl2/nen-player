@@ -1,0 +1,10 @@
+[package]
+name = "nen-identity"
+description = "Media evidence, hashing, release name parsing"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+nen-domain.workspace = true

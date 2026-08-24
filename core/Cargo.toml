@@ -1,0 +1,37 @@
+# Nen Player shared core workspace.
+#
+# Yapı ve crate sınırları ADR-0006 ile kabul edildi:
+#   docs/adr/0006-monorepo-and-crate-boundaries.md
+#
+# Bağımlılık grafiği tek yönlüdür. nen-domain hiçbir iç crate'e bağımlı
+# değildir; nen-ffi tek dış kapıdır.
+
+[workspace]
+resolver = "2"
+members = ["crates/*", "spikes/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.98"
+publish = false
+
+[workspace.dependencies]
+# İç crate'ler — izinli bağımlılıklar ADR-0006'daki tabloya göredir.
+nen-domain    = { path = "crates/nen-domain" }
+nen-ports     = { path = "crates/nen-ports" }
+nen-subtitle  = { path = "crates/nen-subtitle" }
+nen-identity  = { path = "crates/nen-identity" }
+nen-catalog   = { path = "crates/nen-catalog" }
+nen-translate = { path = "crates/nen-translate" }
+nen-sync      = { path = "crates/nen-sync" }
+nen-persist   = { path = "crates/nen-persist" }
+nen-providers = { path = "crates/nen-providers" }
+nen-app       = { path = "crates/nen-app" }
+
+# Dış bağımlılıklar. UniFFI ADAYDIR — ADR-0003 kabul edilene kadar karar değil.
+uniffi = "0.32.0"
+
+[profile.release]
+lto = true
+codegen-units = 1

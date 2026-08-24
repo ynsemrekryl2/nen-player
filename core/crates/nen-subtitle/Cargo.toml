@@ -1,0 +1,10 @@
+[package]
+name = "nen-subtitle"
+description = "SRT/WebVTT parse-write, encoding, timeline"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+nen-domain.workspace = true
