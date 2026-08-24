@@ -11,6 +11,7 @@ Süreç: [`0001-adr-process.md`](0001-adr-process.md) · Şablon:
 | [0006](0006-monorepo-and-crate-boundaries.md) | Monorepo yapısı ve crate sınırları | ✅ accepted | M1 |
 | [0026](0026-playback-renderer-ownership.md) | Playback/renderer ownership yönü | ✅ accepted | M1 |
 | [0028](0028-spike-ffi-surface.md) | Spike'ların geçici FFI yüzeyi | ✅ accepted | M1 |
+| [0008](0008-encoding-detection-and-sanitization.md) | Encoding tespiti ve sanitization politikası | ✅ accepted | M2 |
 
 ## Planlanan
 
@@ -27,7 +28,6 @@ karar verilmiş sayılmaz (bkz. `docs/architecture.md` → "Karar statüsü").
 | 0004 | Async / cancellation / progress kontratı ve late-commit yasağı | M1 |
 | 0005 | Typed error taksonomisi ve redaction kuralları | M1 |
 | 0007 | Subtitle domain modeli; cue kimliği ve timeline fingerprint algoritması | M2 |
-| 0008 | Encoding tespiti ve sanitization politikası | M2 |
 | 0009 | Media evidence / identity çözümleme ve fallback sırası | M2 |
 | 0010 | SubtitleSourceCatalog gruplama, dedup ve menü projeksiyon kuralları | M2 |
 | 0011 | `PlaybackEngine` capability modeli ve contract test yaklaşımı | M3 |
