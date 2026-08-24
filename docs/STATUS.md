@@ -123,7 +123,9 @@ iki durumda da doğru çalışıyor (exit 0). `NEN-031` bunu kapatacak.
 - Var olan: 6 ana doküman · 12 milestone dosyası · **2 accepted ADR**
   (0001, 0006) · 31 task · 6 script + 2 shell testi · `fixtures/` iskeleti.
 - Depo kökünde **`LICENSE` dosyası bilerek yok** — bkz. [`licensing.md`](licensing.md).
-- Git: `main` branch.
+- Git: `main` branch. **Bu dosya commit hash'i tutmaz** — commit geçmişi
+  kanonik kayıttır ve elle tutulan hash satırı her kapanışta bayatlar
+  (CLAUDE.md → "Commit politikası").
 
 ## Bu dosyayı kim günceller
 

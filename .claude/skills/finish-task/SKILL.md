@@ -1,6 +1,6 @@
 ---
 name: finish-task
-description: Nen Player'da aktif task'ın kabul kriterlerini denetler, testleri çalıştırır, kanıt kaydını yazar ve task'ı done'a taşır. Eksik kanıtta done yapmaz, commit atmaz, başka task'a başlamaz.
+description: Nen Player'da aktif task'ın kabul kriterlerini denetler, testleri çalıştırır, kanıt kaydını yazar, task'ı done'a taşır ve commit'ler. Eksik kanıtta done yapmaz, push atmaz, başka task'a başlamaz.
 ---
 
 # /finish-task
@@ -28,7 +28,10 @@ Aktif task'ı **kanıtla kapat** — eksikse kapatma.
 12. Milestone'un son task'ıysa `docs/milestones/M#-*.md` içine **retro** yaz.
 13. Karar verildiyse `docs/DECISIONS.md`'ye işle.
 14. `bash scripts/check-docs.sh` ile doğrula — çıkış 0 olmalı.
-15. **Commit atma.** **Başka task'a başlama.** Dur ve raporla.
+15. **Commit at** — CLAUDE.md → "Commit politikası". Kapanış kendi commit'ini
+    alır; bu oturumda kabul edilmiş bir ADR varsa o ayrı commit olur.
+    Ön koşul: adım 14 çıkış 0 vermiş olmalı.
+16. **Push atma**, geçmişi değiştirme, **başka task'a başlama.** Dur ve raporla.
 
 ## Sınırlar
 

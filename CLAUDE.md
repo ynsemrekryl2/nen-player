@@ -29,7 +29,7 @@ Kararların durumu için `docs/DECISIONS.md`; açık sorular için
 | 3 | **Kanıt üretilmeden `done` yok.** Kanıt **task tipine göre** seçilir (`docs/testing-strategy.md` → "Kanıt formatı"): logic→test, format→golden, security→**negatif test (zorunlu)**, performans→baseline raporu, UI→screenshot veya checklist, spike→ölçüm raporu+ADR, doküman→link/tutarlılık kontrolü. Benchmark veya ekran kaydı her task için zorunlu **değildir**. |
 | 4 | **Mimari karar → önce ADR.** `proposed` yazılır, kullanıcı onaylar, `accepted` olur. ADR olmadan mimari değişmez. İlgili ADR kabul edilene kadar teknoloji seçimleri **aday**dır; belgelerde kesin karar gibi yazılmaz. |
 | 5 | **Unrelated refactor yok.** Yol üstünde görülen iyileştirme → yeni backlog task'ı, mevcut task'a eklenmez. |
-| 6 | **Kullanıcı istemeden commit yok.** |
+| 6 | **Commit doğrulanmış kapanışta atılır** — yarım işe, kırmızı teste, eksik kanıta commit yok. Push ve geçmiş değiştirme kullanıcıya aittir → "Commit politikası". |
 | 7 | **Spike kodu ürün kodu değildir.** `core/spikes/` altında kalır, terfi etmez. |
 | 8 | **Testler gerçek provider kredisi/kotası kullanmaz.** Deterministic fake zorunlu. |
 | 9 | `tasks/INDEX.md` elle düzenlenmez — `scripts/task-index.sh` üretir. |
@@ -51,6 +51,44 @@ bash scripts/task-index.sh
 
 Bir task'ı kapatmak: **Kanıt kaydı** bölümünü gerçek çıktıyla doldur, `state: done`
 yap, `tasks/done/` altına taşı, index'i yeniden üret, `scripts/check-docs.sh` çalıştır.
+
+## Commit politikası
+
+Commit **bir kapanış işaretidir**, ara kayıt değil. Ölçü şu: commit'in gösterdiği
+ağaçta `bash scripts/check-docs.sh` çıkış 0 vermeli ve o iş kendi başına anlamlı
+olmalı.
+
+### Sormadan atılır
+
+Aşağıdakiler kendi commit'lerini alır — her biri ayrı:
+
+| Durum | Ön koşul |
+|---|---|
+| Bir task `done` oldu | Kanıt kaydı gerçek çıktıyla dolu · DoD testleri geçiyor · `check-docs.sh` çıkış 0 |
+| Bir ADR `accepted` oldu | Kullanıcı onayı alınmış |
+| Doküman / tooling düzeltmesi | Kendi başına tutarlı; task gerektirmeyen türden |
+
+Hepsinde ortak zorunluluk: **staged içerikte yarım iş, kırmızı test veya
+`.gitignore`'lu üretilmiş dosya yok.** Bir commit'e sığmayan iki ayrı iş varsa
+iki commit atılır.
+
+### Sorulmadan yapılmaz
+
+- **`git push`** ve uzağa giden her şey (PR açma, remote branch)
+- **Geçmişi değiştiren her şey:** `--amend` · `rebase` · `reset --hard` ·
+  force push · tag · branch silme
+- **Kırmızı testle veya eksik kanıtla commit** (WIP kaydı) — kullanıcı açıkça
+  isterse olur
+- Branch açmak — bu depo tek geliştiricili ve `main` üstünde çalışıyor;
+  branch'e geçmek kullanıcının kararıdır
+
+**Tek istisna:** aynı oturumda kendi attığın ve **henüz push edilmemiş** bir
+commit'in hatasını düzeltmek serbesttir (`reset --soft` + yeniden commit).
+Burada kullanıcının geçmişine dokunulmuyor, kendi hatanın izi siliniyor —
+ama yapıldığı **söylenir**, sessizce geçilmez.
+
+Kural 6'nın koruduğu şey "kullanıcı her seferinde onay versin" değil, **kayıt
+altına alınanın doğrulanmış olması**. Doğrulama sağlanıyorsa commit beklemez.
 
 ## Commit mesajı formatı
 

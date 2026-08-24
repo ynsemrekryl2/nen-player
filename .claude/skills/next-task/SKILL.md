@@ -1,6 +1,6 @@
 ---
 name: next-task
-description: Nen Player'da sıradaki task'ı seçer, bağlamını okur ve kısa bir execution planı sunar. Kullanıcı onayı olmadan implementasyona geçmez, tek task uygular, commit atmaz.
+description: Nen Player'da sıradaki task'ı seçer, bağlamını okur ve kısa bir execution planı sunar. Kullanıcı onayı olmadan implementasyona geçmez, tek task uygular, push atmaz.
 ---
 
 # /next-task
@@ -27,7 +27,8 @@ Sıradaki task'ı **seç, bağlamını oku, planını sun, onay bekle.**
 11. Onay gelince **yalnız tek task** uygula.
 12. **Test kanıtı olmadan `done` yapma.** Kanıt tipi task tipine göre —
     `docs/testing-strategy.md` → "Kanıt formatı".
-13. **Kullanıcı istemeden commit atma.**
+13. Task kapanınca **commit at** (CLAUDE.md → "Commit politikası"): kanıt dolu,
+    testler yeşil, `check-docs.sh` çıkış 0. **Push yok**, geçmiş değiştirme yok.
 14. `bash scripts/task-index.sh` çalıştır, `docs/STATUS.md`'yi güncelle,
     `bash scripts/check-docs.sh` ile doğrula.
 15. **Sıradaki task'a otomatik geçme.** Dur ve raporla.
