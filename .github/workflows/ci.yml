@@ -46,10 +46,14 @@ jobs:
         run: cargo test --workspace
         working-directory: core
 
-      - name: cargo deny check
-        uses: EmbarkStudios/cargo-deny-action@v2
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@v2
         with:
-          manifest-path: core/Cargo.toml
+          tool: cargo-deny
+
+      - name: cargo deny check
+        run: cargo deny check
+        working-directory: core
 
       - name: bash scripts/test.sh
         run: bash scripts/test.sh
