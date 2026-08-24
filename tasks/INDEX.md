@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **32** task · ✅ done 8 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 24
+Toplam **32** task · ✅ done 9 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 23
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -24,7 +24,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-006](backlog/NEN-006-log-redaction.md) | Log redaction helpers and guard test | M | ⚪ backlog | NEN-001 NEN-007 |
 | [NEN-007](done/NEN-007-ffi-skeleton.md) | Rust workspace and UniFFI skeleton | M | ✅ done | NEN-004 |
 | [NEN-008](done/NEN-008-spike-large-cue-lists.md) | Spike - large cue list across FFI | M | ✅ done | NEN-007 |
-| [NEN-009](backlog/NEN-009-spike-async-cancellation.md) | Spike - async progress and cancellation | M | ⚪ backlog | NEN-007 |
+| [NEN-009](done/NEN-009-spike-async-cancellation.md) | Spike - async progress and cancellation | M | ✅ done | NEN-007 |
 | [NEN-010](backlog/NEN-010-spike-typed-errors.md) | Spike - typed error mapping | S | ⚪ backlog | NEN-007 |
 | [NEN-011](backlog/NEN-011-spike-kotlin-parity.md) | Spike - Kotlin binding parity | M | ⚪ backlog | NEN-008 NEN-009 NEN-010 |
 | [NEN-012](backlog/NEN-012-adr-core-language.md) | Spike report and core language decision | S | ⚪ backlog | NEN-011 NEN-029 |
@@ -65,6 +65,6 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 
 - **NEN-005** — CI skeleton
 - **NEN-006** — Log redaction helpers and guard test
-- **NEN-009** — Spike - async progress and cancellation
 - **NEN-010** — Spike - typed error mapping
+- **NEN-029** — Playback/renderer reverse-FFI boundary spike
 - **NEN-032** — Move swift to M1 in doctor's milestone levels

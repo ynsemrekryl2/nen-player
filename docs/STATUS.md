@@ -3,7 +3,7 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-24** (NEN-008 kapanışı)
+> Son güncelleme: **2026-08-24** (NEN-009 kapanışı)
 
 ## Nerede duruyoruz
 
@@ -11,9 +11,39 @@
 |---|---|
 | **Mevcut milestone** | **M1 — Core Technical Spike** (M0 kapandı) |
 | **Aktif task** | *yok* — `tasks/active/` boş |
-| **Son tamamlanan** | `NEN-008` — büyük cue listesinin FFI'dan geçiş ölçümü |
-| **Sıradaki READY** | `NEN-005` `NEN-006` `NEN-009` `NEN-010` `NEN-032` |
-| **Task sayısı** | 32 · done 8 · active 0 · blocked 0 · backlog 24 |
+| **Son tamamlanan** | `NEN-009` — async progress + cooperative cancellation ölçümü |
+| **Sıradaki READY** | `NEN-005` `NEN-006` `NEN-010` `NEN-029` `NEN-032` |
+| **Task sayısı** | 32 · done 9 · active 0 · blocked 0 · backlog 23 |
+
+**`NEN-009` kapandı.** FFI sınırından geçen bir işin kooperatif iptali,
+`Mutex<Option<Arc<dyn ProgressSink>>>` "delivery gate" tasarımıyla ölçüldü:
+worker her checkpoint'te callback'i **kilit altında** çağırıyor, `cancel()`
+aynı kilidi alıp sink'i temizliyor — böylece `cancel()` bir callback'in
+ortasında dönemiyor ve döndükten sonra hiçbir checkpoint artık sink
+bulamıyor. Üç invariant (I1 geç callback yok, I2 geç commit engellendi, I4
+kaynak sızıntısı yok) hem release hem debug build'de Swift testleriyle
+deterministik kanıtlandı — `core/spikes/spike-async-cancel/`.
+
+Baseline (release · Apple M5 · macOS 27.0 · block_micros=20 µs sabit ·
+200 koşu/satır): latency checkpoint aralığına neredeyse birebir bağlı —
+checkpoint_every=1 → p50 **33 µs**, checkpoint_every=100 → p50 **2.02 ms**;
+kapı maliyeti (kilit + çağrı) aralığın yanında ölçülemeyecek kadar küçük.
+
+**Kanıt sürecinde bulunan bir kusur, sürecin kendisini de düzeltti:** ilk
+yazılan Swift testi "iptal isteği" bayrağını `cancel()` çağrılmadan ÖNCE
+işaretliyordu; 800 koşuluk sweep'te debug build'de 1 kaçak callback ortaya
+çıktı (checkpoint_every=1'de). Bu I1'in ihlali değildi — "kullanıcı iptale
+karar verdi" ile "Swift'in `cancel()`'ı fiilen çağırması" arasındaki dispatch
+penceresinde meşru bir kaçaktı; testin ölçtüğü sınır I1'in gerçek sınırıyla
+(cancel() **döndükten** sonra) örtüşmüyordu. Düzeltme: bayrak artık
+`cancel()` döndükten SONRA işaretleniyor — kilit tasarımı gereği yapısal
+olarak imkânsız bir kaçağı test ediyor, artık deterministik. Ayrıntı ve
+release/debug tam tabloları task'ın kanıt kaydında.
+
+`NEN-009`'un `adr:` alanı `[4]` → **`[28]`** olarak düzeltildi — NEN-007/008
+ile aynı gerekçe: ADR-0004 (async/cancellation kontratı) ölçümler
+(NEN-009+NEN-011+NEN-029) bitmeden `accepted` olamaz; task'ın gerçekte
+dayandığı karar spike-local FFI kapısını açan ADR-0028.
 
 **`NEN-008` kapandı — M1'in ilk sayıları var.** 50 000 cue'luk bir doküman
 (3.1 MiB) Swift'e iki yoldan geçirilip ölçüldü (release · Apple M5 · macOS 27.0):
@@ -123,8 +153,8 @@ $ bash scripts/doctor.sh M1
 SONUÇ: M1 için tüm blocker'lar hazır.            → exit 0
 
 $ cargo test --manifest-path core/Cargo.toml --workspace
-spike_cue_transfer  8 passed          nen-app 1 passed          nen-ffi 1 passed
-10 passed, 0 failed (26 target)                  → exit 0
+spike_cue_transfer 8 · spike_async_cancel 6 · nen-app 1 · nen-ffi 1
+16 passed, 0 failed                              → exit 0
 
 $ cargo tree -p nen-domain --edges normal
 nen-domain v0.1.0                                → tek düğüm, sıfır bağımlılık
@@ -135,6 +165,12 @@ $ bash scripts/test-apple.sh
 
 $ bash scripts/spike-cues.sh                      → NEN-008 release baseline
 $ bash scripts/spike-cues.sh --debug              → NEN-008 debug karşılaştırması
+
+$ bash scripts/spike-async.sh --test-only         → NEN-009 invariant'lar (release)
+$ bash scripts/spike-async.sh --debug --test-only → NEN-009 invariant'lar (debug)
+✔ Test run with 3 tests in 1 suite passed        → exit 0 (ikisinde de)
+$ bash scripts/spike-async.sh --measure-only      → NEN-009 release baseline
+$ bash scripts/spike-async.sh --debug --measure-only → NEN-009 debug karşılaştırması
 
 $ bash scripts/check-docs.sh
   8/8 denetim geçti                              → exit 0
@@ -168,11 +204,14 @@ yalnız fixture'daydı ve `NEN-031` ile kapandı.
 - `core/spikes/spike-cue-transfer/` — NEN-008'in ölçüm crate'i ve içinde kendi
   Swift harness'ı (`apple-harness/`). **Ürün kodu değil, terfi etmez**; kendi
   FFI kapısını ADR-0028 sayesinde açıyor. Üretilen binding commit edilmiyor.
+- `core/spikes/spike-async-cancel/` — NEN-009'un ölçüm crate'i; kendi Swift
+  harness'ı hem CLI ölçüm hedefi hem swift-testing invariant test hedefi
+  içeriyor (`apple-harness/Tests/`). Aynı ADR-0028 kapısı, aynı terfi yasağı.
 - `platforms/apple-shared/` — SwiftPM paketi (`Package.swift` + swift-testing
   test target'ı). Üretilen binding `generated/` altında ve **commit edilmiyor**.
 - Diğer `platforms/*` dizinleri hâlâ boş iskelet.
 - Var olan: 6 ana doküman · 12 milestone dosyası · **3 accepted ADR**
-  (0001, 0006, 0028) · 32 task · 6 script + 2 shell testi · `fixtures/` iskeleti.
+  (0001, 0006, 0028) · 32 task · 7 script + 2 shell testi · `fixtures/` iskeleti.
 - Depo kökünde **`LICENSE` dosyası bilerek yok** — bkz. [`licensing.md`](licensing.md).
 - Git: `main` branch. **Bu dosya commit hash'i tutmaz** — commit geçmişi
   kanonik kayıttır ve elle tutulan hash satırı her kapanışta bayatlar
