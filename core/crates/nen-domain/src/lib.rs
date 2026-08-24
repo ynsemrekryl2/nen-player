@@ -6,6 +6,8 @@
 
 pub mod redact;
 
+    pub const   INTENTIONAL_FMT_VIOLATION : &str  =  "x";
+
 /// Stable identifier of the shared core, used to prove that a value really
 /// travelled `nen-domain` → `nen-app` → `nen-ffi` → platform.
 pub const CORE_NAME: &str = "nen-core";
