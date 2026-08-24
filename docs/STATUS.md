@@ -3,7 +3,7 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-24** (NEN-006 kapanışı)
+> Son güncelleme: **2026-08-24** (NEN-010 kapanışı)
 
 ## Nerede duruyoruz
 
@@ -11,9 +11,47 @@
 |---|---|
 | **Mevcut milestone** | **M1 — Core Technical Spike** (M0 kapandı) |
 | **Aktif task** | *yok* — `tasks/active/` boş |
-| **Son tamamlanan** | `NEN-006` — log redaction yardımcıları ve guard test |
-| **Sıradaki READY** | `NEN-005` `NEN-010` `NEN-029` |
-| **Task sayısı** | 32 · done 11 · active 0 · blocked 0 · backlog 21 |
+| **Son tamamlanan** | `NEN-010` — spike: typed error mapping |
+| **Sıradaki READY** | `NEN-005` `NEN-011` `NEN-029` |
+| **Task sayısı** | 32 · done 12 · active 0 · blocked 0 · backlog 20 |
+
+**`NEN-010` kapandı.** `core/spikes/spike-typed-errors/` — beş varyantlı bir
+`AppError` (UniFFI **rich** error, `flat_error` değil) Swift'e geçirilip
+`default:` olmadan exhaustive bir `switch` ile ayrıştırıldığı gösterildi
+(I3: "typed error string parse gerektirmiyor"). **Tasarım bulgusu:**
+NEN-006'nın elle yazılmış `Debug` garantisi yalnız Rust `{:?}` çıktısını
+korur — Swift'in kendi `String(describing:)` basımı Rust `Debug`'ını hiç
+görmüyor, dolayısıyla FFI'yı geçen bir hata için koruma "inşa öncesi
+sanitize et" ile sağlandı: `Parse` yalnız `nen_domain::redact::extension()`'ı
+taşıyor (ham path'i asla), `Network` yalnız `redact_host()`'tan geçmiş
+host'u. Bu sayede ham değer FFI teline hiç çıkmıyor; hem Rust `Debug`'ı hem
+wire hem Swift'in varsayılan basımı aynı anda güvenli. Negatif kanıt
+(NEN-006'daki `BadFixtureWithDerivedDebug` ile aynı teknik): sanitizing
+constructor bypass edilip ham path doğrudan alana konursa, elle yazılmış
+`Debug` bunu ayırt edemiyor ve gerçekten sızdırıyor — üstteki no-leak
+testlerinin boşta dönmediğinin kanıtı.
+
+**Yan bulgu:** bu uniffi sürümünde (0.32.0) `uniffi::Error` varyant adları
+Swift'te PascalCase (`.Parse`), sıradan `uniffi::Enum` varyantları ise
+camelCase (`.localAsr`) — iki derive makrosu arasında tutarsız isimlendirme;
+M2'nin gerçek hata taksonomisi yazılırken hatırlanmalı.
+
+**DoD #3 ("bilinmeyen varyant sessizce yutulmuyor") negatif kanıtı**
+gerçek crate'e dokunmadan, tamamen ayrı bir scratch cargo+swift projesinde
+aynı `uniffi::Error` mekanizmasıyla mekanik kanıtlandı: 3 varyantlı bir
+enum + exhaustive switch derleniyor; switch'e dokunulmadan 4. varyant
+eklenince `swift build` **"switch must be exhaustive"** ile kırılıyor.
+Yani iddia çalışma zamanı davranışı değil derleme zamanı garantisi olarak
+kanıtlandı — `doctor.test.sh`'ın shadow-PATH tekniğiyle aynı ruh (geçici
+durum, mekanik kanıt, iz bırakmadan temizlik).
+
+Baseline (M1-core-spike.md'nin istediği, eşik değil): 5 varyant; throw→catch→
+switch eşleme maliyeti p50 **2.04 µs**, p95 **2.17 µs** (Apple M5 · macOS
+27.0 · release, 10 000 tekrar).
+
+`NEN-010`'un `adr:` alanı `[5]` → **`[28]`** olarak düzeltildi — NEN-006/
+008/009'la aynı gerekçe: ADR-0005 dosyası yok, task onu kararlaştırmıyor;
+gerçek dayanak spike-local FFI kapısını açan ADR-0028.
 
 **`NEN-006` kapandı.** `nen-domain` (bağımlılıksız değer crate'i) içine bir
 `redact` modülü eklendi: `Redacted<T>` (Debug/Display her koşulda
@@ -190,9 +228,9 @@ $ bash scripts/doctor.sh M1
 SONUÇ: M1 için tüm blocker'lar hazır.            → exit 0
 
 $ cargo test --manifest-path core/Cargo.toml --workspace
-spike_cue_transfer 8 · spike_async_cancel 6 · nen-app 1 · nen-ffi 1 ·
-nen-domain 4 (unit) + 6 (guard_redaction) = 10
-26 passed, 0 failed                              → exit 0
+spike_cue_transfer 8 · spike_async_cancel 6 · spike_typed_errors 5 ·
+nen-app 1 · nen-ffi 1 · nen-domain 4 (unit) + 6 (guard_redaction) = 10
+31 passed, 0 failed                              → exit 0
 
 $ cargo tree -p nen-domain --edges normal
 nen-domain v0.1.0                                → tek düğüm, sıfır bağımlılık
@@ -212,6 +250,12 @@ $ bash scripts/spike-async.sh --debug --test-only → NEN-009 invariant'lar (deb
 ✔ Test run with 3 tests in 1 suite passed        → exit 0 (ikisinde de)
 $ bash scripts/spike-async.sh --measure-only      → NEN-009 release baseline
 $ bash scripts/spike-async.sh --debug --measure-only → NEN-009 debug karşılaştırması
+
+$ bash scripts/spike-typed-errors.sh
+✔ Test run with 2 tests in 1 suite passed        → exit 0 (switch + redaction)
+  eşleme maliyeti p50 2.04 µs · p95 2.17 µs        → NEN-010 baseline
+  negatif kontrol (scratch): 4. varyant swift build'i "switch must be
+  exhaustive" ile kırdı                            → DoD #3 kanıtlandı
 
 $ bash scripts/check-docs.sh
   8/8 denetim geçti                              → exit 0
@@ -251,11 +295,15 @@ yalnız fixture'daydı ve `NEN-031` ile kapandı.
 - `core/spikes/spike-async-cancel/` — NEN-009'un ölçüm crate'i; kendi Swift
   harness'ı hem CLI ölçüm hedefi hem swift-testing invariant test hedefi
   içeriyor (`apple-harness/Tests/`). Aynı ADR-0028 kapısı, aynı terfi yasağı.
+- `core/spikes/spike-typed-errors/` — NEN-010'un ölçüm crate'i; `nen-domain`'e
+  bağımlı (redaction yardımcıları), kendi Swift harness'ı hem switch/redaction
+  test hedefi (`apple-harness/Tests/`) hem baseline ölçüm hedefi
+  (`apple-harness/Sources/`) içeriyor. Aynı ADR-0028 kapısı, aynı terfi yasağı.
 - `platforms/apple-shared/` — SwiftPM paketi (`Package.swift` + swift-testing
   test target'ı). Üretilen binding `generated/` altında ve **commit edilmiyor**.
 - Diğer `platforms/*` dizinleri hâlâ boş iskelet.
 - Var olan: 6 ana doküman · 12 milestone dosyası · **3 accepted ADR**
-  (0001, 0006, 0028) · 32 task · 7 script + 2 shell testi · `fixtures/` iskeleti.
+  (0001, 0006, 0028) · 32 task · 8 script + 2 shell testi · `fixtures/` iskeleti.
 - Depo kökünde **`LICENSE` dosyası bilerek yok** — bkz. [`licensing.md`](licensing.md).
 - Git: `main` branch. **Bu dosya commit hash'i tutmaz** — commit geçmişi
   kanonik kayıttır ve elle tutulan hash satırı her kapanışta bayatlar
