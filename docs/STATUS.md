@@ -3,7 +3,7 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-24** (NEN-007 kapanışı)
+> Son güncelleme: **2026-08-24** (NEN-031 kapanışı)
 
 ## Nerede duruyoruz
 
@@ -11,14 +11,21 @@
 |---|---|
 | **Mevcut milestone** | **M1 — Core Technical Spike** (M0 kapandı) |
 | **Aktif task** | *yok* — `tasks/active/` boş |
-| **Son tamamlanan** | `NEN-007` — Rust workspace + UniFFI iskeleti (**ilk kod**) |
-| **Sıradaki READY** | `NEN-005` `NEN-006` `NEN-008` `NEN-009` `NEN-010` `NEN-031` |
-| **Task sayısı** | 31 · done 6 · active 0 · blocked 0 · backlog 25 |
+| **Son tamamlanan** | `NEN-031` — check-docs test fixture bağımsızlığı |
+| **Sıradaki READY** | `NEN-005` `NEN-006` `NEN-008` `NEN-009` `NEN-010` |
+| **Task sayısı** | 31 · done 7 · active 0 · blocked 0 · backlog 24 |
 
-`NEN-007` kapandı: **repository artık kod içeriyor.** Cargo workspace, ADR-0006'nın
-tarif ettiği 11 crate ve `nen-ffi` üzerinden Swift'e geçen bir `version()`
-fonksiyonu ayakta. Milestone sırası önerisi (`M1-core-spike.md`) NEN-008/009/010
-ile devam ediyor; NEN-031 (test fixture) ve NEN-006 (redaction) da açıldı.
+`NEN-031` kapandı: `scripts/tests/check-docs.test.sh` artık **kendi task
+fixture'ını kuruyor** — canlı `tasks/` ve `INDEX.md` okunmuyor. Denetim 8'in her
+iki dalı (ready listesi dolu / boş) ayrı ayrı doğrulanıyor; boş-ready dalı bugüne
+kadar hiç test edilmemişti. Yan etki: koşu 16.4 s → 1.6 s (eski fixture tüm
+repo'yu, `core/target` dahil 1.2 GB, tarlıyordu). Bu, **NEN-005'in (CI) ön
+koşuluydu**.
+
+Ondan önce `NEN-007` ile repository kod içermeye başlamıştı: Cargo workspace,
+ADR-0006'nın tarif ettiği 11 crate ve `nen-ffi` üzerinden Swift'e geçen bir
+`version()` fonksiyonu ayakta. Milestone sırası önerisi (`M1-core-spike.md`)
+NEN-008/009/010 ile devam ediyor.
 
 **UniFFI hâlâ aday.** NEN-007 binding teknolojisini seçmedi; ADR-0003
 NEN-011/NEN-012'de karara bağlanacak. Kabul edilen mimari karar **ADR-0006** —
@@ -57,11 +64,9 @@ kurmaz** — bu, `scripts/tests/doctor.test.sh` S7 ile mekanik olarak kanıtlan�
 | ~~B1~~ | ~~Rust kurulu değil~~ | — | ✅ **çözüldü** 2026-08-24 — rustup, 1.98.0 |
 | B2 | JDK yok | `NEN-011` (M1 içinde, sıra gelmedi) | `brew install --cask temurin` |
 | B3 | Tam Xcode + libmpv yok | M3; Swift testleri CommandLineTools'ta ek bayrak istiyor (`scripts/test-apple.sh` hallediyor) | App Store'dan Xcode + `brew install mpv` |
-| B4 | `check-docs.test.sh` T1/T3/T6, **bir task `active` olduğu anda** kırılıyor | hiçbir task'ı **bloke etmiyor**; CI iskeleti (NEN-005) öncesi kapanmalı | `NEN-031` |
+| ~~B4~~ | ~~`check-docs.test.sh` fixture'ı canlı repo durumuna bağlı~~ | — | ✅ **çözüldü** 2026-08-24 — `NEN-031` |
 
-**Gerçek blocker kalmadı.** B2 ve B3 sıradaki task'ları engellemiyor. B4 bir test
-fixture kusuru — `check-docs.sh`'ın kendisi her durumda exit 0; `tasks/active/`
-boşken `test.sh` de yeşil. Sebebi ve kapsamı `NEN-031`'de.
+**Gerçek blocker kalmadı.** B2 ve B3 sıradaki task'ları engellemiyor.
 
 ## Kullanıcı kararı bekleyenler
 
@@ -102,16 +107,21 @@ $ bash scripts/check-docs.sh
   8/8 denetim geçti                              → exit 0
 
 $ bash scripts/test.sh
-  doctor.test.sh     ✓ (24 doğrulama)
-  check-docs.test.sh ✓ ( 7 doğrulama)            → exit 0
+  check-docs.test.sh ✓ (11 doğrulama)
+  doctor.test.sh     ✓ (24 doğrulama)            → exit 0
 ```
 
-**B4 uyarısı — `test.sh` yalnız şu anki durumda yeşil.** `check-docs.test.sh`,
-`READY` listesini canlı `INDEX.md`'den türetiyor; liste boşaldığı anda — yani
-**bir task `active` olduğu anda** — T1/T3/T6 kırılıyor. NEN-007 `active`ken
-gözlendi, `done`a geçince kendiliğinden yeşile döndü. Yani paket bir sonraki
-task başlatıldığında yeniden kırmızıya dönecek. `check-docs.sh`'ın kendisi her
-iki durumda da doğru çalışıyor (exit 0). `NEN-031` bunu kapatacak.
+`scripts/test.sh` **`tasks/active/` dolu ve boşken ayrı ayrı** koşuldu; iki
+koşunun `check-docs.test.sh` çıktısı birebir aynı (NEN-031 kanıt kaydı).
+
+**B4 kapandı — kaydedilmiş gerekçesi de hatalıydı.** B4, `check-docs.test.sh`'ın
+"bir task `active` olduğu anda" kırıldığını söylüyordu. Gerçek tetikleyici bu
+değil: **ready listesinin boşalması**. NEN-031 `active/`'e alındığında listede
+NEN-005/006/008/009/010 kaldı ve `test.sh` yeşil kaldı — yani "bir sonraki task
+başlatıldığında yeniden kırmızıya dönecek" beklentisi de yanlıştı. NEN-007'de
+kırılmasının sebebi, o an her backlog task'ının NEN-007'ye bağlı olmasıydı.
+`check-docs.sh`'ın kendisi her iki durumda da doğru çalışıyordu (exit 0); kusur
+yalnız fixture'daydı ve `NEN-031` ile kapandı.
 
 ## Repository'nin gerçek durumu
 
