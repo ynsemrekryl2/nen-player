@@ -8,6 +8,7 @@ Süreç: [`0001-adr-process.md`](0001-adr-process.md) · Şablon:
 | ADR | Başlık | Durum | Milestone |
 |---|---|---|---|
 | [0001](0001-adr-process.md) | ADR süreci | ✅ accepted | M0 |
+| [0006](0006-monorepo-and-crate-boundaries.md) | Monorepo yapısı ve crate sınırları | ✅ accepted | M1 |
 
 ## Planlanan
 
@@ -23,7 +24,6 @@ karar verilmiş sayılmaz (bkz. `docs/architecture.md` → "Karar statüsü").
 | 0003 | FFI binding stratejisi (aday: UniFFI + C ABI); büyük veri geçiş modeli | M1 |
 | 0004 | Async / cancellation / progress kontratı ve late-commit yasağı | M1 |
 | 0005 | Typed error taksonomisi ve redaction kuralları | M1 |
-| 0006 | Monorepo yapısı ve crate sınırları | M1 |
 | 0007 | Subtitle domain modeli; cue kimliği ve timeline fingerprint algoritması | M2 |
 | 0008 | Encoding tespiti ve sanitization politikası | M2 |
 | 0009 | Media evidence / identity çözümleme ve fallback sırası | M2 |

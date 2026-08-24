@@ -190,6 +190,10 @@ ilgili kaynağı hatalı işaretler.
 
 ## Crate sınırları
 
+> Bu tablo **ADR-0006** ile kabul edildi ve `core/Cargo.toml` altında uygulandı
+> (NEN-007). Grafiğin belgeye uygunluğu `cargo tree` / `cargo metadata` ile
+> mekanik olarak doğrulanabilir.
+
 | Crate | Sorumluluk | Bağımlı olabileceği |
 |---|---|---|
 | `nen-domain` | Saf model, I/O yok | — |
