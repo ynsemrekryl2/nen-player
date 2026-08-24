@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **32** task · ✅ done 12 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 20
+Toplam **32** task · ✅ done 13 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 19
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -28,7 +28,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-010](done/NEN-010-spike-typed-errors.md) | Spike - typed error mapping | S | ✅ done | NEN-007 |
 | [NEN-011](backlog/NEN-011-spike-kotlin-parity.md) | Spike - Kotlin binding parity | M | ⚪ backlog | NEN-008 NEN-009 NEN-010 |
 | [NEN-012](backlog/NEN-012-adr-core-language.md) | Spike report and core language decision | S | ⚪ backlog | NEN-011 NEN-029 |
-| [NEN-029](backlog/NEN-029-playback-reverse-ffi-spike.md) | Playback/renderer reverse-FFI boundary spike | M | ⚪ backlog | NEN-007 NEN-009 |
+| [NEN-029](done/NEN-029-playback-reverse-ffi-spike.md) | Playback/renderer reverse-FFI boundary spike | M | ✅ done | NEN-007 NEN-009 |
 | [NEN-030](done/NEN-030-milestone-aware-doctor.md) | Milestone-aware doctor and STATUS consistency checks | S | ✅ done | — |
 | [NEN-031](done/NEN-031-check-docs-test-fixture-independence.md) | Make check-docs test fixture independent of live repo state | S | ✅ done | — |
 | [NEN-032](done/NEN-032-doctor-swift-milestone-level.md) | Move swift to M1 in doctor's milestone levels | S | ✅ done | NEN-030 |
@@ -65,4 +65,3 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 
 - **NEN-005** — CI skeleton
 - **NEN-011** — Spike - Kotlin binding parity
-- **NEN-029** — Playback/renderer reverse-FFI boundary spike

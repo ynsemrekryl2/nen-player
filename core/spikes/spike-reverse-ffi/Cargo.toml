@@ -1,0 +1,27 @@
+# NEN-029 ölçüm spike'ı — ÜRÜN KODU DEĞİLDİR (CLAUDE.md kural 7).
+#
+# Kendi FFI kapısını açıyor; buna izin veren karar ADR-0028'dir. ADR-0006
+# kural 2 ("nen-ffi tek dış kapıdır") ürün kodu için değişmeden geçerlidir —
+# bu crate ürün paketine linklenmez ve terfi etmez.
+
+[package]
+name = "spike-reverse-ffi"
+description = "NEN-029 spike: playback/renderer reverse-FFI ownership A/B (ADR-0028, ADR-0026)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lib]
+# staticlib → Swift harness'ın linklediği, cdylib → uniffi-bindgen --library modu.
+crate-type = ["lib", "staticlib", "cdylib"]
+name = "spike_reverse_ffi"
+
+# Ürünün uniffi-bindgen'inden ayrı ad: `cargo run --bin` çağrısı workspace
+# içinde belirsiz kalmasın.
+[[bin]]
+name = "spike-reverse-ffi-uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+
+[dependencies]
+uniffi = { workspace = true, features = ["cli"] }

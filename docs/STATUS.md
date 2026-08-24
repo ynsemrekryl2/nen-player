@@ -3,7 +3,7 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-24** (NEN-010 kapanışı)
+> Son güncelleme: **2026-08-24** (NEN-029 kapanışı, ADR-0026 accepted)
 
 ## Nerede duruyoruz
 
@@ -11,11 +11,58 @@
 |---|---|
 | **Mevcut milestone** | **M1 — Core Technical Spike** (M0 kapandı) |
 | **Aktif task** | *yok* — `tasks/active/` boş |
-| **Son tamamlanan** | `NEN-010` — spike: typed error mapping |
-| **Sıradaki READY** | `NEN-005` `NEN-011` `NEN-029` |
-| **Task sayısı** | 32 · done 12 · active 0 · blocked 0 · backlog 20 |
+| **Son tamamlanan** | `NEN-029` — spike: playback/renderer reverse-FFI boundary |
+| **Sıradaki READY** | `NEN-005` `NEN-011` |
+| **Task sayısı** | 32 · done 13 · active 0 · blocked 0 · backlog 19 |
 
-**`NEN-010` kapandı.** `core/spikes/spike-typed-errors/` — beş varyantlı bir
+**`NEN-029` kapandı ve `ADR-0026` accepted oldu.**
+`core/spikes/spike-reverse-ffi/` — NEN-009'un delivery-gate deseni tek bir
+crate içinde iki playback-ownership yönüne genelleştirildi: **A** (core-owned,
+`ReverseEngine` fake motoru bir `PlaybackObserver` foreign trait'ini tekrar
+tekrar çağırıyor) ve **B** (shell-owned, `ForwardSession`'a Swift kendi
+`DispatchSourceTimer`'ıyla düz çağrılar yapıyor, ters çağrı yok). Release'de
+60 Hz'de A'nın per-call maliyeti p50 **36.67 µs** + MainActor-hop p50
+**~40 µs** (callback her zaman ana thread DIŞINDA düşüyor); B'nin maliyeti
+p50 **1.33 µs**, hop hiç yok. Mutlak toplam ikisinde de küçük (A ~4.6 ms/sn,
+B ~0.08 ms/sn — 1000 ms/sn'lik kare bütçesinin binde biri mertebesinde), yani
+performans tek başına kararı belirlemedi. Asıl ayrım yapısaldı: bir
+backgrounding proxy deneyi, A'nın Rust-taraflı üretici thread'inin Swift
+tüketicisi hazır olmasa da üretmeye devam ettiğini gösterdi (Swift'in drain
+kuyruğu 2 sn askıya alınırken Rust tıklamaya devam etti, sonra birikme
+temizlendi) — B'de bu risk yapısal olarak yok. I1 ve I4 her iki yönde de
+sağlandı; event ordering, seek/seek-complete sırası, typed error aktarımı
+ikisinde de doğrulandı. Reentrancy: callback içinden `seek()` güvenli (ayrı
+kilit kullanıyor), callback içinden aynı thread'den `cancel()` ise delivery
+gate'in kendi kilidiyle self-deadlock — kod incelemesiyle kanıtlandı, canlı
+çalıştırılmadı (gerçek bir deadlock `live_engines()` sayacını binary'nin geri
+kalan testleri için kalıcı bozardı).
+
+**`ADR-0026` A'yı önerdi, kullanıcı onayladı: merkezi Rust session (reverse
+callback) kalıyor.** Gerekçe: A'nın mutlak maliyeti hiçbir makul UI bütçesini
+zorlamıyor, hiçbir invariant ihlal edilmedi; merkezi session'ın asıl
+gerekçesi zaten performans değil, subtitle sync/çeviri tetiklemenin tek
+kaynaktan yönetilmesiydi — bu spike o gerekçeyi ölçemezdi, yalnız A'nın
+uygulanabilir olduğunu doğruladı. `NEN-021`'in gerçek kontratı iki ölçülmüş
+riski (backpressure/backgrounding, reentrancy disiplini) açıkça ele almak
+zorunda — ADR-0026 → "Karar". `docs/architecture.md`'nin "Ownership yönü —
+spike bekliyor" notu bu kararla güncellendi; `NEN-021` artık başlayabilir.
+
+**Bulunan ve düzeltilen bir test kusuru:** ilk yazılan Rust testleri paralel
+`cargo test` thread'leri arasında `LIVE_ENGINES`/`LIVE_FORWARD_SESSIONS`
+global sayaçlarını paylaşıyordu. NEN-009'un aksine bu spike'ın tick'leri
+gerçek wall-clock `sleep` kullanıyor (10-80 ms pencereler, NEN-009'un
+mikrosaniye ölçekli busy-loop'larının aksine), bu da paralel test çakışmasını
+çok daha olası kılıp 2/11 testi deterministik kırdı. Düzeltme:
+`tests` modülüne bir `Mutex<()>` eklenip her test onu ilk satırda kilitledi;
+üç ardışık koşuda 11/11 stabil geçti.
+
+Kotlin ertelendi: task NEN-011'e bağımlı değil, bu makinede JDK kurulu değil
+(B2). Ayrıntı, tam ölçüm tabloları (release+debug) ve ADR-0028 mekanik
+denetim çıktıları task'ın kanıt kaydında.
+
+`NEN-029`'un `adr:` alanı zaten `[26]` doğruydu — bu kez düzeltme gerekmedi.
+
+**Eski `NEN-010` kapanışı.** `core/spikes/spike-typed-errors/` — beş varyantlı bir
 `AppError` (UniFFI **rich** error, `flat_error` değil) Swift'e geçirilip
 `default:` olmadan exhaustive bir `switch` ile ayrıştırıldığı gösterildi
 (I3: "typed error string parse gerektirmiyor"). **Tasarım bulgusu:**
@@ -229,8 +276,9 @@ SONUÇ: M1 için tüm blocker'lar hazır.            → exit 0
 
 $ cargo test --manifest-path core/Cargo.toml --workspace
 spike_cue_transfer 8 · spike_async_cancel 6 · spike_typed_errors 5 ·
-nen-app 1 · nen-ffi 1 · nen-domain 4 (unit) + 6 (guard_redaction) = 10
-31 passed, 0 failed                              → exit 0
+spike_reverse_ffi 11 · nen-app 1 · nen-ffi 1 ·
+nen-domain 4 (unit) + 6 (guard_redaction) = 10
+42 passed, 0 failed                              → exit 0
 
 $ cargo tree -p nen-domain --edges normal
 nen-domain v0.1.0                                → tek düğüm, sıfır bağımlılık
@@ -256,6 +304,14 @@ $ bash scripts/spike-typed-errors.sh
   eşleme maliyeti p50 2.04 µs · p95 2.17 µs        → NEN-010 baseline
   negatif kontrol (scratch): 4. varyant swift build'i "switch must be
   exhaustive" ile kırdı                            → DoD #3 kanıtlandı
+
+$ bash scripts/spike-reverse-ffi.sh --test-only         → NEN-029 (release)
+$ bash scripts/spike-reverse-ffi.sh --debug --test-only → NEN-029 (debug)
+✔ Test run with 12 tests in 3 suites passed      → exit 0 (ikisinde de)
+$ bash scripts/spike-reverse-ffi.sh                     → NEN-029 release baseline (A+B)
+$ bash scripts/spike-reverse-ffi.sh --debug              → NEN-029 debug karşılaştırması
+  A p50 36.67 µs + hop ~40 µs · B p50 1.33 µs (60 Hz, release)
+  → NEN-029 baseline, ADR-0026'nın dayanağı
 
 $ bash scripts/check-docs.sh
   8/8 denetim geçti                              → exit 0
@@ -299,11 +355,18 @@ yalnız fixture'daydı ve `NEN-031` ile kapandı.
   bağımlı (redaction yardımcıları), kendi Swift harness'ı hem switch/redaction
   test hedefi (`apple-harness/Tests/`) hem baseline ölçüm hedefi
   (`apple-harness/Sources/`) içeriyor. Aynı ADR-0028 kapısı, aynı terfi yasağı.
+- `core/spikes/spike-reverse-ffi/` — NEN-029'un ölçüm crate'i; A (`ReverseEngine`,
+  foreign `PlaybackObserver` trait'ini tekrar çağıran fake motor) ve B
+  (`ForwardSession`, düz forward çağrılar) tek crate'te. Swift harness'ı hem
+  baseline ölçüm hedefi (`apple-harness/Sources/`) hem üç ayrı swift-testing
+  hedefi (`InvariantTests`/`OrderingTests`/`TypedErrorTests`) içeriyor. Aynı
+  ADR-0028 kapısı, aynı terfi yasağı.
 - `platforms/apple-shared/` — SwiftPM paketi (`Package.swift` + swift-testing
   test target'ı). Üretilen binding `generated/` altında ve **commit edilmiyor**.
 - Diğer `platforms/*` dizinleri hâlâ boş iskelet.
-- Var olan: 6 ana doküman · 12 milestone dosyası · **3 accepted ADR**
-  (0001, 0006, 0028) · 32 task · 8 script + 2 shell testi · `fixtures/` iskeleti.
+- Var olan: 6 ana doküman · 12 milestone dosyası · **4 accepted ADR**
+  (0001, 0006, 0026, 0028) · 32 task · 10 script + 2 shell testi ·
+  `fixtures/` iskeleti.
 - Depo kökünde **`LICENSE` dosyası bilerek yok** — bkz. [`licensing.md`](licensing.md).
 - Git: `main` branch. **Bu dosya commit hash'i tutmaz** — commit geçmişi
   kanonik kayıttır ve elle tutulan hash satırı her kapanışta bayatlar
