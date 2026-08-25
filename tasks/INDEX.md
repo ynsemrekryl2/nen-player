@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **36** task · ✅ done 22 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 14
+Toplam **38** task · ✅ done 22 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 16
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -59,6 +59,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-027](backlog/NEN-027-subtitle-renderer.md) | SubtitleRenderer port and libmpv injection adapter | M | ⚪ backlog | NEN-017 NEN-026 |
 | [NEN-028](backlog/NEN-028-slice-acceptance.md) | macOS vertical slice acceptance | S | ⚪ backlog | NEN-027 |
 | [NEN-036](backlog/NEN-036-remote-evidence-port.md) | Remote media evidence port (HEAD, Content-Disposition, Range) | M | ⚪ backlog | NEN-018 |
+| [NEN-037](backlog/NEN-037-subtitle-language-preferences.md) | Subtitle language preference setting (primary and secondary) | S | ⚪ backlog | NEN-019 NEN-024 |
 
 ## M6 — Real Providers
 
@@ -67,6 +68,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-033](backlog/NEN-033-opensubtitles-hash-lookup.md) | OpenSubtitles hash-based identity lookup | M | ⚪ backlog | NEN-018 |
 | [NEN-034](backlog/NEN-034-ai-release-name-normalization.md) | AI-assisted release name normalization | M | ⚪ backlog | NEN-018 |
 | [NEN-035](backlog/NEN-035-identity-confidence-and-candidates.md) | Identity confidence scoring and candidate ranking | M | ⚪ backlog | NEN-018 |
+| [NEN-038](backlog/NEN-038-preferred-language-auto-download.md) | Auto-download subtitles for the preferred language | M | ⚪ backlog | NEN-019 NEN-033 NEN-035 NEN-036 |
 
 ## Sıradaki uygun task'lar
 

@@ -179,6 +179,17 @@ olabilir · dili bilinmeyen kaynak "Dil Belirsiz" grubunda · AI sonucu hedef di
 grubunda AI rozetiyle · ayrı özel "AI subtitle mode" **yok** · "Kapalı" her
 zaman bulunur.
 
+> Bu bölüm [ADR-0010](adr/0010-subtitle-source-catalog.md) ile **genişletildi**.
+> Yukarıdaki sekiz kural aynen geçerlidir; eklenenler: (1) kullanıcının
+> **birinci ve ikinci tercih edilen altyazı dili** vardır ve o diller diğer dil
+> gruplarının üstünde listelenir, geri kalanlar `LanguageTag` sırasında; (2) bir
+> dilin görünen adı UI dili ne olursa olsun **o dilin kendi adıdır** ("English",
+> "Français", "Türkçe") — yukarıdaki örnekteki grup başlıkları bu nedenle
+> endonime döner; (3) tercih edilen dilde **hazır** bir kaynak varsa (yalnız
+> `embedded` veya `user`) oynatma başlarken otomatik seçilir — otomatik seçim
+> hiçbir indirme veya çeviri tetiklemez. Kanonik menü örnekleri ve otomatik
+> seçim tür önceliği o ADR'dedir.
+
 ## 9. Kaynak seçimi ve AI çeviri
 
 **Kaynak seçmek AI çeviri başlatmaz.**
