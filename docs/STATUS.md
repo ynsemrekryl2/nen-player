@@ -3,8 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-25** (NEN-021 — PlaybackEngine port contract'ı
-> ve ADR-0011 kapandı)
+> Son güncelleme: **2026-08-25** (M3 UI beyin fırtınası 1. turu — ADR-0031
+> `proposed`, NEN-024/025/026/037 kapsamları netleşti, NEN-042 açıldı)
 
 ## Nerede duruyoruz
 
@@ -14,7 +14,20 @@
 | **Aktif task** | *yok* — `tasks/active/` boş |
 | **Son tamamlanan** | `NEN-021` — PlaybackEngine port contract and capability model |
 | **Sıradaki READY** | `NEN-022`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041` |
-| **Task sayısı** | 41 · done 26 · active 0 · blocked 0 · backlog 15 |
+| **Task sayısı** | 42 · done 26 · active 0 · blocked 0 · backlog 16 |
+
+**M3'ün UI beyin fırtınası 1. turu yapıldı (kod yazılmadan).** `NEN-022`
+başlamadan önce, UI'ın kodun şeklini belirleyen tarafı karara bağlandı:
+[`ADR-0031`](adr/0031-macos-shell-interaction-model.md) altı kararla
+`proposed` açıldı — hata sunumunun üç sınıfı, ekranda tam yol/query yasağı ve
+kanıt kaydının `fixtures/` zorunluluğu, `EventsLost` sonrası **sessiz** resync,
+menünün taramayı beklememesi ve liste büyürken seçimin kaymaması, hatalı kaynak
+ile güvenlikten dönen dosyanın ayrılması, M3'ün tek ayar yüzeyi. `NEN-024`,
+`NEN-025`, `NEN-026`, `NEN-037` kapsamları buna göre güncellendi; boş durumun
+tam "son açılanlar" listesi `NEN-042` olarak ayrıldı (kural 5). `NEN-024` ile
+`NEN-037` arasındaki ayarlar-ekranı çelişkisi ADR-0031 Karar 6 ile kapandı.
+**ADR-0031 kullanıcı onayı bekliyor** — accepted olmadan bu task'lar `done`
+olamaz.
 
 **`NEN-021` kapandı ve `ADR-0011` accepted oldu — M3'ün ilk ürün kodu var.**
 Boş duran `nen-ports` crate'i artık `PlaybackEngine` portunu, capability
@@ -696,8 +709,10 @@ kurmaz** — bu, `scripts/tests/doctor.test.sh` S7 ile mekanik olarak kanıtlan�
 | **S9** | Birden fazla AI artifact'in UI'da gösterimi | M5 |
 | **S11** | İleride public dağıtım | M3 sonrası |
 | **S12** | Gerçek lisans seçimi | ADR-0012 sonrası |
+| **ADR-0031** | macOS kabuk etkileşim modeli — `proposed`, onay bekliyor | `NEN-024` başlamadan |
 
-Hiçbiri sıradaki task'ları bloke etmiyor.
+Bunlardan yalnız **ADR-0031** sıradaki UI task'larını bağlıyor; `NEN-022`
+bloke değil. Geri kalanı hiçbir task'ı durdurmuyor.
 
 ## Son doğrulama
 

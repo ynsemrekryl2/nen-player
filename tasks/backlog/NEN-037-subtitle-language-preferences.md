@@ -6,7 +6,7 @@ size: S
 state: backlog
 depends_on: [NEN-019, NEN-024]
 blocks: []
-adr: [10]
+adr: [10, 31]
 ---
 
 # NEN-037 — Subtitle language preference setting (primary and secondary)
@@ -18,8 +18,9 @@ oturumlar arasında korunur ve menü sırası ile otomatik seçim bu ayara uyar.
 
 ## Kapsam
 
-- macOS ayar yüzeyi: iki dil seçici (birinci / ikinci tercih), ikisi de
-  boş bırakılabilir
+- macOS **`Settings` scene'i** (NEN-024'ün açtığı sahne): M3'te **yalnız**
+  iki dil seçici (birinci / ikinci tercih), ikisi de boş bırakılabilir —
+  ADR-0031 Karar 6
 - Ayarın kalıcılığı (M5'ten önce platform-yerel kalıcılık yeterli;
   cloud sync **non-goal**)
 - `SubtitlePreferences` değerinin `nen-catalog` projeksiyonuna ve otomatik
@@ -33,6 +34,8 @@ oturumlar arasında korunur ve menü sırası ile otomatik seçim bu ayara uyar.
 - Gruplama/sıralama mantığını UI'da yeniden yazmak — çekirdek zaten sıralı
   projeksiyon döndürüyor (NEN-019)
 - Cihazlar arası senkronizasyon — **non-goal** (roadmap S8)
+- Aynı pencereye başka bir ayar eklemek — M3'te bu sahne iki seçiciden ibaret
+  (ADR-0031 Karar 6)
 - Otomatik indirme davranışı → NEN-038
 
 ## Kanıt (DoD)

@@ -6,7 +6,7 @@ size: M
 state: backlog
 depends_on: [NEN-013, NEN-015, NEN-024]
 blocks: [NEN-026]
-adr: [8]
+adr: [8, 31]
 ---
 
 # NEN-025 — User subtitle loading and sidecar discovery
@@ -29,6 +29,11 @@ SRT otomatik bulunur; güvenlik kurallarını ihlal eden dosyalar reddedilir.
   (K23 #3). Aynı dosya iki kez yüklendiğinde katalogda tek giriş kalması bu
   digest'e bağlıdır — kanıtı da burada üretilir.
 - Hatalı dosya → kaynak "hatalı" işaretlenir, **playback durmaz**
+- **Red ile hata ayrımı (ADR-0031 Karar 5):** güvenlik kapısından dönen dosya
+  kataloğa **hiç girmez** — kaynak olmadı. Kullanıcı dosyayı açıkça
+  yüklediyse geçici bildirim alır (ADR-0031 Karar 1); sidecar taramasında
+  dönen dosya **sessizce** elenir. Encoding/parse hatası ise kataloğa girer
+  ve "hatalı" işaretlenir (menüdeki görünümü NEN-026'da)
 
 ## YAPILMAYACAK
 
@@ -45,6 +50,10 @@ SRT otomatik bulunur; güvenlik kurallarını ihlal eden dosyalar reddedilir.
 - [ ] Negatif: boyut sınırını aşan dosya okunmuyor
 - [ ] Aynı dosya iki kez yüklendiğinde katalogda tek giriş kalıyor (digest eşit)
 - [ ] Bozuk SRT'de playback **devam ediyor**, kaynak hatalı işaretleniyor
+- [ ] Negatif: güvenlikten dönen dosya katalogda **hiç yok** (hatalı kaynak
+      olarak da görünmüyor)
+- [ ] Kullanıcının elle yüklediği dosya reddedilince bildirim üretiliyor;
+      tarama sırasında reddedilen dosya bildirim üretmiyor
 
 ## Kanıt kaydı
 

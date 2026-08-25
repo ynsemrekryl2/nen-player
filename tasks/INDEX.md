@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **41** task · ✅ done 26 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 15
+Toplam **42** task · ✅ done 26 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 16
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -63,6 +63,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-039](done/NEN-039-language-group-granularity.md) | Subtitle menu language grouping and matching use the primary subtag | S | ✅ done | NEN-019 |
 | [NEN-040](backlog/NEN-040-status-freshness-check.md) | check-docs.sh verifies STATUS.md's "Son doğrulama" date is not stale | S | ⚪ backlog | NEN-031 |
 | [NEN-041](backlog/NEN-041-doctor-detects-broken-swift.md) | doctor.sh reports an installed-but-unrunnable tool as missing | S | ⚪ backlog | NEN-032 |
+| [NEN-042](backlog/NEN-042-recent-media-list.md) | Recent media list in the empty state | S | ⚪ backlog | NEN-024 |
 
 ## M6 — Real Providers
 
