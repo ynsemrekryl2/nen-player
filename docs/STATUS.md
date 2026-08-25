@@ -3,17 +3,18 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-25** (NEN-039 — dil gruplaması primary subtag'e indi)
+> Son güncelleme: **2026-08-25** (M3 toolchain kapısı açıldı — Xcode lisansı
+> kabul edildi, `doctor.sh M3` exit 0)
 
 ## Nerede duruyoruz
 
 | | |
 |---|---|
-| **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain blocker) |
+| **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | *yok* — `tasks/active/` boş |
 | **Son tamamlanan** | `NEN-039` — Subtitle menu language grouping and matching use the primary subtag |
-| **Sıradaki READY** | `NEN-021`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040` |
-| **Task sayısı** | 40 · done 25 · active 0 · blocked 0 · backlog 15 |
+| **Sıradaki READY** | `NEN-021`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041` |
+| **Task sayısı** | 41 · done 25 · active 0 · blocked 0 · backlog 16 |
 
 **`NEN-039` kapandı ve `ADR-0030` accepted oldu — dil gruplaması ve tercih
 eşleşmesi artık primary subtag üzerinden.** `nen-domain`'e
@@ -54,9 +55,35 @@ sistemini kapsıyor; K23 guard sonucu subtitle diyaloğu taşımıyor. Whatlang'
 70 dil eşlemesi exhaustive. Test sayısı **317 → 328**; tam kanıt
 `tasks/done/NEN-020-*.md`.
 
-**M3 sırada fakat bugün başlanamaz.** Tam Xcode ve libmpv eksik; bunlar
-`doctor.sh M3` için blocker. `NEN-021` ilk READY M3 task'ı olarak kalıyor,
-toolchain kapısı açılmadan implementation'a alınmayacak.
+**M3 toolchain kapısı açıldı — `NEN-021` artık başlayabilir.** Bu STATUS
+2026-08-25'e kadar tam Xcode ve libmpv'yi eksik sayıyordu; ölçüm ikisinin de
+kurulu olduğunu gösterdi (Xcode 26.6 · libmpv 2.5.0). Eksik olan tek şey
+**Xcode lisansının kabul edilmemiş olmasıydı**: `swift --version` çıkış 69 ile
+`You have not agreed to the Xcode license agreements.` dönüyordu.
+`sudo xcodebuild -license accept` sonrası `bash scripts/doctor.sh M3` **exit 0**
+veriyor. B3 kapandı.
+
+**Kapı açılırken `doctor.sh`'ta gerçek bir yanlış pozitif bulundu →
+`NEN-041`.** Lisans kabul edilmeden önce `swift` çalışmıyordu, ama doctor onu
+`✓ swift (sürüm okunamadı)` diye raporlayıp M3 kapısını **açık** gösteriyordu:
+`detect_swift`, `command -v` guard'ını geçtikten sonra sürüm okunamasa da
+çıkış 0 dönüyor. Bu, NEN-005'te `detect_jdk`'da bulunan kusurun aynısı ve tam
+olarak NEN-032'nin önlemek istediği hata sınıfı. Kural 5 gereği bulunduğu işe
+eklenmedi, kendi task'ına alındı.
+
+**Xcode.app GUI'si macOS 27 beta'da açılmıyor — M3 için engel değil.**
+`LSMinimumSystemVersion` 26.2, yani sürüm engeli değil. Repo Swift tarafını
+SwiftPM ile sürüyor (`scripts/build-apple.sh`, `scripts/test-apple.sh`);
+kullanılan şey `Xcode.app/Contents/Developer` ağacı (SDK'lar: macOS 26.5 ·
+iOS 26.5 · tvOS 26.5, swift-testing plugin'i, Frameworks) ve o ağaç çalışıyor.
+M3'ün beş çıkış kriterinin hiçbiri GUI istemiyor; GUI'nin götürdüğü şey
+NEN-024'te SwiftUI Preview / Instruments / simulator olur.
+
+**Kaydedilen sapma: Swift 6.4 → 6.3.3.** `xcode-select` artık
+CommandLineTools yerine Xcode'u gösterdiğinden Xcode'un bundled toolchain'i
+kullanılıyor; CLT'ninki 6.4'tü. M1 ölçümleri (NEN-008/009/010/011/029) 6.4 ile
+alınmıştı — **baseline oldukları için geçersiz olmuyorlar**, ama başka bir
+makineyle karşılaştırılırken bu fark bilinmeli.
 
 **`NEN-019` kapandı — dört kaynak tek katalog ve tek menü projeksiyonunda.**
 `nen-domain`'e `SubtitleSourceKind` · `SubtitleSourceId` · `SubtitleSource` ·
@@ -572,16 +599,16 @@ Aynı kusur NEN-008'de bu kapanışta giderildi; geriye **`NEN-011`** kaldı.
 
 ## Toolchain
 
-`bash scripts/doctor.sh M1` (2026-08-24, bu makine — macOS 27.0):
+`bash scripts/doctor.sh M3` (2026-08-25, bu makine — macOS 27.0 26A5416b):
 
 | Araç | Durum | M1'deki seviyesi |
 |---|---|---|
 | `cargo` / `rustc` | ✅ 1.98.0 (2026-08-18) | blocker — **karşılandı** |
 | `cargo-deny` | ✅ 0.20.2 (Homebrew, NEN-005) | soon — **karşılandı** |
 | JDK | ✅ OpenJDK 26.0.2.1 (Homebrew `openjdk`, NEN-011) | soon — **karşılandı** |
-| `swift` | ✅ Apple Swift 6.4 | M1 (blocker) — NEN-007 testi ve NEN-008 harness'ı kullanıyor |
-| Tam Xcode | ❌ yalnız `/Library/Developer/CommandLineTools` | M3 — **M1 blocker'ı değil** |
-| libmpv | ❌ eksik | M3 — **M1 blocker'ı değil** |
+| `swift` | ✅ Apple Swift 6.3.3 (Xcode bundled) | M1 (blocker) — NEN-007 testi ve NEN-008 harness'ı kullanıyor |
+| Tam Xcode | ✅ Xcode 26.6 (build 17F113, `/Applications/Xcode.app`) | M3 (blocker) — **karşılandı** |
+| libmpv | ✅ 2.5.0 (Homebrew mpv 0.41.0_8, pkg-config) | M3 (blocker) — **karşılandı** |
 | Gradle | ✅ 9.7.1 (Homebrew, yalnız wrapper bootstrap için — NEN-011) | hiçbir milestone'da blocker değil (wrapper) |
 | Android SDK | ❌ eksik | M10 |
 
@@ -605,10 +632,11 @@ kurmaz** — bu, `scripts/tests/doctor.test.sh` S7 ile mekanik olarak kanıtlan�
 |---|---|---|---|
 | ~~B1~~ | ~~Rust kurulu değil~~ | — | ✅ **çözüldü** 2026-08-24 — rustup, 1.98.0 |
 | ~~B2~~ | ~~JDK yok~~ | — | ✅ **çözüldü** 2026-08-24 — `brew install openjdk`, NEN-011 |
-| B3 | Tam Xcode + libmpv yok | M3; Swift testleri CommandLineTools'ta ek bayrak istiyor (`scripts/test-apple.sh` hallediyor) | App Store'dan Xcode + `brew install mpv` |
+| ~~B3~~ | ~~Tam Xcode + libmpv yok~~ | — | ✅ **çözüldü** 2026-08-25 — ikisi de kuruluydu; eksik olan Xcode lisans kabulüydü (`sudo xcodebuild -license accept`) |
 | ~~B4~~ | ~~`check-docs.test.sh` fixture'ı canlı repo durumuna bağlı~~ | — | ✅ **çözüldü** 2026-08-24 — `NEN-031` |
 
-**Gerçek blocker kalmadı.** B3 sıradaki task'ları engellemiyor.
+**Gerçek blocker kalmadı.** M1 ve M3 kapıları açık (`doctor.sh M1` ve
+`doctor.sh M3` → exit 0).
 
 ## Kullanıcı kararı bekleyenler
 
@@ -627,12 +655,21 @@ Hiçbiri sıradaki task'ları bloke etmiyor.
 ## Son doğrulama
 
 2026-08-25, tümü bu makinede çalıştırıldı (Apple M5 · arm64 · macOS 27.0
-26A5416b · rustc/cargo 1.98.0 · Swift 6.4 · uniffi 0.32.0). NEN-039
-kapanışından sonra yeniden koşuldu.
+26A5416b · rustc/cargo 1.98.0 · **Swift 6.3.3 — Xcode 26.6 bundled** ·
+uniffi 0.32.0). M3 toolchain kapısı açıldıktan sonra yeniden koşuldu;
+`xcode-select` artık CommandLineTools yerine Xcode'u gösterdiği için Swift
+toolchain'i 6.4'ten 6.3.3'e değişti, bu yüzden Swift'e dokunan her şey
+(harness'lar ve spike'lar dahil) tekrar çalıştırıldı.
 
 ```
 $ bash scripts/doctor.sh M1
 SONUÇ: M1 için tüm blocker'lar hazır.            → exit 0
+$ bash scripts/doctor.sh M3
+  ✓ cargo 1.98.0 · ✓ rustc 1.98.0 · ✓ Xcode 26.6
+  ✓ swift Apple Swift version 6.3.3 · ✓ libmpv 2.5.0
+SONUÇ: M3 için tüm blocker'lar hazır.            → exit 0 (B3 kapandı)
+  NOT: doctor'ın `~/.cargo/bin`'i PATH'te bulması gerekir; bulunmayan bir
+  shell'de cargo/rustc yanlışlıkla eksik raporlanır (kurulum sorunu değil).
 
 $ cargo test --manifest-path core/Cargo.toml --workspace
 spike_cue_transfer 8 · spike_async_cancel 6 · spike_typed_errors 5 ·
@@ -702,8 +739,13 @@ $ bash scripts/bench-cue-lookup.sh --debug        → NEN-017 debug karşılaşt
 $ bash scripts/build-apple.sh                     → binding temiz üretildi
 $ bash scripts/test-apple.sh
 ✔ Test run with 2 tests in 1 suite passed        → exit 0
+  Tam Xcode kurulu olduğu için script ek bayrak EKLEMEDİ (düz `swift test`) —
+  CommandLineTools yolu artık kullanılmıyor.
 
 $ bash scripts/spike-cues.sh                      → NEN-008 release baseline
+  checksum: 75001045577800 · 34337591381145
+  → Swift 6.3.3 ile NEN-008/NEN-011'in kaydettiği değerlerle BİREBİR aynı;
+    toolchain değişimi semantik sonucu değiştirmedi (I5 hâlâ geçerli)
 $ bash scripts/spike-cues.sh --debug              → NEN-008 debug karşılaştırması
 
 $ bash scripts/spike-async.sh --test-only         → NEN-009 invariant'lar (release)

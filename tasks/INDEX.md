@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **40** task · ✅ done 25 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 15
+Toplam **41** task · ✅ done 25 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 16
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -62,6 +62,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-037](backlog/NEN-037-subtitle-language-preferences.md) | Subtitle language preference setting (primary and secondary) | S | ⚪ backlog | NEN-019 NEN-024 |
 | [NEN-039](done/NEN-039-language-group-granularity.md) | Subtitle menu language grouping and matching use the primary subtag | S | ✅ done | NEN-019 |
 | [NEN-040](backlog/NEN-040-status-freshness-check.md) | check-docs.sh verifies STATUS.md's "Son doğrulama" date is not stale | S | ⚪ backlog | NEN-031 |
+| [NEN-041](backlog/NEN-041-doctor-detects-broken-swift.md) | doctor.sh reports an installed-but-unrunnable tool as missing | S | ⚪ backlog | NEN-032 |
 
 ## M6 — Real Providers
 
@@ -82,3 +83,4 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-035** — Identity confidence scoring and candidate ranking
 - **NEN-036** — Remote media evidence port (HEAD, Content-Disposition, Range)
 - **NEN-040** — check-docs.sh verifies STATUS.md's "Son doğrulama" date is not stale
+- **NEN-041** — doctor.sh reports an installed-but-unrunnable tool as missing
