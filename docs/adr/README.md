@@ -16,6 +16,7 @@ Süreç: [`0001-adr-process.md`](0001-adr-process.md) · Şablon:
 | [0009](0009-media-evidence-and-identity.md) | Media evidence / identity çözümleme ve fallback sırası | ✅ accepted | M2 |
 | [0010](0010-subtitle-source-catalog.md) | SubtitleSourceCatalog gruplama, dedup ve menü projeksiyon kuralları | ✅ accepted | M2 |
 | [0029](0029-subtitle-language-detection.md) | Subtitle dili tespiti, güven eşiği ve metadata çelişki politikası | ✅ accepted | M2 |
+| [0030](0030-language-group-granularity.md) | Menü gruplaması ve tercih eşleşmesi primary subtag üzerinden | ✅ accepted | M3 |
 
 ## Planlanan
 

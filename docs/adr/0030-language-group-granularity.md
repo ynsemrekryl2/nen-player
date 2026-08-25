@@ -1,7 +1,7 @@
 ---
 adr: 0030
 title: Subtitle menu language grouping and matching use the primary subtag
-status: proposed
+status: accepted
 milestone: M3
 tasks: [NEN-039]
 date: 2026-08-25
@@ -11,7 +11,7 @@ date: 2026-08-25
 
 ## Durum
 
-`proposed`
+`accepted`
 
 ## Bağlam
 
@@ -82,6 +82,15 @@ Region'ı **atmamak** (bkz. Reddedilenler) ADR-0029'un kararını korurken,
 gruplama ve eşleşmeyi **primary'ye indirmek** ürünün gerçek davranış
 beklentisini karşılıyor: kullanıcı "İngilizce" arar, region bir alt ayrımdır.
 
+Eşleşmenin **iki tarafında birden** primary kullanılması ayrı bir gerekçe
+istiyor: bugünkü tam eşitlik yalnız kaynağın region'ında değil, **tercihin
+kendi region'ında** da kırılıyor. NEN-026 tercihi sistem diline göre önerirse
+macOS `tr-TR` / `en-US` verir; katalogtaki track'ler ise neredeyse her zaman
+`tr` / `en` etiketli olur. Bu durumda özellik sessizce tamamen kapanır —
+kullanıcı tercihini ayarlar, hiçbir grup üste çıkmaz ve hiçbir altyazı otomatik
+açılmaz. Karşılaştırma iki tarafta da primary'ye indiğinde bu asimetri yapısal
+olarak ortadan kalkıyor.
+
 ## Reddedilen alternatifler
 
 | Alternatif | Neden reddedildi |
@@ -111,4 +120,18 @@ girişte göstermek zorunda, ADR bunu garanti etmiyor.
 
 ## Notlar
 
-<!-- karar sonrası gözlemler -->
+**Açık bırakılan: grup içinde region tiebreak'i.** Bu ADR'den sonra tercihi
+`pt-br` olan kullanıcı `pt-pt` yerine `pt-br`'yi **isteyemez** — ikisi primary'de
+eşit olduğu için otomatik seçim tür önceliğine (`embedded` → `user`) ve sonra
+katalog sırasına düşer. Kaynağın region'ı korunuyor (Karar 3), yalnız tercih onu
+kullanamıyor. Doğal devamı, eşleşen grup içinde **tam etiket** eşleşmesini bir
+tiebreak yapmaktır; bu ADR o davranışı karara bağlamıyor, çünkü ADR-0010
+Karar 5'in "grup içi sıra öncelik taşımaz" hükmüne dokunur ve kendi gerekçesini
+ister.
+
+**`SubtitlePreferences::new`'in dedupe'u tam etiket karşılaştırmasında kalıyor.**
+`(en, en-us)` çifti bu ADR'den sonra aynı dile işaret eder; menüde mükerrer
+bölüm oluşmaz (`BTreeMap::remove` ikinci çağrıda `None` döner) ve
+`auto_selection` ilk eşleşmede döner — yani zararsız, ama kullanıcının ikinci
+tercih slotu fiilen boşa gider. Doğru çözüm çekirdekte değil NEN-026'da: UI aynı
+dili ikinci tercih olarak önermemeli.
