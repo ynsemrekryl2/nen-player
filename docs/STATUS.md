@@ -598,7 +598,9 @@ Hiçbiri sıradaki task'ları bloke etmiyor.
 ## Son doğrulama
 
 2026-08-25, tümü bu makinede çalıştırıldı (Apple M5 · arm64 · macOS 27.0
-26A5416b · rustc/cargo 1.98.0 · Swift 6.4 · uniffi 0.32.0):
+26A5416b · rustc/cargo 1.98.0 · Swift 6.4 · uniffi 0.32.0). NEN-019/NEN-020
+kapanışından sonra yeniden koşuldu — bir önceki kayıt NEN-018 dönemindeydi ve
+nen-catalog ile whatlang'ı hiç göstermiyordu.
 
 ```
 $ bash scripts/doctor.sh M1
@@ -607,15 +609,16 @@ SONUÇ: M1 için tüm blocker'lar hazır.            → exit 0
 $ cargo test --manifest-path core/Cargo.toml --workspace
 spike_cue_transfer 8 · spike_async_cancel 6 · spike_typed_errors 5 ·
 spike_reverse_ffi 11 · nen-app 1 · nen-ffi 1 ·
-nen-domain 10 (unit) + 9 (guard_redaction) = 19 ·
-nen-subtitle 21 (unit) + 8 (fingerprint) + 10 (index) + 4 (encoding_golden) +
-             7 (encoding_negative) + 4 (fuzz_smoke) + 3 (golden_valid) +
-             4 (guard_error_debug) + 3 (lookup_parity) + 3 (malformed) +
-             3 (webvtt_roundtrip) = 70 ·
+nen-domain 18 (unit) + 9 (guard_redaction) = 27 ·
+nen-subtitle 44 (unit) + 4 (encoding_golden) + 7 (encoding_negative) +
+             4 (fuzz_smoke) + 3 (golden_valid) + 4 (guard_error_debug) +
+             2 (language_detection_golden) + 4 (language_resolution) +
+             3 (lookup_parity) + 3 (malformed) + 3 (webvtt_roundtrip) = 81 ·
 nen-identity 125 (unit) + 7 (guard_evidence_debug) + 8 (nfo_and_container) +
              6 (os_hash_reference) + 4 (release_name_golden) +
-             13 (resolution_layers) = 163
-284 passed, 0 failed, 1 ignored                  → exit 0 (NEN-018 ile 121 → 284)
+             13 (resolution_layers) = 163 ·
+nen-catalog 21 (unit) + 2 (guard_source_debug) + 2 (menu_projection_golden) = 25
+328 passed, 0 failed, 1 ignored                  → exit 0 (NEN-019/020 ile 284 → 328)
   ignored = lookup_bench (baseline; scripts/bench-cue-lookup.sh ile koşar)
 
 $ cargo tree -p nen-domain --edges normal
@@ -623,18 +626,24 @@ nen-domain v0.1.0                                → tek düğüm, sıfır bağ�
 $ cargo tree -p nen-subtitle --edges normal
 nen-subtitle → encoding_rs → cfg-if
 nen-subtitle → blake3 → ...
-nen-subtitle → nen-domain                        → NEN-017 kenar EKLEMEDİ
+nen-subtitle → whatlang → hashbrown → ...        → NEN-020 (ADR-0029) kenar
+nen-subtitle → nen-domain
 $ cargo tree -p nen-identity --edges normal
 nen-identity → nen-domain                        → tek kenar, NEN-018 dış
                                                    bağımlılık EKLEMEDİ
+$ cargo tree -p nen-catalog --edges normal
+nen-catalog → nen-domain
+nen-catalog → nen-identity → nen-domain
+nen-catalog → nen-subtitle → (yukarıdaki ağaç)   → NEN-019 dış bağımlılık
+                                                   EKLEMEDİ, yalnız iç kenar
 
 $ cargo clippy --workspace --all-targets --manifest-path core/Cargo.toml -- -D warnings
                                                   → exit 0, uyarı yok
 $ cargo fmt --all --check --manifest-path core/Cargo.toml → exit 0
 $ (cd core && cargo deny check)
-  advisories ok · bans ok · licenses ok (blake3'ün Apache-2.0 kolu zaten
-  izinliydi, deny.toml'a dokunulmadı) · sources ok → exit 0
-  NEN-018 de deny.toml'a dokunmadı — yeni bağımlılık yok
+  advisories ok · bans ok · licenses ok · sources ok → exit 0
+  NEN-020, whatlang'ın hashbrown → foldhash kenarı için deny.toml'a Zlib
+  ekledi (ADR-0029); NEN-019 deny.toml'a dokunmadı — yeni dış bağımlılık yok
 
 $ cargo test -p nen-identity --manifest-path core/Cargo.toml
   release_name_golden  4 ✓  42 ad (8'i kasıtlı Unknown), .golden byte-eşit
