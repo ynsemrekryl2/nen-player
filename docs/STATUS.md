@@ -12,8 +12,8 @@
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain blocker) |
 | **Aktif task** | *yok* — `tasks/active/` boş |
 | **Son tamamlanan** | `NEN-020` — Subtitle language detection with confidence threshold |
-| **Sıradaki READY** | `NEN-021`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036` |
-| **Task sayısı** | 38 · done 24 · active 0 · blocked 0 · backlog 14 |
+| **Sıradaki READY** | `NEN-021`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-039`, `NEN-040` |
+| **Task sayısı** | 40 · done 24 · active 0 · blocked 0 · backlog 16 |
 
 **`NEN-020` ve M2 kapandı — subtitle dili artık offline ve güven eşikli.**
 `nen-subtitle`, Whatlang 0.18 ile bütün belgeyi bir kez sınıflandırıyor;
