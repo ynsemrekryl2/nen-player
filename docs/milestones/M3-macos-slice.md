@@ -53,8 +53,11 @@ geçmelidir.
 
 ## Bağımlılıklar
 
-M2. Ayrıca ADR-0012 (libmpv dağıtım/lisans) bu milestone'da karara bağlanır —
-`LICENSE.md` ve roadmap S1 buna bağlıdır.
+M2. ADR-0012 (macOS motoru, linkleme ve proje lisansı) **2026-08-26'da kabul
+edildi**: motor libmpv, adapter Swift'te (`platforms/macos/`), geliştirmede
+dinamik link, proje lisansı GPL-3.0-or-later. Depo köküne `LICENSE` eklendi ve
+roadmap **S12** kapandı. `.app` içine gömme + notarization bu milestone'un çıkış
+kriterlerinden **değil** — `NEN-043`, dağıtımdan (S11) önce.
 
 ## Retro
 

@@ -19,6 +19,7 @@ Süreç: [`0001-adr-process.md`](0001-adr-process.md) · Şablon:
 | [0030](0030-language-group-granularity.md) | Menü gruplaması ve tercih eşleşmesi primary subtag üzerinden | ✅ accepted | M3 |
 | [0011](0011-playback-port-contract.md) | `PlaybackEngine` capability modeli ve contract test yaklaşımı | ✅ accepted | M3 |
 | [0031](0031-macos-shell-interaction-model.md) | macOS kabuk etkileşim modeli — hata sunumu, ekran gizliliği ve ayar yüzeyi | ✅ accepted | M3 |
+| [0012](0012-macos-playback-engine.md) | macOS playback motoru, linkleme modeli ve proje lisansı | ✅ accepted | M3 |
 | [0002](0002-core-language.md) | Shared core dili — go/no-go kapısı | ✅ accepted | M1 |
 | [0027](0027-performance-budget.md) | Performans bütçeleri — M1 baseline'larından marjlı kabul | ✅ accepted | M1 sonrası |
 
@@ -35,7 +36,6 @@ karar verilmiş sayılmaz (bkz. `docs/architecture.md` → "Karar statüsü").
 | 0003 | FFI binding stratejisi (aday: UniFFI + C ABI); büyük veri geçiş modeli | M1 |
 | 0004 | Async / cancellation / progress kontratı ve late-commit yasağı | M1 |
 | 0005 | Typed error taksonomisi ve redaction kuralları | M1 |
-| 0012 | **macOS motor seçimi** (aday: libmpv) — dağıtım, linkleme, lisans | M3 |
 | 0013 | `SubtitleRenderer` stratejisi: engine-native vs. custom overlay | M3 |
 | 0014 | Stremio handoff kontratı (Android Intent + macOS argüman) ve log yasakları | M4 |
 | 0015 | Translation blok stratejisi: boyut, overlap, context analizi | M5 |
@@ -58,7 +58,9 @@ karar verilmiş sayılmaz (bkz. `docs/architecture.md` → "Karar statüsü").
 **ADR-0026** playback/renderer ownership yönünü belirledi (2026-08-24);
 `NEN-021` bunun üzerine kuruldu ve kapandı.
 
-**ADR-0012** — henüz yazılmadı, hâlâ gerçekten açık. libmpv'nin lisans ve
-linkleme modelini belirler; `NEN-022` (`adr: [11, 12]`) bu ADR kabul
-edilmeden `done` olamaz; lisans seçimi (`docs/licensing.md`, S12) ve public
-dağıtım (S11) da buna bağlıdır.
+**ADR-0012** M3'ün ikinci kapısıydı ve kapandı (2026-08-26): macOS motoru
+**libmpv**, adapter Swift'te (`platforms/macos/`), geliştirmede dinamik link /
+dağıtımda `.app` içine gömme (`NEN-043`), ve proje lisansı
+**GPL-3.0-or-later**. Böylece `NEN-022` başlayabilir, `docs/licensing.md`
+karara bağlandı ve roadmap **S12** kapandı; açık kalan tek şey **S11** (public
+dağıtım) — App Store yolu GPL ile uyumsuz olduğu için bilerek kapalı.

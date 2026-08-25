@@ -3,8 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-25** (M3 UI beyin fırtınası 1. turu — ADR-0031
-> accepted, NEN-024/025/026/037 kapsamları netleşti, NEN-042 açıldı)
+> Son güncelleme: **2026-08-26** (ADR-0012 accepted — motor, linkleme ve proje
+> lisansı kilitlendi; NEN-043 açıldı; NEN-022'nin önü açık)
 
 ## Nerede duruyoruz
 
@@ -14,9 +14,47 @@
 | **Aktif task** | *yok* — `tasks/active/` boş |
 | **Son tamamlanan** | `NEN-021` — PlaybackEngine port contract and capability model |
 | **Sıradaki READY** | `NEN-022`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041` |
-| **Task sayısı** | 42 · done 26 · active 0 · blocked 0 · backlog 16 |
+| **Task sayısı** | 43 · done 26 · active 0 · blocked 0 · backlog 17 |
 
-**M3'ün UI beyin fırtınası 1. turu yapıldı (kod yazılmadan).** `NEN-022`
+**`ADR-0012` accepted oldu — `NEN-022` artık başlayabilir.** M3'ün ikinci
+kapısıydı ve son açık mimari sorusuydu; dört kararla kapandı: (1) macOS motoru
+**libmpv** — aday statüsü kalktı; (2) adapter **Swift'te**, `platforms/macos/`
+altında (bugün boş) — Rust-tarafı bir mpv crate'i reddedildi, çünkü ADR-0011
+Karar 4'ün "kit ikinci kez yazılmasın" şartını anlamsızlaştırır ve `NEN-024`'te
+video yüzeyi zaten AppKit'e ait olacak; (3) **geliştirmede dinamik link**
+(`pkg-config mpv`, Homebrew dylib'i), **dağıtımda `.app` içine gömme** — gömme
+bir paketleme işi olduğu ve adapter kodunu değiştirmediği için `NEN-043`'e
+ayrıldı (Kural 5); (4) proje lisansı **GPL-3.0-or-later**.
+
+**Lisans kolu böylece kapandı: depo artık lisanssız değil.** Kökte `LICENSE`
+(GPL v3 tam metni, `/opt/homebrew/Cellar/gettext/1.0/COPYING`'in birebir
+kopyası), `docs/licensing.md` kararı anlatan bir belgeye dönüştü, roadmap
+**S12** cevaplandı, **S11** daraldı ve risk **R2** "Yüksek"ten "Orta"ya düştü.
+Belirleyici ölçüm: Homebrew `mpv 0.41.0_8` lisansı `GPL-2.0-or-later AND
+LGPL-2.1-or-later` — yani GPL kollu. İki yol vardı: bu ikiliyi olduğu gibi
+gömüp projeyi GPL yapmak (ek iş **yok**), ya da mpv'yi `--enable-lgpl` ile
+kendin derleyip kodu kapalı tutabilmek (mpv + bağımlılıklarını LGPL
+konfigürasyonuyla derleyen bir build altyapısı). Kullanıcı kararı açık kaynak
+olduğu için ikinci yolun tek faydası ortadan kalktı.
+
+**Sürüm seçimi ölçümle zorunlu çıktı.** v3 tercih değil kısıt: `core/deny.toml`
+allow listesinde **Apache-2.0** var (uniffi ve ağacın büyük kısmı) ve
+Apache-2.0 **GPLv2 ile uyumsuz**, GPLv3 ile uyumlu — patent hükmü GPLv2'nin
+kabul etmediği bir ek şart sayılıyor. mpv `GPL-2.0-**or-later**` olduğu için
+v3'e yükseltilebiliyor; yani GPLv3 bu ağaçtaki tek uyumlu nokta. `deny.toml`
+değişmedi (allow listesinin yedi girişinin hepsi GPL-3.0 uyumlu; MPL-2.0 kendi
+§3.3'ü ile açıkça izin veriyor).
+
+**Kabul edilen maliyetler kayıtlı:** kaynak kodu açık olacak ve bu **geri
+alınamaz** (dağıtılan sürüm geri çekilemez); **App Store yolu kapandı** —
+Apple'ın şartları GPL'in yasakladığı ek kısıtlar getiriyor, side-loading ve
+GitHub release açık; `NEN-043` kapanana kadar kullanıcının `brew install mpv`
+yapması gerekiyor. Bir de kapsam etkisi: ADR-0011 Karar 3 track enumeration/
+selection'ı zorunlu tabana koyduğu için contract kiti onsuz geçmiyor —
+`NEN-022` bunu **port seviyesinde** yapmak zorunda, `NEN-023` katalog
+seviyesindeki semantiğe (bitmap tespiti, metin çıkarımı) daralıyor.
+
+**M3 UI beyin fırtınası 1. turu yapıldı (kod yazılmadan).** `NEN-022`
 başlamadan önce, UI'ın kodun şeklini belirleyen tarafı karara bağlandı:
 [`ADR-0031`](adr/0031-macos-shell-interaction-model.md) altı kararla
 açıldı ve **accepted** oldu — hata sunumunun üç sınıfı, ekranda tam yol/query yasağı ve

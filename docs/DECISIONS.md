@@ -73,8 +73,7 @@ ADR metnini tekrarlamaz, onlara işaret eder.
 | Konu | Ne zaman | Bağlı olduğu |
 |---|---|---|
 | Binding (aday: UniFFI + C ABI) | M1 | ADR-0003 |
-| macOS motor + libmpv linkleme/lisans | M3 öncesi | ADR-0012 |
-| Lisans ailesi ve public dağıtım | M3 öncesi / sonrası | S11, S12, ADR-0012 → [`licensing.md`](licensing.md) |
+| Public dağıtım kanalı ve zamanı | M3 sonrası | S11 → [`licensing.md`](licensing.md) |
 | Persistence adapter (aday: SQLite + CAS) | M5 | ADR-0017 |
 | Android motor (aday: Media3) | M10 | ADR-0025 |
 
@@ -86,6 +85,8 @@ ADR metnini tekrarlamaz, onlara işaret eder.
 |---|---|---|
 | Rust | shared core dili | [ADR-0002](adr/0002-core-language.md) |
 | Whatlang 0.18 | offline subtitle dili tespiti | [ADR-0029](adr/0029-subtitle-language-detection.md) |
+| libmpv | macOS playback motoru | [ADR-0012](adr/0012-macos-playback-engine.md) |
+| GPL-3.0-or-later | proje lisansı | [ADR-0012](adr/0012-macos-playback-engine.md) → [`licensing.md`](licensing.md) |
 
 **Aday** — ilgili ADR kabul edilene kadar karar sayılmaz:
 
@@ -96,7 +97,6 @@ ADR metnini tekrarlamaz, onlara işaret eder.
 | SwiftUI | macOS UI | M3 dönemi |
 | Rust HTTP / rustls | paylaşılan HTTP adapter | ADR-0019 dönemi |
 | SQLite + content-addressed files | persistence adapter | ADR-0017 |
-| libmpv | masaüstü playback motoru | ADR-0012 |
 | Media3 | Android playback motoru | ADR-0025 |
 
 **Aday olmayan** (mimari yönün kendisi, spike'tan bağımsız): port sınırları ·
@@ -111,9 +111,9 @@ için **yalnız durum**, ADR içeriği değil.
 
 | Durum | Sayı | ADR'ler |
 |---|---|---|
-| ✅ accepted | 14 | 0001 · 0002 · 0006 · 0007 · 0008 · 0009 · 0010 · 0011 · 0026 · 0027 · 0028 · 0029 · 0030 · 0031 |
+| ✅ accepted | 15 | 0001 · 0002 · 0006 · 0007 · 0008 · 0009 · 0010 · 0011 · 0012 · 0026 · 0027 · 0028 · 0029 · 0030 · 0031 |
 | 🟡 proposed | 0 | — |
 
 En kritik üçü: **0002** (core dili, M1 kapısı) · **0026** (playback ownership,
-NEN-021'in ön koşulu) · **0012** (libmpv linkleme, lisansın ön koşulu, henüz
-yazılmadı).
+NEN-021'in ön koşulu) · **0012** (libmpv, linkleme ve proje lisansı — NEN-022'nin
+ön koşulu, 2026-08-26'da kabul edildi).

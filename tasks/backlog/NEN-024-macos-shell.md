@@ -5,7 +5,7 @@ milestone: M3
 size: M
 state: backlog
 depends_on: [NEN-022]
-blocks: [NEN-025, NEN-037, NEN-042]
+blocks: [NEN-025, NEN-037, NEN-042, NEN-043]
 adr: [31]
 ---
 
