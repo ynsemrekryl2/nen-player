@@ -139,19 +139,23 @@ core-owned/reverse callback, B: shell-owned/forward call) **A** seçildi:
 bütçesini zorlamıyor, I1/I4 dahil hiçbir invariant ihlal edilmedi.
 
 `PlaybackEngine` ve `SubtitleRenderer` portları değişmedi — A/B ayrımı yalnız
-session'ın sahibini etkiliyordu. `NEN-021` (port contract) artık başlayabilir.
+session'ın sahibini etkiliyordu.
 
-**NEN-021'in kontratının açıkça ele alması gereken iki ölçülmüş risk**
-(ADR-0026 → "Karar"):
+**ADR-0026'nın NEN-021'e bıraktığı iki ölçülmüş risk `ADR-0011` ile kapandı**
+(NEN-021, `core/crates/nen-ports/src/playback/`):
 
-- **Backpressure/backgrounding.** Callback teslimatı, üreticiyi (Rust) tüketici
-  (platform shell) hazır olmasa da bağımsız tutuyor — sınırsız birikme yerine
-  sınırlı/coalescing bir kuyruk ya da demand-driven bir teslimat deseni gerekir.
-- **Reentrancy disiplini.** Bir callback içinden, delivery gate'in kilidini
-  isteyen bir core metodu (`cancel()` benzeri) aynı thread'den senkron
-  çağrılamaz — kontrat bunu ya yasaklamalı ya da asenkron dispatch'e zorlamalı.
+- **Backpressure/backgrounding** → **bounded kuyruk + sınıfa göre coalescing.**
+  `PositionChanged` tek bekleyen örnek tutuyor (mutlak değer, en yenisi doğru
+  olan); state değişimi, seek-complete, hata gibi kritik olaylar sıra koruyor ve
+  sessizce düşmüyor. Taşma olursa kuyruk `EventsLost { dropped }` ile kapanıyor
+  ve tüketici resync ediyor — akış ya eksiksiz ya da eksik olduğunu söylüyor.
+- **Reentrancy disiplini** → **yasak.** Bir callback içinden aynı thread'den
+  yapılan senkron port çağrısı deadlock'a girmiyor, `ReentrantCall` ile hemen
+  dönüyor. Kural adapter'da değil portta: teslimat sırasında thread'i işaretleyen
+  `deliver_all` tek yerde duruyor, hiçbir adapter unutamıyor.
 
-Tam ölçüm tablosu ve gerekçe: `docs/adr/0026-playback-renderer-ownership.md`.
+Tam ölçüm tablosu ve gerekçe: `docs/adr/0026-playback-renderer-ownership.md`;
+kontratın kendisi `docs/adr/0011-playback-port-contract.md`.
 
 ## FFI kontratı
 

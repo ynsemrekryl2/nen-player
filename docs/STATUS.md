@@ -3,8 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-25** (M3 toolchain kapısı açıldı — Xcode lisansı
-> kabul edildi, `doctor.sh M3` exit 0)
+> Son güncelleme: **2026-08-25** (NEN-021 — PlaybackEngine port contract'ı
+> ve ADR-0011 kapandı)
 
 ## Nerede duruyoruz
 
@@ -12,9 +12,56 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | *yok* — `tasks/active/` boş |
-| **Son tamamlanan** | `NEN-039` — Subtitle menu language grouping and matching use the primary subtag |
-| **Sıradaki READY** | `NEN-021`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041` |
-| **Task sayısı** | 41 · done 25 · active 0 · blocked 0 · backlog 16 |
+| **Son tamamlanan** | `NEN-021` — PlaybackEngine port contract and capability model |
+| **Sıradaki READY** | `NEN-022`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041` |
+| **Task sayısı** | 41 · done 26 · active 0 · blocked 0 · backlog 15 |
+
+**`NEN-021` kapandı ve `ADR-0011` accepted oldu — M3'ün ilk ürün kodu var.**
+Boş duran `nen-ports` crate'i artık `PlaybackEngine` portunu, capability
+modelini, event teslimat kurallarını, paylaşılan contract kitini ve kiti geçen
+fake adapter'ı taşıyor. **Yeni dış bağımlılık yok** — `nen-ports` tek kenar
+(`nen-domain`), ADR-0006 grafiği korundu. Test sayısı **337 → 390**.
+
+**ADR-0011'in dört kararı** ADR-0026'nın bıraktığı iki ölçülmüş riski kapatıyor:
+(1) event teslimatı **bounded kuyruk + sınıfa göre coalescing** — `PositionChanged`
+tek slot tutuyor (mutlak değer, en yenisi doğru olan), `StateChanged` ·
+`SeekCompleted` · `TracksChanged` · `EndReached` · `Failed` sıra koruyor ve
+**sessizce düşmüyor**; taşma olursa kuyruk `EventsLost { dropped }` ile
+kapanıyor ve tüketici resync ediyor. (2) Callback içinden senkron çağrı
+**yasak** → `ReentrantCall`, deadlock değil. (3) Capability yalnız motorlar
+arasında **farklılaşanı** sayıyor (dört giriş); taban zorunlu ve sorgulanmıyor,
+**relative seek capability değil** — port `position` + `seek` üzerinden default
+veriyor. (4) Contract senaryoları **veri**, kod değil — NEN-022 aynı listeyi
+FFI'dan sürecek, ikinci kopya yazmayacak (M3 çıkış kriteri bunu şart koşuyor).
+
+**Karar 1'in gerekçesi inceleme sırasında düzeltildi.** İlk taslak ack tabanlı
+teslimatı **maliyet** gerekçesiyle reddediyordu; sayılar bu argümanı taşımıyor:
+ack 60 Hz'de 4.6 ms/sn'yi ~7 ms/sn'ye çıkarırdı, yani 16.7 ms'lik karenin
+%0.46'sı yerine %0.70'i — ikisi de hissedilmez, tam da ADR-0026'nın kendi A/B
+karşılaştırmasında bulduğu gibi. Gerçek itiraz yapısal: **video gerçek zamanda
+oynuyor, ack üreticiyi durduramaz.** Yığılma kararını yok etmiyor, üreticiye
+devrediyor — sınırsız kuyruk sorunu geri geliyor ya da yine bir düşürme kuralı
+gerekiyor.
+
+**Kit'in boşta dönmediği ayrıca test ediliyor.** 23 senaryonun 19'u tam
+capability'li, 18'i taban-only motora uygulanıyor; `the_run_is_not_vacuous`
+sayılara alt sınır koyuyor ve her senaryonun en az bir uçta koştuğunu,
+`every_capability_is_covered_in_both_directions` her capability için hem **var**
+hem **yok** senaryosunun bulunduğunu şart koşuyor. 4 capability'nin **16 alt
+kümesi** de ayrı ayrı koşuluyor — capability'lerin bağımsızlığı böyle
+kanıtlanıyor.
+
+**DoD #3'ün grep'i elle değil test olarak koşuyor.** `nen-ports` ve `nen-app`
+altındaki tüm `.rs` dosyalarında 8 motor adı aranıyor, satır yorumları
+çıkarılarak (port'un kendi dokümantasyonu bu adları serbestçe anıyor; yasak
+olan adın **koda** girmesi). Üç kontrol testi taramanın kendisini doğruluyor.
+
+**Negatif kontrol üç kusurla yapıldı:** capability kontrolünü atlamak 2 testi,
+coalescing'in kritik olayları da düşürmesi **7** testi, reentrancy guard'ının
+her zaman `Ok` dönmesi **4** testi kırmızıya döndürdü; üçü de geri alındı.
+Güvenlik tarafında kalıcı negatif kontrol var: `#[derive(Debug)]`'lı üç ikiz
+(media source, track descriptor, String taşıyan hata) aynı değerlerle gerçekten
+sızdırıyor. Tam kanıt: `tasks/done/NEN-021-*.md`.
 
 **`NEN-039` kapandı ve `ADR-0030` accepted oldu — dil gruplaması ve tercih
 eşleşmesi artık primary subtag üzerinden.** `nen-domain`'e
@@ -671,7 +718,9 @@ SONUÇ: M3 için tüm blocker'lar hazır.            → exit 0 (B3 kapandı)
   NOT: doctor'ın `~/.cargo/bin`'i PATH'te bulması gerekir; bulunmayan bir
   shell'de cargo/rustc yanlışlıkla eksik raporlanır (kurulum sorunu değil).
 
-$ cargo test --manifest-path core/Cargo.toml --workspace
+$ cargo test --manifest-path core/Cargo.toml --workspace   (NEN-021 ile 337 → 390)
+nen-ports 30 (unit) + 6 (contract_fake) + 6 (event_ordering) +
+          7 (guard_playback_debug) + 4 (guard_no_engine_names) = 53 ·
 spike_cue_transfer 8 · spike_async_cancel 6 · spike_typed_errors 5 ·
 spike_reverse_ffi 11 · nen-app 1 · nen-ffi 1 ·
 nen-domain 20 (unit) + 9 (guard_redaction) = 29 ·
@@ -683,7 +732,7 @@ nen-identity 125 (unit) + 7 (guard_evidence_debug) + 8 (nfo_and_container) +
              6 (os_hash_reference) + 4 (release_name_golden) +
              13 (resolution_layers) = 163 ·
 nen-catalog 27 (unit) + 2 (guard_source_debug) + 3 (menu_projection_golden) = 32
-337 passed, 0 failed, 1 ignored                  → exit 0 (NEN-039 ile 328 → 337)
+390 passed, 0 failed, 1 ignored                  → exit 0 (NEN-021 ile 337 → 390)
   ignored = lookup_bench (baseline; scripts/bench-cue-lookup.sh ile koşar)
 
 $ cargo tree -p nen-domain --edges normal
@@ -695,6 +744,9 @@ nen-subtitle → whatlang → hashbrown → ...        → NEN-020 (ADR-0029) ke
 nen-subtitle → nen-domain
 $ cargo tree -p nen-identity --edges normal
 nen-identity → nen-domain                        → tek kenar, NEN-018 dış
+                                                   bağımlılık EKLEMEDİ
+$ cargo tree -p nen-ports --edges normal
+nen-ports → nen-domain                           → tek kenar, NEN-021 dış
                                                    bağımlılık EKLEMEDİ
 $ cargo tree -p nen-catalog --edges normal
 nen-catalog → nen-domain
