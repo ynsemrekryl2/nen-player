@@ -17,6 +17,7 @@ Süreç: [`0001-adr-process.md`](0001-adr-process.md) · Şablon:
 | [0010](0010-subtitle-source-catalog.md) | SubtitleSourceCatalog gruplama, dedup ve menü projeksiyon kuralları | ✅ accepted | M2 |
 | [0029](0029-subtitle-language-detection.md) | Subtitle dili tespiti, güven eşiği ve metadata çelişki politikası | ✅ accepted | M2 |
 | [0030](0030-language-group-granularity.md) | Menü gruplaması ve tercih eşleşmesi primary subtag üzerinden | ✅ accepted | M3 |
+| [0011](0011-playback-port-contract.md) | `PlaybackEngine` capability modeli ve contract test yaklaşımı | ✅ accepted | M3 |
 
 ## Planlanan
 
@@ -32,7 +33,6 @@ karar verilmiş sayılmaz (bkz. `docs/architecture.md` → "Karar statüsü").
 | 0003 | FFI binding stratejisi (aday: UniFFI + C ABI); büyük veri geçiş modeli | M1 |
 | 0004 | Async / cancellation / progress kontratı ve late-commit yasağı | M1 |
 | 0005 | Typed error taksonomisi ve redaction kuralları | M1 |
-| 0011 | `PlaybackEngine` capability modeli ve contract test yaklaşımı | M3 |
 | 0012 | **macOS motor seçimi** (aday: libmpv) — dağıtım, linkleme, lisans | M3 |
 | 0013 | `SubtitleRenderer` stratejisi: engine-native vs. custom overlay | M3 |
 | 0014 | Stremio handoff kontratı (Android Intent + macOS argüman) ve log yasakları | M4 |
