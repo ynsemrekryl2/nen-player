@@ -3,7 +3,7 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-25** (NEN-018 kapanışı — media evidence ve identity)
+> Son güncelleme: **2026-08-25** (NEN-019 kapanışı — subtitle source catalog)
 
 ## Nerede duruyoruz
 
@@ -11,9 +11,26 @@
 |---|---|
 | **Mevcut milestone** | **M2 — Subtitle Core** (M1 kapandı) |
 | **Aktif task** | *yok* — `tasks/active/` boş |
-| **Son tamamlanan** | `NEN-018` — Media evidence, OS-compatible hash, release name parser |
-| **Sıradaki READY** | `NEN-019`, `NEN-020`, `NEN-021`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036` |
-| **Task sayısı** | 36 · done 22 · active 0 · blocked 0 · backlog 14 |
+| **Son tamamlanan** | `NEN-019` — SubtitleSourceCatalog with grouping and dedup |
+| **Sıradaki READY** | `NEN-020`, `NEN-021`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036` |
+| **Task sayısı** | 38 · done 23 · active 0 · blocked 0 · backlog 15 |
+
+**`NEN-019` kapandı — dört kaynak tek katalog ve tek menü projeksiyonunda.**
+`nen-domain`'e `SubtitleSourceKind` · `SubtitleSourceId` · `SubtitleSource` ·
+`LanguageTag` · `SubtitlePreferences`; `nen-catalog`'a metadata-kimlikli upsert,
+dil/kullanıcı gruplama, yapısal menü projeksiyonu ve saf otomatik seçim
+politikası eklendi. Otomatik seçim yalnız tercih edilen dillerde ve bugün yalnız
+`embedded` → `user`; `opensubtitles` basamağı NEN-038'e kadar kapalı, `ai` hiçbir
+koşulda otomatik seçilmiyor.
+
+**ADR-0010 Karar 10'un iki menüsü byte-eşit golden.** Aynı katalog tercih yokken
+`en` → `fr` → `tr`, birinci `tr` / ikinci `en` tercihinde `tr` → `en` → `fr`
+grup sırasını üretiyor; kullanıcı grubu `Kapalı`'nın hemen altında, bilinmeyen
+dil her zaman en sonda. `Debug` guard'ı özel tam yol, dosya adı, digest ve
+private file ID'yi gizliyor; `#[derive(Debug)]`'lı bozuk ikiz dördünü de
+sızdırarak negatif kontrolü kanıtlıyor. Yeni doğrudan dış bağımlılık yok,
+`nen-domain` hâlâ tek düğüm. Test sayısı **284 → 317**. Tam kanıt:
+`tasks/done/NEN-019-*.md`.
 
 **`NEN-018` kapandı — `nen-identity` artık dolu.** Dokuz modül eklendi
 (`os_hash` · `release_name` · `url_hints` · `dir_hints` · `declared_name` ·
@@ -201,10 +218,9 @@ değil: `Ok` dönen her vakada doküman kendi invariant'larından geçiriliyor.
 timeline fingerprint algoritması) **NEN-016**'nın kararı; NEN-013 yalnız
 ADR-0006'nın zaten çizdiği crate sınırlarını dolduruyor.
 
-**Yan bulgu (bu task'ın kapsamı değil):** depoda iki untracked yol var —
-`AGENTS.md` (CLAUDE.md'nin birebir kopyası) ve `.agents/skills/`
-(`.claude/skills/`'in kopyası). Commit'e dahil edilmedi; commit mi /
-`.gitignore` mı / symlink mi olacağı ayrı bir karar.
+**Eski yan bulgunun bugünkü durumu:** `AGENTS.md` artık izlenen giriş noktası ve
+kanonik `CLAUDE.md`'ye yönlendiriyor. Yalnız `.agents/` untracked; task
+commit'lerine dahil edilmiyor.
 
 **Eski `NEN-012` kapanışı — M1 kilitlendi.** Beş spike'ın (NEN-008/009/010/011/029)
 ölçümleri `ADR-0002`'de sentezlendi: **Rust shared core dili olarak kabul
@@ -728,6 +744,16 @@ yalnız fixture'daydı ve `NEN-031` ile kapandı.
   `evidence.rs` (`MediaEvidence`, Karar 6 katman yürüyüşü, §6 aday üretimi).
   Crate'in `lib.rs`'inde `nen-subtitle`'ınkiyle aynı panik lint kapısı.
   **Yeni dış bağımlılık yok.**
+- `core/crates/nen-domain/src/source.rs` — NEN-019'un kaynak değer tipleri
+  (ADR-0010): dört `SubtitleSourceKind`, metadata-kimlikli `SubtitleSourceId`,
+  normalize `LanguageTag`, redakte `SubtitleSource` ve iki dilli
+  `SubtitlePreferences`. `nen-domain` sıfır bağımlılıklı kaldı.
+- `core/crates/nen-catalog/src/` — NEN-019'un katalog, menü projeksiyonu ve
+  otomatik seçim modülleri. Dedup upsert ile kimliğe göre; grup içi sıra ekleme
+  sırası, dil grupları tercihlerden sonra tag sırası. Testler: 21 unit + 2
+  golden + 2 negatif kontrollü `Debug` guard.
+- `fixtures/catalog/` — ADR-0010 Karar 10'un tercihsiz ve `tr`/`en` tercihli
+  yapısal menü golden'ları.
 - `fixtures/media/` — NEN-018'in korpusu: `release-names.tsv` (42 ad, 8'i
   kasıtlı çözülemeyen) · `url-hints.tsv` (17 URL, token'lı query ve fragment
   dahil) · `dir-layouts.tsv` (12 yol) · her birinin `.golden`'ı ·
@@ -777,10 +803,10 @@ yalnız fixture'daydı ve `NEN-031` ile kapandı.
 - Diğer `platforms/*` dizinleri hâlâ boş iskelet.
 - `.github/workflows/ci.yml` — NEN-005'in CI skeleton'ı; `core/deny.toml` —
   cargo-deny lisans/advisory/kaynak kapısı.
-- Var olan: 6 ana doküman · 12 milestone dosyası · **6 accepted ADR**
-  (0001, 0006, 0007, 0008, 0026, 0028) · 32 task · 14 script + 2 shell testi ·
-  `fixtures/subtitles/` dolu (NEN-013/015), `fixtures/media|providers/` hâlâ
-  iskelet.
+- Var olan: 6 ana doküman · 12 milestone dosyası · **10 accepted ADR**
+  (0001, 0002, 0006, 0007, 0008, 0009, 0010, 0026, 0027, 0028) · 38 task ·
+  14 script + 2 shell testi · `fixtures/subtitles|media|catalog/` dolu,
+  `fixtures/providers/` hâlâ iskelet.
 - Depo kökünde **`LICENSE` dosyası bilerek yok** — bkz. [`licensing.md`](licensing.md).
 - Git: `main` branch. Remote: `github.com/ynsemrekryl2/nen-player` (private —
   NEN-005 ile kuruldu, CI'ın koşabilmesi için gerekliydi). **Bu dosya commit

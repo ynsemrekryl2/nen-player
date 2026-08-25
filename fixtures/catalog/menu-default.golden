@@ -1,0 +1,12 @@
+group	closed
+group	user
+entry	user	en	Movie.en.srt
+entry	user	fr	subtitle.srt
+group	language:en
+entry	embedded	en	English
+entry	opensubtitles	en	English — WEB-DL
+group	language:fr
+entry	embedded	fr	Français
+group	language:tr
+entry	embedded	tr	Türkçe
+entry	ai	tr	AI Türkçe

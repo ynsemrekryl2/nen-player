@@ -5,6 +5,7 @@
 //! through `nen-ports`. See ADR-0006.
 
 pub mod redact;
+pub mod source;
 pub mod subtitle;
 
 /// Stable identifier of the shared core, used to prove that a value really
