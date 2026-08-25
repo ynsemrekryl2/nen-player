@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **32** task · ✅ done 20 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 12
+Toplam **32** task · ✅ done 21 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 11
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -41,7 +41,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-014](done/NEN-014-webvtt-writer.md) | WebVTT writer | S | ✅ done | NEN-013 |
 | [NEN-015](done/NEN-015-encoding-detection.md) | Encoding detection and sanitization | M | ✅ done | NEN-013 |
 | [NEN-016](done/NEN-016-document-and-fingerprint.md) | SubtitleDocument and timeline fingerprint | M | ✅ done | NEN-013 |
-| [NEN-017](backlog/NEN-017-indexed-cue-lookup.md) | Indexed cue lookup | M | ⚪ backlog | NEN-016 |
+| [NEN-017](done/NEN-017-indexed-cue-lookup.md) | Indexed cue lookup | M | ✅ done | NEN-016 |
 | [NEN-018](backlog/NEN-018-media-evidence-and-hash.md) | Media evidence, OS-compatible hash, release name parser | M | ⚪ backlog | NEN-012 |
 | [NEN-019](backlog/NEN-019-source-catalog.md) | SubtitleSourceCatalog with grouping and dedup | M | ⚪ backlog | NEN-016 NEN-018 |
 | [NEN-020](backlog/NEN-020-language-detection.md) | Subtitle language detection with confidence threshold | S | ⚪ backlog | NEN-013 |
@@ -63,7 +63,6 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 
 Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 
-- **NEN-017** — Indexed cue lookup
 - **NEN-018** — Media evidence, OS-compatible hash, release name parser
 - **NEN-020** — Subtitle language detection with confidence threshold
 - **NEN-021** — PlaybackEngine port contract and capability model

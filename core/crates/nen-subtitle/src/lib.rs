@@ -20,5 +20,6 @@
 
 pub mod encoding;
 pub mod fingerprint;
+pub mod index;
 pub mod srt;
 pub mod webvtt;

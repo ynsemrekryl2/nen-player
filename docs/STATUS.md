@@ -3,7 +3,7 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-25** (NEN-016 kapanışı — SubtitleDocument and timeline fingerprint; ADR-0007 accepted)
+> Son güncelleme: **2026-08-25** (NEN-017 kapanışı — indexed cue lookup)
 
 ## Nerede duruyoruz
 
@@ -11,11 +11,52 @@
 |---|---|
 | **Mevcut milestone** | **M2 — Subtitle Core** (M1 kapandı) |
 | **Aktif task** | *yok* — `tasks/active/` boş |
-| **Son tamamlanan** | `NEN-016` — SubtitleDocument and timeline fingerprint |
-| **Sıradaki READY** | `NEN-017`, `NEN-018`, `NEN-020`, `NEN-021` |
-| **Task sayısı** | 32 · done 20 · active 0 · blocked 0 · backlog 12 |
+| **Son tamamlanan** | `NEN-017` — Indexed cue lookup |
+| **Sıradaki READY** | `NEN-018`, `NEN-020`, `NEN-021` |
+| **Task sayısı** | 32 · done 21 · active 0 · blocked 0 · backlog 11 |
 
-**`NEN-016` kapandı — `ADR-0007` accepted oldu.** `nen-subtitle`'a
+**`NEN-017` kapandı — M2'nin cue lookup çıkış kriteri karşılandı.**
+`nen-subtitle`'a `CueIndex` eklendi (`index.rs`): ödünç alınmış bir
+`SubtitleDocument` üzerinde `active_cues(at)` · `active_cue(at)` ·
+`cues_in(range)`. **Yeni bağımlılık yok.**
+
+**API çakışan cue'ları düşürmüyor.** NEN-013 çakışmayı kabul ettiği için bir
+`t` anında birden fazla cue aktif olabilir; birincil sorgu `active_cues`
+hepsini doküman sırasında döndürüyor. Tekil `active_cue` kolaylık
+sarmalayıcısı olarak kaldı ama artık *ilk* cue'yu döndürüp diğerlerini attığı
+doküman yorumunda açık — NEN-027 istiflenmiş konuşmacıyı sessizce
+kaybetmesin diye.
+
+**Yapı: sıralı dizi + `max_end_prefix` artırımı** (iki `partition_point`).
+Reddedilen alternatif boundary-event segment dizisiydi: sorgusu en kötü
+durumda da `O(log n + k)` olurdu ama tamamı çakışan `n` cue'da `O(n²)` bellek
+tüketirdi — bu crate güvenilmeyen girdi ayrıştırdığı için (10 MiB sınırı
+~100k cue'ya izin veriyor) belleğin tükenmesi, tek bir sorgunun yavaşlamasından
+kötü bir başarısızlık biçimi. Seçilen yapı girdi ne olursa olsun `O(n)`
+bellekte. Bedeli kayıtta: aday penceresi çakışma derinliğiyle büyür; dokümanı
+baştan sona kaplayan tek cue şekli parity korpusunda var, doğruluk bozulmuyor.
+
+**Baseline** (Apple M5 · release · 3 koşunun aralığı): 50k cue'da index
+lookup p50 **48–57 ns**, lineer tarama p50 **15.6–17.6 µs** → **~290–344×**.
+Ölçüm `#[ignore]`'lu (`scripts/bench-cue-lookup.sh`), CI yavaşlamıyor.
+**Ölçüm yönteminin kendisi bir kusur buldu:** ilk sürümde hangi tablo satırı
+önce koşarsa ~2.5× yavaş çıkıyordu (sıra ters çevrilince sapma da tersine
+döndü) — sebep lookup değil, taze 50k cue'luk dokümanın ilk dokunuş
+page-fault'larıydı; her satır iki kez ölçülüp yalnız ikincisi raporlanarak
+düzeltildi.
+
+**Negatif kontrol:** parity testinin boşta dönmediği, `index.rs`'e iki yönde
+(fazla cue döndüren / eksik cue döndüren) kasıtlı hata sokularak kanıtlandı —
+ikisinde de 3/3 parity testi kırmızıya döndü, sonra dosya geri alındı.
+
+Test sayısı 108 → **121** (+10 index unit, +3 `lookup_parity`; benchmark
+`ignored`). **ADR yazılmadı** — yapı `nen-subtitle` içinde kalıyor, crate
+sınırı/bağımlılık grafiği değişmiyor, product-spec §14 zaten lineer taramayı
+yasaklıyor; karar task'ın kanıt kaydında. `adr:` alanı `[7]` → **`[]`**
+düzeltildi (NEN-013/014/015 precedent'i). Tam kanıt:
+`tasks/done/NEN-017-*.md`.
+
+**Eski `NEN-016` kapanışı — `ADR-0007` accepted oldu.** `nen-subtitle`'a
 (`nen-domain`'e değil — `docs/architecture.md`'nin crate tablosu "timeline"ı
 zaten `nen-subtitle`'a veriyor ve bu, `nen-domain`'in her kapanışta
 doğrulanan sıfır-bağımlılık özelliğini korur) bir `fingerprint` modülü
@@ -469,17 +510,19 @@ $ cargo test --manifest-path core/Cargo.toml --workspace
 spike_cue_transfer 8 · spike_async_cancel 6 · spike_typed_errors 5 ·
 spike_reverse_ffi 11 · nen-app 1 · nen-ffi 1 ·
 nen-domain 10 (unit) + 9 (guard_redaction) = 19 ·
-nen-subtitle 21 (unit) + 8 (fingerprint) + 4 (encoding_golden) +
+nen-subtitle 21 (unit) + 8 (fingerprint) + 10 (index) + 4 (encoding_golden) +
              7 (encoding_negative) + 4 (fuzz_smoke) + 3 (golden_valid) +
-             4 (guard_error_debug) + 3 (malformed) + 3 (webvtt_roundtrip) = 57
-108 passed, 0 failed                             → exit 0 (NEN-016 ile 100 → 108)
+             4 (guard_error_debug) + 3 (lookup_parity) + 3 (malformed) +
+             3 (webvtt_roundtrip) = 70
+121 passed, 0 failed, 1 ignored                  → exit 0 (NEN-017 ile 108 → 121)
+  ignored = lookup_bench (baseline; scripts/bench-cue-lookup.sh ile koşar)
 
 $ cargo tree -p nen-domain --edges normal
 nen-domain v0.1.0                                → tek düğüm, sıfır bağımlılık
 $ cargo tree -p nen-subtitle --edges normal
 nen-subtitle → encoding_rs → cfg-if
-nen-subtitle → blake3 → ...                      → yeni dış kenar, NEN-016/ADR-0007
-nen-subtitle → nen-domain
+nen-subtitle → blake3 → ...
+nen-subtitle → nen-domain                        → NEN-017 kenar EKLEMEDİ
 
 $ cargo clippy --workspace --all-targets --manifest-path core/Cargo.toml -- -D warnings
                                                   → exit 0, uyarı yok
@@ -496,6 +539,13 @@ $ cargo test -p nen-subtitle --manifest-path core/Cargo.toml
   encoding_golden   4 ✓ 7 pozitif fixture, .decoded.golden'larıyla byte-eşit
   encoding_negative 7 ✓ boyut sınırı · undecodable · bidi/zero-width/kontrol
                         karakteri sanitization · EncodingError sızıntı yok
+  lookup_parity     3 ✓ 10 000 seek + 10 000 aralık sorgusu + her cue sınırı,
+                        14 dokümanlık korpusta lineer taramayla birebir
+
+$ bash scripts/bench-cue-lookup.sh                → NEN-017 release baseline
+$ bash scripts/bench-cue-lookup.sh --debug        → NEN-017 debug karşılaştırması
+  50k cue: index p50 48–57 ns · lineer p50 15.6–17.6 µs → ~290–344×
+  (3 koşunun aralığı; baseline'dır, eşik değil)
 
 $ bash scripts/build-apple.sh                     → binding temiz üretildi
 $ bash scripts/test-apple.sh
@@ -582,6 +632,13 @@ yalnız fixture'daydı ve `NEN-031` ile kapandı.
   `[u8; 32]` (`blake3`) döndürür; ikisi de `Display`/`Debug`'ı küçük harf hex
   olarak basar. `CueId` hiçbir hash'e dahil değil. `blake3`'e bağımlı
   (crate'in ikinci dış bağımlılığı, `encoding_rs`'ten sonra). 8 unit test.
+- `core/crates/nen-subtitle/src/index.rs` — NEN-017'nin `CueIndex<'a>`'i:
+  sıralı cue dizisi + monoton `max_end_prefix` artırımı üzerinde iki
+  `partition_point`. `active_cues(at)` çakışan cue'ların **hepsini** doküman
+  sırasında döndürür (yarı açık: `start_ms <= t < end_ms`); `active_cue(at)`
+  ilkini döndüren kolaylık sarmalayıcısı; `cues_in(range)` pencere sorgusu.
+  Yeni bağımlılık yok. Testler: 10 unit + `lookup_parity` (10 000 seek,
+  lineer taramayla birebir) + `lookup_bench` (`#[ignore]`, baseline).
 - `fixtures/subtitles/valid/` — 8 SRT fixture + 8 `.golden` (SRT parse)
   snapshot + 8 `.vtt` (WebVTT yazım, NEN-014) snapshot;
   `fixtures/subtitles/malformed/` — 25 fixture, her biri tek bozukluk;
@@ -620,7 +677,7 @@ yalnız fixture'daydı ve `NEN-031` ile kapandı.
 - `.github/workflows/ci.yml` — NEN-005'in CI skeleton'ı; `core/deny.toml` —
   cargo-deny lisans/advisory/kaynak kapısı.
 - Var olan: 6 ana doküman · 12 milestone dosyası · **6 accepted ADR**
-  (0001, 0006, 0007, 0008, 0026, 0028) · 32 task · 13 script + 2 shell testi ·
+  (0001, 0006, 0007, 0008, 0026, 0028) · 32 task · 14 script + 2 shell testi ·
   `fixtures/subtitles/` dolu (NEN-013/015), `fixtures/media|providers/` hâlâ
   iskelet.
 - Depo kökünde **`LICENSE` dosyası bilerek yok** — bkz. [`licensing.md`](licensing.md).
