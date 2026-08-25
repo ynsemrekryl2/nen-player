@@ -105,10 +105,15 @@ I/O'suzluğu · tek FFI kapısı (`nen-ffi`).
 
 ## 6. ADR indeksi
 
-| Durum | ADR |
-|---|---|
-| ✅ accepted | [0001](adr/0001-adr-process.md) — ADR süreci |
-| 📋 planlanan | 0002–0027 — bkz. [`adr/README.md`](adr/README.md) |
+Tam liste ve güncel durum tek kaynaktan: [`adr/README.md`](adr/README.md).
+Burada tekrarlanmaz — aşağıdaki sayım bu dosyanın kendi bayatlamasını önlemek
+için **yalnız durum**, ADR içeriği değil.
+
+| Durum | Sayı | ADR'ler |
+|---|---|---|
+| ✅ accepted | 14 | 0001 · 0002 · 0006 · 0007 · 0008 · 0009 · 0010 · 0011 · 0026 · 0027 · 0028 · 0029 · 0030 · 0031 |
+| 🟡 proposed | 0 | — |
 
 En kritik üçü: **0002** (core dili, M1 kapısı) · **0026** (playback ownership,
-NEN-021'in ön koşulu) · **0012** (libmpv linkleme, lisansın ön koşulu).
+NEN-021'in ön koşulu) · **0012** (libmpv linkleme, lisansın ön koşulu, henüz
+yazılmadı).

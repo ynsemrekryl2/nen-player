@@ -1,7 +1,7 @@
 ---
 adr: 0031
 title: macOS kabuk etkileşim modeli — hata sunumu, ekran gizliliği ve ayar yüzeyi
-status: proposed
+status: accepted
 milestone: M3
 tasks: [NEN-024, NEN-025, NEN-026, NEN-037]
 date: 2026-08-25
@@ -11,7 +11,7 @@ date: 2026-08-25
 
 ## Durum
 
-`proposed`
+`accepted`
 
 ## Bağlam
 

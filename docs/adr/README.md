@@ -18,7 +18,9 @@ Süreç: [`0001-adr-process.md`](0001-adr-process.md) · Şablon:
 | [0029](0029-subtitle-language-detection.md) | Subtitle dili tespiti, güven eşiği ve metadata çelişki politikası | ✅ accepted | M2 |
 | [0030](0030-language-group-granularity.md) | Menü gruplaması ve tercih eşleşmesi primary subtag üzerinden | ✅ accepted | M3 |
 | [0011](0011-playback-port-contract.md) | `PlaybackEngine` capability modeli ve contract test yaklaşımı | ✅ accepted | M3 |
-| [0031](0031-macos-shell-interaction-model.md) | macOS kabuk etkileşim modeli — hata sunumu, ekran gizliliği ve ayar yüzeyi | 🟡 proposed | M3 |
+| [0031](0031-macos-shell-interaction-model.md) | macOS kabuk etkileşim modeli — hata sunumu, ekran gizliliği ve ayar yüzeyi | ✅ accepted | M3 |
+| [0002](0002-core-language.md) | Shared core dili — go/no-go kapısı | ✅ accepted | M1 |
+| [0027](0027-performance-budget.md) | Performans bütçeleri — M1 baseline'larından marjlı kabul | ✅ accepted | M1 sonrası |
 
 ## Planlanan
 
@@ -30,7 +32,6 @@ karar verilmiş sayılmaz (bkz. `docs/architecture.md` → "Karar statüsü").
 
 | ADR | Konu | Ne zaman |
 |---|---|---|
-| 0002 | **Shared core dili kararı** (aday: Rust) — go/no-go kapısı | M1 |
 | 0003 | FFI binding stratejisi (aday: UniFFI + C ABI); büyük veri geçiş modeli | M1 |
 | 0004 | Async / cancellation / progress kontratı ve late-commit yasağı | M1 |
 | 0005 | Typed error taksonomisi ve redaction kuralları | M1 |
@@ -48,15 +49,16 @@ karar verilmiş sayılmaz (bkz. `docs/architecture.md` → "Karar statüsü").
 | 0023 | Audio auto-sync pipeline ve confidence eşikleri | M8 |
 | 0024 | Audio privacy modeli: localOnly varsayılanı, remote izin akışı | M8 |
 | 0025 | Android motor kararı: Media3 vs. alternatif | M10 |
-| **0027** | **Performans bütçeleri** — M1 baseline'ları ve gerçek kullanım sonrası kabul | **M1 sonrası** |
 
 ## Kritik üçü
 
-**ADR-0002** M1'in çıkış kapısıdır — core dili burada kilitlenir. `no-go`
-çıkarsa M2 dışındaki tüm plan yeniden yazılır.
+**ADR-0002** M1'in çıkış kapısıydı — core dili burada kilitlendi (`go`,
+2026-08-24). Karar kapandı, aday değil: shared core Rust.
 
-**ADR-0026** playback/renderer ownership yönünü belirler. Tüm M3 ve M7'nin
-position çözünürlüğü buna bağlı; `NEN-021` bu ADR kabul edilmeden başlamaz.
+**ADR-0026** playback/renderer ownership yönünü belirledi (2026-08-24);
+`NEN-021` bunun üzerine kuruldu ve kapandı.
 
-**ADR-0012** libmpv'nin lisans ve linkleme modelini belirler; lisans seçimi
-(`docs/licensing.md`, S12) ve public dağıtım (S11) buna bağlıdır.
+**ADR-0012** — henüz yazılmadı, hâlâ gerçekten açık. libmpv'nin lisans ve
+linkleme modelini belirler; `NEN-022` (`adr: [11, 12]`) bu ADR kabul
+edilmeden `done` olamaz; lisans seçimi (`docs/licensing.md`, S12) ve public
+dağıtım (S11) da buna bağlıdır.
