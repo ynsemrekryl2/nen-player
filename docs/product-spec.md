@@ -104,6 +104,13 @@ Kanıtlar: optional handoff metadata · optional canonical ID · local filename 
 file size · OpenSubtitles-compatible hash · container metadata · title/year ·
 season/episode · release name · remote URL path basename.
 
+> Bu kanıt listesi [ADR-0009](adr/0009-media-evidence-and-identity.md) ile
+> **genişletildi**: uzak medyada URL'in yalnız basename'i değil **tüm path
+> segmentleri** ipucu sayılır, ve sunucunun beyan ettiği ad
+> (`Content-Disposition`, yönlendirme zincirinin sonu) ayrı bir kanıt katmanıdır.
+> Query, fragment ve host **hiçbir koşulda** kimliğe girmez — aşağıdaki yasak
+> aynen geçerlidir. Katmanların değerlendirilme sırası da o ADR'dedir.
+
 **Film fallback:** title + year → title → insan tarafından anlaşılır aday seçimi.
 
 **Dizi fallback:** series title + season + episode → insan tarafından anlaşılır

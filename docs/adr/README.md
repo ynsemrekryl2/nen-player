@@ -13,6 +13,7 @@ Süreç: [`0001-adr-process.md`](0001-adr-process.md) · Şablon:
 | [0028](0028-spike-ffi-surface.md) | Spike'ların geçici FFI yüzeyi | ✅ accepted | M1 |
 | [0008](0008-encoding-detection-and-sanitization.md) | Encoding tespiti ve sanitization politikası | ✅ accepted | M2 |
 | [0007](0007-subtitle-domain-model.md) | Subtitle domain modeli — cue kimliği ve timeline fingerprint algoritması | ✅ accepted | M2 |
+| [0009](0009-media-evidence-and-identity.md) | Media evidence / identity çözümleme ve fallback sırası | ✅ accepted | M2 |
 
 ## Planlanan
 
@@ -28,7 +29,6 @@ karar verilmiş sayılmaz (bkz. `docs/architecture.md` → "Karar statüsü").
 | 0003 | FFI binding stratejisi (aday: UniFFI + C ABI); büyük veri geçiş modeli | M1 |
 | 0004 | Async / cancellation / progress kontratı ve late-commit yasağı | M1 |
 | 0005 | Typed error taksonomisi ve redaction kuralları | M1 |
-| 0009 | Media evidence / identity çözümleme ve fallback sırası | M2 |
 | 0010 | SubtitleSourceCatalog gruplama, dedup ve menü projeksiyon kuralları | M2 |
 | 0011 | `PlaybackEngine` capability modeli ve contract test yaklaşımı | M3 |
 | 0012 | **macOS motor seçimi** (aday: libmpv) — dağıtım, linkleme, lisans | M3 |
