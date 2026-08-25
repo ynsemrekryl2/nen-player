@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **38** task · ✅ done 23 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 15
+Toplam **38** task · ✅ done 23 · 🔵 active 1 · ⛔ blocked 0 · ⚪ backlog 14
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -44,7 +44,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-017](done/NEN-017-indexed-cue-lookup.md) | Indexed cue lookup | M | ✅ done | NEN-016 |
 | [NEN-018](done/NEN-018-media-evidence-and-hash.md) | Media evidence, OS-compatible hash, release name parser | L | ✅ done | NEN-012 |
 | [NEN-019](done/NEN-019-source-catalog.md) | SubtitleSourceCatalog with grouping and dedup | M | ✅ done | NEN-016 NEN-018 |
-| [NEN-020](backlog/NEN-020-language-detection.md) | Subtitle language detection with confidence threshold | S | ⚪ backlog | NEN-013 |
+| [NEN-020](active/NEN-020-language-detection.md) | Subtitle language detection with confidence threshold | S | 🔵 active | NEN-013 |
 
 ## M3 — macOS Vertical Slice
 
@@ -74,7 +74,6 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 
 Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 
-- **NEN-020** — Subtitle language detection with confidence threshold
 - **NEN-021** — PlaybackEngine port contract and capability model
 - **NEN-033** — OpenSubtitles hash-based identity lookup
 - **NEN-034** — AI-assisted release name normalization

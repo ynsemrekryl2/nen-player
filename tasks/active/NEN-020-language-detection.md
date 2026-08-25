@@ -3,10 +3,10 @@ id: NEN-020
 title: Subtitle language detection with confidence threshold
 milestone: M2
 size: S
-state: backlog
+state: active
 depends_on: [NEN-013]
 blocks: []
-adr: [10]
+adr: [10, 29]
 ---
 
 # NEN-020 — Subtitle language detection with confidence threshold

@@ -3,17 +3,24 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-25** (NEN-019 kapanışı — subtitle source catalog)
+> Son güncelleme: **2026-08-25** (NEN-020 açılışı — language detection ADR kapısı)
 
 ## Nerede duruyoruz
 
 | | |
 |---|---|
 | **Mevcut milestone** | **M2 — Subtitle Core** (M1 kapandı) |
-| **Aktif task** | *yok* — `tasks/active/` boş |
+| **Aktif task** | `NEN-020` — Subtitle language detection with confidence threshold |
 | **Son tamamlanan** | `NEN-019` — SubtitleSourceCatalog with grouping and dedup |
-| **Sıradaki READY** | `NEN-020`, `NEN-021`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036` |
-| **Task sayısı** | 38 · done 23 · active 0 · blocked 0 · backlog 15 |
+| **Sıradaki READY** | `NEN-021`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036` |
+| **Task sayısı** | 38 · done 23 · active 1 · blocked 0 · backlog 14 |
+
+**`NEN-020` aktif; `ADR-0029` kabul edildi ve implementation kapısı açıldı.**
+Whatlang 0.18 ile bütün subtitle belgesinde offline tespit,
+metin sonucu için `> 0.90` güven eşiği, eşik altında `Dil Belirsiz`; geçerli
+metadata etiketi her zaman nihai dili belirliyor, yüksek güvenli metin farklı
+bir primary language bulursa ayrıca gizlilik-güvenli conflict durumu taşınıyor.
+Ürün kodu ve fixture/golden kanıtı sıradaki adım.
 
 **`NEN-019` kapandı — dört kaynak tek katalog ve tek menü projeksiyonunda.**
 `nen-domain`'e `SubtitleSourceKind` · `SubtitleSourceId` · `SubtitleSource` ·
