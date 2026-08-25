@@ -14,7 +14,9 @@
 //! - the language is supplied from outside as an `Option<LanguageTag>`; nothing
 //!   here detects it (NEN-020's job), and `None` means "Dil Belirsiz" (Karar 6);
 //! - ordering of language groups is by [`LanguageTag`], which is why `Ord` here
-//!   is the normalized tag's byte order: `en` < `fr` < `tr` (Karar 5, 7).
+//!   is the normalized tag's byte order: `en` < `fr` < `tr` (Karar 5, 7). A
+//!   group is keyed by [`LanguageTag::primary_tag`], not by the full tag
+//!   (ADR-0030) — the sources keep their region, the grouping does not use it.
 //!
 //! **Security:** a [`SubtitleSource`] carries a display label that is very often
 //! a private filename, and a [`SubtitleSourceId`] carries either a digest of a
@@ -92,12 +94,17 @@ impl fmt::Display for LanguageTagError {
 /// A normalized BCP-47 language tag: a primary subtag and an optional region,
 /// lowercased — `en`, `tr`, `pt-br`.
 ///
-/// The scope is deliberately narrow. This is what a subtitle group is keyed by
-/// and sorted by (ADR-0010 Karar 5); script, variant and extension subtags do
-/// not change which group a subtitle belongs to, and accepting them would make
-/// two spellings of the same group sort apart. An invalid tag is an `Err`, never
-/// a silently repaired value — a subtitle whose language could not be
-/// established belongs in `Dil Belirsiz`, and that is a `None`, not a guess.
+/// The scope is deliberately narrow. This is what a subtitle group is sorted by
+/// (ADR-0010 Karar 5); script, variant and extension subtags do not change which
+/// group a subtitle belongs to, and accepting them would make two spellings of
+/// the same group sort apart. An invalid tag is an `Err`, never a silently
+/// repaired value — a subtitle whose language could not be established belongs
+/// in `Dil Belirsiz`, and that is a `None`, not a guess.
+///
+/// The region is stored but is **not** the granularity at which two tags count
+/// as the same language: grouping and preference matching go through
+/// [`primary`](Self::primary) (ADR-0030). Keeping the region here is what lets a
+/// UI still show which entry is the Brazilian one (NEN-026).
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct LanguageTag(String);
 
@@ -144,6 +151,28 @@ impl LanguageTag {
     /// The normalized tag, e.g. `pt-br`.
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+
+    /// The primary subtag alone — `pt` for both `pt-br` and `pt-pt`.
+    ///
+    /// This is the granularity at which two tags count as "the same language"
+    /// (ADR-0030). Menu grouping, preference matching and `nen-subtitle`'s
+    /// metadata/text conflict check all ask that one question; answering it
+    /// separately in each place is how `en` and `en-us` ended up as two menu
+    /// groups while a `tr-tr` track stayed invisible to a `tr` preference.
+    pub fn primary(&self) -> &str {
+        self.0
+            .split_once('-')
+            .map_or(self.0.as_str(), |(primary, _)| primary)
+    }
+
+    /// The same tag with its region dropped — the representative a language
+    /// group carries (ADR-0030 Karar 1).
+    ///
+    /// The value is already normalized, so this cannot fail and does not go
+    /// back through [`parse`](Self::parse).
+    pub fn primary_tag(&self) -> Self {
+        Self(self.primary().to_owned())
     }
 }
 
@@ -389,6 +418,34 @@ mod tests {
             LanguageTag::parse("zh-hant-cn"),
             Err(LanguageTagError::TooManySubtags)
         );
+    }
+
+    #[test]
+    fn primary_drops_the_region_and_leaves_a_region_free_tag_alone() {
+        // ADR-0030 Karar 1/2: the granularity grouping and preference matching
+        // work at. The tag itself keeps its region -- Karar 3.
+        assert_eq!(tag("en-us").primary(), "en");
+        assert_eq!(tag("pt-br").primary(), "pt");
+        assert_eq!(tag("es-419").primary(), "es");
+        assert_eq!(tag("tr").primary(), "tr");
+
+        assert_eq!(tag("en-us").primary_tag(), tag("en"));
+        assert_eq!(tag("pt-br").primary_tag(), tag("pt"));
+        assert_eq!(tag("tr").primary_tag(), tag("tr"));
+
+        assert_eq!(
+            tag("en-us").as_str(),
+            "en-us",
+            "the source's own tag is untouched (ADR-0029 Karar 5)"
+        );
+    }
+
+    #[test]
+    fn two_regions_of_one_language_share_a_primary_tag() {
+        // The pair the ADR argues about: pt-br and pt-pt are different
+        // subtitles but one menu group.
+        assert_eq!(tag("pt-br").primary_tag(), tag("pt-pt").primary_tag());
+        assert_ne!(tag("pt-br"), tag("pt-pt"));
     }
 
     #[test]

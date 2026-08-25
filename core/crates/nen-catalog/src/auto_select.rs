@@ -45,9 +45,14 @@ pub fn auto_selection<'a>(
 ) -> Option<&'a SubtitleSource> {
     for language in preferences.ordered() {
         for kind in AUTO_SELECTABLE_KINDS {
-            let found = catalog
-                .sources()
-                .find(|s| s.kind() == *kind && s.language() == Some(language));
+            // Primary subtag on both sides (ADR-0030): a `tr` preference has to
+            // find a `tr-tr` track, and a `tr-TR` preference coming from the
+            // system locale has to find the ordinary `tr` ones.
+            let found = catalog.sources().find(|s| {
+                s.kind() == *kind
+                    && s.language()
+                        .is_some_and(|l| l.primary() == language.primary())
+            });
             if found.is_some() {
                 return found;
             }
@@ -126,6 +131,49 @@ mod tests {
         let prefs = SubtitlePreferences::new(Some(tag("tr")), Some(tag("en")));
         let picked = auto_selection(&catalog, &prefs).expect("a pick");
         assert_eq!(picked.language(), Some(&tag("en")));
+    }
+
+    #[test]
+    fn a_preference_matches_a_track_tagged_with_a_region() {
+        // ADR-0030 Karar 2. Before it this returned None: the user had set a
+        // preference, and playback silently started with subtitles off.
+        let catalog: SubtitleSourceCatalog = [embedded(0, "tr-tr", "Türkçe")].into_iter().collect();
+        let prefs = SubtitlePreferences::new(Some(tag("tr")), None);
+        let picked = auto_selection(&catalog, &prefs).expect("a pick");
+        assert_eq!(
+            picked.language(),
+            Some(&tag("tr-tr")),
+            "the source keeps its full tag; only the match dropped the region"
+        );
+    }
+
+    #[test]
+    fn a_preference_carrying_a_region_matches_a_plain_track() {
+        // The other direction: preferences seeded from a system locale look
+        // like `tr-TR`, while embedded tracks are tagged plain `tr`.
+        let catalog: SubtitleSourceCatalog = [embedded(0, "tr", "Türkçe")].into_iter().collect();
+        let prefs = SubtitlePreferences::new(Some(tag("tr-tr")), None);
+        let picked = auto_selection(&catalog, &prefs).expect("a pick");
+        assert_eq!(picked.language(), Some(&tag("tr")));
+    }
+
+    #[test]
+    fn region_is_not_a_tiebreak_inside_a_language() {
+        // The accepted cost of ADR-0030 (Notlar): a pt-br preference cannot ask
+        // for the Brazilian track. Kind order and then catalog order decide, so
+        // the pt-pt embedded track wins over the pt-br user file. Locking this
+        // down so the day someone wants region-aware selection, the change is
+        // visible rather than silent.
+        let catalog: SubtitleSourceCatalog = [
+            user(1, "pt-br", "Movie.pt-BR.srt"),
+            embedded(0, "pt-pt", "Português"),
+        ]
+        .into_iter()
+        .collect();
+        let prefs = SubtitlePreferences::new(Some(tag("pt-br")), None);
+        let picked = auto_selection(&catalog, &prefs).expect("a pick");
+        assert_eq!(picked.language(), Some(&tag("pt-pt")));
+        assert_eq!(picked.kind(), SubtitleSourceKind::Embedded);
     }
 
     #[test]

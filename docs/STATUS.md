@@ -3,7 +3,7 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-25** (NEN-020 ve M2 kapanışı — language detection)
+> Son güncelleme: **2026-08-25** (NEN-039 — dil gruplaması primary subtag'e indi)
 
 ## Nerede duruyoruz
 
@@ -11,11 +11,40 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain blocker) |
 | **Aktif task** | *yok* — `tasks/active/` boş |
-| **Son tamamlanan** | `NEN-020` — Subtitle language detection with confidence threshold |
-| **Sıradaki READY** | `NEN-021`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-039`, `NEN-040` |
-| **Task sayısı** | 40 · done 24 · active 0 · blocked 0 · backlog 16 |
+| **Son tamamlanan** | `NEN-039` — Subtitle menu language grouping and matching use the primary subtag |
+| **Sıradaki READY** | `NEN-021`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040` |
+| **Task sayısı** | 40 · done 25 · active 0 · blocked 0 · backlog 15 |
 
-**`NEN-020` ve M2 kapandı — subtitle dili artık offline ve güven eşikli.**
+**`NEN-039` kapandı ve `ADR-0030` accepted oldu — dil gruplaması ve tercih
+eşleşmesi artık primary subtag üzerinden.** `nen-domain`'e
+`LanguageTag::primary()` / `primary_tag()` eklendi; `nen-catalog`'un menü
+gruplaması (`BTreeMap` anahtarı) ve otomatik seçim eşleşmesi bunları kullanıyor,
+`nen-subtitle`'ın aynı ayrımı elle yapan özel `primary_subtag()` yardımcısı
+silindi — iki kod yolu artık aynı soruyu aynı yerden soruyor. `en` ve `en-us`
+menüde **tek** grup; kaynağın tam etiketi korunuyor (ADR-0029 Karar 5 duruyor).
+
+**İkinci kırılma yönü inceleme sırasında bulundu ve ADR'ye yazıldı:** tam
+eşitlik yalnız kaynağın region'ında değil, **tercihin kendi region'ında** da
+kırılıyordu. NEN-026 tercihi sistem dilinden alırsa macOS `tr-TR` verir,
+katalogtaki track'ler ise `tr` etiketlidir — kullanıcı tercih ayarlar, hiçbir
+grup üste çıkmaz ve hiçbir altyazı otomatik açılmazdı. İki taraf da primary'ye
+indiği için bu asimetri kalktı.
+
+**Negatif kontrol iki gerçek test kusuru buldu.** Kod geçici olarak tam-etiket
+hâline döndürülünce 6 yeni testin yalnız 4'ü kırmızıya döndü: bir menü testi
+`en`'i tercih ettiği için alfabetik sırayla aynı sonucu üretiyor (hoist
+edilmese de geçiyor), diğeri katalogda tek kaynak olduğu için eski kodda da
+mükerrer grup açamıyordu. İkisi de düzeltildi (tercih `fr-ca`, katalog `en` +
+`en-us`), sonra 6/6 kırmızı — testler artık boşta dönmüyor.
+
+**Kabul edilen maliyet kilitlendi:** tercihi `pt-br` olan kullanıcı `pt-pt`
+yerine `pt-br`'yi **isteyemiyor** (grup içinde region tiebreak yok, ADR-0010
+Karar 5'e dokunurdu). Bu davranış `region_is_not_a_tiebreak_inside_a_language`
+testiyle sabitlendi — değişirse sessizce değil, kırmızı testle değişir.
+Test sayısı **328 → 337**; yeni dış bağımlılık yok. Tam kanıt:
+`tasks/done/NEN-039-*.md`.
+
+**Eski `NEN-020` ve M2 kapanışı — subtitle dili artık offline ve güven eşikli.**
 `nen-subtitle`, Whatlang 0.18 ile bütün belgeyi bir kez sınıflandırıyor;
 `> 0.90` adayı kanonik iki harfli `LanguageTag` yapıyor, eşik altını
 `Dil Belirsiz` bırakıyor. Metadata nihai dilde her zaman kazanıyor; güvenilir
@@ -598,9 +627,8 @@ Hiçbiri sıradaki task'ları bloke etmiyor.
 ## Son doğrulama
 
 2026-08-25, tümü bu makinede çalıştırıldı (Apple M5 · arm64 · macOS 27.0
-26A5416b · rustc/cargo 1.98.0 · Swift 6.4 · uniffi 0.32.0). NEN-019/NEN-020
-kapanışından sonra yeniden koşuldu — bir önceki kayıt NEN-018 dönemindeydi ve
-nen-catalog ile whatlang'ı hiç göstermiyordu.
+26A5416b · rustc/cargo 1.98.0 · Swift 6.4 · uniffi 0.32.0). NEN-039
+kapanışından sonra yeniden koşuldu.
 
 ```
 $ bash scripts/doctor.sh M1
@@ -609,7 +637,7 @@ SONUÇ: M1 için tüm blocker'lar hazır.            → exit 0
 $ cargo test --manifest-path core/Cargo.toml --workspace
 spike_cue_transfer 8 · spike_async_cancel 6 · spike_typed_errors 5 ·
 spike_reverse_ffi 11 · nen-app 1 · nen-ffi 1 ·
-nen-domain 18 (unit) + 9 (guard_redaction) = 27 ·
+nen-domain 20 (unit) + 9 (guard_redaction) = 29 ·
 nen-subtitle 44 (unit) + 4 (encoding_golden) + 7 (encoding_negative) +
              4 (fuzz_smoke) + 3 (golden_valid) + 4 (guard_error_debug) +
              2 (language_detection_golden) + 4 (language_resolution) +
@@ -617,8 +645,8 @@ nen-subtitle 44 (unit) + 4 (encoding_golden) + 7 (encoding_negative) +
 nen-identity 125 (unit) + 7 (guard_evidence_debug) + 8 (nfo_and_container) +
              6 (os_hash_reference) + 4 (release_name_golden) +
              13 (resolution_layers) = 163 ·
-nen-catalog 21 (unit) + 2 (guard_source_debug) + 2 (menu_projection_golden) = 25
-328 passed, 0 failed, 1 ignored                  → exit 0 (NEN-019/020 ile 284 → 328)
+nen-catalog 27 (unit) + 2 (guard_source_debug) + 3 (menu_projection_golden) = 32
+337 passed, 0 failed, 1 ignored                  → exit 0 (NEN-039 ile 328 → 337)
   ignored = lookup_bench (baseline; scripts/bench-cue-lookup.sh ile koşar)
 
 $ cargo tree -p nen-domain --edges normal

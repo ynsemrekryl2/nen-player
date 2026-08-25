@@ -38,6 +38,24 @@ fn fixture_catalog() -> SubtitleSourceCatalog {
     .collect()
 }
 
+/// Two Portuguese subtitles that really are different text (ADR-0030).
+fn region_catalog() -> SubtitleSourceCatalog {
+    [
+        SubtitleSource::new(
+            SubtitleSourceId::embedded(0),
+            Some(tag("pt-br")),
+            "Português (BR)",
+        ),
+        SubtitleSource::new(
+            SubtitleSourceId::embedded(1),
+            Some(tag("pt-pt")),
+            "Português (PT)",
+        ),
+    ]
+    .into_iter()
+    .collect()
+}
+
 fn golden_path(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../../fixtures/catalog")
@@ -90,4 +108,14 @@ fn menu_with_turkish_then_english_matches_adr_0010_decision_10() {
     let preferences = SubtitlePreferences::new(Some(tag("tr")), Some(tag("en")));
     let menu = project(&catalog, &preferences);
     assert_golden("menu-preferred-tr-en.golden", &snapshot(&menu));
+}
+
+#[test]
+fn regions_of_one_language_share_one_heading_and_keep_their_tags() {
+    // ADR-0030 Karar 1/3 at the layer the user actually sees: one `pt` heading,
+    // both entries still under it, each still carrying its own region so a UI
+    // can label them apart (NEN-026).
+    let catalog = region_catalog();
+    let menu = project(&catalog, &SubtitlePreferences::none());
+    assert_golden("menu-pt-regions.golden", &snapshot(&menu));
 }

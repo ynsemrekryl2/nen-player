@@ -157,7 +157,7 @@ fn resolve_candidate(
     match metadata {
         Some(language) => {
             let conflict = reliable
-                .filter(|detected| primary_subtag(&language) != detected.language.as_str())
+                .filter(|detected| language.primary() != detected.language.as_str())
                 .map(|detected| MetadataLanguageConflict { detected });
             LanguageResolution::Metadata { language, conflict }
         }
@@ -165,13 +165,6 @@ fn resolve_candidate(
             .map(LanguageResolution::Text)
             .unwrap_or(LanguageResolution::Unknown),
     }
-}
-
-fn primary_subtag(language: &LanguageTag) -> &str {
-    language
-        .as_str()
-        .split_once('-')
-        .map_or(language.as_str(), |(primary, _)| primary)
 }
 
 /// Project-canonical BCP-47 primary subtags for every Whatlang 0.18 language.

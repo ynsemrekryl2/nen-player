@@ -20,6 +20,10 @@ pub enum MenuGroup {
     /// User-loaded files and discovered sidecars, whatever their language (§8).
     UserSubtitles,
     /// Everything else, keyed by language.
+    ///
+    /// The tag carried here is region-free (ADR-0030): `en-us` and `en` sources
+    /// share one `Language(en)` group. The entries under it keep their own full
+    /// tags, so a UI can still tell the reader which one is the US track.
     Language(LanguageTag),
     /// Sources whose language could not be established (`Dil Belirsiz`).
     UnknownLanguage,
@@ -58,7 +62,7 @@ impl<'a> SubtitleMenu<'a> {
 /// Kullanıcı Altyazıları     (omitted when there are none)
 /// <primary preference>      (omitted when that language has no sources)
 /// <secondary preference>
-/// <remaining languages>     ascending by LanguageTag
+/// <remaining languages>     ascending by primary subtag
 /// Dil Belirsiz              (always last, omitted when empty)
 /// ```
 ///
@@ -88,23 +92,32 @@ pub fn project<'a>(
     }
 
     // BTreeMap keeps the languages we did not put first in ascending tag order,
-    // and each Vec keeps its language's entries in catalog order.
-    let mut by_language: BTreeMap<&LanguageTag, Vec<&SubtitleSource>> = BTreeMap::new();
+    // and each Vec keeps its language's entries in catalog order. The key is the
+    // *primary* tag (ADR-0030): `en` and `en-us` are one group, and the entries
+    // under it keep their own full tags.
+    let mut by_language: BTreeMap<LanguageTag, Vec<&SubtitleSource>> = BTreeMap::new();
     let mut unknown: Vec<&SubtitleSource> = Vec::new();
     for source in catalog.sources() {
         if source.kind() == SubtitleSourceKind::User {
             continue;
         }
         match source.language() {
-            Some(language) => by_language.entry(language).or_default().push(source),
+            Some(language) => by_language
+                .entry(language.primary_tag())
+                .or_default()
+                .push(source),
             None => unknown.push(source),
         }
     }
 
+    // A preference may itself carry a region (a UI seeding it from the system
+    // locale gets `tr-TR`), so it is matched at the same granularity — otherwise
+    // a perfectly ordinary preference would hoist nothing at all.
     for preferred in preferences.ordered() {
-        if let Some(entries) = by_language.remove(preferred) {
+        let group = preferred.primary_tag();
+        if let Some(entries) = by_language.remove(&group) {
             sections.push(MenuSection {
-                group: MenuGroup::Language(preferred.clone()),
+                group: MenuGroup::Language(group),
                 entries,
             });
         }
@@ -112,7 +125,7 @@ pub fn project<'a>(
 
     for (language, entries) in by_language {
         sections.push(MenuSection {
-            group: MenuGroup::Language(language.clone()),
+            group: MenuGroup::Language(language),
             entries,
         });
     }
@@ -211,6 +224,96 @@ mod tests {
         assert_eq!(
             groups(&menu),
             [MenuGroup::Closed, MenuGroup::Language(tag("en"))]
+        );
+    }
+
+    #[test]
+    fn regions_of_one_language_share_a_single_group() {
+        // ADR-0030 Karar 1. Before it, these opened two headings and the user
+        // saw the same language twice.
+        let catalog: SubtitleSourceCatalog = [
+            embedded(0, Some("en-us"), "English (US)"),
+            embedded(1, Some("en"), "English"),
+        ]
+        .into_iter()
+        .collect();
+        let menu = project(&catalog, &SubtitlePreferences::none());
+
+        assert_eq!(
+            groups(&menu),
+            [MenuGroup::Closed, MenuGroup::Language(tag("en"))],
+            "the group's representative carries no region"
+        );
+        let english = menu
+            .section(&MenuGroup::Language(tag("en")))
+            .expect("English group");
+        let languages: Vec<&str> = english
+            .entries
+            .iter()
+            .map(|e| e.language().expect("a language").as_str())
+            .collect();
+        assert_eq!(
+            languages,
+            ["en-us", "en"],
+            "entries keep their own full tags, in catalog order (Karar 3, 4)"
+        );
+    }
+
+    #[test]
+    fn a_preference_carrying_a_region_still_hoists_the_language() {
+        // The direction that is easy to miss: the *preference* is the one with
+        // the region. A UI seeding preferences from the system locale gets
+        // `fr-CA`, while tracks are tagged plain `fr` -- exact equality would
+        // hoist nothing at all.
+        //
+        // French is the preferred one on purpose: it sorts *after* English, so
+        // hoisting it is visible in the order. Preferring English here would
+        // pass either way, since `en` leads the alphabetical tail anyway.
+        let catalog: SubtitleSourceCatalog = [
+            embedded(0, Some("en"), "English"),
+            embedded(1, Some("fr"), "Français"),
+        ]
+        .into_iter()
+        .collect();
+        let prefs = SubtitlePreferences::new(Some(tag("fr-ca")), None);
+        let menu = project(&catalog, &prefs);
+
+        assert_eq!(
+            groups(&menu),
+            [
+                MenuGroup::Closed,
+                MenuGroup::Language(tag("fr")),
+                MenuGroup::Language(tag("en")),
+            ],
+            "French is hoisted, and its heading is the region-free tag"
+        );
+    }
+
+    #[test]
+    fn two_preferences_of_one_language_do_not_open_two_groups() {
+        // `SubtitlePreferences::new` only drops a secondary that is *exactly*
+        // the primary, so (en, en-us) survives as a pair. Under primary
+        // matching both name the same group; the second lookup must find
+        // nothing rather than open a second heading (ADR-0030 Notlar). What the
+        // user loses is the secondary slot itself -- it now names a language
+        // they already picked, so there is no second-choice language at all.
+        let catalog: SubtitleSourceCatalog = [
+            embedded(0, Some("en"), "English"),
+            embedded(1, Some("en-us"), "English (US)"),
+        ]
+        .into_iter()
+        .collect();
+        let prefs = SubtitlePreferences::new(Some(tag("en")), Some(tag("en-us")));
+        let menu = project(&catalog, &prefs);
+
+        assert_eq!(
+            groups(&menu),
+            [MenuGroup::Closed, MenuGroup::Language(tag("en"))]
+        );
+        assert_eq!(
+            menu.section(&MenuGroup::Language(tag("en")))
+                .map(|s| s.entries.len()),
+            Some(2)
         );
     }
 
