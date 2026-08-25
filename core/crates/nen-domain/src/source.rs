@@ -179,10 +179,11 @@ impl SubtitleSourceId {
 
     /// A user file, identified by a digest of its path.
     ///
-    /// The digest is computed by the caller (`nen_catalog::user_source_id`)
-    /// because this crate has no dependencies. Passing a digest rather than a
-    /// path is what keeps K23 #3 satisfied by construction: there is no code
-    /// path by which a raw path can be stored here.
+    /// The digest is computed by the caller — the M3 file adapter that has the
+    /// path in the first place (`NEN-025`) — because this crate has no
+    /// dependencies and no hash of its own. Taking a digest rather than a path
+    /// is what keeps K23 #3 satisfied by construction: there is no code path by
+    /// which a raw path can be stored here.
     pub fn user(path_digest: [u8; 32]) -> Self {
         let mut key = String::with_capacity(64);
         for byte in path_digest {

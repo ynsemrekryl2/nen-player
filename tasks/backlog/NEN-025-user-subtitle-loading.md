@@ -23,6 +23,11 @@ SRT otomatik bulunur; güvenlik kurallarını ihlal eden dosyalar reddedilir.
 - Güvenlik kapıları (`docs/security-policy.md` §4): regular-file doğrulaması,
   symlink reddi, path traversal reddi, boyut sınırı
 - Encoding kontrolü + strict SRT parse
+- **Yol digest'i:** `SubtitleSourceId::user(digest)`'in beklediği `[u8; 32]`'yi
+  üreten yer burasıdır (ADR-0010 Karar 2). `nen-domain` bağımlılıksız olduğu
+  için hash'i o crate hesaplayamaz ve ham yolu **hiçbir koşulda** almaz
+  (K23 #3). Aynı dosya iki kez yüklendiğinde katalogda tek giriş kalması bu
+  digest'e bağlıdır — kanıtı da burada üretilir.
 - Hatalı dosya → kaynak "hatalı" işaretlenir, **playback durmaz**
 
 ## YAPILMAYACAK
@@ -38,6 +43,7 @@ SRT otomatik bulunur; güvenlik kurallarını ihlal eden dosyalar reddedilir.
 - [ ] Negatif: `../` içeren yol **reddediliyor**
 - [ ] Negatif: dizin/FIFO **reddediliyor**
 - [ ] Negatif: boyut sınırını aşan dosya okunmuyor
+- [ ] Aynı dosya iki kez yüklendiğinde katalogda tek giriş kalıyor (digest eşit)
 - [ ] Bozuk SRT'de playback **devam ediyor**, kaynak hatalı işaretleniyor
 
 ## Kanıt kaydı
