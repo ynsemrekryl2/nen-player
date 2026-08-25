@@ -21,8 +21,14 @@ gösterir.
 - Tek altyazı düğmesi
 - `Kapalı` her zaman üstte
 - `Kullanıcı Altyazıları` grubu, ardından dil grupları
+- **Dil grubu başlıkları endonim** ("English", "Français", "Türkçe") —
+  `nen-catalog`'un projeksiyonu yalnız `LanguageTag` döndürür (ADR-0010
+  Karar 7), metni yazan bu task'tır; NEN-019'un `menu_projection_golden`
+  testi §8'in **yapısını** kanıtlıyor, §8'in **görünen metnini** ilk kez
+  üreten yer burasıdır
 - Origin rozetleri (Gömülü / OpenSubtitles / AI)
 - `Dil Belirsiz` grubu
+- Birinci/ikinci tercih edilen dil grupları listenin üstünde (ADR-0010 Karar 4)
 - Seçim → o anki gösterilen kaynak **ve** AI çeviri komutunun kaynağı olur
 
 ## YAPILMAYACAK
@@ -34,7 +40,9 @@ gösterir.
 
 ## Kanıt (DoD)
 
-- [ ] Şartname §8 örneğiyle eşleşen ekran görüntüsü
+- [ ] Şartname §8 örneğiyle **görünen metin dahil** (endonim başlıklar,
+      Türkçe chrome) eşleşen ekran görüntüsü — M2'nin projeksiyon golden'ı bu
+      metni üretmiyordu, ilk gerçek kanıt burada
 - [ ] Aynı kaynak menüde iki kez görünmüyor
 - [ ] `Kapalı` her koşulda mevcut
 - [ ] Kaynak seçmek hiçbir çeviri/indirme işi **başlatmıyor** (log/çağrı kanıtı)

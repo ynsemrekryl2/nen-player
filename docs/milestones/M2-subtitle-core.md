@@ -31,7 +31,12 @@ slice'ı bu core üzerine oturur.
 - [x] Round-trip SRT → WebVTT byte-eşit
 - [x] Timeline fingerprint: zaman değişince değişiyor, metin değişince değişmiyor
 - [x] Cue lookup 10k rastgele seek'te lineer taramayla birebir aynı sonucu veriyor
-- [x] Şartname §8'deki menü, katalog projeksiyonundan birebir üretiliyor
+- [x] Şartname §8'deki menü, katalog projeksiyonundan birebir üretiliyor —
+      **kapsam:** golden `nen-catalog`'un ürettiği **yapısal** projeksiyonu
+      (grup sırası, giriş sırası, tür, dil, etiket) sabitliyor, ADR-0010
+      Karar 7 gereği bunun ötesinde §8'in **görünen** metnini (endonim,
+      Türkçe chrome) üretmiyor — o metin platform UI'ının işi ve NEN-026'nın
+      DoD'unda ayrıca kanıtlanacak
 - [x] ≥30 dosya adı için kimlik çıkarımı golden'ı geçiyor
 
 ## Task'lar
