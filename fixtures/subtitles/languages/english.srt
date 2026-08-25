@@ -1,0 +1,31 @@
+1
+00:00:01,000 --> 00:00:03,000
+The lantern waits beside the quiet window.
+
+2
+00:00:04,000 --> 00:00:06,000
+We can follow the narrow road after sunrise.
+
+3
+00:00:07,000 --> 00:00:09,000
+Please bring the blue notebook from the kitchen.
+
+4
+00:00:10,000 --> 00:00:12,000
+The weather changed unexpectedly during our morning walk.
+
+5
+00:00:13,000 --> 00:00:15,000
+Several neighbors gathered beneath the wooden bridge.
+
+6
+00:00:16,000 --> 00:00:18,000
+Every winter the children build a shelter in the garden.
+
+7
+00:00:19,000 --> 00:00:21,000
+She asked whether the machine could finish before evening.
+
+8
+00:00:22,000 --> 00:00:24,000
+I usually read the newspaper while drinking warm tea.

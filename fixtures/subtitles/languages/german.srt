@@ -1,0 +1,11 @@
+1
+00:00:01,000 --> 00:00:03,000
+Die Laterne steht neben dem stillen Fenster.
+
+2
+00:00:04,000 --> 00:00:06,000
+Wir können dem schmalen Weg nach Sonnenaufgang folgen.
+
+3
+00:00:07,000 --> 00:00:09,000
+Bitte bring das blaue Notizbuch aus der Küche.

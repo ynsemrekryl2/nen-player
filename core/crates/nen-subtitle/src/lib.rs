@@ -1,4 +1,5 @@
-//! SRT/WebVTT parsing and writing, encoding detection, timeline fingerprinting.
+//! SRT/WebVTT parsing and writing, encoding detection, timeline fingerprinting
+//! and offline language detection.
 //!
 //! Crate sınırları ve izinli bağımlılıklar: ADR-0006.
 //!
@@ -21,5 +22,6 @@
 pub mod encoding;
 pub mod fingerprint;
 pub mod index;
+pub mod language;
 pub mod srt;
 pub mod webvtt;

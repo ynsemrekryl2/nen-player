@@ -40,6 +40,10 @@ encoding_rs = "0.8"
 # hash'i. Saf Rust, deterministic.
 blake3 = "1"
 
+# whatlang — ADR-0029 ile kabul edildi (NEN-020): bütün subtitle belgesinde
+# offline dil tespiti ve güven skoru. Saf Rust; model dosyası veya ağ yok.
+whatlang = "0.18"
+
 [profile.release]
 lto = true
 codegen-units = 1

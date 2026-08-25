@@ -154,3 +154,9 @@ Kaynaklar: [Whatlang 0.18 API](https://docs.rs/whatlang/0.18.0/whatlang/) ·
 [Whatlang `is_reliable` kaynağı](https://docs.rs/whatlang/0.18.0/src/whatlang/core/info.rs.html) ·
 [Whatlang proje açıklaması](https://github.com/greyblake/whatlang-rs) ·
 [Lingua model ve performans notları](https://github.com/pemistahl/lingua-rs)
+
+Implementation sırasında `cargo deny check`, Whatlang 0.18'in
+`hashbrown 0.15` üzerinden `foldhash 0.1.5` getirdiğini ve bu transitif crate'in
+Zlib lisanslı olduğunu gösterdi. Zlib permissive ve OSI-onaylı olduğundan
+`core/deny.toml` izin listesine gerekçeli olarak eklendi; copyleft veya ürün
+dağıtım modelini değiştiren yeni bir yükümlülük doğurmadı.

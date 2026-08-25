@@ -21,6 +21,10 @@ allow = [
     # BSD-3-Clause" — the BSD-3-Clause half covers its WHATWG-derived index
     # data specifically, not the crate as a whole.
     "BSD-3-Clause",
+    # foldhash (whatlang 0.18 -> hashbrown 0.15, ADR-0029 / NEN-020) is Zlib.
+    # Permissive, OSI-approved; no copyleft or distribution restriction beyond
+    # preserving the notice and marking altered source versions.
+    "Zlib",
 ]
 confidence-threshold = 0.8
 

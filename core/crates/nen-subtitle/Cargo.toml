@@ -1,6 +1,6 @@
 [package]
 name = "nen-subtitle"
-description = "SRT/WebVTT parse-write, encoding, timeline"
+description = "SRT/WebVTT parse-write, encoding, timeline and language detection"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,3 +10,4 @@ publish.workspace = true
 nen-domain.workspace = true
 encoding_rs.workspace = true
 blake3.workspace = true
+whatlang.workspace = true

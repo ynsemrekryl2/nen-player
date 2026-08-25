@@ -203,7 +203,7 @@ ilgili kaynağı hatalı işaretler.
 | Crate | Sorumluluk | Bağımlı olabileceği |
 |---|---|---|
 | `nen-domain` | Saf model, I/O yok | — |
-| `nen-subtitle` | SRT/WebVTT parse-write, encoding, timeline | domain |
+| `nen-subtitle` | SRT/WebVTT parse-write, encoding, timeline, dil tespiti | domain |
 | `nen-identity` | Evidence, hash, release-name parse | domain |
 | `nen-catalog` | Source catalog, gruplama, dedup | domain, subtitle, identity |
 | `nen-translate` | Blok pipeline, validation, checkpoint | domain, subtitle, ports |

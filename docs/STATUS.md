@@ -3,24 +3,31 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-25** (NEN-020 açılışı — language detection ADR kapısı)
+> Son güncelleme: **2026-08-25** (NEN-020 ve M2 kapanışı — language detection)
 
 ## Nerede duruyoruz
 
 | | |
 |---|---|
-| **Mevcut milestone** | **M2 — Subtitle Core** (M1 kapandı) |
-| **Aktif task** | `NEN-020` — Subtitle language detection with confidence threshold |
-| **Son tamamlanan** | `NEN-019` — SubtitleSourceCatalog with grouping and dedup |
+| **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain blocker) |
+| **Aktif task** | *yok* — `tasks/active/` boş |
+| **Son tamamlanan** | `NEN-020` — Subtitle language detection with confidence threshold |
 | **Sıradaki READY** | `NEN-021`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036` |
-| **Task sayısı** | 38 · done 23 · active 1 · blocked 0 · backlog 14 |
+| **Task sayısı** | 38 · done 24 · active 0 · blocked 0 · backlog 14 |
 
-**`NEN-020` aktif; `ADR-0029` kabul edildi ve implementation kapısı açıldı.**
-Whatlang 0.18 ile bütün subtitle belgesinde offline tespit,
-metin sonucu için `> 0.90` güven eşiği, eşik altında `Dil Belirsiz`; geçerli
-metadata etiketi her zaman nihai dili belirliyor, yüksek güvenli metin farklı
-bir primary language bulursa ayrıca gizlilik-güvenli conflict durumu taşınıyor.
-Ürün kodu ve fixture/golden kanıtı sıradaki adım.
+**`NEN-020` ve M2 kapandı — subtitle dili artık offline ve güven eşikli.**
+`nen-subtitle`, Whatlang 0.18 ile bütün belgeyi bir kez sınıflandırıyor;
+`> 0.90` adayı kanonik iki harfli `LanguageTag` yapıyor, eşik altını
+`Dil Belirsiz` bırakıyor. Metadata nihai dilde her zaman kazanıyor; güvenilir
+metin farklı primary language bulursa typed conflict korunuyor, region farkı
+conflict sayılmıyor. 8 doğru dil + kısa/karışık unknown golden'ı dört yazı
+sistemini kapsıyor; K23 guard sonucu subtitle diyaloğu taşımıyor. Whatlang'ın
+70 dil eşlemesi exhaustive. Test sayısı **317 → 328**; tam kanıt
+`tasks/done/NEN-020-*.md`.
+
+**M3 sırada fakat bugün başlanamaz.** Tam Xcode ve libmpv eksik; bunlar
+`doctor.sh M3` için blocker. `NEN-021` ilk READY M3 task'ı olarak kalıyor,
+toolchain kapısı açılmadan implementation'a alınmayacak.
 
 **`NEN-019` kapandı — dört kaynak tek katalog ve tek menü projeksiyonunda.**
 `nen-domain`'e `SubtitleSourceKind` · `SubtitleSourceId` · `SubtitleSource` ·

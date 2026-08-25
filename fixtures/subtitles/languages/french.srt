@@ -1,0 +1,11 @@
+1
+00:00:01,000 --> 00:00:03,000
+La lanterne attend près de la fenêtre silencieuse.
+
+2
+00:00:04,000 --> 00:00:06,000
+Nous pouvons suivre le chemin étroit après le lever du soleil.
+
+3
+00:00:07,000 --> 00:00:09,000
+Apporte le carnet bleu depuis la cuisine, s'il te plaît.
