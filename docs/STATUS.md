@@ -3,19 +3,50 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-25** (NEN-017 kapanışı — indexed cue lookup)
+> Son güncelleme: **2026-08-25** (NEN-018 açılışı — ADR-0009 accepted)
 
 ## Nerede duruyoruz
 
 | | |
 |---|---|
 | **Mevcut milestone** | **M2 — Subtitle Core** (M1 kapandı) |
-| **Aktif task** | *yok* — `tasks/active/` boş |
+| **Aktif task** | `NEN-018` — Media evidence, OS-compatible hash, release name parser |
 | **Son tamamlanan** | `NEN-017` — Indexed cue lookup |
-| **Sıradaki READY** | `NEN-018`, `NEN-020`, `NEN-021` |
-| **Task sayısı** | 32 · done 21 · active 0 · blocked 0 · backlog 11 |
+| **Sıradaki READY** | `NEN-020`, `NEN-021` |
+| **Task sayısı** | 36 · done 21 · active 1 · blocked 0 · backlog 14 |
 
-**`NEN-017` kapandı — M2'nin cue lookup çıkış kriteri karşılandı.**
+**`NEN-018` açıldı ve `ADR-0009` accepted oldu.** Medya kimliği **katmanlı bir
+kanıt modeliyle** çözülecek: beyan katmanları (handoff metadata · `.nfo`
+sidecar · container metadata · dosya adı beyanı) tahmin katmanlarının
+(üst klasör adları · kardeş dosya teyidi · URL path segmentleri) üstünde;
+ilk `Unknown` olmayan katman kazanır. Gerekçe kullanıcı kararında: gömülü
+altyazı yoksa altyazılar OpenSubtitles'tan gelecek ve bu ancak kimlik
+çözülürse mümkün — **kullanıcıya aday listesi göstermek son çaredir**, hedef
+medyaların büyük çoğunluğunda hiç sormamak.
+
+ADR-0009 şartname §6'nın kanıt listesini **iki yönde genişletti**: (1) uzak
+medyada URL'in yalnız basename'i değil **tüm path segmentleri** ipucu sayılıyor
+— Stremio/debrid URL'lerinde basename çoğu zaman anlamsız (`stream.mkv`, hash
+adı), anlamlı ad üst segmentte; (2) sunucunun beyan ettiği ad
+(`Content-Disposition`, yönlendirme zincirinin sonu) ayrı bir kanıt katmanı
+oldu. Query, fragment ve host **hiçbir koşulda** kimliğe girmiyor (§6 yasağı +
+K23 #1/#2 aynen korundu). `docs/product-spec.md` §6'ya ADR'ye işaret eden bir
+not düşüldü; şartname yeniden yazılmadı (ADR-0001'in izin verdiği biçim).
+
+Kapsam `size: M` → **`L`** oldu (offline kanıt katmanları eklendi). Dört takip
+task'ı açıldı: **NEN-033** (OSDb hash → IMDb ID, M6) · **NEN-034** (AI ile
+release-name normalizasyonu, M6 — kendi gizlilik ADR'sini ister) ·
+**NEN-035** (güven skoru ve aday sıralama, M6 — gösterim oranı ölçülebilir
+kabul kriteri) · **NEN-036** (uzak kanıt portu: HEAD/`Content-Disposition`/
+bounded redirect/`Range`, M3).
+
+**Torrent/debrid non-goal olarak kaldı** — kullanıcı kararı, doküman
+değişikliği yapılmadı. ADR-0009 Notlar bölümü bunun kimlik çıkarımını neden
+zayıflatmadığını kaydediyor: Stremio senaryosunda URL infohash tabanlı ve opak
+olsa bile kimlik handoff extras'tan ve `Range` ile okunan container başlığı +
+hash'ten gelebilir.
+
+**Eski `NEN-017` kapanışı — M2'nin cue lookup çıkış kriteri karşılandı.**
 `nen-subtitle`'a `CueIndex` eklendi (`index.rs`): ödünç alınmış bir
 `SubtitleDocument` üzerinde `active_cues(at)` · `active_cue(at)` ·
 `cues_in(range)`. **Yeni bağımlılık yok.**
