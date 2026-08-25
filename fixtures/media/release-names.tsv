@@ -1,0 +1,60 @@
+# Release-name corpus for NEN-018 (ADR-0009 Karar 3).
+#
+# One name per line; `#` starts a comment and blank lines are ignored.
+# The expected parse lives in release-names.golden beside this file.
+# Regenerate after an intentional parser change with:
+#   UPDATE_GOLDEN=1 cargo test -p nen-identity --test release_name_golden
+
+# --- scene movies -----------------------------------------------------------
+Inception.2010.1080p.BluRay.x264-GROUP.mkv
+The.Shawshank.Redemption.1994.1080p.BluRay.x264.YIFY.mp4
+The.Grand.Budapest.Hotel.2014.2160p.UHD.BluRay.x265-TERMiNAL.mkv
+Blade.Runner.2049.2017.1080p.WEB-DL.DD5.1.H264-FGT.mkv
+Mad.Max.Fury.Road.2015.REMASTERED.1080p.BluRay.x264.mkv
+Parasite.2019.LIMITED.1080p.BluRay.x264-CADAVER.mkv
+Dune.Part.Two.2024.2160p.WEB-DL.DDP5.1.Atmos.HDR.H265.mkv
+Spider-Man.2002.1080p.BluRay.x264.mkv
+The-Matrix-1999-1080p-BluRay-x264
+Se7en.1995.PROPER.1080p.BluRay.x264.mkv
+Whiplash.2014.EXTENDED.720p.BRRip.XviD.AC3.avi
+Everything.Everywhere.All.At.Once.2022.1080p.WEBRip.x265.mkv
+
+# --- movies with a parenthesised or bracketed year --------------------------
+Arrival (2016) [1080p].mkv
+Interstellar (2014) 2160p HDR.mkv
+Amelie (2001) [BluRay] [1080p].mp4
+Oppenheimer [2023] IMAX 1080p.mkv
+
+# --- series: SxxEyy and friends ---------------------------------------------
+Breaking.Bad.S01E02.720p.HDTV.x264-CTU.mkv
+Breaking.Bad.S05E14.Ozymandias.1080p.WEB-DL.mkv
+Fringe.s3e11.HDTV.XviD-LOL.avi
+The.Office.US.3x07.DVDRip.XviD.avi
+Dark.S02.E05.1080p.NF.WEBRip.x264.mkv
+Chernobyl Season 1 Episode 3 1080p AMZN WEBRip.mkv
+Severance.S02E01.2160p.ATVP.WEB-DL.DDP5.1.Atmos.HEVC.mkv
+Game.of.Thrones.S08E06.The.Iron.Throne.1080p.mkv
+Stranger.Things.S04E09.1080p.NF.WEB-DL.DDP5.1.x264.mkv
+True.Detective.S01E01.PROPER.720p.HDTV.x264-IMMERSE.mkv
+S01E02.mkv
+
+# --- anime-style naming ------------------------------------------------------
+[SubGroup] Steins Gate - 05 [1080p][AAC].mkv
+[HorribleSubs] Attack on Titan - 12 [720p].mkv
+
+# --- Turkish and other non-ASCII titles -------------------------------------
+Ayla.Savasin.Kizi.2017.1080p.WEB-DL.x264.mkv
+Bir.Zamanlar.Anadoluda.2011.1080p.BluRay.x264.mkv
+Amélie.2001.1080p.BluRay.DTS.x264.mkv
+Kis.Uykusu.2014.720p.BluRay.x264-TURK.mkv
+Das.Boot.1981.DIRECTORS.CUT.1080p.BluRay.mkv
+
+# --- names that must NOT resolve --------------------------------------------
+video.mkv
+stream.mkv
+movie.mp4
+0
+a1b2c3d4e5f6a7b8.mp4
+8f2a9c1d
+untitled
+VID_20240115_143022.mp4

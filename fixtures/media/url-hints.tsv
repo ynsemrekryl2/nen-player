@@ -1,0 +1,39 @@
+# Remote URL corpus for NEN-018 (ADR-0009 Karar 5).
+#
+# One URL per line; `#` starts a comment and blank lines are ignored.
+# The golden beside this file records the path hints (basename first) and the
+# identity resolved from them. Query strings, fragments and hosts must never
+# appear in either column.
+#
+#   UPDATE_GOLDEN=1 cargo test -p nen-identity --test resolution_layers
+
+# --- the meaningful name lives above an opaque basename ---------------------
+https://cdn.example.com/movies/Inception.2010.1080p.BluRay/stream.mkv
+https://cdn.example.com/tv/Breaking.Bad.S01E02.720p/video
+https://cdn.example.com/a/b/Arrival.2016.2160p.WEB-DL/0
+
+# --- the basename itself carries the name -----------------------------------
+https://cdn.example.com/files/Parasite.2019.1080p.BluRay.x264.mkv
+https://files.example.org/Whiplash.2014.720p.BRRip.XviD.avi
+
+# --- percent-encoded segments ------------------------------------------------
+https://cdn.example.com/The%20Matrix%20(1999)%201080p/video.mkv
+https://cdn.example.com/Am%C3%A9lie.2001.1080p.BluRay/stream.mkv
+
+# --- an encoded slash must not become a segment boundary --------------------
+https://cdn.example.com/a%2Fb%2FInception.2010.1080p/video.mkv
+
+# --- token-bearing query and fragment: nothing here may reach the evidence --
+https://cdn.example.com/d/Movie.2010.1080p.mkv?token=SUPERSECRET&user=alice
+https://cdn.example.com/d/Movie.2010.1080p.mkv#key=SUPERSECRET
+https://real-debrid.example.com/d/ABCDEF123456/Dune.2021.2160p.mkv?auth=SUPERSECRET
+
+# --- traversal attempts ------------------------------------------------------
+https://cdn.example.com/a/../../etc/Movie.2010.1080p.mkv
+https://cdn.example.com/%2e%2e/%2e%2e/Movie.2010.1080p.mkv
+
+# --- opaque endpoints that resolve to nothing --------------------------------
+http://127.0.0.1:11470/8f2a9c1de4b7/0
+https://cdn.example.com/v1/stream/a1b2c3d4/index.mkv
+https://cdn.example.com
+https://cdn.example.com/

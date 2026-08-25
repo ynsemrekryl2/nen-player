@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<movie>
+  <title>Inception</title>
+  <originaltitle>Inception</originaltitle>
+  <year>2010</year>
+  <runtime>148</runtime>
+  <uniqueid type="imdb" default="true">tt1375666</uniqueid>
+  <uniqueid type="tmdb">27205</uniqueid>
+  <genre>Science Fiction</genre>
+</movie>

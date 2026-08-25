@@ -3,19 +3,56 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-25** (NEN-018 açılışı — ADR-0009 accepted)
+> Son güncelleme: **2026-08-25** (NEN-018 kapanışı — media evidence ve identity)
 
 ## Nerede duruyoruz
 
 | | |
 |---|---|
 | **Mevcut milestone** | **M2 — Subtitle Core** (M1 kapandı) |
-| **Aktif task** | `NEN-018` — Media evidence, OS-compatible hash, release name parser |
-| **Son tamamlanan** | `NEN-017` — Indexed cue lookup |
-| **Sıradaki READY** | `NEN-020`, `NEN-021` |
-| **Task sayısı** | 36 · done 21 · active 1 · blocked 0 · backlog 14 |
+| **Aktif task** | *yok* — `tasks/active/` boş |
+| **Son tamamlanan** | `NEN-018` — Media evidence, OS-compatible hash, release name parser |
+| **Sıradaki READY** | `NEN-019`, `NEN-020`, `NEN-021`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036` |
+| **Task sayısı** | 36 · done 22 · active 0 · blocked 0 · backlog 14 |
 
-**`NEN-018` açıldı ve `ADR-0009` accepted oldu.** Medya kimliği **katmanlı bir
+**`NEN-018` kapandı — `nen-identity` artık dolu.** Dokuz modül eklendi
+(`os_hash` · `release_name` · `url_hints` · `dir_hints` · `declared_name` ·
+`siblings` · `nfo` · `container` · `evidence`), **yeni dış bağımlılık yok** —
+`nen-identity` tek kenar (`nen-domain`), `nen-domain` hâlâ tek düğüm,
+`deny.toml`'a dokunulmadı. Test sayısı **121 → 284**.
+
+**Golden'lar dört gerçek parser kusuru buldu, hiçbiri elle fark edilmemişti:**
+(1) `Blade.Runner.2049.2017…` başlığı "Blade Runner", yılı **2049** sanıyordu —
+arka arkaya iki yıl-benzeri token varsa artık ilki başlığın parçası; (2)
+`[SubGroup] Steins Gate` başlığa fansub grubunu katıyordu; (3) `Unknown` bir
+sonuç yarım başlık bırakıyordu — artık `Unknown ⇒ title = None`; (4)
+`Severance (2022)/Season 02/` `movie` dönüyordu, sezon da artık dizi işareti.
+
+**Wire biçimi kusuru elle doğrulanabilir vektörle yakalandı.** Hash ilk sürümde
+`to_le_bytes()` ile saklanıyordu; OpenSubtitles `%016x` ile **big-endian**
+basıyor. Tamamı sıfır olan 131 072 byte'lık dosyanın hash'inin kendi boyutu
+olması gerektiği (`0000000000020000`) ilk koşuda uyuşmazlığı gösterdi — yani
+gönderilecek hash baştan yanlış olacaktı. DoD #1 üç ayrı kanıt taşıyor: elle
+doğrulanabilir bilinen cevap · kasıtlı olarak farklı yazılmış **bağımsız
+referans implementasyonu** (açık indeks aritmetiği + elle bit kaydırma) ·
+commit edilmiş golden.
+
+**Negatif kontrol iki biçimde.** Kalıcı olanı `DerivedEvidence`: aynı değerleri
+taşıyan `#[derive(Debug)]`'lı kasıtlı bozuk ikiz, 10 yasak desenin **hepsini**
+sızdırdığı sürekli doğrulanıyor — sızdırmazsa test kırılır, yani "yasak desen
+yok" iddiası boşta dönemez. Tek seferlik mekanik doğrulama da yapıldı:
+`MediaEvidence`'ın elle yazılmış `Debug`'ına kasıtlı sızıntı sokulunca guard
+2/7 testte kırmızıya döndü, dosya geri alındı.
+
+**Üç tasarım kararı kapanışta kayda geçti.** (1) Boşluk doldurma yalnız
+sayısal alanlarda — kazanan katman başlığı ve türü sahiplenir, alt katmanlar
+yalnız eksik yıl/sezon/bölüm verir. (2) Bölüm **veya sezon** türü kesinleştirir;
+sezonlu bir `Movie` döndürmek tutarsız olurdu. (3) **Kardeş mutabakatı
+daraltıldı:** task açılışında "yanlış `SxxEyy`'leri eler" yazıyordu, bu
+ADR-0009'un "düşürmez" ilkesiyle çelişiyordu — artık yalnız verdict döndürüyor
+ve eksik bir dizi adını dolduruyor. Tam kanıt: `tasks/done/NEN-018-*.md`.
+
+**Eski `NEN-018` açılışı ve `ADR-0009`.** Medya kimliği **katmanlı bir
 kanıt modeliyle** çözülecek: beyan katmanları (handoff metadata · `.nfo`
 sidecar · container metadata · dosya adı beyanı) tahmin katmanlarının
 (üst klasör adları · kardeş dosya teyidi · URL path segmentleri) üstünde;
@@ -544,8 +581,11 @@ nen-domain 10 (unit) + 9 (guard_redaction) = 19 ·
 nen-subtitle 21 (unit) + 8 (fingerprint) + 10 (index) + 4 (encoding_golden) +
              7 (encoding_negative) + 4 (fuzz_smoke) + 3 (golden_valid) +
              4 (guard_error_debug) + 3 (lookup_parity) + 3 (malformed) +
-             3 (webvtt_roundtrip) = 70
-121 passed, 0 failed, 1 ignored                  → exit 0 (NEN-017 ile 108 → 121)
+             3 (webvtt_roundtrip) = 70 ·
+nen-identity 125 (unit) + 7 (guard_evidence_debug) + 8 (nfo_and_container) +
+             6 (os_hash_reference) + 4 (release_name_golden) +
+             13 (resolution_layers) = 163
+284 passed, 0 failed, 1 ignored                  → exit 0 (NEN-018 ile 121 → 284)
   ignored = lookup_bench (baseline; scripts/bench-cue-lookup.sh ile koşar)
 
 $ cargo tree -p nen-domain --edges normal
@@ -554,6 +594,9 @@ $ cargo tree -p nen-subtitle --edges normal
 nen-subtitle → encoding_rs → cfg-if
 nen-subtitle → blake3 → ...
 nen-subtitle → nen-domain                        → NEN-017 kenar EKLEMEDİ
+$ cargo tree -p nen-identity --edges normal
+nen-identity → nen-domain                        → tek kenar, NEN-018 dış
+                                                   bağımlılık EKLEMEDİ
 
 $ cargo clippy --workspace --all-targets --manifest-path core/Cargo.toml -- -D warnings
                                                   → exit 0, uyarı yok
@@ -561,6 +604,17 @@ $ cargo fmt --all --check --manifest-path core/Cargo.toml → exit 0
 $ (cd core && cargo deny check)
   advisories ok · bans ok · licenses ok (blake3'ün Apache-2.0 kolu zaten
   izinliydi, deny.toml'a dokunulmadı) · sources ok → exit 0
+  NEN-018 de deny.toml'a dokunmadı — yeni bağımlılık yok
+
+$ cargo test -p nen-identity --manifest-path core/Cargo.toml
+  release_name_golden  4 ✓  42 ad (8'i kasıtlı Unknown), .golden byte-eşit
+  resolution_layers   13 ✓  ADR-0009 Karar 6 sırası + 17 URL + 12 yol korpusu
+  os_hash_reference    6 ✓  bağımsız referans implementasyonuyla 7 boyutta
+                            birebir; sınır vakaları ve tek-bit duyarlılığı
+  nfo_and_container    8 ✓  4 sidecar fixture'ı; malformed olan hata değil
+                            "tanınmadı" dönüyor
+  guard_evidence_debug 7 ✓  10 yasak desen (K23 #1/#2/#3/#8) hiçbir çıktıda yok;
+                            DerivedEvidence negatif kontrolü hepsini sızdırıyor
 
 $ cargo test -p nen-subtitle --manifest-path core/Cargo.toml
   golden_valid   3 ✓   7 geçerli fixture, .golden snapshot'larıyla byte-eşit
@@ -663,6 +717,22 @@ yalnız fixture'daydı ve `NEN-031` ile kapandı.
   `[u8; 32]` (`blake3`) döndürür; ikisi de `Display`/`Debug`'ı küçük harf hex
   olarak basar. `CueId` hiçbir hash'e dahil değil. `blake3`'e bağımlı
   (crate'in ikinci dış bağımlılığı, `encoding_rs`'ten sonra). 8 unit test.
+- `core/crates/nen-identity/src/` — NEN-018'in dokuz modülü (ADR-0009):
+  `os_hash.rs` (OSDb hash, I/O'suz `of(file_size, head, tail)`; `OsHash` `Debug`/
+  `Display`'de `<redacted>`, gerçek değer yalnız `to_hex()`/`as_bytes()` ile) ·
+  `release_name.rs` (`parse` → `ParsedName`, hata tipi **yok**, çözülemeyen ad
+  `Unknown`) · `url_hints.rs` (path segmentleri; query/fragment/host tipe hiç
+  girmez) · `dir_hints.rs` · `declared_name.rs` (RFC 6266/5987 + sanitization) ·
+  `siblings.rs` (rapor eder, ezmez) · `nfo.rs` (Kodi/Plex sidecar, XML + tek
+  satır URL) · `container.rs` (şekil + tag → identity; demuxer M3'te) ·
+  `evidence.rs` (`MediaEvidence`, Karar 6 katman yürüyüşü, §6 aday üretimi).
+  Crate'in `lib.rs`'inde `nen-subtitle`'ınkiyle aynı panik lint kapısı.
+  **Yeni dış bağımlılık yok.**
+- `fixtures/media/` — NEN-018'in korpusu: `release-names.tsv` (42 ad, 8'i
+  kasıtlı çözülemeyen) · `url-hints.tsv` (17 URL, token'lı query ve fragment
+  dahil) · `dir-layouts.tsv` (12 yol) · her birinin `.golden`'ı ·
+  `os-hash.golden` (7 sentetik boyut) · `nfo/` (4 sidecar, biri malformed).
+  Golden'lar `UPDATE_GOLDEN=1 cargo test -p nen-identity` ile yenilenir.
 - `core/crates/nen-subtitle/src/index.rs` — NEN-017'nin `CueIndex<'a>`'i:
   sıralı cue dizisi + monoton `max_end_prefix` artırımı üzerinde iki
   `partition_point`. `active_cues(at)` çakışan cue'ların **hepsini** doküman

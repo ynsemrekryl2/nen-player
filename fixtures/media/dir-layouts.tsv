@@ -1,0 +1,28 @@
+# Local path corpus for NEN-018 (ADR-0009 Karar 6, layer 5).
+#
+# One path per line; `#` starts a comment and blank lines are ignored.
+# The golden records the identity resolved from filename + parent directories.
+#
+#   UPDATE_GOLDEN=1 cargo test -p nen-identity --test resolution_layers
+
+# --- the filename says everything -------------------------------------------
+/Users/x/Movies/Inception.2010.1080p.BluRay.x264.mkv
+/Users/x/Downloads/Breaking.Bad.S01E02.720p.HDTV.mkv
+
+# --- Kodi/Plex layouts: the folder is better named than the file ------------
+/Volumes/Media/Movies/Arrival (2016)/video.mkv
+/Volumes/Media/Movies/Blade Runner 2049 (2017)/movie.mkv
+/Volumes/Media/TV/Breaking Bad (2008)/Season 01/S01E02.mkv
+/Volumes/Media/TV/Severance (2022)/Season 02/episode.mkv
+
+# --- Windows separators ------------------------------------------------------
+D:\Media\Movies\Parasite (2019)\video.mkv
+
+# --- the folder is generic, the file is not ---------------------------------
+/Users/x/Downloads/Dune.Part.Two.2024.2160p.WEB-DL.mkv
+
+# --- neither says anything ---------------------------------------------------
+/Users/x/Downloads/video.mkv
+/tmp/stream.mkv
+/Users/x/Movies/untitled/0
+video.mkv
