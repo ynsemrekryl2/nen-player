@@ -29,8 +29,10 @@
 
 ## Ön koşul
 
-**Tam Xcode ve libmpv kurulu olmalıdır.** Bu makinede ikisi de eksik
-(`scripts/doctor.sh` ile doğrulanır). M3 bunlar kurulmadan başlayamaz.
+**Tam Xcode ve libmpv kurulu olmalıdır** (`scripts/doctor.sh M3` ile
+doğrulanır). Bu makinede kapı 2026-08-25'te açıldı (Xcode 26.6 · libmpv 2.5.0);
+kapı açılırken doctor'da bulunan bir yanlış pozitif `NEN-041`'e ayrıldı. M3 o
+tarihten beri sürüyor.
 
 ## Çıkış kriterleri (NEN-028 acceptance)
 

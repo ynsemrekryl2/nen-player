@@ -3,9 +3,9 @@
 Üst görünüm. Task ayrıntısı için `tasks/INDEX.md`, milestone ayrıntısı için
 `docs/milestones/`.
 
-**Şu anki konum: M2 kapandı → M3 sırada.** Subtitle core'un sekiz task'ı
-tamamlandı; M3'ün ilk task'ı **NEN-021**, fakat tam Xcode + libmpv toolchain
-kapısı açılmadan implementation başlamaz.
+**Şu anki konum: M3 sürüyor.** Subtitle core'un sekiz task'ı tamamlandı;
+toolchain kapısı açık (Xcode 26.6 · libmpv 2.5.0), `NEN-021` ve `NEN-022`
+kapandı — macOS'ta gerçek video oynuyor. Sırada `NEN-023`/`NEN-024`.
 Güncel durum: [`docs/STATUS.md`](STATUS.md) ·
 Kararlar: [`docs/DECISIONS.md`](DECISIONS.md)
 
