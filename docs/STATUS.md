@@ -3,8 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-26** (**NEN-024 tamamlandı** — SwiftUI kabuğu,
-> gerçek video yüzeyi, transport ve sandbox bookmark akışı kanıtlandı)
+> Son güncelleme: **2026-08-26** (**NEN-024 tamamlandı**; kabuk çalışır
+> `.app` üzerinde incelendi → `NEN-046`, `NEN-047`, `NEN-048` açıldı)
 
 ## Nerede duruyoruz
 
@@ -13,8 +13,8 @@
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
 | **Son tamamlanan** | `NEN-024` — macOS SwiftUI shell with transport controls |
-| **Sıradaki READY** | `NEN-025`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-037`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044` |
-| **Task sayısı** | 45 · done 30 · active 0 · blocked 0 · backlog 15 |
+| **Sıradaki READY** | `NEN-025`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-046`, `NEN-047`, `NEN-048` |
+| **Task sayısı** | 48 · done 30 · active 0 · blocked 0 · backlog 18 |
 
 **`NEN-024` kapandı — macOS artık tek pencerede gerçek video oynatıyor.**
 SwiftUI kabuk; AppKit/libmpv render yüzeyi, transport, yedi kısayol grubu,
@@ -26,6 +26,25 @@ libmpv hâlâ Homebrew'dan dinamik bağlı — uygulama içine gömme/notarizati
 `NEN-043` kapsamında. **29 Swift testi / 6 suite** ve repo tooling'inin **2 test
 dosyası** geçti. Sentetik fixture ile 10 saniyelik oynatma kaydı, transport
 ekranı ve tam manuel checklist `evidence/M3/NEN-024-*` altında.
+
+**Kabuk çalışır `.app` üzerinde incelendi; üç kusur ölçüldü.** `NEN-024`'ün
+kapanışı geçerli — kapsam maddelerinin karşılığı kodda var, ADR-0031'in
+gizlilik kararları gerçekten uygulanmış. Ama kanıt kaydının kapsamadığı üç
+davranış canlı uygulamada doğrulandı: (1) pencere kapatılınca uygulama menü
+çubuğunda yaşamaya devam ediyor ve `⌘O` ile dosya seçilse bile hiçbir şey
+olmuyor — geri dönüş yolu yok → `NEN-046`; (2) yedi kısayol menü key
+equivalent'ı olduğu için **Ayarlar penceresi öndeyken de** çalışıyor (`↓`
+sesi düşürdü, `←` konumu `00:30 → 00:25` aldı) ve kontroller gizliyken
+klavyeyle yapılan seek ekranda hiçbir iz bırakmıyor → `NEN-047`; (3) medya
+yokken uygulama her öne geldiğinde `Önce bir medya açın.` geçici bildirimi
+çıkıyor — kullanıcı hiçbir şey yapmamışken, ADR-0031 Karar 1'in geçici sınıf
+tanımına aykırı → `NEN-048`. Üçüncüsünün görülmeme sebebi de aynı yerde:
+`FakeSession` hiç throw etmediği için geçici hata sınıfının **hiçbir testi
+yok** ve manuel checklist'te de maddesi yok; fatal sınıf kanıtlı, geçici sınıf
+kanıtsız kapanmış. Ayrıca `UserDefaultsRecentMediaStore` bayat bookmark'ı
+scope açılmadan tazelemeye çalışıyor ve başarısız olursa çözülmüş kaydı
+siliyor — bu `NEN-042`'nin kapsamına eklendi. `NEN-037` artık READY değil:
+kısayol kapsamı düzelmeden iki dil seçicisi klavyeyle kullanılamaz.
 
 **`NEN-045` kapandı — kabuk artık çekirdek üzerinden oynatıyor.** `NEN-024`
 planlanırken çıkan boşluktu: `nen-ffi` bugüne kadar yalnız contract kitini
