@@ -204,6 +204,12 @@ public final class PlayerModel: ObservableObject {
             case .idle, .ready, .paused, .failed:
                 try session.play()
             }
+            // The engine reports the transition before the command returns, and
+            // the bridge pulls after every command, so what the click produced
+            // is already in the queue by now — measured at 50–180 us (NEN-055).
+            // Waiting for the next poll tick would sit on an answer the shell
+            // is already holding.
+            drainSessionEvents()
         } catch {
             presentTransient(PlaybackPresentation.errorMessage(for: error))
         }
@@ -427,6 +433,10 @@ public final class PlayerModel: ObservableObject {
             positionMilliseconds = milliseconds
             pendingSeekCount += 1
             seekGuardExpiry = now() + seekGuardTimeoutNanoseconds
+            // Safe only because of the guard above: what the queue is holding
+            // at this instant is the position from *before* the seek, which is
+            // exactly what NEN-053 measured and now refuses.
+            drainSessionEvents()
         } catch {
             // A refused seek is owed no answer, so it must not leave a guard
             // behind: the position that keeps arriving is the true one.

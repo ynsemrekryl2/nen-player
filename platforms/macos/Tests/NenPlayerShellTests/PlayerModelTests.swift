@@ -43,6 +43,29 @@ struct PlayerModelTests {
         #expect(model.volume == 1)
     }
 
+    // MARK: - Transport feedback (NEN-055)
+
+    @Test("the icon turns on the click, not on the next poll tick")
+    func togglingReadsWhatTheCommandAlreadyProduced() {
+        let fixture = FakeSession()
+        fixture.currentDuration = 30_000
+        let model = makePlayingModel(session: fixture)
+        // `Ready` starts playback on its own, and that transition is queued too.
+        model.consume(fixture.drainEvents())
+        #expect(model.isPlaying)
+
+        model.togglePlayback()
+
+        // Nothing polled: `startsPolling` is false and no event was handed in.
+        #expect(model.playbackState == .paused)
+        #expect(fixture.pauseCount == 1)
+
+        model.togglePlayback()
+
+        #expect(model.isPlaying)
+        #expect(fixture.playCount == 2)
+    }
+
     // MARK: - The seek guard (NEN-053)
     //
     // mpv keeps reporting `time-pos` from before a seek until it has served it,
@@ -533,11 +556,16 @@ private final class FakeSession: PlaybackSessionClient {
         try refuse(.play)
         playCount += 1
         currentState = .playing
+        // The real adapter appends the transition before the command returns
+        // and the bridge pulls right after it, so it is queued by the time the
+        // caller gets control back. Measured at 50-180 us (NEN-055).
+        events.append(.stateChanged(state: .playing))
     }
     func pause() throws {
         try refuse(.pause)
         pauseCount += 1
         currentState = .paused
+        events.append(.stateChanged(state: .paused))
     }
     func stop() throws {
         try refuse(.stop)

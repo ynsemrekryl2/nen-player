@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **55** task · ✅ done 34 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 21
+Toplam **55** task · ✅ done 35 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 20
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -75,7 +75,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-052](backlog/NEN-052-seek-while-loading.md) | Decide and pin what a seek during loading does | S | ⚪ backlog | NEN-051 |
 | [NEN-053](done/NEN-053-stale-position-overrides-seek.md) | A stale position event never overrides a seek that landed | S | ✅ done | NEN-051 |
 | [NEN-054](backlog/NEN-054-volume-change-latency.md) | A volume change is heard when it is made | M | ⚪ backlog | NEN-024 |
-| [NEN-055](backlog/NEN-055-transport-feedback-latency.md) | A transport command is shown without waiting for the next poll tick | S | ⚪ backlog | NEN-053 |
+| [NEN-055](done/NEN-055-transport-feedback-latency.md) | A transport command is shown without waiting for the next poll tick | S | ✅ done | NEN-053 |
 
 ## M5 — Translation Core
 
@@ -111,4 +111,3 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-050** — Cover the recent-media store's transient error paths
 - **NEN-052** — Decide and pin what a seek during loading does
 - **NEN-054** — A volume change is heard when it is made
-- **NEN-055** — A transport command is shown without waiting for the next poll tick

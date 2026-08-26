@@ -16,9 +16,9 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-053` — a stale position event never overrides a seek that landed |
-| **Sıradaki READY** | `NEN-025`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-054`, `NEN-055` |
-| **Task sayısı** | 55 · done 34 · active 0 · blocked 0 · backlog 21 |
+| **Son tamamlanan** | `NEN-055` — a transport command is shown without waiting for the next poll tick |
+| **Sıradaki READY** | `NEN-025`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-054` |
+| **Task sayısı** | 55 · done 35 · active 0 · blocked 0 · backlog 20 |
 
 **Kullanıcı üç transport gecikmesi bildirdi; üçü de dosyalandı.** Semptomlar:
 ses düzeyi değişimi geç duyuluyor, play/pause bazen geç dönüyor, kaydırıcı
@@ -30,9 +30,10 @@ Kod okundu, üç kök neden **farklı** çıktı ve üçü de kabukta:
 - `NEN-054` — ses düzeyi gecikmesinin **hangi** payının nereden geldiği
   (kaydırıcının geriden gelmesi · bloklayan yazmaların birikmesi · mpv'nin ses
   tamponu) okumayla belirlenemiyor; task ölçümle başlıyor.
-- `NEN-055` — durum olayı komut dönerken Rust kuyruğunda **hazır bekliyor**
-  (köprü her komuttan sonra çekiyor); gecikme yalnız kabuğun kendi 50 ms
-  poll'u. `NEN-053`'ten sonra yapılır.
+- `NEN-055` — **kapandı.** Durum olayının komut dönerken hazır beklediği
+  ölçüldü (50–180 us); kabuk artık komuttan sonra aynı turda bakıyor. Negatif
+  kontrol semptomun ikinci yüzünü gösterdi: durum geç döndüğü için ikinci
+  tıklama `togglePlayback`'i yanlış dalda buluyordu.
 
 `NEN-054` ile `NEN-055`'in teşhisleri **kod okumasıdır**, henüz ölçülmedi.
 `NEN-053`'ün teşhisi ölçüldü ve **değişti**: sanılan neden mpv'nin seek'i
@@ -43,9 +44,8 @@ kalıyor, bırakma anında seek komutundan mikrosaniyeler sonra uyanıyor ve
 kuyrukta hâlâ sürükleme öncesinin konumunu buluyor. Kayıt:
 `evidence/M3/NEN-053-checklist.md`.
 
-Bu, `NEN-055`'in teşhisini de **şüpheli** yapıyor: aynı starvation play/pause
-ikonunun gecikmesini de açıklayabilir, yani oradaki "yalnız 50 ms poll" okuması
-uygulanmadan önce ölçülmeli.
+`NEN-055`'in teşhisi bu yüzden uygulanmadan önce ölçüldü ve **doğrulandı**.
+Geriye `NEN-054` kalıyor; onun da ölçümü ilk adımdır.
 
 **`NEN-051` kapandı — bir seek artık yalnız kendi cevabını alıyor.**
 `NEN-049` "paralel koşuda `aSeekIsAnsweredThroughTheSession` kırmızı" diye
