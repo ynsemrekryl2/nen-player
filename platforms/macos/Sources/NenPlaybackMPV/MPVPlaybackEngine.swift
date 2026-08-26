@@ -323,7 +323,28 @@ public final class MPVPlaybackEngine: ForeignPlaybackEngine, @unchecked Sendable
 
     public func setVolume(volume: Float) throws {
         try requireLive()
-        try setDouble("volume", Double(max(0, min(1, volume))) * 100)
+        let wanted = Double(max(0, min(1, volume))) * 100
+        // Set at the device, not in the filter chain (NEN-054).
+        //
+        // mpv's software `volume` is applied *before* its audio buffer, whose
+        // default is 200 ms (`--audio-buffer`, and mpv's own manual names the
+        // consequence: a larger buffer "may make soft-volume ... react
+        // slower"). Samples already in that buffer keep the old level, which is
+        // what a user hears as the volume arriving late. `ao-volume` is applied
+        // by the audio output itself, past the buffer.
+        //
+        // It exists only while an audio output does — mpv: "available only if
+        // mpv audio output is currently active" — so the software volume stays
+        // as the fallback for an engine that is idle or headless. The two must
+        // never both hold a level, or they multiply: whenever the device takes
+        // the level, the filter chain is put back to unity.
+        do {
+            try setDouble("ao-volume", wanted)
+        } catch {
+            try setDouble("volume", wanted)
+            return
+        }
+        try setDouble("volume", 100)
     }
 
     public func extractText(track _: UInt32) throws -> String {

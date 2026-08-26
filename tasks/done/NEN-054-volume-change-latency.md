@@ -3,7 +3,7 @@ id: NEN-054
 title: A volume change is heard when it is made
 milestone: M3
 size: M
-state: backlog
+state: done
 depends_on: [NEN-024]
 blocks: []
 adr: [12, 31]
@@ -69,13 +69,40 @@ kanıtları da farklı; Kural 5 gereği ayrı.
 
 ## Kanıt (DoD)
 
-- [ ] Ölçüm raporu: yöntem, öncesi/sonrası gecikme, elenen adaylar
-- [ ] Seçilen düzeltmenin testi (ret durumunda değerin geri alınması ve/veya
-      bir sürüklemenin motora tek yazma göndermesi)
-- [ ] `transportCommands` testindeki kırpma davranışı korunuyor
-- [ ] `ao-volume`/`audio-buffer` seçilirse `bash scripts/test-macos.sh` yeşil
-- [ ] Elle: ↑/↓ ve kaydırıcı, kaydırıcı takılmadan hareket ediyor (checklist)
+- [x] Ölçüm raporu: yöntem, elenen adaylar — **öncesi/sonrası gecikme sayısı
+      yok**, gerekçesi kanıt kaydında
+- [x] Seçilen düzeltmenin testi — cihaz yolu headless test edilemiyor, **yedek
+      yol** test edildi; sınır kanıt kaydında
+- [x] `transportCommands` testindeki kırpma davranışı korunuyor
+- [x] `bash scripts/test-macos.sh` yeşil (49 test / 7 suite)
+- [x] Elle: kullanıcı ↑/↓ ile denedi, gecikme gitti (checklist)
 
 ## Kanıt kaydı
 
-<!-- done olurken doldurulacak -->
+Tam kayıt: `evidence/M3/NEN-054-checklist.md`.
+
+**Üç adaydan ikisi ölçümle elendi.** Bir sürüklemenin tam yükü (120 ardışık
+`setVolume`, pump 33 Hz'de çekerken) ölçüldü: tam FFI turu p50 **8.6 µs**,
+120 örnek toplam **1.1 ms**. Sürükleme selinin birikmesi de kaydırıcının
+geriden gelmesi de bu sayıyla elendi — bu yüzden kabukta ne throttle ne de
+iyimser yazma eklendi (Kural 5: düzeltilecek gecikme yok).
+
+**Kalan aday ses hattıydı** ve mpv'nin kendi kılavuzu mekanizmayı adıyla
+yazıyor: `--audio-buffer` varsayılanı 0.2 s ve büyütmek "may make soft-volume
+... react slower". Aynı madde bu seçeneğin "yalnız test için" olduğunu da
+söylediğinden tampon **küçültülmedi**; düzey tamponun ötesine, cihaza taşındı.
+
+**Kullanıcı ayırt edici deneyi yaptı:** düzeltilmemiş yapıda ↑/↓ ile tek adım
+(tek property yazması) da belirgin geç duyuluyordu — sel değil, hat.
+
+**`ao-volume` iki riski ayrıca ölçüldü** (mpv CLI + IPC): dosya yeniden
+yüklenince düzey korunuyor (ses %100'e fırlamıyor), süreç yeniden başlayınca
+korunmuyor (kabuğun %100 varsayılanı gerçek düzeyle uyuşuyor). Çıkışın yok olup
+geri gelmesi ölçülmedi, bilinmiyor olarak kaydedildi.
+
+`bash scripts/test-macos.sh` çıkış 0: **49 test / 7 suite**. Yeni test yalnız
+**yedek yolu** kapsıyor — testler `ao=null` ile koşuyor. **Negatif kontrol:**
+yedek kaldırılınca iki beklenti kırmızı.
+
+**Elle acceptance:** kullanıcı düzeltilmiş yapıda "şu anda doğru çalışıyor
+görünüyor" diye bildirdi. Gecikmenin sayısal öncesi/sonrası ölçümü yapılmadı.

@@ -16,9 +16,9 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-055` — a transport command is shown without waiting for the next poll tick |
-| **Sıradaki READY** | `NEN-025`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-054` |
-| **Task sayısı** | 55 · done 35 · active 0 · blocked 0 · backlog 20 |
+| **Son tamamlanan** | `NEN-054` — a volume change is heard when it is made |
+| **Sıradaki READY** | `NEN-025`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052` |
+| **Task sayısı** | 55 · done 36 · active 0 · blocked 0 · backlog 19 |
 
 **Kullanıcı üç transport gecikmesi bildirdi; üçü de dosyalandı.** Semptomlar:
 ses düzeyi değişimi geç duyuluyor, play/pause bazen geç dönüyor, kaydırıcı
@@ -27,9 +27,9 @@ Kod okundu, üç kök neden **farklı** çıktı ve üçü de kabukta:
 
 - `NEN-053` — **kapandı.** `consume` bayat `positionChanged`'ı inmiş bir
   seek'in üstüne yazıyordu; artık uçuştaki seek'i tutan bir sayaç var.
-- `NEN-054` — ses düzeyi gecikmesinin **hangi** payının nereden geldiği
-  (kaydırıcının geriden gelmesi · bloklayan yazmaların birikmesi · mpv'nin ses
-  tamponu) okumayla belirlenemiyor; task ölçümle başlıyor.
+- `NEN-054` — **kapandı.** Ölçüm üç adaydan ikisini eledi (bir sürüklemenin
+  tam yükü 1.1 ms); kalan ses hattıydı. Ses düzeyi artık cihazda ayarlanıyor
+  (`ao-volume`), mpv'nin 200 ms'lik ses tamponunun ötesinde.
 - `NEN-055` — **kapandı.** Durum olayının komut dönerken hazır beklediği
   ölçüldü (50–180 us); kabuk artık komuttan sonra aynı turda bakıyor. Negatif
   kontrol semptomun ikinci yüzünü gösterdi: durum geç döndüğü için ikinci
@@ -44,8 +44,12 @@ kalıyor, bırakma anında seek komutundan mikrosaniyeler sonra uyanıyor ve
 kuyrukta hâlâ sürükleme öncesinin konumunu buluyor. Kayıt:
 `evidence/M3/NEN-053-checklist.md`.
 
-`NEN-055`'in teşhisi bu yüzden uygulanmadan önce ölçüldü ve **doğrulandı**.
-Geriye `NEN-054` kalıyor; onun da ölçümü ilk adımdır.
+`NEN-055` ile `NEN-054`'ün teşhisleri bu yüzden uygulanmadan önce ölçüldü:
+birincisi doğrulandı, ikincisinde üç adaydan ikisi elendi. Üçünün de elle
+geçişini kullanıcı yaptı — ekran kontrolü reddedilmişti.
+
+Üçünde de ortak sınır: gecikmelerin **sayısal öncesi/sonrası** ölçümü yok,
+kullanıcı onayı var. Kanıtlar `evidence/M3/NEN-053|054|055-checklist.md`.
 
 **`NEN-051` kapandı — bir seek artık yalnız kendi cevabını alıyor.**
 `NEN-049` "paralel koşuda `aSeekIsAnsweredThroughTheSession` kırmızı" diye
