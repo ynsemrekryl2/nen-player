@@ -75,6 +75,81 @@ struct SessionTests {
         #expect(landed! > 11_900 && landed! < 12_100, "seek landed at \(landed!) ms")
     }
 
+    /// NEN-051: the load's own `playback-restart` must not answer a seek.
+    ///
+    /// The race this pins cannot be reached through the public API on demand —
+    /// it needs the load's restart to arrive in the window `seek(toMs:)` opens
+    /// between counting the request and mpv serving it, which is a few hundred
+    /// microseconds wide and only opens under scheduling pressure. So the window
+    /// is built directly: `pendingSeeks` is raised the way `seek(toMs:)` raises
+    /// it, and then the load is allowed to finish.
+    ///
+    /// This is a real state, not an invented one. What made it invisible for so
+    /// long is that `state()` answers `Ready` at `file-loaded`, while the load's
+    /// restart follows a millisecond or two later — measured, not assumed.
+    ///
+    /// Nothing here asks mpv for a seek, so nothing may report one.
+    @Test func theLoadsOwnRestartDoesNotAnswerAPendingSeek() throws {
+        let engine = try MPVPlaybackEngine()
+        defer { try? engine.shutdown() }
+
+        try engine.load(locator: Self.fixturePath("contract-clip.mkv"))
+        // Exactly what `seek(toMs:)` does before handing the command to mpv.
+        try engine.mutate { engine.pendingSeeks += 1 }
+
+        // Let the whole load play out, restart included.
+        let deadline = Date().addingTimeInterval(3)
+        var events: [FfiPlaybackEvent] = []
+        while Date() < deadline {
+            events.append(contentsOf: engine.drainEvents())
+            Thread.sleep(forTimeInterval: 0.005)
+        }
+
+        let answered = events.compactMap { event -> UInt64? in
+            if case .seekCompleted(let positionMs) = event { return positionMs }
+            return nil
+        }
+        #expect(
+            answered.isEmpty,
+            "a seek nobody asked mpv for was answered at \(answered) ms"
+        )
+    }
+
+    /// The same rule from the outside, on the path a shell actually takes.
+    ///
+    /// Repeated because the window is a race: one pass proves nothing, and the
+    /// symptom NEN-049 recorded was a *rate*, not a certainty. Every answer must
+    /// be this seek's answer — `0 ms` is the value the defect produced.
+    @Test func seekingTheInstantReadyAppearsIsAlwaysAnsweredAtTheTarget() throws {
+        for attempt in 0..<20 {
+            let session = FfiPlaybackSession(engine: try MPVPlaybackEngine())
+            defer { try? session.shutdown() }
+
+            try session.load(locator: Self.fixturePath("contract-clip.mkv"))
+            // A tight poll rather than `settle`: the point is to reach `seek`
+            // as close to `Ready` as possible, which is where the load's own
+            // restart still has not arrived.
+            let deadline = Date().addingTimeInterval(5)
+            while Date() < deadline, (try? session.state()) != .ready {}
+            _ = session.drainEvents()
+
+            try session.seek(toMs: 12_000)
+
+            var landed: UInt64?
+            try waitUntil("the seek is answered (attempt \(attempt))") {
+                for event in session.drainEvents() {
+                    if case .seekCompleted(let positionMs) = event { landed = positionMs }
+                }
+                return landed != nil
+            }
+            guard let landed else { return }
+            #expect(
+                landed > 11_900 && landed < 12_100,
+                "attempt \(attempt): seek answered at \(landed) ms"
+            )
+        }
+    }
+
     @Test func trackMetadataSurvivesTheRoundTrip() throws {
         let session = try self.session()
         defer { try? session.shutdown() }

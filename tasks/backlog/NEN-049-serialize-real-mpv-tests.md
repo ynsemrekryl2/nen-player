@@ -4,7 +4,7 @@ title: Serialize real libmpv platform tests
 milestone: M3
 size: S
 state: backlog
-depends_on: [NEN-022, NEN-045]
+depends_on: [NEN-022, NEN-045, NEN-051]
 blocks: []
 adr: [12, 33]
 ---
@@ -37,6 +37,28 @@ kırmızı oldu: `aSeekIsAnsweredThroughTheSession`, beklenen `12_000 ms` yerine
 `SeekCompleted(0 ms)` gördü. Test tek başına **5/5**, tüm paket açıkça
 `--no-parallel` ile **31/31** geçti. NEN-046 yalnız pencere yaşam döngüsüdür;
 gerçek motor testlerinin runner izolasyonu bu kapsama karıştırılmaz.
+
+## Güncelleme (2026-08-26) — teşhis değişti
+
+`NEN-051` açılırken kök sebep ölçüldü ve bu task'ın çıkış noktası olan
+"paralel koşuda kırmızı" gözlemi **test izolasyonu sorunu değil**: mpv'nin
+yüklemeden sonra yayınladığı `playback-restart`, `FILE_LOADED`'dan sonra
+geldiği için `.ready` görülür görülmez verilen bir seek'i `0 ms` ile
+cevaplıyordu. Paralellik yalnız o pencereyi genişletiyordu.
+
+`NEN-051` kapandıktan sonra ölçüm yapıldı ve **ayırt edici çıkmadı**:
+`bash scripts/test-macos.sh` düzeltmeden **önce de sonra da** art arda 5/5
+yeşil. Yani bu makinede oran karşılaştırması bu task'ın gerekçesini ne
+doğruluyor ne çürütüyor; DoD #1 (art arda ≥ 3 çıkış 0) hiçbir şey
+değiştirilmeden zaten sağlanıyor ve DoD #3'ün istediği "değişiklik öncesi
+paralel kırmızı" kaydı **üretilemedi**.
+
+Bildirilen semptomun mekanizması `NEN-051`'de kaldırıldı ve deterministik
+negatif kontrolle kanıtlandı. Bu task'ın kalan gerekçesi — gerçek libmpv
+suite'lerinin runner izolasyonu — bağımsız bir kırmızı gözlemi olmadan
+doğrulanamaz. **Karar kullanıcıya ait:** yeni bir kırmızı gözlenene kadar
+beklemek ya da task'ı kapatmak. O gözlem gelmeden implementasyona
+başlanmamalıdır.
 
 ## Kanıt (DoD)
 

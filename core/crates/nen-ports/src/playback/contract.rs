@@ -120,6 +120,21 @@ pub enum Action {
     AwaitEvent {
         shape: EventShape,
     },
+    /// Waits for a `SeekCompleted` and checks **which position it carries**.
+    ///
+    /// [`Action::AwaitEvent`] can only ask whether an answer arrived.
+    /// NEN-051 measured what that misses: an adapter answered a seek with the
+    /// position the medium held *before* the seek was served — `0 ms` — and the
+    /// scenario still passed, because the `Position` step that followed asked
+    /// the engine directly and by then the seek had landed. The event was
+    /// wrong; nothing looked at it.
+    ///
+    /// Judged against [`ContractInputs::seek_tolerance_ms`], the same margin
+    /// [`Outcome::PositionNear`] uses. The last landing is the one checked: a
+    /// scenario drains before each seek it means to judge.
+    AwaitSeekLanding {
+        near_ms: u64,
+    },
     /// Waits until the engine reaches a state, or gives up.
     ///
     /// The fake reaches its states inside the call that causes them; a real
@@ -279,6 +294,11 @@ impl Step {
     pub fn awaits(shape: EventShape) -> Self {
         Self::new(Action::AwaitEvent { shape }, Outcome::Ok)
     }
+
+    /// Wait for a seek's answer and require it to name the right position.
+    pub fn awaits_seek_landing(near_ms: u64) -> Self {
+        Self::new(Action::AwaitSeekLanding { near_ms }, Outcome::Ok)
+    }
 }
 
 /// When a scenario applies to an engine.
@@ -394,7 +414,10 @@ pub fn scenarios() -> Vec<Scenario> {
                 Step::settle(PlaybackState::Ready),
                 Step::new(Action::DrainEvents, Outcome::Ok),
                 Step::new(Action::Seek { to_ms: 5_000 }, Outcome::Ok),
-                Step::awaits(EventShape::SeekCompleted),
+                // The answer must name where *this* seek landed, not merely
+                // exist: the `Position` step below would pass on its own even
+                // if the event carried a stale position (NEN-051).
+                Step::awaits_seek_landing(5_000),
                 Step::new(Action::Position, Outcome::PositionNear(5_000)),
                 Step::new(
                     Action::DrainEvents,
@@ -409,16 +432,16 @@ pub fn scenarios() -> Vec<Scenario> {
                 Step::new(Action::Load, Outcome::Ok),
                 Step::settle(PlaybackState::Ready),
                 Step::new(Action::Seek { to_ms: 10_000 }, Outcome::Ok),
-                Step::awaits(EventShape::SeekCompleted),
+                Step::awaits_seek_landing(10_000),
                 // Relative seek is `position` + `seek` (ADR-0011 Karar 3), so
                 // it can only be right if the seek before it has landed.
                 Step::new(Action::DrainEvents, Outcome::Ok),
                 Step::new(Action::SeekRelative { delta_ms: 2_000 }, Outcome::Ok),
-                Step::awaits(EventShape::SeekCompleted),
+                Step::awaits_seek_landing(12_000),
                 Step::new(Action::Position, Outcome::PositionNear(12_000)),
                 Step::new(Action::DrainEvents, Outcome::Ok),
                 Step::new(Action::SeekRelative { delta_ms: -50_000 }, Outcome::Ok),
-                Step::awaits(EventShape::SeekCompleted),
+                Step::awaits_seek_landing(0),
                 Step::new(Action::Position, Outcome::PositionNear(0)),
             ],
         },
@@ -867,7 +890,7 @@ pub fn run_scenario<E: PlaybackEngine>(
     // What the engine has reported since the last reset. Kept across steps
     // because an event may land while a later step is still being set up: a
     // buffer that only ever held one drain would lose it and blame the engine.
-    let mut seen = Vec::new();
+    let mut seen = Seen::default();
     for (index, step) in scenario.steps.iter().enumerate() {
         let _scope = step.inside_callback.then(CallbackScope::enter);
         if let Err(detail) = run_step(engine, step, inputs, &mut seen) {
@@ -919,7 +942,7 @@ fn run_step<E: PlaybackEngine>(
     engine: &mut E,
     step: &Step,
     inputs: &ContractInputs,
-    seen: &mut Vec<EventShape>,
+    seen: &mut Seen,
 ) -> Result<(), String> {
     let expect = &step.expect;
     match step.action {
@@ -940,6 +963,24 @@ fn run_step<E: PlaybackEngine>(
         Action::Settle { until } => settle(engine, until, inputs),
         Action::AwaitEvent { shape } => {
             await_events(engine, std::slice::from_ref(&shape), inputs, seen)
+        }
+        Action::AwaitSeekLanding { near_ms } => {
+            await_events(engine, &[EventShape::SeekCompleted], inputs, seen)?;
+            let Some(landed) = seen.seek_landings.last().copied() else {
+                return Err(
+                    "a SeekCompleted arrived but carried no position to check".to_string()
+                );
+            };
+            let drift = landed.abs_diff(near_ms);
+            if drift <= inputs.seek_tolerance_ms {
+                Ok(())
+            } else {
+                Err(format!(
+                    "the seek was answered at {landed} ms, expected {near_ms} ms \
+                     ({drift} ms away, tolerance {} ms)",
+                    inputs.seek_tolerance_ms
+                ))
+            }
         }
         Action::Position => match (engine.position(), expect) {
             (Ok(position), Outcome::PositionNear(expected)) => {
@@ -1036,8 +1077,36 @@ fn run_step<E: PlaybackEngine>(
 }
 
 /// Moves whatever the engine has pending into the running buffer.
-fn collect<E: PlaybackEngine>(engine: &mut E, seen: &mut Vec<EventShape>) {
-    seen.extend(engine.events().drain().iter().map(EventShape::of));
+/// What the kit has watched go past, in both the forms it judges.
+///
+/// [`EventShape`] deliberately drops payloads that differ legitimately per
+/// engine, which is right for order and for kind — and blind for exactly one
+/// value. A seek's landing position is *not* engine-private: the fixture
+/// already states how far off it may be
+/// ([`ContractInputs::seek_tolerance_ms`]), so the kit can and must judge it.
+/// NEN-051 is why it now does — an adapter answered a seek with `0 ms` and
+/// every shape-level assertion still passed.
+#[derive(Debug, Default)]
+struct Seen {
+    shapes: Vec<EventShape>,
+    /// The position carried by every `SeekCompleted`, in order.
+    seek_landings: Vec<u64>,
+}
+
+impl Seen {
+    fn clear(&mut self) {
+        self.shapes.clear();
+        self.seek_landings.clear();
+    }
+}
+
+fn collect<E: PlaybackEngine>(engine: &mut E, seen: &mut Seen) {
+    for event in engine.events().drain().iter() {
+        if let PlaybackEvent::SeekCompleted { position } = event {
+            seen.seek_landings.push(position.as_millis() as u64);
+        }
+        seen.shapes.push(EventShape::of(event));
+    }
 }
 
 /// Polls until `expected` is satisfied, or the fixture's timeout runs out.
@@ -1045,12 +1114,12 @@ fn await_events<E: PlaybackEngine>(
     engine: &mut E,
     expected: &[EventShape],
     inputs: &ContractInputs,
-    seen: &mut Vec<EventShape>,
+    seen: &mut Seen,
 ) -> Result<(), String> {
     let deadline = Instant::now() + Duration::from_millis(inputs.settle_timeout_ms);
     loop {
         collect(engine, seen);
-        match check_events(seen, expected) {
+        match check_events(&seen.shapes, expected) {
             Ok(()) => return Ok(()),
             // An unasked failure is not going to become acceptable by waiting.
             Err(detail) if detail.contains("unasked") => return Err(detail),

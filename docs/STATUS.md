@@ -3,8 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-26** (**NEN-048 kapandı**; boş durumda çıkan
-> sahte geçici bildirim gitti, geçici hata sınıfı artık kanıtlı)
+> Son güncelleme: **2026-08-26** (**NEN-051 kapandı**; yüklemenin kendi
+> `playback-restart`'ı artık bir seek'i cevaplayamıyor, contract kiti seek'in
+> taşıdığı konumu sınıyor)
 
 ## Nerede duruyoruz
 
@@ -12,9 +13,68 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-048` — spurious transient error fixed, transient error class proven |
-| **Sıradaki READY** | `NEN-025`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050` |
-| **Task sayısı** | 50 · done 32 · active 0 · blocked 0 · backlog 18 |
+| **Son tamamlanan** | `NEN-051` — a seek is never answered by the load's own playback-restart |
+| **Sıradaki READY** | `NEN-025`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052` |
+| **Task sayısı** | 52 · done 33 · active 0 · blocked 0 · backlog 19 |
+
+**`NEN-051` kapandı — bir seek artık yalnız kendi cevabını alıyor.**
+`NEN-049` "paralel koşuda `aSeekIsAnsweredThroughTheSession` kırmızı" diye
+açılmıştı; bağlam okunurken teşhis **yanlış çıktı**. Kusur test izolasyonunda
+değil, adapter'daydı: `MPV_EVENT_PLAYBACK_RESTART` bekleyen her seek'i
+cevaplıyordu ve tek koruması `pendingSeeks > 0`'dı. Oysa mpv `loadfile` için de
+bir restart yayınlıyor ve bu, `state()`'i `Ready` yapan `file-loaded`'dan
+**sonra** geliyor. `Ready`'yi görür görmez seek eden bir kabuk bu yüzden
+yüklemenin restart'ıyla yarışıyor: kazanan o olursa seek, çekirdek onu daha
+servis etmeden `time-pos` ile — yani `0 ms` ile — cevaplanıyor, seek'in kendi
+restart'ı ise sayacı boş bulup hiçbir şey söylemiyor.
+
+**Ölçüm düzeltmeyi de seçti.** Geçici bir olay logu (commit edilmedi) gerçek
+sırayı gösterdi ve üçüncü bir şeyi ortaya çıkardı: mpv bir seek başladığında
+`MPV_EVENT_SEEK` yayınlıyor, o seek'in restart'ından önce ve aynı kuyrukta.
+Planlanan iki aday (async komut cevabı · yüklemenin restart'ını körü körüne
+yutmak) bu yüzden kullanılmadı — aranan işaret zaten oradaydı. `seekInFlight`
+bayrağı bunu tutuyor; bir restart artık `pendingSeeks > 0` **ve** başlamış bir
+seek istiyor. Tolerans genişletilmedi, `0 ms` kabul edilmiyor.
+
+**Asıl bulgu tek platformda kalmadı.** Kitin bunu neden yakalamadığı ayrıca
+ölçüldü: `EventShape` payload taşımıyor, yani kit `SeekCompleted`'ın **hangi**
+konumu taşıdığını hiç sormuyordu; ardından gelen `Position` adımı motora
+doğrudan sorduğu ve o ana kadar seek indiği için senaryo yeşil kalıyordu. Olay
+yanlıştı, kimse bakmıyordu. `Action::AwaitSeekLanding` eklendi ve üç senaryonun
+dört seek adımı buna çevrildi; yargı `seek_tolerance_ms` ile, yani
+`Outcome::PositionNear`'ın marjıyla. `EventShape` değiştirilmedi. Android aynı
+hatayı artık yazamaz.
+
+**Negatif kontrol iki yönde ve ikincisi kalıcı.** `seekInFlight` guard'ı
+kaldırılınca yeni Swift testi bildirilen semptomun birebir kendisini üretiyor:
+`(answered → [0]).isEmpty → false`. Fake `Duration::ZERO` raporlamaya
+zorlanınca `nen-ports` ve `nen-ffi` köprüsü boyunca **8** test kırmızı.
+İkincisi `contract_kit_is_not_vacuous.rs`'e yedinci defect olarak yerleşti —
+doğru konuma giden, cevabı doğru sırada veren, yalnız olayın taşıdığı konumu
+yanlış söyleyen ikiz. Kontrolün kontrolü de yapıldı: yeni karşılaştırma devre
+dışı bırakılınca bu ikiz **tek başına** kırmızı oluyor, dosyadaki diğer yedi
+test yeşil kalıyor.
+
+**Oran ölçümü ayırt edici çıkmadı ve bu açıkça kaydedildi.** `NEN-049`'un
+istediği öncesi/sonrası kırmızı oranı alındı: paket düzeltmeden **önce de
+sonra da** art arda 5/5 yeşil. Yani bu makinede oran, düzeltilmiş ile bozuk
+kurulumu ayırt etmiyor; kanıt orana değil, deterministik negatif kontrole ve
+doğrudan olay-sırası ölçümüne dayanıyor. Aynı sebeple `.app` üzerinde elle
+`→`'ya basma maddesi **düşürüldü** — pencere elle vurulamayacak kadar dar
+olduğu için o madde iki kurulumda da aynı sonucu verirdi. 20 tekrarlı otomatik
+test bile kusur yerindeyken yeşil kaldı; o test bir oran koruması, mekanizma
+kanıtı değil.
+
+**`NEN-049` bu yüzden askıda.** DoD #1'i hiçbir şey değiştirilmeden zaten
+sağlanıyor, DoD #3'ün istediği "değişiklik öncesi paralel kırmızı" kaydı ise
+üretilemedi. Yeni bir kırmızı gözlenene kadar implementasyona başlanmamalı;
+beklemek ya da kapatmak **kullanıcı kararı**. Ayrıca yeni bir yan bulgu
+ayrıldı → **`NEN-052`**: port `.loading` sırasında seek'e izin verirken gerçek
+adapter `EngineFailure(-12)` ile reddediyor ve contract kiti bu durumu hiç
+kapsamıyor.
+
+Rust testleri **452 → 453**, Swift **39 → 41**. Yeni dış bağımlılık yok,
+`deny.toml` değişmedi. Tam kanıt: `tasks/done/NEN-051-*.md`.
 
 **`NEN-048` kapandı — boş durumda sahte bildirim yok, geçici sınıf kanıtlı.**
 `resynchronize()` artık hatayı kullanıcıya haber etmiyor: resync kullanıcının
@@ -30,12 +90,12 @@ bilinçli sızıntı enjekte edilince negatif test yakaladı. Son-medya deposund
 türeyen üç geçici yol testsiz kaldı ve `NEN-050`'ye ayrıldı. Kanıt:
 `evidence/M3/NEN-048-checklist.md`.
 
-**`NEN-049` hakkında yeni ölçüm.** Kusur "her paralel koşuda kırmızı" değil,
-**yük altında aralıklı**: aynı gün paket önce paralel modda art arda 4/4 yeşil
-geldi, kapanış doğrulamasında ise paralel 3/4 · seri 2/2 ölçüldü. Kırmızı olan
-hep `aSeekIsAnsweredThroughTheSession`. `NEN-049`'un DoD'si "değişiklik öncesi
-paralel kırmızı" kaydını istiyor; bu tek koşuyla değil, tekrarlı koşudaki
-kırmızı **oranıyla** üretilmeli.
+**`NEN-049` hakkındaki eski ölçüm — artık `NEN-051` ile açıklanıyor.**
+Kusur "her paralel koşuda kırmızı" değil, yük altında aralıklıydı: aynı gün
+paket önce paralel modda 4/4 yeşil geldi, kapanış doğrulamasında paralel 3/4 ·
+seri 2/2 ölçüldü ve kırmızı olan hep `aSeekIsAnsweredThroughTheSession`'dı.
+Bunun sebebi `NEN-051`'de ölçüldü ve giderildi; paralellik sebep değil, dar bir
+zamanlama penceresini genişleten koşuldu.
 
 **`NEN-046` kapandı — pencere ve uygulama kapanışı artık ayrı.** Oynatıcı
 sahnesi `WindowGroup` yerine tek `Window`. Kırmızı düğme ve `⌘W` oynatmayı

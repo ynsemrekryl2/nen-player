@@ -35,6 +35,13 @@ enum Defect {
     NeverBecomesReady,
     /// Never reports that a seek completed.
     SwallowsSeekCompleted,
+    /// Reports the seek's completion, in order, at the wrong position: the one
+    /// the medium held *before* the seek. `position()` still answers correctly.
+    ///
+    /// The NEN-051 defect, as a twin. Until the kit judged the payload this
+    /// passed everything — the shape was right, the order was right, and the
+    /// `Position` step asked the engine rather than the event.
+    AnswersSeekWithAStalePosition,
     /// Reports the seek's completion *after* the position it belongs to.
     ReportsSeekCompletionOutOfOrder,
     /// Slips an unasked `Failed` into an otherwise correct stream.
@@ -80,6 +87,13 @@ impl BrokenEngine {
                 {
                     let completion = pending.remove(at);
                     pending.push(completion);
+                }
+            }
+            Defect::AnswersSeekWithAStalePosition => {
+                for event in pending.iter_mut() {
+                    if let PlaybackEvent::SeekCompleted { position } = event {
+                        *position = Duration::ZERO;
+                    }
                 }
             }
             Defect::ReportsAnUnaskedFailure => {
@@ -247,6 +261,19 @@ fn a_seek_landing_outside_the_tolerance_is_caught() {
     assert!(
         !failures.is_empty(),
         "a seek 2 s off passed a {REALISTIC_TOLERANCE_MS} ms tolerance"
+    );
+}
+
+#[test]
+fn a_seek_answered_with_a_stale_position_is_caught() {
+    // The twin moves correctly and reports the completion in the right place;
+    // only the position the event carries is wrong. Every shape-level
+    // assertion in the kit is satisfied by it, which is exactly how the real
+    // adapter's version of this defect survived until NEN-051 measured it.
+    let failures = failures_for(Defect::AnswersSeekWithAStalePosition);
+    assert!(
+        !failures.is_empty(),
+        "a seek answered at 0 ms passed while the engine's own position was right"
     );
 }
 

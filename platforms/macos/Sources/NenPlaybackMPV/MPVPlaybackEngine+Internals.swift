@@ -37,11 +37,27 @@ extension MPVPlaybackEngine {
             pending.append(.stateChanged(state: .ready))
             pending.append(.tracksChanged)
 
+        case MPV_EVENT_SEEK:
+            // mpv has *begun* a seek. Everything counted in `pendingSeeks` up to
+            // now is being served, so the next restart is genuinely an answer.
+            seekInFlight = true
+
         case MPV_EVENT_PLAYBACK_RESTART:
-            // Fires for an unpause as well as for a seek, so only a seek this
-            // adapter actually issued may be reported as one. Measured: an
-            // unpause produces a restart with no seek outstanding.
-            guard pendingSeeks > 0 else { break }
+            // Fires for an unpause and for the load itself as well as for a
+            // seek, so only a seek this adapter actually issued may be reported
+            // as one. Measured: an unpause produces a restart with no seek
+            // outstanding, and `loadfile` produces one *after* `file-loaded` —
+            // that is, after `state()` already answers `Ready`.
+            //
+            // `pendingSeeks > 0` alone does not separate them (NEN-051). A shell
+            // that seeks the moment it sees `Ready` is racing the load's own
+            // restart, and whichever arrives first wins: the load's restart
+            // would answer the seek with `time-pos` as it stands *before* the
+            // core served it — `0 ms` — and the seek's real restart, finding the
+            // count already cleared, would then report nothing at all. Requiring
+            // `MPV_EVENT_SEEK` first is what makes the answer belong to the seek.
+            guard pendingSeeks > 0, seekInFlight else { break }
+            seekInFlight = false
 
             // **One restart can answer several seeks.** mpv merges seeks issued
             // faster than it can service them, so two `seek` commands in a row

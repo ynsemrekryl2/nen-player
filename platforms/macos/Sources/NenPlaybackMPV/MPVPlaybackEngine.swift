@@ -70,6 +70,23 @@ public final class MPVPlaybackEngine: ForeignPlaybackEngine, @unchecked Sendable
     var phase: Phase = .idle
     var started = false
     var pendingSeeks = 0
+    /// Whether mpv has actually *started* a seek that has not been answered yet.
+    ///
+    /// `pendingSeeks` counts what callers are owed; this says whether the core
+    /// has begun serving any of it. The two are not the same instant, and
+    /// NEN-051 measured what lives in the gap: `loadfile` produces a
+    /// `playback-restart` of its own, delivered *after* `file-loaded` — that is,
+    /// after `state()` already answers `Ready`. A shell that seeks the moment it
+    /// sees `Ready` therefore has `pendingSeeks == 1` when the **load's** restart
+    /// arrives, and without this flag that restart answers the seek with
+    /// whatever `time-pos` happens to be — `0 ms` when the core has not served
+    /// the seek yet.
+    ///
+    /// `MPV_EVENT_SEEK` is the marker that closes the gap: mpv emits it when a
+    /// seek begins, on the same queue and before that seek's own
+    /// `playback-restart`. A restart seen while this is `false` cannot be
+    /// answering a seek, because no seek had started.
+    var seekInFlight = false
     var stopRequested = false
     var shutDown = false
     /// The last `eof-reached` value seen, so a repeat does not re-announce the
@@ -153,6 +170,7 @@ public final class MPVPlaybackEngine: ForeignPlaybackEngine, @unchecked Sendable
             started = false
             stopRequested = false
             atEndOfFile = false
+            seekInFlight = false
             trackList = []
             pending.append(.stateChanged(state: .buffering))
         }
@@ -176,6 +194,7 @@ public final class MPVPlaybackEngine: ForeignPlaybackEngine, @unchecked Sendable
         try mutate {
             phase = .idle
             started = false
+            seekInFlight = false
             trackList = []
             pending.append(.stateChanged(state: .idle))
         }
