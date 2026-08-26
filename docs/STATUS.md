@@ -4,7 +4,9 @@
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
 > Son güncelleme: **2026-08-26** (kullanıcı bildirimiyle **üç kabuk kusuru
-> dosyalandı**: `NEN-053`, `NEN-054`, `NEN-055`. Aynı gün **NEN-051 kapandı**;
+> dosyalandı**: `NEN-053`, `NEN-054`, `NEN-055`; **`NEN-053` kapandı** —
+> sürükleme bırakıldığında top artık eski konuma dönmüyor. Aynı gün
+> **NEN-051 kapandı**;
 > yüklemenin kendi `playback-restart`'ı artık bir seek'i cevaplayamıyor,
 > contract kiti seek'in taşıdığı konumu sınıyor)
 
@@ -14,18 +16,17 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-051` — a seek is never answered by the load's own playback-restart |
-| **Sıradaki READY** | `NEN-025`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-053`, `NEN-054` |
-| **Task sayısı** | 55 · done 33 · active 0 · blocked 0 · backlog 22 |
+| **Son tamamlanan** | `NEN-053` — a stale position event never overrides a seek that landed |
+| **Sıradaki READY** | `NEN-025`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-054`, `NEN-055` |
+| **Task sayısı** | 55 · done 34 · active 0 · blocked 0 · backlog 21 |
 
 **Kullanıcı üç transport gecikmesi bildirdi; üçü de dosyalandı.** Semptomlar:
 ses düzeyi değişimi geç duyuluyor, play/pause bazen geç dönüyor, kaydırıcı
 bırakıldığında top önce eski konuma ışınlanıp sonra bırakılan yere geliyor.
 Kod okundu, üç kök neden **farklı** çıktı ve üçü de kabukta:
 
-- `NEN-053` — `consume` bayat `positionChanged`'ı inmiş bir seek'in üstüne
-  yazıyor; uçuştaki seek'i tutan bayrak yok. Ayrıca `commitSeek` önizlemeyi
-  seek'ten önce siliyor.
+- `NEN-053` — **kapandı.** `consume` bayat `positionChanged`'ı inmiş bir
+  seek'in üstüne yazıyordu; artık uçuştaki seek'i tutan bir sayaç var.
 - `NEN-054` — ses düzeyi gecikmesinin **hangi** payının nereden geldiği
   (kaydırıcının geriden gelmesi · bloklayan yazmaların birikmesi · mpv'nin ses
   tamponu) okumayla belirlenemiyor; task ölçümle başlıyor.
@@ -33,8 +34,18 @@ Kod okundu, üç kök neden **farklı** çıktı ve üçü de kabukta:
   (köprü her komuttan sonra çekiyor); gecikme yalnız kabuğun kendi 50 ms
   poll'u. `NEN-053`'ten sonra yapılır.
 
-Henüz hiçbiri uygulanmadı; buradaki teşhisler kod okumasıdır, `NEN-054`'ünki
-ölçümle doğrulanacak.
+`NEN-054` ile `NEN-055`'in teşhisleri **kod okumasıdır**, henüz ölçülmedi.
+`NEN-053`'ün teşhisi ölçüldü ve **değişti**: sanılan neden mpv'nin seek'i
+servis edene kadar bayat `time-pos` yayınlamasıydı; ölçüm mpv'nin `time-pos`'u
+komutu alır almaz hedefe taşıdığını gösterdi. Asıl neden bakma anıydı —
+kaydırıcı tutulurken AppKit iç içe izleme döngüsü çalıştırdığı için poll aç
+kalıyor, bırakma anında seek komutundan mikrosaniyeler sonra uyanıyor ve
+kuyrukta hâlâ sürükleme öncesinin konumunu buluyor. Kayıt:
+`evidence/M3/NEN-053-checklist.md`.
+
+Bu, `NEN-055`'in teşhisini de **şüpheli** yapıyor: aynı starvation play/pause
+ikonunun gecikmesini de açıklayabilir, yani oradaki "yalnız 50 ms poll" okuması
+uygulanmadan önce ölçülmeli.
 
 **`NEN-051` kapandı — bir seek artık yalnız kendi cevabını alıyor.**
 `NEN-049` "paralel koşuda `aSeekIsAnsweredThroughTheSession` kırmızı" diye

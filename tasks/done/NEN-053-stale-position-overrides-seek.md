@@ -3,7 +3,7 @@ id: NEN-053
 title: A stale position event never overrides a seek that landed
 milestone: M3
 size: S
-state: backlog
+state: done
 depends_on: [NEN-051]
 blocks: [NEN-055]
 adr: [11, 31]
@@ -57,16 +57,49 @@ ezilmemesini sağlar. Depoda uçuştaki seek'i tutan hiçbir bayrak yok.
 
 ## Kanıt (DoD)
 
-- [ ] Seek'ten sonra gelen bayat `positionChanged` gösterilen konumu
+- [x] Seek'ten sonra gelen bayat `positionChanged` gösterilen konumu
       değiştirmiyor (test)
-- [ ] `seekCompleted` değiştiriyor ve sayacı düşürüyor (test)
-- [ ] İki ardışık seek, iki `seekCompleted` ile temizleniyor (test)
-- [ ] Emniyet süresi dolduktan sonra `positionChanged` yeniden kabul ediliyor
+- [x] `seekCompleted` değiştiriyor ve sayacı düşürüyor (test)
+- [x] İki ardışık seek, iki `seekCompleted` ile temizleniyor (test)
+- [x] Emniyet süresi dolduktan sonra `positionChanged` yeniden kabul ediliyor
       (test)
-- [ ] `commitSeek` bırakma anında eski konumu hiç göstermiyor (test)
-- [ ] Negatif: guard kaldırılınca bu testlerden en az biri kırmızı
-- [ ] Elle: gerçek medyada sürükle-bırak, geri sıçrama yok (checklist)
+- [x] ~~`commitSeek` bırakma anında eski konumu hiç göstermiyor (test)~~ —
+      **testle ayırt edilemiyor**, gerekçesi kanıt kaydında; değişiklik yapıldı
+      ama kanıtı yok
+- [x] Negatif: guard kaldırılınca bu testlerden en az biri kırmızı
+- [x] Elle: gerçek medyada sürükle-bırak, geri sıçrama yok (checklist)
 
 ## Kanıt kaydı
 
-<!-- done olurken doldurulacak -->
+Tam kayıt: `evidence/M3/NEN-053-checklist.md`.
+
+**Teşhis ölçümle düzeltildi.** Task açılırken yazılan neden — "mpv seek'i
+servis edene kadar bayat `time-pos` yayınlar" — gerçek libmpv'ye karşı ölçünce
+**yanlış çıktı**: mpv, seek komutunu alır almaz `time-pos`'u hedefe taşıyor ve
+kuyruğun coalescing'i eski değeri zaten siliyor. Kusur bakma anındaydı:
+kaydırıcı tutulurken AppKit iç içe izleme döngüsü çalıştırdığı için kabuğun
+50 ms'lik poll'u aç kalıyor, bırakma anında **aynı runloop turunda** uyanıyor —
+yani seek komutundan mikrosaniyeler sonra — ve kuyrukta o an duran en yeni
+konum hâlâ sürükleme öncesinin oynatma başı oluyor.
+
+Ölçüm bu sırayı birebir kurdu (geçici test, commit edilmedi): 1 sn drain
+edilmedi, seek verildi, aynı turda drain edildi. Eski kural bırakma anında
+`2800 ms` gösterdi ve 8 ms sonra `20000`'e sıçradı — bildirilen semptomun
+kendisi. Guard aynı kayıtta `20000`'den hiç ayrılmadı.
+
+`bash scripts/test-macos.sh` çıkış 0: **47 test / 6 suite**, 0 failure. Altı
+yeni test `PlayerModelTests` içinde.
+
+**Negatif kontrol:** `consume`'daki tek satırlık guard kaldırılınca **4 test
+kırmızı**, ilki semptomun birebir kendisi
+(`positionMilliseconds → 4080` beklenen `20000`). Guard geri konunca 47/47
+yeşil.
+
+**Kapsanmayan:** `commitSeek()`'teki sıra değişikliği testle ayırt edilemiyor —
+iki sıra da aynı turda tamamlanıyor, SwiftUI ikisinde de tek render yapıyor.
+Değişiklik korundu ama kanıtı yok; kanıt kaydı §4 bunu açıkça söylüyor.
+
+**Elle acceptance:** ekran kontrolü reddedildiği için geçişi kullanıcı
+kendisi yaptı ve düzeltilmiş yapıda "düzgün görünüyor" diye bildirdi. Tek bir
+onaydır; ileri/geri ve oynarken/duraklatılmışken ayrımları ayrı ayrı
+bildirilmedi (kanıt kaydı §5).

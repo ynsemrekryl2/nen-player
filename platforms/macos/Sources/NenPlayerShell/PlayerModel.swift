@@ -43,6 +43,14 @@ public final class PlayerModel: ObservableObject {
     private let pollIntervalNanoseconds: UInt64
     private let controlsHideDelayNanoseconds: UInt64
     private let transientMessageDurationNanoseconds: UInt64
+    /// How long a seek may keep `positionChanged` out before the guard gives up.
+    ///
+    /// The guard is normally released by the seek's own answer. An answer that
+    /// never arrives must not freeze the displayed position for the rest of the
+    /// session, so it expires as well.
+    private let seekGuardTimeoutNanoseconds: UInt64
+    /// A monotonic clock, injectable so a test can reach the expiry without waiting.
+    private let now: () -> UInt64
     private let managesCursor: Bool
     private var session: (any PlaybackSessionClient)?
     private var pendingURL: URL?
@@ -55,6 +63,15 @@ public final class PlayerModel: ObservableObject {
     private var accessedURL: URL?
     private var hasSecurityScope = false
     private var cursorHidden = false
+    /// Seeks issued and not yet answered.
+    ///
+    /// A count rather than a flag: mpv merges seeks it cannot serve one by one
+    /// and answers all of them from a single `playback-restart`, so the shell is
+    /// owed one `seekCompleted` per request and must stay guarded until the last
+    /// of them lands.
+    private var pendingSeekCount = 0
+    /// When the guard stops being believed, whatever the count says.
+    private var seekGuardExpiry: UInt64 = 0
 
     public init(
         recentStore: any RecentMediaStoring = UserDefaultsRecentMediaStore(),
@@ -62,6 +79,8 @@ public final class PlayerModel: ObservableObject {
         pollIntervalNanoseconds: UInt64 = 50_000_000,
         controlsHideDelayNanoseconds: UInt64 = 2_500_000_000,
         transientMessageDurationNanoseconds: UInt64 = 3_000_000_000,
+        seekGuardTimeoutNanoseconds: UInt64 = 1_500_000_000,
+        now: @escaping () -> UInt64 = { DispatchTime.now().uptimeNanoseconds },
         managesCursor: Bool = true,
         sessionFactory: @escaping SessionFactory = { view in
             let engine = try MPVPlaybackEngine(videoView: view)
@@ -75,6 +94,8 @@ public final class PlayerModel: ObservableObject {
         self.pollIntervalNanoseconds = pollIntervalNanoseconds
         self.controlsHideDelayNanoseconds = controlsHideDelayNanoseconds
         self.transientMessageDurationNanoseconds = transientMessageDurationNanoseconds
+        self.seekGuardTimeoutNanoseconds = seekGuardTimeoutNanoseconds
+        self.now = now
         self.managesCursor = managesCursor
         if startsPolling {
             startPolling()
@@ -135,6 +156,7 @@ public final class PlayerModel: ObservableObject {
         positionMilliseconds = 0
         durationMilliseconds = nil
         seekPreviewMilliseconds = nil
+        releaseSeekGuard()
         controlsVisible = true
         playWhenReady = true
 
@@ -201,8 +223,13 @@ public final class PlayerModel: ObservableObject {
 
     public func commitSeek() {
         guard let target = seekPreviewMilliseconds else { return }
-        seekPreviewMilliseconds = nil
+        // The seek first, the preview second. Dropping the preview before the
+        // position moves would let `displayedPositionMilliseconds` fall back to
+        // the pre-drag playhead for the length of one turn — the knob jumping
+        // home the instant it is released. If the seek is refused the preview
+        // still clears, which is honest: the position did not change.
         seek(to: target)
+        seekPreviewMilliseconds = nil
     }
 
     public func setVolume(_ value: Float) {
@@ -265,6 +292,7 @@ public final class PlayerModel: ObservableObject {
         positionMilliseconds = 0
         durationMilliseconds = nil
         seekPreviewMilliseconds = nil
+        releaseSeekGuard()
         fatalMessage = nil
         transientMessage = nil
         playWhenReady = false
@@ -274,8 +302,27 @@ public final class PlayerModel: ObservableObject {
     func consume(_ events: [FfiSessionEvent]) {
         for event in events {
             switch event {
-            case let .positionChanged(positionMs), let .seekCompleted(positionMs):
+            case let .positionChanged(positionMs):
+                // The queue can still be holding the position from *before* a
+                // seek at the moment the shell looks, and a drag is what makes
+                // that the normal case rather than a rare one: AppKit runs a
+                // nested tracking loop while the knob is held, so nothing
+                // drains until it is released — and then the poll wakes in the
+                // same runloop turn as the release, microseconds after the seek
+                // command, before mpv's own new `time-pos` has crossed.
+                //
+                // Measured against real libmpv (NEN-053): applied blindly, that
+                // one report snaps the knob back to the pre-drag playhead, and
+                // the seek's answer moves it to the target 8 ms later. Until a
+                // seek is answered, its target is what the shell knows.
+                guard !seekIsInFlight else { break }
                 positionMilliseconds = positionMs
+            case let .seekCompleted(positionMs):
+                positionMilliseconds = positionMs
+                pendingSeekCount = max(0, pendingSeekCount - 1)
+                if pendingSeekCount == 0 {
+                    seekGuardExpiry = 0
+                }
             case let .stateChanged(state):
                 apply(state)
             case .tracksChanged:
@@ -346,7 +393,10 @@ public final class PlayerModel: ObservableObject {
 
     private func refreshPositionAndDuration() {
         guard let session else { return }
-        if let position = try? session.positionMs() {
+        // Asking the engine is not automatically fresher than the queue:
+        // measured, mpv moves `time-pos` to the target as soon as it takes the
+        // seek command — but not before, and this call can land in that gap.
+        if !seekIsInFlight, let position = try? session.positionMs() {
             positionMilliseconds = position
         }
         if let duration = try? session.durationMs() {
@@ -356,6 +406,9 @@ public final class PlayerModel: ObservableObject {
 
     private func resynchronize() {
         guard let session else { return }
+        // Whatever the shell was waiting for may be among the events that were
+        // dropped, so the guard is dropped with them and the engine is asked.
+        releaseSeekGuard()
         do {
             apply(try session.state())
             positionMilliseconds = try session.positionMs()
@@ -372,9 +425,25 @@ public final class PlayerModel: ObservableObject {
         do {
             try session.seek(toMs: milliseconds)
             positionMilliseconds = milliseconds
+            pendingSeekCount += 1
+            seekGuardExpiry = now() + seekGuardTimeoutNanoseconds
         } catch {
+            // A refused seek is owed no answer, so it must not leave a guard
+            // behind: the position that keeps arriving is the true one.
+            releaseSeekGuard()
             presentTransient(PlaybackPresentation.errorMessage(for: error))
         }
+    }
+
+    /// Whether a position report may still be describing where the medium was
+    /// *before* a seek this shell is waiting on.
+    private var seekIsInFlight: Bool {
+        pendingSeekCount > 0 && now() < seekGuardExpiry
+    }
+
+    private func releaseSeekGuard() {
+        pendingSeekCount = 0
+        seekGuardExpiry = 0
     }
 
     private func scheduleControlsHide() {

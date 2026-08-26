@@ -43,6 +43,125 @@ struct PlayerModelTests {
         #expect(model.volume == 1)
     }
 
+    // MARK: - The seek guard (NEN-053)
+    //
+    // mpv keeps reporting `time-pos` from before a seek until it has served it,
+    // and those reports reach the shell through two stages of polling. Applied
+    // blindly they undo a seek that already landed — the knob snapping home
+    // before jumping to where it was released.
+
+    @Test("a position report from before a seek does not move the knob back")
+    func stalePositionDoesNotUndoASeek() {
+        let fixture = FakeSession()
+        fixture.currentPosition = 4_000
+        fixture.currentDuration = 30_000
+        let model = makePlayingModel(session: fixture)
+
+        model.previewSeek(to: 20_000)
+        model.commitSeek()
+        #expect(model.displayedPositionMilliseconds == 20_000)
+
+        // What mpv was reporting while the core had not served the seek yet.
+        model.consume([.positionChanged(positionMs: 4_040), .positionChanged(positionMs: 4_080)])
+
+        #expect(model.positionMilliseconds == 20_000)
+        #expect(model.seekPreviewMilliseconds == nil)
+    }
+
+    @Test("the seek's own answer is what lets position reports through again")
+    func seekCompletedReleasesTheGuard() {
+        let fixture = FakeSession()
+        fixture.currentPosition = 4_000
+        fixture.currentDuration = 30_000
+        let model = makePlayingModel(session: fixture)
+
+        model.seekRelative(seconds: 10)
+        model.consume([.positionChanged(positionMs: 4_040)])
+        #expect(model.positionMilliseconds == 14_000)
+
+        model.consume([.seekCompleted(positionMs: 14_000)])
+        model.consume([.positionChanged(positionMs: 14_040)])
+
+        #expect(model.positionMilliseconds == 14_040)
+    }
+
+    @Test("two seeks in a row stay guarded until both are answered")
+    func backToBackSeeksNeedBothAnswers() {
+        let fixture = FakeSession()
+        fixture.currentPosition = 4_000
+        fixture.currentDuration = 30_000
+        let model = makePlayingModel(session: fixture)
+
+        model.seekRelative(seconds: 5)
+        model.seekRelative(seconds: 5)
+        #expect(fixture.seekTargets == [9_000, 14_000])
+
+        // mpv merges seeks it cannot serve one by one and answers all of them
+        // from a single restart, so the first answer must not open the gate.
+        model.consume([.seekCompleted(positionMs: 14_000)])
+        model.consume([.positionChanged(positionMs: 9_040)])
+        #expect(model.positionMilliseconds == 14_000)
+
+        model.consume([.seekCompleted(positionMs: 14_000)])
+        model.consume([.positionChanged(positionMs: 14_040)])
+        #expect(model.positionMilliseconds == 14_040)
+    }
+
+    @Test("an answer that never arrives does not freeze the position forever")
+    func theGuardExpires() {
+        let fixture = FakeSession()
+        fixture.currentPosition = 4_000
+        fixture.currentDuration = 30_000
+        let clock = TestClock()
+        let model = makePlayingModel(
+            session: fixture,
+            seekGuardTimeoutNanoseconds: 1_000,
+            clock: clock
+        )
+
+        model.seekRelative(seconds: 10)
+        model.consume([.positionChanged(positionMs: 4_040)])
+        #expect(model.positionMilliseconds == 14_000)
+
+        clock.nanoseconds += 1_001
+        model.consume([.positionChanged(positionMs: 14_500)])
+
+        #expect(model.positionMilliseconds == 14_500)
+    }
+
+    @Test("a refused seek leaves no guard behind")
+    func aRefusedSeekDoesNotGuard() {
+        let fixture = FakeSession()
+        fixture.currentPosition = 4_000
+        fixture.currentDuration = 30_000
+        let model = makePlayingModel(session: fixture)
+        fixture.errors[.seek] = .NotLoaded
+
+        model.seekRelative(seconds: 10)
+        model.consume([.positionChanged(positionMs: 4_040)])
+
+        // Nothing was ever seeked to, so the position that keeps arriving is
+        // the true one and must be shown.
+        #expect(model.positionMilliseconds == 4_040)
+    }
+
+    @Test("EventsLost drops the guard along with the events")
+    func resynchronizationDropsTheGuard() {
+        let fixture = FakeSession()
+        fixture.currentPosition = 4_000
+        fixture.currentDuration = 30_000
+        let model = makePlayingModel(session: fixture)
+
+        model.seekRelative(seconds: 10)
+        // The answer may be among what was dropped, so waiting for it would
+        // wait forever; the engine is asked instead.
+        fixture.currentPosition = 14_000
+        model.consume([.eventsLost(dropped: 3)])
+        model.consume([.positionChanged(positionMs: 14_040)])
+
+        #expect(model.positionMilliseconds == 14_040)
+    }
+
     @Test("EventsLost silently refreshes state, position, duration, and tracks")
     func eventsLostResynchronizesEverything() {
         let fixture = FakeSession()
@@ -321,12 +440,16 @@ struct PlayerModelTests {
     private func makeModel(
         session: FakeSession,
         store: MemoryRecentStore = MemoryRecentStore(),
-        transientMessageDurationNanoseconds: UInt64 = 3_000_000_000
+        transientMessageDurationNanoseconds: UInt64 = 3_000_000_000,
+        seekGuardTimeoutNanoseconds: UInt64 = 1_500_000_000,
+        clock: TestClock = TestClock()
     ) -> PlayerModel {
         let model = PlayerModel(
             recentStore: store,
             startsPolling: false,
             transientMessageDurationNanoseconds: transientMessageDurationNanoseconds,
+            seekGuardTimeoutNanoseconds: seekGuardTimeoutNanoseconds,
+            now: { clock.nanoseconds },
             managesCursor: false,
             sessionFactory: { _ in session }
         )
@@ -338,16 +461,26 @@ struct PlayerModelTests {
     /// model that genuinely has media.
     private func makePlayingModel(
         session: FakeSession,
-        transientMessageDurationNanoseconds: UInt64 = 3_000_000_000
+        transientMessageDurationNanoseconds: UInt64 = 3_000_000_000,
+        seekGuardTimeoutNanoseconds: UInt64 = 1_500_000_000,
+        clock: TestClock = TestClock()
     ) -> PlayerModel {
         let model = makeModel(
             session: session,
-            transientMessageDurationNanoseconds: transientMessageDurationNanoseconds
+            transientMessageDurationNanoseconds: transientMessageDurationNanoseconds,
+            seekGuardTimeoutNanoseconds: seekGuardTimeoutNanoseconds,
+            clock: clock
         )
         model.openMedia(at: URL(fileURLWithPath: "/fixtures/media/contract-clip.mkv"))
         model.consume([.stateChanged(state: .ready)])
         return model
     }
+}
+
+/// A clock a test moves by hand, so the seek guard's expiry is reachable
+/// without waiting for it.
+private final class TestClock {
+    var nanoseconds: UInt64 = 0
 }
 
 private final class MemoryRecentStore: RecentMediaStoring {
