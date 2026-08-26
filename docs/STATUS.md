@@ -3,8 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-26** (ADR-0012 accepted — motor, linkleme ve proje
-> lisansı kilitlendi; NEN-043 açıldı; NEN-022'nin önü açık)
+> Son güncelleme: **2026-08-26** (ADR-0012 accepted ve **NEN-022 kapandı** —
+> gerçek libmpv adapter'ı paylaşılan contract kitini geçiyor)
 
 ## Nerede duruyoruz
 
@@ -12,11 +12,61 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | *yok* — `tasks/active/` boş |
-| **Son tamamlanan** | `NEN-021` — PlaybackEngine port contract and capability model |
-| **Sıradaki READY** | `NEN-022`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041` |
-| **Task sayısı** | 43 · done 26 · active 0 · blocked 0 · backlog 17 |
+| **Son tamamlanan** | `NEN-022` — libmpv playback adapter for macOS |
+| **Sıradaki READY** | `NEN-023`, `NEN-024`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041` |
+| **Task sayısı** | 43 · done 27 · active 0 · blocked 0 · backlog 16 |
 
-**`ADR-0012` accepted oldu — `NEN-022` artık başlayabilir.** M3'ün ikinci
+**`NEN-022` kapandı — macOS'ta gerçek video oynuyor ve gerçek adapter
+paylaşılan contract kitini geçiyor.** M3'ün "gerçek libmpv adapter'ı, fake
+adapter ile **aynı** contract kitini geçmelidir" çıkış şartı karşılandı ve kit
+**ikinci kez yazılmadı** (ADR-0011 Karar 4): `nen-ports`'un senaryo listesi
+`nen-ffi` üzerinden sürülüyor. `platforms/macos` artık dolu (Swift + libmpv,
+ADR-0012 Karar 2). Rust testleri **390 → 406**, ayrıca **9** Swift testi.
+Yeni Rust bağımlılığı yok, `deny.toml` değişmedi.
+
+**Kit gerçek motoru üç yerde haksız yere çaktırıyordu.** `Load → State == Ready`
+anında bekleniyordu (`loadfile` asenkron); olay dizisi tam eşitlik istiyordu
+(gerçek motor daha fazlasını raporluyor); `Seek` sonrası `Position` hemen
+soruluyordu (seek asenkron). Sırasıyla `Action::Settle`, alt-dizi eşleşmesi ve
+`Action::AwaitEvent` + zaman aşımına kadar bekleyen `Outcome::Events` ile
+düzeltildi. Üçüncüsü aslında portun kendi tasarımıydı: `SeekCompleted` tam da
+"seek indi mi" sorusunun cevabı.
+
+**Kitte fake'in biyografisi gömülüydü.** `DurationMs(Some(120_000))`,
+`TrackCount(2)`, `TrackId(1)` doğrudan senaryolardaydı — yani gerçek fixture
+tam 120 saniye ve tam o id'lere sahip olmaya zorlanırdı. Bunlar
+`ContractInputs`'a taşındı; adım artık sayı değil **rol** adlandırıyor
+(`TrackRef::Known`, `Outcome::FixtureDuration`). Bu tam olarak ADR-0011
+Karar 4'ün önlemek istediği "kit bir adapter'a göre şekillenir" durumuydu.
+
+**Gevşetmenin bedeli ayrıca ödendi.** `contract_kit_is_not_vacuous.rs` doğru bir
+motoru kitin artık tolere ettiği **her** yönde bozuyor ve altısında da kırmızı
+olmasını şart koşuyor: toleransın dışına düşen seek · `Ready`'ye hiç gelmeyen
+motor · düşürülen kritik olay · sırası bozulmuş olaylar · sorulmadan gelen
+`Failed` · her id'yi kabul eden seçim. Yedincisi kontrolün kontrolü.
+
+**Kit gerçek bir adapter hatası buldu:** mpv arka arkaya verilen iki seek'i tek
+`playback-restart`'a birleştiriyor, dolayısıyla ikinci seek'in cevabı hiç
+gelmiyordu — o cevabı bekleyen bir kabuk sonsuza kadar beklerdi. Artık bekleyen
+her seek cevaplanıyor.
+
+**Köprüde ikinci gerçek kusur bulundu ve negatif kontrolle kanıtlandı.**
+`ShellEngineBridge` her çağrıyı olduğu gibi iletiyordu, yani ADR-0011 Karar 2'nin
+reentrancy yasağı yalnız *fake kendi guard'ını taşıdığı için* tutuyordu. Swift
+adapter'ında böyle bir guard olamaz — işareti taşıyan thread-local Rust'ın —
+ve NEN-029'un ölçtüğü self-deadlock'a girilirdi. Karar 2 yasağı açıkça porta
+verdiği için guard köprüye kondu; kanıt **çağrılınca panikleyen** bir motorla
+alınıyor. 15 guard mekanik olarak silinince test kırmızıya döndü, geri alındı.
+
+**Ölçüm: libmpv takılmıyor, takılan mpv CLI'ı.** `doctor.sh`'ın yorumu bu
+makinede doğrulandı — `mpv --frames=1` 20 sn'de dönmedi, libmpv aynı dosyayı
+0.5 sn'de bitirdi. Adapter kütüphaneye dayandığı için M3 etkilenmiyor.
+Ayrıca ölçüldü: `seek absolute+exact` **tam** iniyor (tolerans 100 ms tanındı
+ama gerekmedi); mpv track id'leri **tür başına** 1 tabanlı, port'un id uzayı ise
+türler arasında tek — adapter bu yüzden `ff-index`'i dışarı veriyor.
+Tam kanıt: `tasks/done/NEN-022-*.md`.
+
+**`ADR-0012` accepted oldu — `NEN-022`'nin önünü açan karar.** M3'ün ikinci
 kapısıydı ve son açık mimari sorusuydu; dört kararla kapandı: (1) macOS motoru
 **libmpv** — aday statüsü kalktı; (2) adapter **Swift'te**, `platforms/macos/`
 altında (bugün boş) — Rust-tarafı bir mpv crate'i reddedildi, çünkü ADR-0011

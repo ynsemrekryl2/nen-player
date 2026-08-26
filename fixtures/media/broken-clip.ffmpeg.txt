@@ -1,0 +1,22 @@
+# fixtures/media/broken-clip.mkv — NEN-022 DoD #4 (bozuk dosyada failure, panik yok)
+#
+# ffmpeg ile ÜRETİLMEZ: bilinçli olarak hiç geçerli olmayan bir dosyadır.
+# Geçerli bir uzantı taşır ama içeriği tanınabilir bir konteyner değildir —
+# yani "medya sanılıp açılan, açılamayan dosya" durumunu izole eder.
+#
+# Deterministik: sabit tohum (0x4E454E303232 = "NEN022") → her makinede
+# birebir aynı 8192 byte. Depo kökünden:
+
+cd "$(git rev-parse --show-toplevel)"
+python3 -c "
+import random
+random.seed(0x4E454E303232)
+open('fixtures/media/broken-clip.mkv','wb').write(bytes(random.randrange(256) for _ in range(8192)))
+"
+
+# libmpv'nin bu dosyada verdiği (ölçüldü, 2026-08-26, libmpv 2.5.0):
+#   MPV_EVENT_END_FILE, reason = MPV_END_FILE_REASON_STOP (2), error = none
+# Karşılaştırma — var olmayan bir yol:
+#   MPV_EVENT_END_FILE, reason = MPV_END_FILE_REASON_ERROR (4), error = "loading failed"
+# İkisi de LoadFailed'e eşlenir: adapter stop() istemediği hâlde gelen her
+# end-file bir yükleme hatasıdır.

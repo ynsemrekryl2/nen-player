@@ -86,11 +86,16 @@ fn crate_src(name: &str) -> PathBuf {
 }
 
 #[test]
-fn no_engine_name_appears_in_port_or_application_code() {
+fn no_engine_name_appears_in_port_application_or_gate_code() {
     let mut reported = Vec::new();
     let mut scanned = 0usize;
 
-    for crate_name in ["nen-ports", "nen-app"] {
+    // `nen-ffi` joined the scan with NEN-022. It is where the engine stops
+    // being Rust's: it declares the foreign trait a platform adapter fills in.
+    // That makes it the first place a shortcut like `if engine == "…"` would be
+    // tempting, and the last place the rule can still be enforced mechanically
+    // — `platforms/macos` *is* the adapter and names its engine freely.
+    for crate_name in ["nen-ports", "nen-app", "nen-ffi"] {
         let root = crate_src(crate_name);
         assert!(root.is_dir(), "{} not found at {root:?}", crate_name);
         for file in rust_files(&root) {

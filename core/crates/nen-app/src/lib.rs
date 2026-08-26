@@ -2,6 +2,16 @@
 //!
 //! Crate sınırları ve izinli bağımlılıklar: ADR-0006.
 
+pub mod playback;
+
+// The FFI gate is only allowed to depend on this crate (ADR-0006 kural 3), but
+// the types it has to translate — states, capabilities, track kinds — are the
+// port's and the domain's. Re-exporting them here keeps the dependency arrow
+// where the ADR draws it (`nen-ffi -> nen-app`) instead of adding an edge, and
+// makes the gate name them as what they are: this layer's vocabulary.
+pub use nen_domain as domain;
+pub use nen_ports as ports;
+
 /// Human-readable identifier of this core build.
 ///
 /// The value is composed here from a `nen-domain` constant and this crate's

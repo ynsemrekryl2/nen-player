@@ -30,6 +30,21 @@ pub const FAKE_DURATION_MS: u64 = 120_000;
 /// [`Capability::PlaybackRate`].
 pub const FAKE_RATE_RANGE: (f32, f32) = (0.5, 2.0);
 
+/// How many audio tracks the fake medium has.
+pub const FAKE_AUDIO_TRACKS: usize = 1;
+
+/// How many subtitle tracks the fake medium has.
+pub const FAKE_SUBTITLE_TRACKS: usize = 2;
+
+/// An audio track the fake medium has.
+pub const FAKE_AUDIO_TRACK: TrackId = TrackId(2);
+
+/// A subtitle track the fake medium has.
+pub const FAKE_SUBTITLE_TRACK: TrackId = TrackId(1);
+
+/// An id no fake track of any kind has.
+pub const FAKE_UNKNOWN_TRACK: TrackId = TrackId(9_999);
+
 /// A fake engine whose capability set is chosen by the caller.
 #[derive(Debug)]
 pub struct FakeEngine {
@@ -332,4 +347,10 @@ pub fn fake_inputs() -> ContractInputs {
         vec!["contract".to_string()],
     )]);
     ContractInputs::new(MediaSource::new("fake://medium"), document)
+        .with_duration_ms(Some(FAKE_DURATION_MS))
+        .with_track_counts(FAKE_AUDIO_TRACKS, FAKE_SUBTITLE_TRACKS)
+        .with_tracks(FAKE_AUDIO_TRACK, FAKE_SUBTITLE_TRACK, FAKE_UNKNOWN_TRACK)
+    // No `with_seek_tolerance_ms`: the fake is exact, and leaving the default
+    // at zero is what keeps the loosened kit strict here. A real adapter
+    // declares the tolerance it measured; the fake is not allowed one.
 }

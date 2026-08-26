@@ -1,0 +1,306 @@
+//! NEN-022: the loosened contract kit still catches a broken engine.
+//!
+//! The kit had to give ground for a real engine to be judged fairly. It now
+//! **waits** for a state instead of demanding it instantly
+//! ([`Action::Settle`]), allows a seek to land **near** where it was asked to,
+//! and matches events as a **subsequence** so an engine may report more than
+//! the contract requires.
+//!
+//! Every one of those is a place a defect could now hide. `contract_fake.rs`
+//! proves a correct engine passes; that is only half an argument — a kit that
+//! passed *everything* would pass it too. This file completes the argument by
+//! breaking a correct engine in exactly the directions the kit now tolerates
+//! and requiring it to go red each time.
+//!
+//! The twins wrap [`FakeEngine`] and change one thing each. Nothing here is
+//! product code, and nothing here needed a test hook added to the port: a twin
+//! keeps its **own** [`EventQueue`], drains the inner engine's into it, and
+//! distorts what passes through. A defect that needed the port to grow a
+//! back door would be a defect this file could not honestly claim to detect.
+
+use nen_ports::playback::contract::{run_all, ContractInputs, Failure};
+use nen_ports::playback::fake::{fake_inputs, FakeEngine};
+use nen_ports::playback::{
+    Capabilities, EventQueue, MediaSource, PlaybackEngine, PlaybackError, PlaybackEvent,
+    PlaybackState, TrackDescriptor, TrackId, TrackKind,
+};
+use std::time::Duration;
+
+/// Which single thing a twin gets wrong.
+#[derive(Clone, Copy, PartialEq)]
+enum Defect {
+    /// Lands 2 s away from every requested position.
+    SeekDriftsFarther,
+    /// Loads, but never leaves `Buffering`.
+    NeverBecomesReady,
+    /// Never reports that a seek completed.
+    SwallowsSeekCompleted,
+    /// Reports the seek's completion *after* the position it belongs to.
+    ReportsSeekCompletionOutOfOrder,
+    /// Slips an unasked `Failed` into an otherwise correct stream.
+    ReportsAnUnaskedFailure,
+    /// Accepts a track id that belongs to no track.
+    AcceptsAnyTrackId,
+}
+
+/// A [`FakeEngine`] with exactly one thing wrong.
+struct BrokenEngine {
+    inner: FakeEngine,
+    defect: Defect,
+    /// The twin's own queue. Everything the inner engine reports is moved here
+    /// through [`BrokenEngine::forward_events`], which is where a defect that
+    /// distorts the stream applies itself.
+    events: EventQueue,
+    /// Set once the medium is loaded, for the twin that lies about its state.
+    loaded: bool,
+}
+
+impl BrokenEngine {
+    fn new(defect: Defect) -> Self {
+        Self {
+            inner: FakeEngine::full(),
+            defect,
+            events: EventQueue::default(),
+            loaded: false,
+        }
+    }
+
+    /// Moves the inner engine's pending events into the twin's own queue,
+    /// applying whatever this twin gets wrong on the way.
+    fn forward_events(&mut self) {
+        let mut pending = self.inner.events().drain();
+        match self.defect {
+            Defect::SwallowsSeekCompleted => {
+                pending.retain(|event| !matches!(event, PlaybackEvent::SeekCompleted { .. }));
+            }
+            Defect::ReportsSeekCompletionOutOfOrder => {
+                if let Some(at) = pending
+                    .iter()
+                    .position(|event| matches!(event, PlaybackEvent::SeekCompleted { .. }))
+                {
+                    let completion = pending.remove(at);
+                    pending.push(completion);
+                }
+            }
+            Defect::ReportsAnUnaskedFailure => {
+                pending.push(PlaybackEvent::Failed {
+                    error: PlaybackError::EngineFailure { code: 7 },
+                });
+            }
+            _ => {}
+        }
+        for event in pending {
+            self.events.push(event);
+        }
+    }
+}
+
+impl PlaybackEngine for BrokenEngine {
+    fn capabilities(&self) -> Capabilities {
+        self.inner.capabilities()
+    }
+
+    fn load(&mut self, source: &MediaSource) -> Result<(), PlaybackError> {
+        self.inner.load(source)?;
+        self.loaded = true;
+        self.forward_events();
+        Ok(())
+    }
+
+    fn play(&mut self) -> Result<(), PlaybackError> {
+        self.inner.play()?;
+        self.forward_events();
+        Ok(())
+    }
+
+    fn pause(&mut self) -> Result<(), PlaybackError> {
+        self.inner.pause()?;
+        self.forward_events();
+        Ok(())
+    }
+
+    fn stop(&mut self) -> Result<(), PlaybackError> {
+        self.inner.stop()?;
+        self.loaded = false;
+        self.forward_events();
+        Ok(())
+    }
+
+    fn seek(&mut self, to: Duration) -> Result<(), PlaybackError> {
+        let target = if self.defect == Defect::SeekDriftsFarther {
+            to + Duration::from_secs(2)
+        } else {
+            to
+        };
+        self.inner.seek(target)?;
+        self.forward_events();
+        Ok(())
+    }
+
+    fn position(&self) -> Result<Duration, PlaybackError> {
+        self.inner.position()
+    }
+
+    fn duration(&self) -> Result<Option<Duration>, PlaybackError> {
+        self.inner.duration()
+    }
+
+    fn state(&self) -> PlaybackState {
+        let state = self.inner.state();
+        // The events still announce readiness; only the answer to `state()`
+        // lags. That is the realistic shape of the bug — an adapter that
+        // forgets to update what it reports.
+        if self.defect == Defect::NeverBecomesReady && self.loaded {
+            return PlaybackState::Buffering;
+        }
+        state
+    }
+
+    fn tracks(&self, kind: TrackKind) -> Result<Vec<TrackDescriptor>, PlaybackError> {
+        self.inner.tracks(kind)
+    }
+
+    fn select_track(
+        &mut self,
+        kind: TrackKind,
+        track: Option<TrackId>,
+    ) -> Result<(), PlaybackError> {
+        if self.defect == Defect::AcceptsAnyTrackId {
+            // Say yes to anything. The inner engine never hears about the ids
+            // it would have refused, so `selected_track` keeps answering
+            // `None` — the classic "selection that silently did nothing".
+            return Ok(());
+        }
+        self.inner.select_track(kind, track)
+    }
+
+    fn selected_track(&self, kind: TrackKind) -> Result<Option<TrackId>, PlaybackError> {
+        self.inner.selected_track(kind)
+    }
+
+    fn events(&mut self) -> &mut EventQueue {
+        // Forwarding cannot happen here: `events()` hands out a borrow, and the
+        // runner drains through it. Every operation above forwards first.
+        &mut self.events
+    }
+
+    fn shutdown(&mut self) -> Result<(), PlaybackError> {
+        self.inner.shutdown()
+    }
+
+    fn set_rate(&mut self, rate: f32) -> Result<(), PlaybackError> {
+        self.inner.set_rate(rate)
+    }
+
+    fn set_volume(&mut self, volume: f32) -> Result<(), PlaybackError> {
+        self.inner.set_volume(volume)
+    }
+
+    fn extract_text(&mut self, track: TrackId) -> Result<String, PlaybackError> {
+        self.inner.extract_text(track)
+    }
+
+    fn inject_subtitle(
+        &mut self,
+        document: &nen_domain::subtitle::SubtitleDocument,
+    ) -> Result<(), PlaybackError> {
+        self.inner.inject_subtitle(document)
+    }
+}
+
+/// The tolerance a real adapter is allowed. Every twin is judged with it, so a
+/// twin that fails is failing on behaviour and not on strictness.
+const REALISTIC_TOLERANCE_MS: u64 = 250;
+
+fn realistic_inputs() -> ContractInputs {
+    fake_inputs()
+        .with_seek_tolerance_ms(REALISTIC_TOLERANCE_MS)
+        // Short, because every settle in these runs is expected to time out.
+        .with_settle_timeout_ms(120)
+}
+
+fn failures_for(defect: Defect) -> Vec<Failure> {
+    run_all(|| BrokenEngine::new(defect), &realistic_inputs())
+}
+
+fn report(failures: &[Failure]) -> String {
+    failures
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+#[test]
+fn a_correct_engine_still_passes_under_a_real_tolerance() {
+    // The control for the controls: loosening the inputs must not be what
+    // makes the twins below fail.
+    let failures = run_all(FakeEngine::full, &realistic_inputs());
+    assert!(failures.is_empty(), "{}", report(&failures));
+}
+
+#[test]
+fn a_seek_landing_outside_the_tolerance_is_caught() {
+    // 2 s away, against a 250 ms tolerance: the point is that tolerance is a
+    // bound, not a blanket.
+    let failures = failures_for(Defect::SeekDriftsFarther);
+    assert!(
+        !failures.is_empty(),
+        "a seek 2 s off passed a {REALISTIC_TOLERANCE_MS} ms tolerance"
+    );
+}
+
+#[test]
+fn an_engine_that_never_becomes_ready_is_caught() {
+    // What `Settle` exists to catch. Waiting for a state must not become
+    // waiting forever and calling it success.
+    let failures = failures_for(Defect::NeverBecomesReady);
+    assert!(!failures.is_empty(), "a never-ready engine passed");
+    assert!(
+        failures
+            .iter()
+            .any(|failure| failure.detail.contains("never reached")),
+        "it failed, but not on settling:\n{}",
+        report(&failures)
+    );
+}
+
+#[test]
+fn a_dropped_critical_event_is_caught() {
+    // Subsequence matching allows *extra* events. It must never allow a
+    // missing one.
+    let failures = failures_for(Defect::SwallowsSeekCompleted);
+    assert!(!failures.is_empty(), "a swallowed SeekCompleted passed");
+}
+
+#[test]
+fn events_arriving_out_of_order_are_caught() {
+    // A subsequence is ordered. Reporting the right shapes in the wrong order
+    // is a different bug from reporting extras, and must still fail.
+    let failures = failures_for(Defect::ReportsSeekCompletionOutOfOrder);
+    assert!(!failures.is_empty(), "reordered events passed");
+}
+
+#[test]
+fn an_unasked_failure_event_is_caught() {
+    // The reason `Failed` and `EventsLost` are exempt from "extras are fine":
+    // otherwise tolerating extras would tolerate the engine reporting that
+    // playback broke.
+    let failures = failures_for(Defect::ReportsAnUnaskedFailure);
+    assert!(!failures.is_empty(), "an unasked Failed event passed");
+    assert!(
+        failures
+            .iter()
+            .any(|failure| failure.detail.contains("unasked")),
+        "it failed, but not on the unasked event:\n{}",
+        report(&failures)
+    );
+}
+
+#[test]
+fn a_selection_that_accepts_any_id_is_caught() {
+    // Nothing about this defect involves timing or tolerance; it is here to
+    // show the symbolic `TrackRef` rewrite did not weaken the id scenarios.
+    let failures = failures_for(Defect::AcceptsAnyTrackId);
+    assert!(!failures.is_empty(), "an engine accepting any id passed");
+}

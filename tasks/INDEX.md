@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **43** task · ✅ done 26 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 17
+Toplam **43** task · ✅ done 27 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 16
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -51,7 +51,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | ID | Başlık | Boyut | Durum | Bağımlılık |
 |---|---|---|---|---|
 | [NEN-021](done/NEN-021-playback-port-contract.md) | PlaybackEngine port contract and capability model | M | ✅ done | NEN-012 |
-| [NEN-022](backlog/NEN-022-libmpv-adapter.md) | libmpv playback adapter for macOS | L | ⚪ backlog | NEN-021 NEN-004 |
+| [NEN-022](done/NEN-022-libmpv-adapter.md) | libmpv playback adapter for macOS | L | ✅ done | NEN-021 NEN-004 |
 | [NEN-023](backlog/NEN-023-track-enumeration.md) | Embedded track enumeration and selection | M | ⚪ backlog | NEN-022 |
 | [NEN-024](backlog/NEN-024-macos-shell.md) | macOS SwiftUI shell with transport controls | M | ⚪ backlog | NEN-022 |
 | [NEN-025](backlog/NEN-025-user-subtitle-loading.md) | User subtitle loading and sidecar discovery | M | ⚪ backlog | NEN-013 NEN-015 NEN-024 |
@@ -79,7 +79,8 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 
 Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 
-- **NEN-022** — libmpv playback adapter for macOS
+- **NEN-023** — Embedded track enumeration and selection
+- **NEN-024** — macOS SwiftUI shell with transport controls
 - **NEN-033** — OpenSubtitles hash-based identity lookup
 - **NEN-034** — AI-assisted release name normalization
 - **NEN-035** — Identity confidence scoring and candidate ranking

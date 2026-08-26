@@ -8,6 +8,8 @@
 
 uniffi::setup_scaffolding!();
 
+pub mod playback;
+
 /// Human-readable identifier of this core build.
 ///
 /// Skeleton smoke function for NEN-007: it carries a value across

@@ -14,6 +14,30 @@
 //! engines with different capability sets: the capability-gated behaviour is
 //! checked on engines that declare it, and the typed refusal is checked on
 //! engines that do not.
+//!
+//! # Why nothing here is a number an adapter chose
+//!
+//! NEN-022 measured what a real engine does, and two habits of the first draft
+//! turned out to be the fake's biography rather than the contract:
+//!
+//! - **Durations, track counts and track ids were literals** (`120_000`,
+//!   `TrackCount(2)`, `TrackId(1)`) copied from [`super::fake`]. A real
+//!   fixture would have had to be exactly 120 s with exactly those ids — which
+//!   is the kit shaping itself around one adapter, the thing ADR-0011 Karar 4
+//!   exists to prevent. They now live in [`ContractInputs`], and a step names
+//!   what it *means* ([`TrackRef::Known`], [`Outcome::FixtureDuration`])
+//!   instead of a number that means nothing on its own.
+//! - **Every assertion was instantaneous and exact.** A real engine loads
+//!   asynchronously and reports a stream richer than the one the fake emits.
+//!   [`Action::Settle`] waits for a state instead of assuming it,
+//!   [`Outcome::PositionNear`] allows a measured tolerance, and
+//!   [`Outcome::Events`] matches a **subsequence** so an engine may say more
+//!   than the contract requires — but never less, and never a `Failed` or
+//!   `EventsLost` the scenario did not ask for.
+//!
+//! Loosening a kit is how a kit stops catching things, so
+//! `tests/contract_kit_is_not_vacuous.rs` breaks a fake in each of the
+//! directions this file now tolerates and proves the kit still goes red.
 
 use super::capability::{Capabilities, Capability};
 use super::engine::PlaybackEngine;
@@ -23,7 +47,30 @@ use super::media::MediaSource;
 use super::track::{TrackId, TrackKind};
 use nen_domain::subtitle::SubtitleDocument;
 use std::fmt;
-use std::time::Duration;
+use std::time::{Duration, Instant};
+
+/// Which track a step means, without naming the adapter's numbers.
+///
+/// `SelectTrack(Subtitle, Known(Subtitle))` reads as the contract intends it —
+/// "select a subtitle track this medium really has" — and stays true whatever
+/// ids the engine hands out. The runner resolves it from [`ContractInputs`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TrackRef {
+    /// An id belonging to a track of this kind that the fixture really has.
+    Known(TrackKind),
+    /// An id no track of any kind has.
+    Unknown,
+}
+
+impl TrackRef {
+    fn resolve(self, inputs: &ContractInputs) -> TrackId {
+        match self {
+            Self::Known(TrackKind::Audio) => inputs.audio_track,
+            Self::Known(TrackKind::Subtitle) => inputs.subtitle_track,
+            Self::Unknown => inputs.unknown_track,
+        }
+    }
+}
 
 /// One port operation, as data.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -46,7 +93,7 @@ pub enum Action {
     },
     SelectTrack {
         kind: TrackKind,
-        track: Option<TrackId>,
+        track: Option<TrackRef>,
     },
     SelectedTrack {
         kind: TrackKind,
@@ -58,10 +105,33 @@ pub enum Action {
         volume: f32,
     },
     ExtractText {
-        track: TrackId,
+        track: TrackRef,
     },
     InjectSubtitle,
     Shutdown,
+    /// Waits until a given event shape has been reported, or gives up.
+    ///
+    /// A seek is not finished when `seek` returns — that is what
+    /// [`PlaybackEvent::SeekCompleted`](super::event::PlaybackEvent::SeekCompleted)
+    /// is *for*. Reading the position straight after the command reads the old
+    /// one, and draining straight after finds an empty queue: NEN-022 measured
+    /// both against libmpv. A scenario therefore waits for the answer before
+    /// asking about its consequences.
+    AwaitEvent {
+        shape: EventShape,
+    },
+    /// Waits until the engine reaches a state, or gives up.
+    ///
+    /// The fake reaches its states inside the call that causes them; a real
+    /// engine does not — `loadfile` returns long before the medium is ready.
+    /// Asserting the state directly would therefore test timing, not
+    /// behaviour. A scenario says "settle, *then* look".
+    ///
+    /// Failing to settle is a failure: an engine that never reaches the state
+    /// is exactly what this step is here to catch.
+    Settle {
+        until: PlaybackState,
+    },
     /// Takes everything pending off the event queue, so the next
     /// [`Outcome::Events`] describes only what happened after this point.
     DrainEvents,
@@ -132,12 +202,37 @@ pub enum Outcome {
     Ok,
     Error(ErrorKind),
     State(PlaybackState),
-    PositionMs(u64),
-    /// `None` asserts "this medium reports no duration" (a live stream).
-    DurationMs(Option<u64>),
-    TrackCount(usize),
-    SelectedTrack(Option<TrackId>),
-    /// Exactly these event shapes, in this order.
+    /// Within [`ContractInputs::seek_tolerance_ms`] of this position.
+    ///
+    /// Not exact equality: a real engine seeks in the medium's own units and
+    /// lands *near* the request. The tolerance is the adapter's, declared with
+    /// its fixture, so an engine cannot widen it to hide a bad seek — and the
+    /// fake keeps its tolerance at zero, so the fake stays exact.
+    PositionNear(u64),
+    /// The duration the fixture declares ([`ContractInputs::duration_ms`]);
+    /// `None` there means "this medium reports no duration" (a live stream).
+    FixtureDuration,
+    /// As many tracks of this kind as the fixture declares.
+    FixtureTrackCount(TrackKind),
+    SelectedTrack(Option<TrackRef>),
+    /// These event shapes, in this order, **as a subsequence**, arriving
+    /// within the fixture's settle timeout.
+    ///
+    /// An engine may report more than the contract requires — a real one emits
+    /// reconfiguration events around every seek — but never less and never out
+    /// of order. Two shapes it may not add unasked: `Failed` and `EventsLost`
+    /// are refused unless the scenario lists them, so "extras are allowed"
+    /// can never swallow a failure.
+    ///
+    /// **Waiting, not sampling.** Events arrive on the engine's own thread, so
+    /// a single drain the instant after a command sees whatever happens to have
+    /// landed. The runner keeps draining until the expectation is satisfied or
+    /// the timeout runs out; what it accumulates since the last
+    /// `DrainEvents`/`Outcome::Ok` is what gets matched.
+    ///
+    /// Exact queue behaviour (coalescing, overflow, resync) is not asserted
+    /// here: it belongs to [`super::event::EventQueue`], which both adapters
+    /// share, and is proven exactly in `tests/event_ordering.rs`.
     Events(Vec<EventShape>),
     /// Text came back and is non-empty. The text itself is subtitle dialogue
     /// (K23 #4) and is never compared or printed here.
@@ -173,6 +268,16 @@ impl Step {
             expect,
             inside_callback: true,
         }
+    }
+
+    /// Wait for a state before asserting anything about it.
+    pub fn settle(until: PlaybackState) -> Self {
+        Self::new(Action::Settle { until }, Outcome::Ok)
+    }
+
+    /// Wait for an event before asserting anything about its consequences.
+    pub fn awaits(shape: EventShape) -> Self {
+        Self::new(Action::AwaitEvent { shape }, Outcome::Ok)
     }
 }
 
@@ -255,10 +360,13 @@ pub fn scenarios() -> Vec<Scenario> {
             applies: Applicability::Always,
             steps: vec![
                 Step::new(Action::Load, Outcome::Ok),
+                Step::settle(PlaybackState::Ready),
                 Step::new(Action::State, Outcome::State(PlaybackState::Ready)),
                 Step::new(Action::Play, Outcome::Ok),
+                Step::settle(PlaybackState::Playing),
                 Step::new(Action::State, Outcome::State(PlaybackState::Playing)),
                 Step::new(Action::Pause, Outcome::Ok),
+                Step::settle(PlaybackState::Paused),
                 Step::new(Action::State, Outcome::State(PlaybackState::Paused)),
             ],
         },
@@ -267,6 +375,7 @@ pub fn scenarios() -> Vec<Scenario> {
             applies: Applicability::Always,
             steps: vec![
                 Step::new(Action::Load, Outcome::Ok),
+                Step::settle(PlaybackState::Ready),
                 Step::new(
                     Action::DrainEvents,
                     Outcome::Events(vec![
@@ -282,9 +391,11 @@ pub fn scenarios() -> Vec<Scenario> {
             applies: Applicability::Always,
             steps: vec![
                 Step::new(Action::Load, Outcome::Ok),
+                Step::settle(PlaybackState::Ready),
                 Step::new(Action::DrainEvents, Outcome::Ok),
                 Step::new(Action::Seek { to_ms: 5_000 }, Outcome::Ok),
-                Step::new(Action::Position, Outcome::PositionMs(5_000)),
+                Step::awaits(EventShape::SeekCompleted),
+                Step::new(Action::Position, Outcome::PositionNear(5_000)),
                 Step::new(
                     Action::DrainEvents,
                     Outcome::Events(vec![EventShape::SeekCompleted, EventShape::PositionChanged]),
@@ -296,11 +407,19 @@ pub fn scenarios() -> Vec<Scenario> {
             applies: Applicability::Always,
             steps: vec![
                 Step::new(Action::Load, Outcome::Ok),
+                Step::settle(PlaybackState::Ready),
                 Step::new(Action::Seek { to_ms: 10_000 }, Outcome::Ok),
+                Step::awaits(EventShape::SeekCompleted),
+                // Relative seek is `position` + `seek` (ADR-0011 Karar 3), so
+                // it can only be right if the seek before it has landed.
+                Step::new(Action::DrainEvents, Outcome::Ok),
                 Step::new(Action::SeekRelative { delta_ms: 2_000 }, Outcome::Ok),
-                Step::new(Action::Position, Outcome::PositionMs(12_000)),
+                Step::awaits(EventShape::SeekCompleted),
+                Step::new(Action::Position, Outcome::PositionNear(12_000)),
+                Step::new(Action::DrainEvents, Outcome::Ok),
                 Step::new(Action::SeekRelative { delta_ms: -50_000 }, Outcome::Ok),
-                Step::new(Action::Position, Outcome::PositionMs(0)),
+                Step::awaits(EventShape::SeekCompleted),
+                Step::new(Action::Position, Outcome::PositionNear(0)),
             ],
         },
         Scenario {
@@ -308,6 +427,7 @@ pub fn scenarios() -> Vec<Scenario> {
             applies: Applicability::Always,
             steps: vec![
                 Step::new(Action::Load, Outcome::Ok),
+                Step::settle(PlaybackState::Ready),
                 Step::new(Action::Play, Outcome::Ok),
                 Step::new(Action::DrainEvents, Outcome::Ok),
                 Step::new(
@@ -316,6 +436,7 @@ pub fn scenarios() -> Vec<Scenario> {
                     },
                     Outcome::Ok,
                 ),
+                Step::settle(PlaybackState::Ended),
                 Step::new(Action::State, Outcome::State(PlaybackState::Ended)),
                 Step::new(
                     Action::DrainEvents,
@@ -333,11 +454,18 @@ pub fn scenarios() -> Vec<Scenario> {
             applies: Applicability::Always,
             steps: vec![
                 Step::new(Action::Load, Outcome::Ok),
+                Step::settle(PlaybackState::Ready),
                 Step::new(
                     Action::Tracks {
                         kind: TrackKind::Subtitle,
                     },
-                    Outcome::TrackCount(2),
+                    Outcome::FixtureTrackCount(TrackKind::Subtitle),
+                ),
+                Step::new(
+                    Action::Tracks {
+                        kind: TrackKind::Audio,
+                    },
+                    Outcome::FixtureTrackCount(TrackKind::Audio),
                 ),
                 Step::new(
                     Action::SelectedTrack {
@@ -348,7 +476,7 @@ pub fn scenarios() -> Vec<Scenario> {
                 Step::new(
                     Action::SelectTrack {
                         kind: TrackKind::Subtitle,
-                        track: Some(TrackId(1)),
+                        track: Some(TrackRef::Known(TrackKind::Subtitle)),
                     },
                     Outcome::Ok,
                 ),
@@ -356,7 +484,7 @@ pub fn scenarios() -> Vec<Scenario> {
                     Action::SelectedTrack {
                         kind: TrackKind::Subtitle,
                     },
-                    Outcome::SelectedTrack(Some(TrackId(1))),
+                    Outcome::SelectedTrack(Some(TrackRef::Known(TrackKind::Subtitle))),
                 ),
                 // `Kapalı` (§8) is selecting nothing, not an error.
                 Step::new(
@@ -379,10 +507,11 @@ pub fn scenarios() -> Vec<Scenario> {
             applies: Applicability::Always,
             steps: vec![
                 Step::new(Action::Load, Outcome::Ok),
+                Step::settle(PlaybackState::Ready),
                 Step::new(
                     Action::SelectTrack {
                         kind: TrackKind::Subtitle,
-                        track: Some(TrackId(9_999)),
+                        track: Some(TrackRef::Unknown),
                     },
                     Outcome::Error(ErrorKind::UnknownTrack),
                 ),
@@ -400,10 +529,14 @@ pub fn scenarios() -> Vec<Scenario> {
             applies: Applicability::Always,
             steps: vec![
                 Step::new(Action::Load, Outcome::Ok),
+                Step::settle(PlaybackState::Ready),
+                // A subtitle track's id, offered as an audio one. Ids are one
+                // space across kinds; an engine that numbers per kind must map
+                // them into one, or this refuses to hold.
                 Step::new(
                     Action::SelectTrack {
                         kind: TrackKind::Audio,
-                        track: Some(TrackId(1)),
+                        track: Some(TrackRef::Known(TrackKind::Subtitle)),
                     },
                     Outcome::Error(ErrorKind::UnknownTrack),
                 ),
@@ -414,11 +547,14 @@ pub fn scenarios() -> Vec<Scenario> {
             applies: Applicability::Always,
             steps: vec![
                 Step::new(Action::Load, Outcome::Ok),
+                Step::settle(PlaybackState::Ready),
                 Step::new(Action::Play, Outcome::Ok),
                 Step::new(Action::Stop, Outcome::Ok),
+                Step::settle(PlaybackState::Idle),
                 Step::new(Action::State, Outcome::State(PlaybackState::Idle)),
                 Step::new(Action::Play, Outcome::Error(ErrorKind::NotLoaded)),
                 Step::new(Action::Load, Outcome::Ok),
+                Step::settle(PlaybackState::Ready),
                 Step::new(Action::State, Outcome::State(PlaybackState::Ready)),
             ],
         },
@@ -444,7 +580,8 @@ pub fn scenarios() -> Vec<Scenario> {
             applies: Applicability::Always,
             steps: vec![
                 Step::new(Action::Load, Outcome::Ok),
-                Step::new(Action::Duration, Outcome::DurationMs(Some(120_000))),
+                Step::settle(PlaybackState::Ready),
+                Step::new(Action::Duration, Outcome::FixtureDuration),
             ],
         },
         Scenario {
@@ -452,19 +589,22 @@ pub fn scenarios() -> Vec<Scenario> {
             applies: Applicability::Always,
             steps: vec![
                 Step::new(Action::Load, Outcome::Ok),
+                Step::settle(PlaybackState::Ready),
                 Step::new(Action::DrainEvents, Outcome::Ok),
                 Step::new(Action::Play, Outcome::Ok),
                 Step::new(Action::Seek { to_ms: 1_000 }, Outcome::Ok),
                 Step::new(Action::Seek { to_ms: 2_000 }, Outcome::Ok),
-                // Two seeks each produced a position update; only the newest
-                // position survives, while both completions do.
+                Step::settle(PlaybackState::Playing),
+                // Both completions survive and keep their order: a seek's
+                // answer is never coalesced away. That the *positions* between
+                // them collapse is a property of the shared `EventQueue` and
+                // is proven exactly in `tests/event_ordering.rs`.
                 Step::new(
                     Action::DrainEvents,
                     Outcome::Events(vec![
                         EventShape::StateChanged(PlaybackState::Playing),
                         EventShape::SeekCompleted,
                         EventShape::SeekCompleted,
-                        EventShape::PositionChanged,
                     ]),
                 ),
             ],
@@ -493,16 +633,22 @@ fn reentrancy_scenarios() -> Vec<Scenario> {
     vec![Scenario {
         name: "no operation may be called synchronously from inside a callback",
         applies: Applicability::Always,
-        steps: std::iter::once(Step::new(Action::Load, Outcome::Ok))
-            .chain(actions.into_iter().map(|action| {
+        steps: [
+            Step::new(Action::Load, Outcome::Ok),
+            Step::settle(PlaybackState::Ready),
+        ]
+        .into_iter()
+        .chain(
+            actions.into_iter().map(|action| {
                 Step::from_callback(action, Outcome::Error(ErrorKind::ReentrantCall))
-            }))
-            // The engine is untouched: the refusals really refused.
-            .chain(std::iter::once(Step::new(
-                Action::State,
-                Outcome::State(PlaybackState::Ready),
-            )))
-            .collect(),
+            }),
+        )
+        // The engine is untouched: the refusals really refused.
+        .chain(std::iter::once(Step::new(
+            Action::State,
+            Outcome::State(PlaybackState::Ready),
+        )))
+        .collect(),
     }]
 }
 
@@ -515,6 +661,7 @@ fn capability_scenarios() -> Vec<Scenario> {
             applies: Applicability::WithoutCapability(Capability::PlaybackRate),
             steps: vec![
                 Step::new(Action::Load, Outcome::Ok),
+                Step::settle(PlaybackState::Ready),
                 Step::new(
                     Action::SetRate { rate: 1.5 },
                     Outcome::Error(ErrorKind::Unsupported),
@@ -526,6 +673,7 @@ fn capability_scenarios() -> Vec<Scenario> {
             applies: Applicability::WithCapability(Capability::PlaybackRate),
             steps: vec![
                 Step::new(Action::Load, Outcome::Ok),
+                Step::settle(PlaybackState::Ready),
                 Step::new(Action::SetRate { rate: 1.5 }, Outcome::Ok),
             ],
         },
@@ -534,6 +682,7 @@ fn capability_scenarios() -> Vec<Scenario> {
             applies: Applicability::WithoutCapability(Capability::Volume),
             steps: vec![
                 Step::new(Action::Load, Outcome::Ok),
+                Step::settle(PlaybackState::Ready),
                 Step::new(
                     Action::SetVolume { volume: 0.5 },
                     Outcome::Error(ErrorKind::Unsupported),
@@ -545,6 +694,7 @@ fn capability_scenarios() -> Vec<Scenario> {
             applies: Applicability::WithCapability(Capability::Volume),
             steps: vec![
                 Step::new(Action::Load, Outcome::Ok),
+                Step::settle(PlaybackState::Ready),
                 Step::new(Action::SetVolume { volume: 0.5 }, Outcome::Ok),
             ],
         },
@@ -553,8 +703,11 @@ fn capability_scenarios() -> Vec<Scenario> {
             applies: Applicability::WithoutCapability(Capability::EmbeddedTextExtraction),
             steps: vec![
                 Step::new(Action::Load, Outcome::Ok),
+                Step::settle(PlaybackState::Ready),
                 Step::new(
-                    Action::ExtractText { track: TrackId(0) },
+                    Action::ExtractText {
+                        track: TrackRef::Known(TrackKind::Subtitle),
+                    },
                     Outcome::Error(ErrorKind::Unsupported),
                 ),
             ],
@@ -564,8 +717,11 @@ fn capability_scenarios() -> Vec<Scenario> {
             applies: Applicability::WithCapability(Capability::EmbeddedTextExtraction),
             steps: vec![
                 Step::new(Action::Load, Outcome::Ok),
+                Step::settle(PlaybackState::Ready),
                 Step::new(
-                    Action::ExtractText { track: TrackId(0) },
+                    Action::ExtractText {
+                        track: TrackRef::Known(TrackKind::Subtitle),
+                    },
                     Outcome::NonEmptyText,
                 ),
             ],
@@ -575,9 +731,10 @@ fn capability_scenarios() -> Vec<Scenario> {
             applies: Applicability::WithCapability(Capability::EmbeddedTextExtraction),
             steps: vec![
                 Step::new(Action::Load, Outcome::Ok),
+                Step::settle(PlaybackState::Ready),
                 Step::new(
                     Action::ExtractText {
-                        track: TrackId(9_999),
+                        track: TrackRef::Unknown,
                     },
                     Outcome::Error(ErrorKind::UnknownTrack),
                 ),
@@ -588,6 +745,7 @@ fn capability_scenarios() -> Vec<Scenario> {
             applies: Applicability::WithoutCapability(Capability::ExternalSubtitleInjection),
             steps: vec![
                 Step::new(Action::Load, Outcome::Ok),
+                Step::settle(PlaybackState::Ready),
                 Step::new(
                     Action::InjectSubtitle,
                     Outcome::Error(ErrorKind::Unsupported),
@@ -599,26 +757,101 @@ fn capability_scenarios() -> Vec<Scenario> {
             applies: Applicability::WithCapability(Capability::ExternalSubtitleInjection),
             steps: vec![
                 Step::new(Action::Load, Outcome::Ok),
+                Step::settle(PlaybackState::Ready),
                 Step::new(Action::InjectSubtitle, Outcome::Ok),
             ],
         },
     ]
 }
 
-/// What a runner needs besides the engine: a medium it can actually load, and
-/// a document it can inject.
+/// What a runner needs besides the engine: a medium it can actually load, a
+/// document it can inject, and what that medium is.
 ///
-/// Supplied by the caller because a fake medium and a real one differ — this is
-/// the only place an adapter's own fixtures enter the kit, and it is data, not
-/// behaviour.
+/// **This is the only place an adapter's own numbers enter the kit**, and they
+/// are data, not behaviour. Nothing in [`scenarios`] names a duration, a count
+/// or an id; every step that needs one names its *role* and the runner looks
+/// it up here.
 pub struct ContractInputs {
     pub media: MediaSource,
     pub document: SubtitleDocument,
+    /// The medium's duration, or `None` for a live stream.
+    pub duration_ms: Option<u64>,
+    /// How many audio tracks the medium has.
+    pub audio_track_count: usize,
+    /// How many subtitle tracks the medium has.
+    pub subtitle_track_count: usize,
+    /// An audio track the medium really has.
+    pub audio_track: TrackId,
+    /// A subtitle track the medium really has.
+    pub subtitle_track: TrackId,
+    /// An id no track of **any** kind has.
+    ///
+    /// Ids are one space across kinds — that is what lets the contract prove an
+    /// audio id is not silently accepted as a subtitle one — so an adapter
+    /// whose engine numbers tracks per kind must map them into one space.
+    pub unknown_track: TrackId,
+    /// How far a seek may land from where it was asked to.
+    ///
+    /// Zero for an engine that is exact (the fake is). A real engine declares
+    /// what it measured; see `platforms/macos`.
+    pub seek_tolerance_ms: u64,
+    /// How long [`Action::Settle`] waits before calling it a failure.
+    pub settle_timeout_ms: u64,
 }
 
 impl ContractInputs {
+    /// Inputs for an engine that answers instantly and exactly.
+    ///
+    /// The defaults are the strict ones: zero tolerance, and a settle timeout
+    /// that only matters to an engine that needs one.
     pub fn new(media: MediaSource, document: SubtitleDocument) -> Self {
-        Self { media, document }
+        Self {
+            media,
+            document,
+            duration_ms: Some(0),
+            audio_track_count: 0,
+            subtitle_track_count: 0,
+            audio_track: TrackId(0),
+            subtitle_track: TrackId(0),
+            unknown_track: TrackId(u32::MAX),
+            seek_tolerance_ms: 0,
+            settle_timeout_ms: 5_000,
+        }
+    }
+
+    pub fn with_duration_ms(mut self, duration_ms: Option<u64>) -> Self {
+        self.duration_ms = duration_ms;
+        self
+    }
+
+    pub fn with_track_counts(mut self, audio: usize, subtitle: usize) -> Self {
+        self.audio_track_count = audio;
+        self.subtitle_track_count = subtitle;
+        self
+    }
+
+    pub fn with_tracks(mut self, audio: TrackId, subtitle: TrackId, unknown: TrackId) -> Self {
+        self.audio_track = audio;
+        self.subtitle_track = subtitle;
+        self.unknown_track = unknown;
+        self
+    }
+
+    pub fn with_seek_tolerance_ms(mut self, tolerance_ms: u64) -> Self {
+        self.seek_tolerance_ms = tolerance_ms;
+        self
+    }
+
+    pub fn with_settle_timeout_ms(mut self, timeout_ms: u64) -> Self {
+        self.settle_timeout_ms = timeout_ms;
+        self
+    }
+
+    fn track_count(&self, kind: TrackKind) -> usize {
+        match kind {
+            TrackKind::Audio => self.audio_track_count,
+            TrackKind::Subtitle => self.subtitle_track_count,
+        }
     }
 }
 
@@ -631,9 +864,13 @@ pub fn run_scenario<E: PlaybackEngine>(
     scenario: &Scenario,
     inputs: &ContractInputs,
 ) -> Option<Failure> {
+    // What the engine has reported since the last reset. Kept across steps
+    // because an event may land while a later step is still being set up: a
+    // buffer that only ever held one drain would lose it and blame the engine.
+    let mut seen = Vec::new();
     for (index, step) in scenario.steps.iter().enumerate() {
         let _scope = step.inside_callback.then(CallbackScope::enter);
-        if let Err(detail) = run_step(engine, step, inputs) {
+        if let Err(detail) = run_step(engine, step, inputs, &mut seen) {
             return Some(Failure {
                 scenario: scenario.name,
                 step: index,
@@ -682,6 +919,7 @@ fn run_step<E: PlaybackEngine>(
     engine: &mut E,
     step: &Step,
     inputs: &ContractInputs,
+    seen: &mut Vec<EventShape>,
 ) -> Result<(), String> {
     let expect = &step.expect;
     match step.action {
@@ -695,25 +933,42 @@ fn run_step<E: PlaybackEngine>(
         Action::SetRate { rate } => check_unit(engine.set_rate(rate), expect),
         Action::SetVolume { volume } => check_unit(engine.set_volume(volume), expect),
         Action::InjectSubtitle => check_unit(engine.inject_subtitle(&inputs.document), expect),
-        Action::SelectTrack { kind, track } => check_unit(engine.select_track(kind, track), expect),
+        Action::SelectTrack { kind, track } => check_unit(
+            engine.select_track(kind, track.map(|reference| reference.resolve(inputs))),
+            expect,
+        ),
+        Action::Settle { until } => settle(engine, until, inputs),
+        Action::AwaitEvent { shape } => {
+            await_events(engine, std::slice::from_ref(&shape), inputs, seen)
+        }
         Action::Position => match (engine.position(), expect) {
-            (Ok(position), Outcome::PositionMs(expected)) => {
+            (Ok(position), Outcome::PositionNear(expected)) => {
                 let actual = position.as_millis() as u64;
-                if actual == *expected {
+                let drift = actual.abs_diff(*expected);
+                if drift <= inputs.seek_tolerance_ms {
                     Ok(())
                 } else {
-                    Err(format!("position was {actual} ms, expected {expected} ms"))
+                    Err(format!(
+                        "position was {actual} ms, expected {expected} ms \
+                         ({drift} ms away, tolerance {} ms)",
+                        inputs.seek_tolerance_ms
+                    ))
                 }
             }
             (result, expect) => check_unit(result.map(|_| ()), expect),
         },
         Action::Duration => match (engine.duration(), expect) {
-            (Ok(duration), Outcome::DurationMs(expected)) => {
+            (Ok(duration), Outcome::FixtureDuration) => {
                 let actual = duration.map(|d| d.as_millis() as u64);
-                if actual == *expected {
-                    Ok(())
-                } else {
-                    Err(format!("duration was {actual:?}, expected {expected:?}"))
+                let expected = inputs.duration_ms;
+                match (actual, expected) {
+                    (Some(actual), Some(expected))
+                        if actual.abs_diff(expected) <= inputs.seek_tolerance_ms =>
+                    {
+                        Ok(())
+                    }
+                    (None, None) => Ok(()),
+                    _ => Err(format!("duration was {actual:?}, expected {expected:?}")),
                 }
             }
             (result, expect) => check_unit(result.map(|_| ()), expect),
@@ -730,8 +985,9 @@ fn run_step<E: PlaybackEngine>(
             other => Err(format!("state cannot satisfy {other:?}")),
         },
         Action::Tracks { kind } => match (engine.tracks(kind), expect) {
-            (Ok(tracks), Outcome::TrackCount(expected)) => {
-                if tracks.len() == *expected {
+            (Ok(tracks), Outcome::FixtureTrackCount(of_kind)) => {
+                let expected = inputs.track_count(*of_kind);
+                if tracks.len() == expected {
                     Ok(())
                 } else {
                     Err(format!(
@@ -744,7 +1000,8 @@ fn run_step<E: PlaybackEngine>(
         },
         Action::SelectedTrack { kind } => match (engine.selected_track(kind), expect) {
             (Ok(selected), Outcome::SelectedTrack(expected)) => {
-                if selected == *expected {
+                let expected = expected.map(|reference| reference.resolve(inputs));
+                if selected == expected {
                     Ok(())
                 } else {
                     Err(format!("selected {selected:?}, expected {expected:?}"))
@@ -752,7 +1009,8 @@ fn run_step<E: PlaybackEngine>(
             }
             (result, expect) => check_unit(result.map(|_| ()), expect),
         },
-        Action::ExtractText { track } => match (engine.extract_text(track), expect) {
+        Action::ExtractText { track } => match (engine.extract_text(track.resolve(inputs)), expect)
+        {
             (Ok(text), Outcome::NonEmptyText) => {
                 if text.is_empty() {
                     // Never print the text itself: it is dialogue (K23 #4).
@@ -763,22 +1021,103 @@ fn run_step<E: PlaybackEngine>(
             }
             (result, expect) => check_unit(result.map(|_| ()), expect),
         },
-        Action::DrainEvents => {
-            let drained = engine.events().drain();
-            match expect {
-                Outcome::Ok => Ok(()),
-                Outcome::Events(expected) => {
-                    let actual: Vec<EventShape> = drained.iter().map(EventShape::of).collect();
-                    if actual == *expected {
-                        Ok(())
-                    } else {
-                        Err(format!("events were {actual:?}, expected {expected:?}"))
-                    }
+        Action::DrainEvents => match expect {
+            // A bare drain is a reset: everything before this point stops
+            // counting, so the next expectation describes only what follows.
+            Outcome::Ok => {
+                collect(engine, seen);
+                seen.clear();
+                Ok(())
+            }
+            Outcome::Events(expected) => await_events(engine, expected, inputs, seen),
+            other => Err(format!("draining events cannot satisfy {other:?}")),
+        },
+    }
+}
+
+/// Moves whatever the engine has pending into the running buffer.
+fn collect<E: PlaybackEngine>(engine: &mut E, seen: &mut Vec<EventShape>) {
+    seen.extend(engine.events().drain().iter().map(EventShape::of));
+}
+
+/// Polls until `expected` is satisfied, or the fixture's timeout runs out.
+fn await_events<E: PlaybackEngine>(
+    engine: &mut E,
+    expected: &[EventShape],
+    inputs: &ContractInputs,
+    seen: &mut Vec<EventShape>,
+) -> Result<(), String> {
+    let deadline = Instant::now() + Duration::from_millis(inputs.settle_timeout_ms);
+    loop {
+        collect(engine, seen);
+        match check_events(seen, expected) {
+            Ok(()) => return Ok(()),
+            // An unasked failure is not going to become acceptable by waiting.
+            Err(detail) if detail.contains("unasked") => return Err(detail),
+            Err(detail) => {
+                if Instant::now() >= deadline {
+                    return Err(format!("{detail} (waited {} ms)", inputs.settle_timeout_ms));
                 }
-                other => Err(format!("draining events cannot satisfy {other:?}")),
             }
         }
+        std::thread::sleep(Duration::from_millis(POLL_INTERVAL_MS));
     }
+}
+
+/// Polls until the engine reaches `until`, or the fixture's timeout runs out.
+///
+/// Polling rather than waiting on an event: `state()` is the port's own answer
+/// and every adapter has it, whereas the event that *causes* a state is the
+/// adapter's business. An engine already in the state costs one call — which is
+/// what the fake pays.
+fn settle<E: PlaybackEngine>(
+    engine: &mut E,
+    until: PlaybackState,
+    inputs: &ContractInputs,
+) -> Result<(), String> {
+    let deadline = Instant::now() + Duration::from_millis(inputs.settle_timeout_ms);
+    loop {
+        let state = engine.state();
+        if state == until {
+            return Ok(());
+        }
+        if Instant::now() >= deadline {
+            return Err(format!(
+                "never reached {until} within {} ms (stuck at {state})",
+                inputs.settle_timeout_ms
+            ));
+        }
+        std::thread::sleep(Duration::from_millis(POLL_INTERVAL_MS));
+    }
+}
+
+/// How long between two `state()` polls while settling.
+const POLL_INTERVAL_MS: u64 = 5;
+
+/// Matches `expected` as a **subsequence** of `actual`, in order.
+///
+/// Extras are allowed because a real engine reports more than the contract
+/// requires — but two shapes are refused when unasked. A `Failed` or an
+/// `EventsLost` the scenario did not list is a genuine defect, and the whole
+/// point of allowing extras is lost if it can hide one.
+fn check_events(actual: &[EventShape], expected: &[EventShape]) -> Result<(), String> {
+    for unexpected in [EventShape::Failed, EventShape::EventsLost] {
+        if actual.contains(&unexpected) && !expected.contains(&unexpected) {
+            return Err(format!(
+                "an unasked {unexpected:?} was reported; events were {actual:?}"
+            ));
+        }
+    }
+    let mut remaining = actual.iter();
+    for shape in expected {
+        if !remaining.any(|candidate| candidate == shape) {
+            return Err(format!(
+                "{shape:?} never arrived (in order); events were {actual:?}, \
+                 expected at least {expected:?}"
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn check_unit<T>(result: Result<T, PlaybackError>, expect: &Outcome) -> Result<(), String> {

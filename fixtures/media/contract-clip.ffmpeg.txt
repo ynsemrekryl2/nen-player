@@ -1,0 +1,60 @@
+# fixtures/media/contract-clip.mkv — NEN-022 contract kit fixture
+#
+# Telif-temiz, tamamen sentetik (docs/testing-strategy.md → "fixtures/ düzeni").
+# Aşağıdaki blok depo kökünden çalıştırıldığında dosyayı yeniden üretir.
+#
+# İçerik: 30 s · 160x90 @ 5 fps · 2 audio track (eng/tur) · 2 subtitle track
+# (eng/tur). İki audio ve iki subtitle track'i contract kitinin track
+# enumeration/selection senaryoları için gereklidir.
+#
+# libmpv'nin bu dosyada gördüğü (ölçüldü, 2026-08-26, libmpv 2.5.0):
+#   duration      = 30.008
+#   audio id'leri = 1 (eng), 2 (tur)      ← id'ler tür başına, 1 tabanlı
+#   sub   id'leri = 1 (eng), 2 (tur)
+#   seek 5 absolute+exact → time-pos = 5.000000 (tam)
+
+cd "$(git rev-parse --show-toplevel)"
+TMP="$(mktemp -d)"
+
+cat > "$TMP/en.srt" <<'SRT'
+1
+00:00:01,000 --> 00:00:04,000
+First English line.
+
+2
+00:00:10,000 --> 00:00:13,000
+Second English line.
+
+3
+00:00:20,000 --> 00:00:23,000
+Third English line.
+SRT
+
+cat > "$TMP/tr.srt" <<'SRT'
+1
+00:00:01,000 --> 00:00:04,000
+Birinci Türkçe satır.
+
+2
+00:00:10,000 --> 00:00:13,000
+İkinci Türkçe satır.
+
+3
+00:00:20,000 --> 00:00:23,000
+Üçüncü Türkçe satır.
+SRT
+
+ffmpeg -y -loglevel error \
+  -f lavfi -i "testsrc=size=160x90:rate=5:duration=30" \
+  -f lavfi -i "sine=frequency=440:duration=30" \
+  -f lavfi -i "sine=frequency=660:duration=30" \
+  -i "$TMP/en.srt" -i "$TMP/tr.srt" \
+  -map 0:v -map 1:a -map 2:a -map 3:s -map 4:s \
+  -c:v libx264 -preset veryfast -crf 45 -g 50 -pix_fmt yuv420p \
+  -c:a libopus -b:a 6k -ac 1 \
+  -c:s srt \
+  -metadata:s:a:0 language=eng -metadata:s:a:1 language=tur \
+  -metadata:s:s:0 language=eng -metadata:s:s:1 language=tur \
+  fixtures/media/contract-clip.mkv
+
+rm -rf "$TMP"

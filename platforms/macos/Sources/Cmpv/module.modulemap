@@ -1,0 +1,11 @@
+// libmpv's C client API, as a system library target.
+//
+// The header and library are found through pkg-config (`Package.swift`), so
+// this file names no absolute path: a Homebrew prefix differs between an Apple
+// Silicon and an Intel Mac, and hard-coding one would make the package build
+// on exactly one of them.
+module Cmpv [system] {
+    header "shim.h"
+    link "mpv"
+    export *
+}
