@@ -17,7 +17,10 @@ import NenCore
 ///   test that is about playback behaviour.
 /// - **No text extraction, no external subtitles.** Both are capabilities and
 ///   both are declared absent, so the contract checks the typed refusal
-///   instead. They arrive with NEN-023 and NEN-027.
+///   instead. They arrive with NEN-044 and NEN-027.
+/// - **No classifying.** The adapter reports what the container says — the
+///   codec — and never decides what it means. Whether a subtitle codec carries
+///   text is answered once, in `nen-ports`, for every platform (NEN-023).
 ///
 /// # Threading
 ///
@@ -46,7 +49,13 @@ public final class MPVPlaybackEngine: ForeignPlaybackEngine, @unchecked Sendable
         let language: String?
         let codec: String
         let isDefault: Bool
-        let isText: Bool
+        /// What the container calls this track.
+        ///
+        /// **Never logged** (K23 #8): a title is regularly a release name or a
+        /// private filename. It crosses to the core, which holds it behind a
+        /// guarded `Debug`, and `RedactionTests` proves this adapter says
+        /// nothing about it.
+        let title: String?
     }
 
     let handle: OpaquePointer
@@ -113,7 +122,7 @@ public final class MPVPlaybackEngine: ForeignPlaybackEngine, @unchecked Sendable
     // MARK: - ForeignPlaybackEngine
 
     public func capabilities() -> [FfiCapability] {
-        // Rate and volume are real here. Text extraction (NEN-023) and external
+        // Rate and volume are real here. Text extraction (NEN-044) and external
         // subtitle injection (NEN-027) are not implemented yet, and declaring a
         // capability this engine does not have would make the contract check
         // the wrong half — the kit verifies the typed refusal for whatever is
@@ -214,7 +223,7 @@ public final class MPVPlaybackEngine: ForeignPlaybackEngine, @unchecked Sendable
                 language: $0.language,
                 codec: $0.codec,
                 isDefault: $0.isDefault,
-                isText: $0.isText
+                title: $0.title
             )
         }
     }

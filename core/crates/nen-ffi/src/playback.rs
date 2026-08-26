@@ -14,10 +14,16 @@
 //! NEN-010 measured the rule these types obey: **an error crossing the boundary
 //! is re-printed by the host language**, which never sees a Rust `Debug` impl.
 //! A value that is safe only because of how Rust prints it is not safe. So
-//! every field below is a bounded enum or a number — never a path, a URL, a
-//! filename or a title. The one string that travels is the locator, inbound
-//! only, on its way into a [`MediaSource`](nen_ports::playback::MediaSource)
-//! that cannot print it.
+//! every field that travels **outbound** is a bounded enum or a number — never
+//! a path, a URL, a filename or a title.
+//!
+//! Two strings do travel, both **inbound only**, both on their way into a Rust
+//! type that cannot print them: the locator, which becomes a
+//! [`MediaSource`](nen_ports::playback::MediaSource), and a track title, which
+//! becomes a [`TrackDescriptor`] (NEN-023). Inbound is the whole safety
+//! argument — the value already exists on the platform side, so crossing adds
+//! no exposure, and once across it is behind a guarded `Debug`. Nothing may
+//! send either one back out.
 //!
 //! `tests/guard_ffi_playback_debug.rs` holds that line with a deliberately
 //! leaky twin.
@@ -27,6 +33,7 @@ use nen_app::ports::playback::{
     Capability, LoadFailure, Operation, PlaybackError, PlaybackEvent, PlaybackState,
     TrackDescriptor, TrackId, TrackKind,
 };
+use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -238,11 +245,13 @@ impl FfiPlaybackError {
 
 /// One embedded track, as metadata.
 ///
-/// `title` is deliberately **absent**: it is very often a private filename or
-/// release name (K23 #8), and nothing on this side of the boundary needs it
-/// yet. NEN-023 adds it when a menu has a reason to display it, and will have
-/// to say how it stays out of logs.
-#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+/// `is_text` is deliberately **absent**. Whether a codec carries text is one
+/// question with one answer, and
+/// [`subtitle_carries_text`](nen_ports::playback::subtitle_carries_text)
+/// answers it on this side for every platform. An adapter that classified its
+/// own tracks would put the same list in Swift and again in Kotlin, and the
+/// first one to miss a format would promise text it cannot produce.
+#[derive(Clone, PartialEq, Eq, uniffi::Record)]
 pub struct FfiTrackDescriptor {
     pub id: u32,
     pub kind: FfiTrackKind,
@@ -250,8 +259,14 @@ pub struct FfiTrackDescriptor {
     pub language: Option<String>,
     pub codec: String,
     pub is_default: bool,
-    /// Whether the track carries text at all — a bitmap track does not.
-    pub is_text: bool,
+    /// What the container calls this track — the menu's label (§8).
+    ///
+    /// **Inbound only, and never logged.** A track title is regularly a release
+    /// name or a private filename (K23 #8), which is why this type prints by
+    /// hand and why `tests/guard_ffi_track_debug.rs` proves a derived twin
+    /// leaks. The platform side owns the same discipline: it already has the
+    /// value, so crossing adds no exposure, but printing it does.
+    pub title: Option<String>,
 }
 
 impl From<FfiTrackDescriptor> for TrackDescriptor {
@@ -262,8 +277,23 @@ impl From<FfiTrackDescriptor> for TrackDescriptor {
                     .language
                     .and_then(|tag| nen_app::domain::source::LanguageTag::parse(&tag).ok()),
             )
+            .with_title(value.title)
             .with_default(value.is_default)
-            .with_text(value.is_text)
+    }
+}
+
+impl fmt::Debug for FfiTrackDescriptor {
+    /// Prints everything except the title — the same line
+    /// [`TrackDescriptor`] holds, for the same reason (K23 #8).
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FfiTrackDescriptor")
+            .field("id", &self.id)
+            .field("kind", &self.kind)
+            .field("language", &self.language)
+            .field("codec", &self.codec)
+            .field("is_default", &self.is_default)
+            .field("has_title", &self.title.is_some())
+            .finish()
     }
 }
 

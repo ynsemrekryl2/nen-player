@@ -111,6 +111,16 @@ pub struct LanguageTag(String);
 impl LanguageTag {
     /// Parses and normalizes a tag. Case and separator case are irrelevant;
     /// `EN-us`, `en-US` and `en-us` are the same tag.
+    ///
+    /// **The primary subtag is canonicalized too** (ADR-0032): a three-letter
+    /// ISO 639-2 code that has an ISO 639-1 equivalent becomes that equivalent,
+    /// so `parse("eng")` yields `en` and both `fre` and `fra` yield `fr`. The
+    /// input and the output are therefore not always spelled the same — which
+    /// is the point: a container writes `eng` where a sidecar writes `en`, and
+    /// one language must not become two menu groups.
+    ///
+    /// A three-letter code with **no** 639-1 equivalent is left exactly as it
+    /// is (`fil`, `haw`, `nds`). Nothing is guessed and nothing is truncated.
     pub fn parse(input: &str) -> Result<Self, LanguageTagError> {
         let trimmed = input.trim();
         if trimmed.is_empty() {
@@ -133,7 +143,8 @@ impl LanguageTag {
             return Err(LanguageTagError::InvalidPrimary);
         }
 
-        let mut tag = primary.to_ascii_lowercase();
+        let lowered = primary.to_ascii_lowercase();
+        let mut tag = canonical_primary(&lowered).unwrap_or(lowered);
 
         if let Some(region) = parts.get(1) {
             let alpha2 = region.len() == 2 && region.bytes().all(|b| b.is_ascii_alphabetic());
@@ -174,6 +185,237 @@ impl LanguageTag {
     pub fn primary_tag(&self) -> Self {
         Self(self.primary().to_owned())
     }
+}
+
+/// The ISO 639-1 code for an ISO 639-2 one, when there is one (ADR-0032).
+///
+/// Both halves of ISO 639-2 map here: the bibliographic codes (`fre`, `ger`,
+/// `chi`) and the terminological ones (`fra`, `deu`, `zho`) land on the same
+/// answer, because they are the same language written twice. Twenty languages
+/// have both; the rest have one code.
+///
+/// `None` means "no equivalent exists" — the caller keeps what it had. That is
+/// the correct answer for `fil`, `haw` and `nds`, whose only code is the
+/// three-letter one, and it is also what makes this table safe to be
+/// incomplete: a missing row degrades to today's behaviour rather than to a
+/// wrong language.
+///
+/// Input must already be lowercase; `LanguageTag::parse` is the only caller and
+/// lowercases first.
+fn canonical_primary(code: &str) -> Option<String> {
+    // Only three-letter codes can be 639-2. Checking here keeps the match
+    // below from ever being consulted for a tag that is already canonical.
+    if code.len() != 3 {
+        return None;
+    }
+    let two: Option<&str> = match code {
+        "aar" => Some("aa"),
+        "abk" => Some("ab"),
+        "afr" => Some("af"),
+        "aka" => Some("ak"),
+        "alb" => Some("sq"),
+        "amh" => Some("am"),
+        "ara" => Some("ar"),
+        "arg" => Some("an"),
+        "arm" => Some("hy"),
+        "asm" => Some("as"),
+        "ava" => Some("av"),
+        "ave" => Some("ae"),
+        "aym" => Some("ay"),
+        "aze" => Some("az"),
+        "bak" => Some("ba"),
+        "bam" => Some("bm"),
+        "baq" => Some("eu"),
+        "bel" => Some("be"),
+        "ben" => Some("bn"),
+        "bih" => Some("bh"),
+        "bis" => Some("bi"),
+        "bod" => Some("bo"),
+        "bos" => Some("bs"),
+        "bre" => Some("br"),
+        "bul" => Some("bg"),
+        "bur" => Some("my"),
+        "cat" => Some("ca"),
+        "ces" => Some("cs"),
+        "cha" => Some("ch"),
+        "che" => Some("ce"),
+        "chi" => Some("zh"),
+        "chu" => Some("cu"),
+        "chv" => Some("cv"),
+        "cor" => Some("kw"),
+        "cos" => Some("co"),
+        "cre" => Some("cr"),
+        "cym" => Some("cy"),
+        "cze" => Some("cs"),
+        "dan" => Some("da"),
+        "deu" => Some("de"),
+        "div" => Some("dv"),
+        "dut" => Some("nl"),
+        "dzo" => Some("dz"),
+        "ell" => Some("el"),
+        "eng" => Some("en"),
+        "epo" => Some("eo"),
+        "est" => Some("et"),
+        "eus" => Some("eu"),
+        "ewe" => Some("ee"),
+        "fao" => Some("fo"),
+        "fas" => Some("fa"),
+        "fij" => Some("fj"),
+        "fin" => Some("fi"),
+        "fra" => Some("fr"),
+        "fre" => Some("fr"),
+        "fry" => Some("fy"),
+        "ful" => Some("ff"),
+        "geo" => Some("ka"),
+        "ger" => Some("de"),
+        "gla" => Some("gd"),
+        "gle" => Some("ga"),
+        "glg" => Some("gl"),
+        "glv" => Some("gv"),
+        "gre" => Some("el"),
+        "grn" => Some("gn"),
+        "guj" => Some("gu"),
+        "hat" => Some("ht"),
+        "hau" => Some("ha"),
+        "heb" => Some("he"),
+        "her" => Some("hz"),
+        "hin" => Some("hi"),
+        "hmo" => Some("ho"),
+        "hrv" => Some("hr"),
+        "hun" => Some("hu"),
+        "hye" => Some("hy"),
+        "ibo" => Some("ig"),
+        "ice" => Some("is"),
+        "ido" => Some("io"),
+        "iii" => Some("ii"),
+        "iku" => Some("iu"),
+        "ile" => Some("ie"),
+        "ina" => Some("ia"),
+        "ind" => Some("id"),
+        "ipk" => Some("ik"),
+        "isl" => Some("is"),
+        "ita" => Some("it"),
+        "jav" => Some("jv"),
+        "jpn" => Some("ja"),
+        "kal" => Some("kl"),
+        "kan" => Some("kn"),
+        "kas" => Some("ks"),
+        "kat" => Some("ka"),
+        "kau" => Some("kr"),
+        "kaz" => Some("kk"),
+        "khm" => Some("km"),
+        "kik" => Some("ki"),
+        "kin" => Some("rw"),
+        "kir" => Some("ky"),
+        "kom" => Some("kv"),
+        "kon" => Some("kg"),
+        "kor" => Some("ko"),
+        "kua" => Some("kj"),
+        "kur" => Some("ku"),
+        "lao" => Some("lo"),
+        "lat" => Some("la"),
+        "lav" => Some("lv"),
+        "lim" => Some("li"),
+        "lin" => Some("ln"),
+        "lit" => Some("lt"),
+        "ltz" => Some("lb"),
+        "lub" => Some("lu"),
+        "lug" => Some("lg"),
+        "mac" => Some("mk"),
+        "mah" => Some("mh"),
+        "mal" => Some("ml"),
+        "mao" => Some("mi"),
+        "mar" => Some("mr"),
+        "may" => Some("ms"),
+        "mkd" => Some("mk"),
+        "mlg" => Some("mg"),
+        "mlt" => Some("mt"),
+        "mon" => Some("mn"),
+        "mri" => Some("mi"),
+        "msa" => Some("ms"),
+        "mya" => Some("my"),
+        "nau" => Some("na"),
+        "nav" => Some("nv"),
+        "nbl" => Some("nr"),
+        "nde" => Some("nd"),
+        "ndo" => Some("ng"),
+        "nep" => Some("ne"),
+        "nld" => Some("nl"),
+        "nno" => Some("nn"),
+        "nob" => Some("nb"),
+        "nor" => Some("no"),
+        "nya" => Some("ny"),
+        "oci" => Some("oc"),
+        "oji" => Some("oj"),
+        "ori" => Some("or"),
+        "orm" => Some("om"),
+        "oss" => Some("os"),
+        "pan" => Some("pa"),
+        "per" => Some("fa"),
+        "pli" => Some("pi"),
+        "pol" => Some("pl"),
+        "por" => Some("pt"),
+        "pus" => Some("ps"),
+        "que" => Some("qu"),
+        "roh" => Some("rm"),
+        "ron" => Some("ro"),
+        "rum" => Some("ro"),
+        "run" => Some("rn"),
+        "rus" => Some("ru"),
+        "sag" => Some("sg"),
+        "san" => Some("sa"),
+        "sin" => Some("si"),
+        "slk" => Some("sk"),
+        "slo" => Some("sk"),
+        "slv" => Some("sl"),
+        "sme" => Some("se"),
+        "smo" => Some("sm"),
+        "sna" => Some("sn"),
+        "snd" => Some("sd"),
+        "som" => Some("so"),
+        "sot" => Some("st"),
+        "spa" => Some("es"),
+        "sqi" => Some("sq"),
+        "srd" => Some("sc"),
+        "srp" => Some("sr"),
+        "ssw" => Some("ss"),
+        "sun" => Some("su"),
+        "swa" => Some("sw"),
+        "swe" => Some("sv"),
+        "tah" => Some("ty"),
+        "tam" => Some("ta"),
+        "tat" => Some("tt"),
+        "tel" => Some("te"),
+        "tgk" => Some("tg"),
+        "tgl" => Some("tl"),
+        "tha" => Some("th"),
+        "tib" => Some("bo"),
+        "tir" => Some("ti"),
+        "ton" => Some("to"),
+        "tsn" => Some("tn"),
+        "tso" => Some("ts"),
+        "tuk" => Some("tk"),
+        "tur" => Some("tr"),
+        "twi" => Some("tw"),
+        "uig" => Some("ug"),
+        "ukr" => Some("uk"),
+        "urd" => Some("ur"),
+        "uzb" => Some("uz"),
+        "ven" => Some("ve"),
+        "vie" => Some("vi"),
+        "vol" => Some("vo"),
+        "wel" => Some("cy"),
+        "wln" => Some("wa"),
+        "wol" => Some("wo"),
+        "xho" => Some("xh"),
+        "yid" => Some("yi"),
+        "yor" => Some("yo"),
+        "zha" => Some("za"),
+        "zho" => Some("zh"),
+        "zul" => Some("zu"),
+        _ => None,
+    };
+    two.map(str::to_owned)
 }
 
 impl fmt::Display for LanguageTag {
@@ -247,6 +489,22 @@ impl SubtitleSourceId {
     pub fn kind(&self) -> SubtitleSourceKind {
         self.kind
     }
+
+    /// The track index, when this identifies an embedded track.
+    ///
+    /// The inverse of [`embedded`](Self::embedded), and it lives next to it so
+    /// the two cannot drift: something has to turn "the user picked this menu
+    /// row" back into "select that track", and a second parser elsewhere would
+    /// be a second opinion about what the key means.
+    ///
+    /// `None` for every other kind — a user file is a perfectly ordinary entry
+    /// that simply is not a track.
+    pub fn embedded_index(&self) -> Option<u32> {
+        match self.kind {
+            SubtitleSourceKind::Embedded => self.key.parse().ok(),
+            _ => None,
+        }
+    }
 }
 
 impl fmt::Debug for SubtitleSourceId {
@@ -272,9 +530,13 @@ pub struct SubtitleSource {
     id: SubtitleSourceId,
     language: Option<LanguageTag>,
     label: String,
+    translatable: bool,
 }
 
 impl SubtitleSource {
+    /// A source that can be translated -- the case for everything except a
+    /// bitmap embedded track, so it is the default and callers that mean it
+    /// say nothing.
     pub fn new(
         id: SubtitleSourceId,
         language: Option<LanguageTag>,
@@ -284,6 +546,7 @@ impl SubtitleSource {
             id,
             language,
             label: label.into(),
+            translatable: true,
         }
     }
 
@@ -314,6 +577,28 @@ impl SubtitleSource {
             id: self.id.clone(),
             language,
             label: self.label.clone(),
+            translatable: self.translatable,
+        }
+    }
+
+    /// Whether this source can be the input of an AI translation (§7, §9).
+    ///
+    /// `false` for a bitmap embedded track: it draws pictures, so there is no
+    /// text to translate. **Untranslatable is not unselectable** -- §7 says
+    /// such a track "gösterilebilir fakat çevrilemez olarak işaretlenebilir",
+    /// so nothing here may be used to hide it or to skip it in auto-selection.
+    pub fn translatable(&self) -> bool {
+        self.translatable
+    }
+
+    /// Returns a copy carrying a different translatability, keeping identity,
+    /// language and label.
+    pub fn with_translatable(&self, translatable: bool) -> Self {
+        Self {
+            id: self.id.clone(),
+            language: self.language.clone(),
+            label: self.label.clone(),
+            translatable,
         }
     }
 }
@@ -329,6 +614,7 @@ impl fmt::Debug for SubtitleSource {
             .field("kind", &self.id.kind())
             .field("language", &self.language)
             .field("label_len", &self.label.chars().count())
+            .field("translatable", &self.translatable)
             .finish()
     }
 }
@@ -393,6 +679,67 @@ mod tests {
         assert_eq!(tag("pt-BR").as_str(), "pt-br");
         assert_eq!(tag("  tr  ").as_str(), "tr");
         assert_eq!(tag("es-419").as_str(), "es-419");
+    }
+
+    #[test]
+    fn iso_639_2_codes_become_their_iso_639_1_equivalent() {
+        // ADR-0032. These four were measured coming out of a real container:
+        // Matroska writes ISO 639-2, so this is what an embedded track says.
+        assert_eq!(tag("eng").as_str(), "en");
+        assert_eq!(tag("tur").as_str(), "tr");
+        assert_eq!(tag("fre").as_str(), "fr");
+        assert_eq!(tag("ger").as_str(), "de");
+    }
+
+    #[test]
+    fn the_bibliographic_and_terminological_codes_agree() {
+        // The twenty languages ISO 639-2 spells twice must not become two
+        // groups. `fre`/`fra`, `ger`/`deu`, `chi`/`zho`, `dut`/`nld`.
+        for (bibliographic, terminological) in [
+            ("fre", "fra"),
+            ("ger", "deu"),
+            ("chi", "zho"),
+            ("dut", "nld"),
+        ] {
+            assert_eq!(
+                tag(bibliographic),
+                tag(terminological),
+                "{bibliographic} and {terminological} disagreed"
+            );
+        }
+    }
+
+    #[test]
+    fn a_container_track_and_a_sidecar_land_in_the_same_group() {
+        // The failure this decision exists for: the user's `Movie.en.srt` says
+        // `en`, the embedded track inside the same film says `eng`.
+        assert_eq!(tag("eng"), tag("en"));
+        assert_eq!(tag("eng").primary_tag(), tag("en").primary_tag());
+    }
+
+    #[test]
+    fn a_three_letter_code_without_an_equivalent_is_left_alone() {
+        // These languages have no ISO 639-1 code at all; the three-letter tag
+        // is the only correct one. Guessing or truncating would be worse than
+        // doing nothing.
+        for code in ["fil", "haw", "nds", "ceb"] {
+            assert_eq!(tag(code).as_str(), code);
+        }
+    }
+
+    #[test]
+    fn canonicalization_does_not_touch_a_region() {
+        assert_eq!(tag("eng-US").as_str(), "en-us");
+        assert_eq!(tag("por-BR").as_str(), "pt-br");
+    }
+
+    #[test]
+    fn a_two_letter_tag_is_never_run_through_the_table() {
+        // The table is keyed by three-letter codes; a two-letter tag that
+        // happens to collide with one must pass through untouched.
+        for code in ["en", "tr", "fr", "aa", "zu"] {
+            assert_eq!(tag(code).as_str(), code);
+        }
     }
 
     #[test]
@@ -469,6 +816,29 @@ mod tests {
     }
 
     #[test]
+    fn an_embedded_id_resolves_back_to_its_track_index() {
+        for index in [0u32, 1, 7, u32::MAX] {
+            assert_eq!(
+                SubtitleSourceId::embedded(index).embedded_index(),
+                Some(index)
+            );
+        }
+    }
+
+    #[test]
+    fn only_an_embedded_id_names_a_track() {
+        // A user key is 64 hex characters and an OpenSubtitles key is whatever
+        // the provider says — neither may be read as an index just because it
+        // happens to parse.
+        assert_eq!(SubtitleSourceId::user([0u8; 32]).embedded_index(), None);
+        assert_eq!(SubtitleSourceId::opensubtitles("12").embedded_index(), None);
+        assert_eq!(
+            SubtitleSourceId::ai(&SubtitleSourceId::embedded(1), &tag("tr")).embedded_index(),
+            None
+        );
+    }
+
+    #[test]
     fn ai_identity_is_origin_plus_target() {
         let origin = SubtitleSourceId::embedded(1);
         let other = SubtitleSourceId::embedded(2);
@@ -500,6 +870,29 @@ mod tests {
         let ordered: Vec<&str> = prefs.ordered().map(LanguageTag::as_str).collect();
         assert_eq!(ordered, ["tr", "en"]);
         assert_eq!(SubtitlePreferences::none().ordered().count(), 0);
+    }
+
+    #[test]
+    fn a_source_is_translatable_unless_it_says_otherwise() {
+        let source = SubtitleSource::new(SubtitleSourceId::embedded(1), Some(tag("en")), "English");
+        assert!(source.translatable());
+
+        let bitmap = source.with_translatable(false);
+        assert!(!bitmap.translatable());
+        // Identity, language and label survive the mark -- the menu must not
+        // lose the row it is describing.
+        assert_eq!(bitmap.id(), source.id());
+        assert_eq!(bitmap.language(), source.language());
+        assert_eq!(bitmap.label(), source.label());
+    }
+
+    #[test]
+    fn translatability_survives_a_language_correction() {
+        // NEN-020 fills in a language after the fact; doing so must not quietly
+        // re-open a bitmap track for translation.
+        let bitmap =
+            SubtitleSource::new(SubtitleSourceId::embedded(1), None, "").with_translatable(false);
+        assert!(!bitmap.with_language(Some(tag("tr"))).translatable());
     }
 
     #[test]

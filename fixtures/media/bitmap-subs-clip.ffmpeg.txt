@@ -1,0 +1,89 @@
+# fixtures/media/bitmap-subs-clip.mkv — NEN-023 DoD #3 (bitmap track tespiti)
+#
+# Telif-temiz, tamamen sentetik (docs/testing-strategy.md → "fixtures/ düzeni").
+# Aşağıdaki blok depo kökünden çalıştırıldığında dosyayı yeniden üretir.
+#
+# İçerik: 15 s · 160x90 @ 5 fps · 1 audio (eng) · 1 subrip (eng) ·
+# 1 hdmv_pgs_subtitle (fre). Metin ve bitmap track'in AYNI dosyada bulunması
+# gerekir: sınıflandırmanın codec'e göre ayrıştığı ancak ikisi yan yanayken
+# gösterilebilir.
+#
+# ffmpeg bitmap altyazıyı METİNDEN ÜRETEMEZ ("Subtitle encoding currently only
+# possible from text to text or bitmap to bitmap"), bu yüzden PGS akışı elle
+# üretilip `-c:s copy` ile muxlanır. Üretici deterministiktir: sabit alanlar,
+# rastgelelik yok — her makinede birebir aynı .sup çıkar.
+
+cd "$(git rev-parse --show-toplevel)"
+TMP="$(mktemp -d)"
+
+cat > "$TMP/en.srt" <<'SRT'
+1
+00:00:01,000 --> 00:00:04,000
+First English line.
+
+2
+00:00:10,000 --> 00:00:13,000
+Second English line.
+SRT
+
+# Minimal HDMV PGS akışı: 2 s'de görünen, 5 s'de kalkan 16x16 tek renk bir
+# nesne. Segment düzeni Blu-ray PGS'in kendisidir — PCS · WDS · PDS · ODS · END,
+# ardından temizleyen PCS · WDS · END.
+python3 - "$TMP/sub.sup" <<'PY'
+import struct, sys
+
+def seg(pts_ms, stype, payload):
+    return b"PG" + struct.pack(">IIBH", int(pts_ms * 90), 0, stype, len(payload)) + payload
+
+def pcs(comp_no, state, objects):
+    p = struct.pack(">HHBHBBBB", 1920, 1080, 0x10, comp_no, state, 0x00, 0x00, len(objects))
+    for oid, wid, x, y in objects:
+        p += struct.pack(">HBBHH", oid, wid, 0x00, x, y)
+    return p
+
+def wds():
+    return struct.pack(">BBHHHH", 1, 0, 100, 100, 16, 16)
+
+def pds():
+    p = struct.pack(">BB", 0, 0)
+    for i, (y, cr, cb, a) in enumerate([(16, 128, 128, 0), (235, 128, 128, 255)]):
+        p += struct.pack(">BBBBB", i, y, cr, cb, a)
+    return p
+
+def ods():
+    # Her satır: "16 piksel, renk 1" (00 90 01) + satır sonu (00 00).
+    rle = b"".join(bytes([0x00, 0x80 | 16, 0x01, 0x00, 0x00]) for _ in range(16))
+    body = struct.pack(">HH", 16, 16) + rle
+    return struct.pack(">HBB", 0, 0, 0xC0) + len(body).to_bytes(3, "big") + body
+
+out = seg(2000, 0x16, pcs(0, 0x80, [(0, 0, 100, 100)]))
+out += seg(2000, 0x17, wds())
+out += seg(2000, 0x14, pds())
+out += seg(2000, 0x15, ods())
+out += seg(2000, 0x80, b"")
+out += seg(5000, 0x16, pcs(1, 0x00, []))
+out += seg(5000, 0x17, wds())
+out += seg(5000, 0x80, b"")
+
+open(sys.argv[1], "wb").write(out)
+PY
+
+ffmpeg -y -loglevel error \
+  -f lavfi -i "testsrc=size=160x90:rate=5:duration=15" \
+  -f lavfi -i "sine=frequency=440:duration=15" \
+  -i "$TMP/en.srt" -i "$TMP/sub.sup" \
+  -map 0:v -map 1:a -map 2:s -map 3:s \
+  -c:v libx264 -preset veryfast -crf 45 -g 50 -pix_fmt yuv420p \
+  -c:a libopus -b:a 6k -ac 1 \
+  -c:s:0 srt -c:s:1 copy \
+  -metadata:s:a:0 language=eng \
+  -metadata:s:s:0 language=eng -metadata:s:s:1 language=fre \
+  -metadata:s:s:0 title="English" \
+  fixtures/media/bitmap-subs-clip.mkv
+
+rm -rf "$TMP"
+
+# libmpv'nin bu dosyada gördüğü: NEN-023'ün Swift testi ölçüyor ve sabitliyor
+# (TrackEnumerationTests). Codec adları ffprobe ile de doğrulanabilir:
+#   ffprobe -v error -show_entries stream=index,codec_name,codec_type \
+#           -of compact fixtures/media/bitmap-subs-clip.mkv

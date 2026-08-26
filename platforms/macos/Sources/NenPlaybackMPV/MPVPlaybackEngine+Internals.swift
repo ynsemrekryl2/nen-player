@@ -153,7 +153,7 @@ extension MPVPlaybackEngine {
                     language: try? string("\(prefix)/lang"),
                     codec: codec,
                     isDefault: (try? flag("\(prefix)/default")) ?? false,
-                    isText: kind == .audio ? false : Self.isTextCodec(codec)
+                    title: try? string("\(prefix)/title")
                 )
             )
         }
@@ -165,17 +165,6 @@ extension MPVPlaybackEngine {
         case "sub": return .subtitle
         default: return nil   // video, and anything a container invents
         }
-    }
-
-    /// Whether a subtitle codec carries text at all.
-    ///
-    /// A bitmap track (PGS, VobSub, DVB) has no text to extract and cannot be
-    /// translated. The list is the conservative direction: an unknown codec is
-    /// treated as **not** text, so nothing downstream promises text it cannot
-    /// produce. NEN-023 owns this classification properly, together with
-    /// `EmbeddedTextExtraction`.
-    private static func isTextCodec(_ codec: String) -> Bool {
-        ["subrip", "ass", "ssa", "webvtt", "mov_text", "text", "srt"].contains(codec)
     }
 
     // MARK: - State helpers

@@ -2,6 +2,7 @@
 //!
 //! Crate sınırları ve izinli bağımlılıklar: ADR-0006.
 
+pub mod embedded;
 pub mod playback;
 
 // The FFI gate is only allowed to depend on this crate (ADR-0006 kural 3), but

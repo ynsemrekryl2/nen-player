@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **43** task · ✅ done 27 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 16
+Toplam **44** task · ✅ done 28 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 16
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -52,7 +52,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 |---|---|---|---|---|
 | [NEN-021](done/NEN-021-playback-port-contract.md) | PlaybackEngine port contract and capability model | M | ✅ done | NEN-012 |
 | [NEN-022](done/NEN-022-libmpv-adapter.md) | libmpv playback adapter for macOS | L | ✅ done | NEN-021 NEN-004 |
-| [NEN-023](backlog/NEN-023-track-enumeration.md) | Embedded track enumeration and selection | M | ⚪ backlog | NEN-022 |
+| [NEN-023](done/NEN-023-track-enumeration.md) | Embedded track enumeration and selection | M | ✅ done | NEN-022 |
 | [NEN-024](backlog/NEN-024-macos-shell.md) | macOS SwiftUI shell with transport controls | M | ⚪ backlog | NEN-022 |
 | [NEN-025](backlog/NEN-025-user-subtitle-loading.md) | User subtitle loading and sidecar discovery | M | ⚪ backlog | NEN-013 NEN-015 NEN-024 |
 | [NEN-026](backlog/NEN-026-subtitle-menu-ui.md) | Subtitle menu UI | M | ⚪ backlog | NEN-019 NEN-025 |
@@ -65,6 +65,12 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-041](backlog/NEN-041-doctor-detects-broken-swift.md) | doctor.sh reports an installed-but-unrunnable tool as missing | S | ⚪ backlog | NEN-032 |
 | [NEN-042](backlog/NEN-042-recent-media-list.md) | Recent media list in the empty state | S | ⚪ backlog | NEN-024 |
 | [NEN-043](backlog/NEN-043-libmpv-app-bundling.md) | Bundle libmpv into the .app and notarize | M | ⚪ backlog | NEN-022 NEN-024 |
+
+## M5 — Translation Core
+
+| ID | Başlık | Boyut | Durum | Bağımlılık |
+|---|---|---|---|---|
+| [NEN-044](backlog/NEN-044-embedded-text-extraction.md) | Embedded subtitle text extraction | M | ⚪ backlog | NEN-023 |
 
 ## M6 — Real Providers
 
@@ -79,7 +85,6 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 
 Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 
-- **NEN-023** — Embedded track enumeration and selection
 - **NEN-024** — macOS SwiftUI shell with transport controls
 - **NEN-033** — OpenSubtitles hash-based identity lookup
 - **NEN-034** — AI-assisted release name normalization
@@ -87,3 +92,4 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-036** — Remote media evidence port (HEAD, Content-Disposition, Range)
 - **NEN-040** — check-docs.sh verifies STATUS.md's "Son doğrulama" date is not stale
 - **NEN-041** — doctor.sh reports an installed-but-unrunnable tool as missing
+- **NEN-044** — Embedded subtitle text extraction

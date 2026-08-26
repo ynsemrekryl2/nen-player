@@ -3,8 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-26** (ADR-0012 accepted ve **NEN-022 kapandı** —
-> gerçek libmpv adapter'ı paylaşılan contract kitini geçiyor)
+> Son güncelleme: **2026-08-26** (ADR-0032 accepted ve **NEN-023 kapandı** —
+> gömülü track'ler katalogda, bitmap işaretli, konteynerin dil kodu kanonik)
 
 ## Nerede duruyoruz
 
@@ -12,9 +12,78 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | *yok* — `tasks/active/` boş |
-| **Son tamamlanan** | `NEN-022` — libmpv playback adapter for macOS |
-| **Sıradaki READY** | `NEN-023`, `NEN-024`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041` |
-| **Task sayısı** | 43 · done 27 · active 0 · blocked 0 · backlog 16 |
+| **Son tamamlanan** | `NEN-023` — embedded track enumeration and selection |
+| **Sıradaki READY** | `NEN-024`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-044` |
+| **Task sayısı** | 44 · done 28 · active 0 · blocked 0 · backlog 16 |
+
+**`NEN-023` kapandı — gömülü track'ler artık ürün tarafında.** Bugüne kadar
+track listesi yalnız port seviyesinde vardı ve kataloğa giden hiçbir kod yolu
+yoktu; ADR-0031 Karar 4 ise menünün açıldığı anda gömülü track'leri göstermeyi
+şart koşuyor. `nen-app::embedded` bu boşluğu kapattı: subtitle track'leri
+`SubtitleSourceCatalog` girdilerine dönüyor, seçilen girdi tekrar bir `TrackId`'ye
+çözülüyor. Rust testleri **406 → 438**, Swift **9 → 16**. Yeni dış bağımlılık
+yok, `deny.toml` değişmedi.
+
+**Bitmap ayrımı yanlış yerdeydi, düzeltildi.** codec → metin/bitmap listesi Swift
+adapter'ının içindeydi, yani Android kendi kopyasını yazmak zorunda kalacaktı.
+Liste `nen-ports`'a taşındı (`subtitle_carries_text`); `FfiTrackDescriptor.is_text`
+alanı **kalktı** — adapter'ın yanlış doldurabileceği bir alan değil, çünkü
+gönderdiği bir alan değil. Yön muhafazakâr: **bilinmeyen codec metin sayılmıyor**,
+çünkü okuyamadığımız bir biçim için metin vaat etmek, çeviri istendiği anda boş
+belge üretir.
+
+**Ölçüm plana girmemiş gerçek bir kusur buldu → `ADR-0032`.** Track listesi ilk
+kez gerçek fixture'dan okununca çıktı: **Matroska ISO 639-2 yazıyor**, libmpv
+`eng` · `tur` · `fre` veriyor. `LanguageTag::parse` 2–3 harfli primary'yi geçerli
+saydığı için `eng` hatasız ayrışıyor ve `en`'den **farklı** bir etiket oluyor.
+Sonuç: kullanıcının `Movie.en.srt`'si ile aynı filmin gömülü İngilizce track'i
+menüde **iki ayrı grup**, ve tercihi `en` olan kullanıcı için hiçbir gömülü track
+otomatik açılmıyor. Bu ADR-0030'un çözdüğü problemin aynısı, başka bir eksende —
+orada region (`en` / `en-us`), burada kod standardı (`en` / `eng` / `fre`).
+
+**ADR-0032 accepted: indirgeme `parse`'ın kendisinde.** Konteyner sınırında değil,
+çünkü aynı üç harfli kod `.nfo`, dosya adı ve ileride OpenSubtitles kapılarından
+da giriyor — kanonikleştirmeyi kapılara dağıtmak, ADR-0030'un düzelttiği "aynı
+soruyu birden çok yerde sormak" hatasının birebir tekrarı olurdu. Tablo 204
+satır: 184 ISO 639-1 dili ve 20 /B–/T çifti (`fre`/`fra`, `ger`/`deu`). Karşılığı
+olmayan kod (`fil`, `haw`, `nds`) **olduğu gibi kalıyor** — hiçbir şey tahmin
+edilmiyor, hiçbir şey kesilmiyor. Kabul edilen maliyet: `parse("eng")` artık
+`"en"` döndürüyor, yani girdiyle çıktı birebir aynı değil.
+
+**Extraction `NEN-044`'e taşındı (kullanıcı kararı).** libmpv bir subtitle
+track'inin **tam** metnini veren API sunmuyor (`sub-text` yalnız o anki cue);
+gerçek çıkarım konteyneri demux etmeyi gerektiriyor ve kendi ADR'sini istiyor
+(libavformat mı, Rust konteyner parser'ı mı). M3'te bu metni tüketen hiçbir şey
+yok — gömülü track seçilince motor kendisi çiziyor, NEN-027'nin injection'ı harici
+belgeler için, çeviri M5'te — ve şartname §7 extraction'ı "yapılabilir" diyerek
+zorunlu kılmıyor. **Lazy kuralının kanıtı NEN-023'te kaldı:** `extract_text`
+çağrılınca panikleyen bir motor üzerinden katalog kurma yolu baştan sona koşuyor.
+
+**Bitmap fixture'ı ffmpeg ile üretilemedi.** `Subtitle encoding currently only
+possible from text to text or bitmap to bitmap` — ffmpeg metinden bitmap
+rasterize etmiyor. Minimal bir HDMV PGS akışı (PCS · WDS · PDS · ODS · END +
+temizleyen ikinci display set) elle üretilip `-c:s copy` ile muxlandı; üretici
+deterministik ve reçetesi `fixtures/media/bitmap-subs-clip.ffmpeg.txt`'de,
+çalıştığı doğrulanmış durumda.
+
+**Negatif kontrol beş yönde, ve ölçümün kendisi iki kez düzeltildi.** Sınıflandırma
+her codec'e `true` → **5** kırmızı · ADR-0032 devre dışı → **6** · FFI'da elle
+`Debug` yerine `derive` → **3** · bitmap işareti taşınmıyor → **2** · ters eşleme
+çözülmüyor → **1**. İlk turda `cargo test`'in **ilk kırmızı hedefte durduğu**
+fark edildi (sonraki crate'ler hiç koşmuyordu, K1 yalnız 1 kırmızı görünüyordu);
+`--no-fail-fast` ile gerçek sayılar alındı. İkincisi: kırmızı testleri toplayan
+grep'in deseni rakam içermediği için `iso_639_2_codes_...` sayılmıyordu.
+
+**Güvenlikte kapsanmayan taraf açıkça yazıldı.** Track başlığı FFI'yı geçen ikinci
+string oldu (ilki locator). Rust tarafı korunuyor: `FfiTrackDescriptor`'ın
+`derive(Debug)`'ı kaldırıldı ve kasıtlı derive'lı ikiz dört yasak parçanın hepsini
+sızdırarak guard'ın boşta dönmediğini kanıtlıyor. **Swift tarafı korunamaz** —
+üretilmiş düz bir struct, `String(reflecting:)` başlığı gerçekten basar. Önce
+buna zayıf bir test yazıldı, sonra **kaldırıldı**: boşta dönen bir testle sınırı
+örtmek, sınırı yazmaktan kötü. `RedactionTests`'in yorumu artık neyin yapısal
+olarak tuttuğunu ve neyin disiplin olduğunu ayırıyor.
+
+Tam kanıt: `tasks/done/NEN-023-*.md`.
 
 **`NEN-022` kapandı — macOS'ta gerçek video oynuyor ve gerçek adapter
 paylaşılan contract kitini geçiyor.** M3'ün "gerçek libmpv adapter'ı, fake

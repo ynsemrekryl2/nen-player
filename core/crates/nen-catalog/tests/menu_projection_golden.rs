@@ -84,6 +84,12 @@ fn snapshot(menu: &SubtitleMenu<'_>) -> String {
             output.push_str(source.language().map_or("unknown", LanguageTag::as_str));
             output.push('\t');
             output.push_str(source.label());
+            // Only the exceptional case is written, so the goldens ADR-0010
+            // Karar 10 pins stay byte-for-byte what they were: an ordinary
+            // source is translatable and says nothing about it.
+            if !source.translatable() {
+                output.push_str("\tbitmap");
+            }
             output.push('\n');
         }
     }

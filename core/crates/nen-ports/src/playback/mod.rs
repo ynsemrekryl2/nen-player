@@ -31,4 +31,4 @@ pub use event::{
     PlaybackEvent, PlaybackState,
 };
 pub use media::MediaSource;
-pub use track::{TrackDescriptor, TrackId, TrackKind};
+pub use track::{subtitle_carries_text, TrackDescriptor, TrackId, TrackKind};

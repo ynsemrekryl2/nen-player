@@ -8,7 +8,7 @@
 //! *before* anything is decoded, so a descriptor is metadata only; pulling a
 //! track's text is a separate, lazy operation behind
 //! [`Capability::EmbeddedTextExtraction`](super::Capability::EmbeddedTextExtraction)
-//! and belongs to NEN-023.
+//! and belongs to NEN-044.
 //!
 //! **Security (K23 #8).** A track title is very often taken straight from the
 //! container and is regularly a private filename or release name. It is
@@ -68,6 +68,41 @@ impl fmt::Display for TrackId {
     }
 }
 
+/// Whether a subtitle codec carries text at all.
+///
+/// The single place this question is answered. A bitmap format (PGS, VobSub,
+/// DVB, XSUB) draws pictures: there is nothing to extract, nothing to
+/// translate, and nothing to sync against a transcript -- which is why §7 lets
+/// such a track be *shown* while being marked untranslatable.
+///
+/// **The unknown direction is deliberate.** A codec this list does not know is
+/// treated as **not** text. The alternative fails in the worse direction:
+/// promising text for a format we cannot read produces an empty document at the
+/// moment the user asks for a translation, whereas a missing entry produces a
+/// track that is merely not offered for translation. Adding a format is one
+/// line here and nowhere else.
+///
+/// Names are the container's own, as libavformat spells them -- the string an
+/// adapter reads out of the demuxer, not a normalized name of ours.
+pub fn subtitle_carries_text(codec: &str) -> bool {
+    matches!(
+        codec,
+        "subrip"
+            | "srt"
+            | "ass"
+            | "ssa"
+            | "webvtt"
+            | "text"
+            | "mov_text"
+            | "microdvd"
+            | "eia_608"
+            | "subviewer"
+            | "subviewer1"
+            | "sami"
+            | "stl"
+    )
+}
+
 /// One embedded track, as metadata.
 #[derive(Clone, PartialEq, Eq)]
 pub struct TrackDescriptor {
@@ -82,14 +117,21 @@ pub struct TrackDescriptor {
 
 impl TrackDescriptor {
     pub fn new(id: TrackId, kind: TrackKind, codec: impl Into<String>) -> Self {
+        let codec = codec.into();
+        // Derived, never supplied. An adapter reports what the container says
+        // -- the codec -- and the classification happens once, here, for every
+        // platform. Letting each adapter decide would put the same list in
+        // Swift and again in Kotlin, and the first one to miss a format would
+        // promise text it cannot produce.
+        let is_text = matches!(kind, TrackKind::Subtitle) && subtitle_carries_text(&codec);
         Self {
             id,
             kind,
             language: None,
             title: None,
-            codec: codec.into(),
+            codec,
             is_default: false,
-            is_text: true,
+            is_text,
         }
     }
 
@@ -106,16 +148,6 @@ impl TrackDescriptor {
 
     pub fn with_default(mut self, is_default: bool) -> Self {
         self.is_default = is_default;
-        self
-    }
-
-    /// Marks whether the track carries text.
-    ///
-    /// `false` for bitmap subtitle formats (PGS, VobSub): there is no text to
-    /// extract and no text to translate. NEN-023 turns this into the
-    /// `translatable = false` mark the menu shows.
-    pub fn with_text(mut self, is_text: bool) -> Self {
-        self.is_text = is_text;
         self
     }
 
@@ -152,6 +184,10 @@ impl TrackDescriptor {
     }
 
     /// Whether the track carries text rather than bitmaps.
+    ///
+    /// `false` for bitmap subtitle formats (PGS, VobSub, DVB) and for every
+    /// audio track. This is what becomes the catalog's `translatable = false`
+    /// mark (§7, NEN-023).
     pub fn is_text(&self) -> bool {
         self.is_text
     }
@@ -207,9 +243,37 @@ mod tests {
 
     #[test]
     fn bitmap_tracks_are_marked_as_carrying_no_text() {
-        let track = TrackDescriptor::new(TrackId(1), TrackKind::Subtitle, "hdmv_pgs_subtitle")
-            .with_text(false);
+        for codec in ["hdmv_pgs_subtitle", "dvd_subtitle", "dvb_subtitle", "xsub"] {
+            let track = TrackDescriptor::new(TrackId(1), TrackKind::Subtitle, codec);
+            assert!(!track.is_text(), "{codec} was taken for text");
+        }
+    }
+
+    #[test]
+    fn text_subtitle_codecs_are_recognized() {
+        for codec in ["subrip", "ass", "ssa", "webvtt", "mov_text"] {
+            let track = TrackDescriptor::new(TrackId(1), TrackKind::Subtitle, codec);
+            assert!(track.is_text(), "{codec} was not taken for text");
+        }
+    }
+
+    #[test]
+    fn an_unknown_codec_is_not_taken_for_text() {
+        // The conservative direction: a format nobody here knows must not
+        // promise a translation it cannot deliver.
+        let track = TrackDescriptor::new(TrackId(1), TrackKind::Subtitle, "some_future_format");
         assert!(!track.is_text());
+        assert!(!subtitle_carries_text(""));
+    }
+
+    #[test]
+    fn an_audio_track_never_carries_subtitle_text() {
+        // Even when its codec name happens to collide with a subtitle one, the
+        // question is meaningless for audio and the answer must be `false`.
+        for codec in ["aac", "opus", "text"] {
+            let track = TrackDescriptor::new(TrackId(0), TrackKind::Audio, codec);
+            assert!(!track.is_text(), "audio/{codec} claimed to carry text");
+        }
     }
 
     #[test]

@@ -17,6 +17,24 @@ import Testing
 /// `FfiPlaybackError` and `FfiPlaybackEvent` is a bounded enum or a number, so
 /// there is nothing for reflection to leak. These tests hold that line, and the
 /// twin at the bottom proves they are not vacuous.
+///
+/// # What is deliberately **not** covered here
+///
+/// `FfiTrackDescriptor.title` (NEN-023) is a real string on a generated Swift
+/// struct, so `String(reflecting:)` of a descriptor **does** print it. That is
+/// not something a test can forbid, and pretending otherwise would mean adding
+/// an assertion that passes for the wrong reason.
+///
+/// What holds instead:
+///
+/// - the value is inbound only — the adapter reads it from the container and
+///   hands it over; nothing sends it back out, and none of the events or errors
+///   above can carry it, which is what the tests here already prove;
+/// - on the Rust side it lands in types that print by hand, and
+///   `core/crates/nen-ffi/tests/guard_ffi_track_debug.rs` proves with a derived
+///   twin that the hand-written `Debug` is what keeps it out of a log;
+/// - on this side it is discipline: **do not log a descriptor.** The adapter
+///   logs nothing at all today, so there is no call site to guard.
 struct RedactionTests {
     /// A path built out of the things K23 names, so a leak is unmistakable.
     static let secretPath =

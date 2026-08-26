@@ -243,4 +243,37 @@ mod tests {
         let picked = auto_selection(&catalog, &prefs).expect("a pick");
         assert_eq!(picked.label(), "Türkçe forced");
     }
+
+    #[test]
+    fn a_bitmap_track_is_still_auto_selected() {
+        // §7 lets a bitmap track be *shown* while being untranslatable, and
+        // ADR-0010 Karar 9 ranks by kind and language -- not by whether a
+        // source could later be fed to a translator. Skipping it here would
+        // leave a user whose only Turkish track is a PGS one staring at no
+        // subtitle at all, for a reason they never asked about.
+        let catalog: SubtitleSourceCatalog = [embedded(1, "tr", "").with_translatable(false)]
+            .into_iter()
+            .collect();
+        let preferences = SubtitlePreferences::new(Some(tag("tr")), None);
+
+        let selected = auto_selection(&catalog, &preferences).expect("a bitmap track is playable");
+        assert_eq!(selected.id(), &SubtitleSourceId::embedded(1));
+        assert!(!selected.translatable());
+    }
+
+    #[test]
+    fn a_translatable_track_does_not_outrank_a_bitmap_one_of_the_same_kind() {
+        // The tie-break inside a kind is catalog order (Karar 5). If
+        // translatability leaked into the ranking, the second entry would win.
+        let catalog: SubtitleSourceCatalog = [
+            embedded(1, "tr", "").with_translatable(false),
+            embedded(2, "tr", "Türkçe"),
+        ]
+        .into_iter()
+        .collect();
+        let preferences = SubtitlePreferences::new(Some(tag("tr")), None);
+
+        let selected = auto_selection(&catalog, &preferences).expect("something is selectable");
+        assert_eq!(selected.id(), &SubtitleSourceId::embedded(1));
+    }
 }

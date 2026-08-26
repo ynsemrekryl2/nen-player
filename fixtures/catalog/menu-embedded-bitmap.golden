@@ -1,0 +1,7 @@
+group	closed
+group	language:en
+entry	embedded	en	English
+group	language:fr
+entry	embedded	fr		bitmap
+group	unknown
+entry	embedded	unknown	

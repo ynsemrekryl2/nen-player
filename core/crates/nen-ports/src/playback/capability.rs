@@ -23,7 +23,7 @@ pub enum Capability {
     /// Optional because a bitmap track (PGS, VobSub) has no text to extract at
     /// all — NEN-023 marks those `translatable = false`. Extraction stays lazy
     /// (§7): having the capability does not mean anything is extracted up
-    /// front.
+    /// front. No adapter declares it yet; NEN-044 is where one first can.
     EmbeddedTextExtraction,
     /// The engine can render a subtitle document supplied from outside the
     /// media file.

@@ -114,9 +114,11 @@ impl FakeEngine {
                     .with_language(LanguageTag::parse("en").ok())
                     .with_title(Some("English".into()))
                     .with_default(true),
+                // A bitmap track: the codec is what makes it one, so the fake
+                // and the real adapter reach `is_text = false` by the same
+                // route rather than by the fake asserting it.
                 TrackDescriptor::new(TrackId(1), TrackKind::Subtitle, "hdmv_pgs_subtitle")
-                    .with_language(LanguageTag::parse("tr").ok())
-                    .with_text(false),
+                    .with_language(LanguageTag::parse("tr").ok()),
             ],
             TrackKind::Audio => vec![TrackDescriptor::new(TrackId(2), TrackKind::Audio, "aac")
                 .with_language(LanguageTag::parse("en").ok())
