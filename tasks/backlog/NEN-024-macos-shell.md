@@ -4,7 +4,7 @@ title: macOS SwiftUI shell with transport controls
 milestone: M3
 size: M
 state: backlog
-depends_on: [NEN-022]
+depends_on: [NEN-022, NEN-045]
 blocks: [NEN-025, NEN-037, NEN-042, NEN-043]
 adr: [31]
 ---

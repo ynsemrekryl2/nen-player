@@ -17,13 +17,20 @@
 //! every field that travels **outbound** is a bounded enum or a number — never
 //! a path, a URL, a filename or a title.
 //!
-//! Two strings do travel, both **inbound only**, both on their way into a Rust
-//! type that cannot print them: the locator, which becomes a
+//! Two strings do travel: the locator, which becomes a
 //! [`MediaSource`](nen_ports::playback::MediaSource), and a track title, which
-//! becomes a [`TrackDescriptor`] (NEN-023). Inbound is the whole safety
-//! argument — the value already exists on the platform side, so crossing adds
-//! no exposure, and once across it is behind a guarded `Debug`. Nothing may
-//! send either one back out.
+//! becomes a [`TrackDescriptor`] (NEN-023). The safety argument is that the
+//! value already exists on the platform side, so crossing adds no exposure, and
+//! once across it is behind a guarded `Debug`.
+//!
+//! The locator only ever travels **inbound**; nothing sends it back. A track
+//! title does return, in the descriptors [`session`](crate::session) hands the
+//! shell — but unchanged, and to the side that produced it. That is a
+//! round-trip of the platform's own value, not the core disclosing something:
+//! §8's menu needs the title the container declared, and the alternative would
+//! be making the shell re-correlate its own list by id. What stays forbidden is
+//! **Rust printing it**, which is a different rule and the one
+//! `tests/guard_ffi_track_debug.rs` holds.
 //!
 //! `tests/guard_ffi_playback_debug.rs` holds that line with a deliberately
 //! leaky twin.
@@ -214,6 +221,38 @@ impl std::fmt::Display for FfiPlaybackError {
 
 impl std::error::Error for FfiPlaybackError {}
 
+impl From<PlaybackError> for FfiPlaybackError {
+    /// Takes the operation off, for the same reason it was never on.
+    ///
+    /// The shell called the method it is holding the error from, so the
+    /// operation would be a fact it already has — and one more field able to
+    /// disagree with reality.
+    fn from(value: PlaybackError) -> Self {
+        match value {
+            PlaybackError::Unsupported { capability, .. } => Self::Unsupported {
+                capability: capability.into(),
+            },
+            PlaybackError::ReentrantCall { .. } => Self::ReentrantCall,
+            PlaybackError::NotLoaded { .. } => Self::NotLoaded,
+            PlaybackError::ShutDown { .. } => Self::ShutDown,
+            PlaybackError::UnknownTrack { kind } => Self::UnknownTrack { kind: kind.into() },
+            PlaybackError::RateOutOfRange {
+                requested,
+                min,
+                max,
+            } => Self::RateOutOfRange {
+                requested,
+                min,
+                max,
+            },
+            PlaybackError::LoadFailed { reason } => Self::LoadFailed {
+                reason: reason.into(),
+            },
+            PlaybackError::EngineFailure { code } => Self::EngineFailure { code },
+        }
+    }
+}
+
 impl FfiPlaybackError {
     /// Puts the operation back on, from the call site that knows it.
     fn into_port(self, operation: Operation) -> PlaybackError {
@@ -261,11 +300,12 @@ pub struct FfiTrackDescriptor {
     pub is_default: bool,
     /// What the container calls this track — the menu's label (§8).
     ///
-    /// **Inbound only, and never logged.** A track title is regularly a release
-    /// name or a private filename (K23 #8), which is why this type prints by
-    /// hand and why `tests/guard_ffi_track_debug.rs` proves a derived twin
-    /// leaks. The platform side owns the same discipline: it already has the
-    /// value, so crossing adds no exposure, but printing it does.
+    /// **Never logged.** A track title is regularly a release name or a private
+    /// filename (K23 #8), which is why this type prints by hand and why
+    /// `tests/guard_ffi_track_debug.rs` proves a derived twin leaks. The
+    /// platform side owns the same discipline: it already has the value, so
+    /// crossing adds no exposure — in either direction, this being the one
+    /// field that also travels back out — but printing it does.
     pub title: Option<String>,
 }
 
@@ -279,6 +319,24 @@ impl From<FfiTrackDescriptor> for TrackDescriptor {
             )
             .with_title(value.title)
             .with_default(value.is_default)
+    }
+}
+
+impl From<TrackDescriptor> for FfiTrackDescriptor {
+    /// The core's descriptor, on its way back to the shell that supplied it.
+    ///
+    /// `language` is not the string that came in: the core canonicalises what
+    /// the container declared (ADR-0032 turns `eng` into `en`), and the shell
+    /// must see the same tag the menu groups by, not the raw one.
+    fn from(value: TrackDescriptor) -> Self {
+        Self {
+            id: value.id().index(),
+            kind: value.kind().into(),
+            language: value.language().map(|tag| tag.as_str().to_owned()),
+            codec: value.codec().to_owned(),
+            is_default: value.is_default(),
+            title: value.title().map(ToOwned::to_owned),
+        }
     }
 }
 
@@ -380,6 +438,14 @@ pub trait ForeignEngineFactory: Send + Sync {
 /// A foreign engine, wearing the shape the application layer expects.
 struct ForeignEngineAdapter {
     inner: Arc<dyn ForeignPlaybackEngine>,
+}
+
+/// Dresses a foreign engine for the application layer.
+///
+/// The kit builds its own through [`ForeignFactoryAdapter`]; a session is
+/// handed one engine and keeps it, so it needs this directly.
+pub(crate) fn shell_engine(engine: Arc<dyn ForeignPlaybackEngine>) -> Arc<dyn ShellEngine> {
+    Arc::new(ForeignEngineAdapter { inner: engine })
 }
 
 impl ShellEngine for ForeignEngineAdapter {

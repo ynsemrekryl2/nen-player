@@ -9,6 +9,7 @@
 uniffi::setup_scaffolding!();
 
 pub mod playback;
+pub mod session;
 
 /// Human-readable identifier of this core build.
 ///

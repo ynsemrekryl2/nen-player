@@ -4,6 +4,7 @@
 
 pub mod embedded;
 pub mod playback;
+pub mod session;
 
 // The FFI gate is only allowed to depend on this crate (ADR-0006 kural 3), but
 // the types it has to translate — states, capabilities, track kinds — are the

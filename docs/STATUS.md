@@ -3,8 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-26** (ADR-0032 accepted ve **NEN-023 kapandı** —
-> gömülü track'ler katalogda, bitmap işaretli, konteynerin dil kodu kanonik)
+> Son güncelleme: **2026-08-26** (ADR-0033 accepted ve **NEN-045 kapandı** —
+> kabuk artık çekirdek üzerinden oynatabiliyor; `EventsLost` ilk kez gerçekten
+> yürürlükte)
 
 ## Nerede duruyoruz
 
@@ -12,9 +13,62 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | *yok* — `tasks/active/` boş |
-| **Son tamamlanan** | `NEN-023` — embedded track enumeration and selection |
+| **Son tamamlanan** | `NEN-045` — core playback session across the FFI boundary |
 | **Sıradaki READY** | `NEN-024`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-044` |
-| **Task sayısı** | 44 · done 28 · active 0 · blocked 0 · backlog 16 |
+| **Task sayısı** | 45 · done 29 · active 0 · blocked 0 · backlog 16 |
+
+**`NEN-045` kapandı — kabuk artık çekirdek üzerinden oynatıyor.** `NEN-024`
+planlanırken çıkan boşluktu: `nen-ffi` bugüne kadar yalnız contract kitini
+sürmek için açılmıştı (`version()`, `runPlaybackContract()`, motor trait'leri),
+yani kabuğun `load`/`play`/`seek` diyebileceği bir nesne **hiç yazılmamıştı**.
+ADR-0026 oturumu çekirdeğe koyduğu için kabuk motoru doğrudan da çağıramazdı.
+`PlaybackSession` bu boşluğu kapattı: gövde `nen-app`'te, `nen-ffi` yalnız
+tipleri çeviriyor. Rust testleri **438 → 452**, Swift **16 → 21**. Yeni dış
+bağımlılık yok, `deny.toml` değişmedi.
+
+**Asıl bulgu teslimat yönünü belirledi → `ADR-0033`.** Bounded kuyruk
+çekirdekte, ama **adapter'ın kendi `pending` dizisi sınırsız**. Kimse
+`drainEvents()` çağırmazsa — uygulama arka planda — birikme kuyruğa hiç
+girmiyor, dolayısıyla `EventQueue`'nun 64'lük sınırı hiçbir şeyi sınırlamıyor ve
+ADR-0011 Karar 1'in `EventsLost` garantisi kâğıt üstünde kalıyordu. Çözüm
+çekirdekte sürekli çeken bir pump: birikme her zaman kuyrukta olur, taşma
+`EventsLost`'a döner, öne gelen kabuk eksikliği **öğrenir** (ADR-0031 Karar 3).
+
+**Teslimat push değil pull.** Push (foreign `EventSink`) aynı birikmeyi adapter
+dizisinden MainActor dispatch kuyruğuna taşırdı — orada ne sınır ne coalescing
+var — ve olay başına ~77 µs hop eklerdi. Portun `EventSink`/`deliver_all` yolu
+duruyor ama FFI'da kullanılmıyor; ters çağrı olmadığı için reentrancy de bu
+yolda oluşamıyor.
+
+**Pump'ın değeri ölçülünce daraldı ve netleşti.** `drain_events()` zaten
+kendisi çekiyor, yani düzenli drain eden bir kabuk pump olmadan da her olayı
+görür. Pump'ın kapattığı tek senaryo **kimsenin drain etmediği** an — ve kanıt
+kaydı bunu iki teste bölerek yazıyor: biri gözetimsiz motorun sınırsız
+biriktirdiğini, diğeri pump'ın sormadan çektiğini ölçüyor.
+
+**Outbound olay tipi ayrı yazılmak zorunda kaldı.** `FfiPlaybackEvent`
+`EventsLost` taşımıyor ve bu bilinçli: bir adapter onu iddia edebilseydi teslim
+edemediği akışı gizleyebilirdi. Ama kabuk öğrenmek zorunda. İki yön iki tip
+oldu; `FfiSessionEvent` yalnız o variant'ı fazladan taşıyor.
+
+**Negatif kontrol beş yönde.** Pump hiç spawn edilmiyor → **3** kırmızı ·
+shutdown pump'ı durdurmuyor → **2** · shutdown guard'ı yok → **1** ·
+`PositionChanged` kritik sınıfa alınıyor → **7** (2'si nen-app) · `EventsLost`
+sınırda düşürülüyor → **1**.
+
+**Güvenlikte yeni bir yön açıldı ve yazıldı.** Track başlığı ilk kez **geri** de
+geçiyor (`session.tracks()`). Argüman round-trip olması: değer kabuğun kendi
+ürettiği değer, değişmeden sahibine dönüyor. `nen-ffi`'nin modül dokümanı
+"inbound only" ifadesinden bu kurala güncellendi; yasak olan **Rust'ın onu
+basması** ve o kural yerinde duruyor. Oturum nesnesi locator tutmuyor ve `Debug`
+türetmiyor — buna dair test **yazılmadı**, çünkü bir trait'in yokluğunu ölçen
+test boşta döner.
+
+**Kabul edilen maliyet: `nen-app` artık bir thread'e sahip.** Bugüne kadar
+tamamen çağrı-güdümlüydü. Yaşam döngüsü iki testle bağlı ve ikisi de pump
+durdurulmadığında kırmızı.
+
+Tam kanıt: `tasks/done/NEN-045-*.md`.
 
 **`NEN-023` kapandı — gömülü track'ler artık ürün tarafında.** Bugüne kadar
 track listesi yalnız port seviyesinde vardı ve kataloğa giden hiçbir kod yolu
