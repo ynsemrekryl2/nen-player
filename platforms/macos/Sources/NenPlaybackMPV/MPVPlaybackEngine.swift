@@ -1,4 +1,5 @@
 import Cmpv
+import AppKit
 import Foundation
 import NenCore
 
@@ -11,10 +12,10 @@ import NenCore
 ///
 /// # What this adapter does not do
 ///
-/// - **No window.** The engine runs with `vo=null` / `ao=null`. A video surface
-///   is an AppKit layer and belongs to NEN-024; nothing in NEN-022's evidence
-///   needs one, and pretending otherwise would drag a UI dependency into a
-///   test that is about playback behaviour.
+/// - **No window ownership.** The shell may hand the adapter an
+///   ``MPVVideoView``, but creating and retaining the window stays in
+///   `NenPlayerShell`. Tests use the headless initializer and keep `vo=null` /
+///   `ao=null`.
 /// - **No text extraction, no external subtitles.** Both are capabilities and
 ///   both are declared absent, so the contract checks the typed refusal
 ///   instead. They arrive with NEN-044 and NEN-027.
@@ -59,6 +60,7 @@ public final class MPVPlaybackEngine: ForeignPlaybackEngine, @unchecked Sendable
     }
 
     let handle: OpaquePointer
+    let videoView: MPVVideoView?
     let lock = NSLock()
     /// Signalled once the pump thread has left its loop, so teardown can wait
     /// for it before freeing the handle it is blocked on.
@@ -77,11 +79,16 @@ public final class MPVPlaybackEngine: ForeignPlaybackEngine, @unchecked Sendable
     var trackList: [Track] = []
     var pending: [FfiPlaybackEvent] = []
 
-    public init() throws {
+    /// Creates either a headless contract-test engine or an engine embedded in
+    /// the shell's AppKit video view. The shell owns the view and the adapter
+    /// only gives its opaque address to libmpv; no path or media identity is
+    /// retained here.
+    public init(videoView: MPVVideoView? = nil) throws {
         guard let created = mpv_create() else {
             throw FfiPlaybackError.EngineFailure(code: MPV_ERROR_GENERIC.rawValue)
         }
         handle = created
+        self.videoView = videoView
 
         // `config=no` and `terminal=no`: a user's ~/.config/mpv must not be able
         // to change what the contract measures, and this process owns no tty.
@@ -91,15 +98,25 @@ public final class MPVPlaybackEngine: ForeignPlaybackEngine, @unchecked Sendable
         // `duration` and `tracks` still answer in the `Ended` state.
         // `sid=no`: subtitle selection is the core's decision (§8, the menu's
         // `Kapalı` entry), never the engine's own default.
-        for (name, value) in [
-            ("vo", "null"), ("ao", "null"),
+        var options = [
             ("config", "no"), ("terminal", "no"),
             ("idle", "yes"), ("pause", "yes"),
             ("keep-open", "yes"), ("sid", "no")
-        ] {
+        ]
+        if videoView == nil {
+            options.append(("vo", "null"))
+            options.append(("ao", "null"))
+        }
+        for (name, value) in options {
             try check(mpv_set_option_string(handle, name, value))
         }
         try check(mpv_initialize(handle))
+        if let videoView {
+            try check(mpv_set_option_string(handle, "vo", "libmpv"))
+            try MainActor.assumeIsolated {
+                try check(videoView.attach(to: handle))
+            }
+        }
         try check(mpv_observe_property(handle, 0, "time-pos", MPV_FORMAT_DOUBLE))
         // Observed rather than polled at the moment of a seek: measured against
         // the contract fixture, mpv sets `eof-reached` *after* the seek's

@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **45** task · ✅ done 29 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 16
+Toplam **45** task · ✅ done 30 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 15
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -53,7 +53,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-021](done/NEN-021-playback-port-contract.md) | PlaybackEngine port contract and capability model | M | ✅ done | NEN-012 |
 | [NEN-022](done/NEN-022-libmpv-adapter.md) | libmpv playback adapter for macOS | L | ✅ done | NEN-021 NEN-004 |
 | [NEN-023](done/NEN-023-track-enumeration.md) | Embedded track enumeration and selection | M | ✅ done | NEN-022 |
-| [NEN-024](backlog/NEN-024-macos-shell.md) | macOS SwiftUI shell with transport controls | M | ⚪ backlog | NEN-022 NEN-045 |
+| [NEN-024](done/NEN-024-macos-shell.md) | macOS SwiftUI shell with transport controls | M | ✅ done | NEN-022 NEN-045 |
 | [NEN-025](backlog/NEN-025-user-subtitle-loading.md) | User subtitle loading and sidecar discovery | M | ⚪ backlog | NEN-013 NEN-015 NEN-024 |
 | [NEN-026](backlog/NEN-026-subtitle-menu-ui.md) | Subtitle menu UI | M | ⚪ backlog | NEN-019 NEN-025 |
 | [NEN-027](backlog/NEN-027-subtitle-renderer.md) | SubtitleRenderer port and libmpv injection adapter | M | ⚪ backlog | NEN-017 NEN-026 |
@@ -86,11 +86,14 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 
 Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 
-- **NEN-024** — macOS SwiftUI shell with transport controls
+- **NEN-025** — User subtitle loading and sidecar discovery
 - **NEN-033** — OpenSubtitles hash-based identity lookup
 - **NEN-034** — AI-assisted release name normalization
 - **NEN-035** — Identity confidence scoring and candidate ranking
 - **NEN-036** — Remote media evidence port (HEAD, Content-Disposition, Range)
+- **NEN-037** — Subtitle language preference setting (primary and secondary)
 - **NEN-040** — check-docs.sh verifies STATUS.md's "Son doğrulama" date is not stale
 - **NEN-041** — doctor.sh reports an installed-but-unrunnable tool as missing
+- **NEN-042** — Recent media list in the empty state
+- **NEN-043** — Bundle libmpv into the .app and notarize
 - **NEN-044** — Embedded subtitle text extraction

@@ -13,7 +13,9 @@ let package = Package(
     name: "NenPlaybackMPV",
     platforms: [.macOS(.v14)],
     products: [
-        .library(name: "NenPlaybackMPV", targets: ["NenPlaybackMPV"])
+        .library(name: "NenPlaybackMPV", targets: ["NenPlaybackMPV"]),
+        .library(name: "NenPlayerShell", targets: ["NenPlayerShell"]),
+        .executable(name: "NenPlayer", targets: ["NenPlayerApp"])
     ],
     dependencies: [
         .package(path: "../apple-shared")
@@ -34,9 +36,27 @@ let package = Package(
                 .product(name: "NenCore", package: "apple-shared")
             ]
         ),
+        .target(
+            name: "NenPlayerShell",
+            dependencies: [
+                "NenPlaybackMPV",
+                .product(name: "NenCore", package: "apple-shared")
+            ]
+        ),
+        .executableTarget(
+            name: "NenPlayerApp",
+            dependencies: ["NenPlayerShell"]
+        ),
         .testTarget(
             name: "NenPlaybackMPVTests",
             dependencies: ["NenPlaybackMPV"]
+        ),
+        .testTarget(
+            name: "NenPlayerShellTests",
+            dependencies: [
+                "NenPlayerShell",
+                .product(name: "NenCore", package: "apple-shared")
+            ]
         )
     ]
 )

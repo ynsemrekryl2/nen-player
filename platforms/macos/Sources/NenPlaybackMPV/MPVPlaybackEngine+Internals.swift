@@ -235,6 +235,20 @@ extension MPVPlaybackEngine {
         // in `mpv_wait_event` on it is a use-after-free.
         mpv_wakeup(handle)
         _ = pumpFinished.wait(timeout: .now() + 2)
+        detachVideoView()
         mpv_terminate_destroy(handle)
+    }
+
+    private func detachVideoView() {
+        guard let videoView else { return }
+        if Thread.isMainThread {
+            MainActor.assumeIsolated {
+                videoView.detach()
+            }
+        } else {
+            DispatchQueue.main.sync {
+                videoView.detach()
+            }
+        }
     }
 }

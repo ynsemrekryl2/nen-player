@@ -3,19 +3,29 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-26** (ADR-0033 accepted ve **NEN-045 kapandı** —
-> kabuk artık çekirdek üzerinden oynatabiliyor; `EventsLost` ilk kez gerçekten
-> yürürlükte)
+> Son güncelleme: **2026-08-26** (**NEN-024 tamamlandı** — SwiftUI kabuğu,
+> gerçek video yüzeyi, transport ve sandbox bookmark akışı kanıtlandı)
 
 ## Nerede duruyoruz
 
 | | |
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
-| **Aktif task** | *yok* — `tasks/active/` boş |
-| **Son tamamlanan** | `NEN-045` — core playback session across the FFI boundary |
-| **Sıradaki READY** | `NEN-024`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-044` |
-| **Task sayısı** | 45 · done 29 · active 0 · blocked 0 · backlog 16 |
+| **Aktif task** | — |
+| **Son tamamlanan** | `NEN-024` — macOS SwiftUI shell with transport controls |
+| **Sıradaki READY** | `NEN-025`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-037`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044` |
+| **Task sayısı** | 45 · done 30 · active 0 · blocked 0 · backlog 15 |
+
+**`NEN-024` kapandı — macOS artık tek pencerede gerçek video oynatıyor.**
+SwiftUI kabuk; AppKit/libmpv render yüzeyi, transport, yedi kısayol grubu,
+otomatik gizlenen kontroller, Settings sahnesi, kapalı-küme Türkçe hata sunumu,
+tek security-scoped bookmark ve sessiz `EventsLost` resync davranışını taşıyor.
+Geliştirme `.app` paketi App Sandbox + app-scoped bookmark + kullanıcı-seçimli
+salt-okunur dosya yetkisiyle ad-hoc imzalandı ve `codesign --verify` geçti;
+libmpv hâlâ Homebrew'dan dinamik bağlı — uygulama içine gömme/notarization
+`NEN-043` kapsamında. **29 Swift testi / 6 suite** ve repo tooling'inin **2 test
+dosyası** geçti. Sentetik fixture ile 10 saniyelik oynatma kaydı, transport
+ekranı ve tam manuel checklist `evidence/M3/NEN-024-*` altında.
 
 **`NEN-045` kapandı — kabuk artık çekirdek üzerinden oynatıyor.** `NEN-024`
 planlanırken çıkan boşluktu: `nen-ffi` bugüne kadar yalnız contract kitini

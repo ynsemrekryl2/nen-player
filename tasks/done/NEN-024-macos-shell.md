@@ -3,7 +3,7 @@ id: NEN-024
 title: macOS SwiftUI shell with transport controls
 milestone: M3
 size: M
-state: backlog
+state: done
 depends_on: [NEN-022, NEN-045]
 blocks: [NEN-025, NEN-037, NEN-042, NEN-043]
 adr: [31]
@@ -51,21 +51,43 @@ oynatır.
 
 ## Kanıt (DoD)
 
-- [ ] Uygulama açılıp seçilen klibi oynatıyor (ekran kaydı)
-- [ ] Seek bar ve süre göstergesi gerçek pozisyonu yansıtıyor
-- [ ] Sandbox izniyle seçilen dosya yeniden başlatmada erişilebilir; boş
+- [x] Uygulama açılıp seçilen klibi oynatıyor (ekran kaydı)
+- [x] Seek bar ve süre göstergesi gerçek pozisyonu yansıtıyor
+- [x] Sandbox izniyle seçilen dosya yeniden başlatmada erişilebilir; boş
       durumdaki "son açılan" satırından tekrar açılıyor (bookmark)
-- [ ] Yedi kısayolun her biri manuel checklist'te tek tek doğrulanmış
-- [ ] Oynarken kontroller gizleniyor, duraklıyken kalıcı görünüyor (checklist)
-- [ ] Uygulamayı arka plana alıp öne getirdikten sonra pozisyon ve durum doğru
+- [x] Yedi kısayolun her biri manuel checklist'te tek tek doğrulanmış
+- [x] Oynarken kontroller gizleniyor, duraklıyken kalıcı görünüyor (checklist)
+- [x] Uygulamayı arka plana alıp öne getirdikten sonra pozisyon ve durum doğru
       (`EventsLost` resync'i — ADR-0011'in backgrounding senaryosu)
-- [ ] Açılamayan dosya video yüzeyini hata durumuna çeviriyor, uygulama
+- [x] Açılamayan dosya video yüzeyini hata durumuna çeviriyor, uygulama
       çökmüyor ve "Başka dosya aç" ile devam edilebiliyor
-- [ ] UI'da motor adı geçmiyor
-- [ ] Pencere başlığı ve hata metni yalnız **dosya adı** gösteriyor; tam yol
+- [x] UI'da motor adı geçmiyor
+- [x] Pencere başlığı ve hata metni yalnız **dosya adı** gösteriyor; tam yol
       hiçbir yüzeyde yok
-- [ ] `evidence/M3/` altına giren kayıt yalnız `fixtures/` medyasıyla üretilmiş
+- [x] `evidence/M3/` altına giren kayıt yalnız `fixtures/` medyasıyla üretilmiş
 
 ## Kanıt kaydı
 
-<!-- done olurken doldurulacak -->
+- Otomatik platform testi: `bash scripts/test-macos.sh` → **29 test / 6 suite,
+  0 failure**. Gerçek libmpv adapter contract testiyle; shell modeli
+  Ready→play, transport sınırları, kontrol görünürlüğü, fatal redaction ve
+  `EventsLost` tam resync testleriyle; bookmark ise gerçek Foundation API'siyle
+  doğrulandı.
+- Geliştirme paketi: `bash scripts/build-macos-app.sh` çıkış 0;
+  `codesign --verify --deep --strict platforms/macos/.build/NenPlayer.app`
+  çıkış 0. İmzadan okunan üç entitlement `app-sandbox`,
+  `bookmarks.app-scope` ve `files.user-selected.read-only` için `true`.
+- Repo tooling: `bash scripts/test.sh` → **2 test dosyası geçti**;
+  `bash -n scripts/build-macos-app.sh` ve `git diff --check` çıkış 0.
+- Manuel acceptance: macOS 27.0 · Xcode 26.6 · Swift 6.3.3 · libmpv 2.5.0;
+  yalnız sentetik `fixtures/media/contract-clip.mkv` ve
+  `fixtures/media/broken-clip.mkv`. Yedi kısayol, ±5/±30 saniye seek, kalan
+  süre modu, ses, 2.5 saniyelik gizlenme, pause görünürlüğü, fullscreen,
+  Settings, background/foreground resync, fatal yüzey ve tam uygulama restart'ı
+  sonrası bookmark'tan yeniden açma tek tek geçti. Ayrıntılı adımlar:
+  `evidence/M3/NEN-024-checklist.md`.
+- Görsel kanıt: `evidence/M3/NEN-024-playback.mp4` — ffprobe ile H.264,
+  **1080×680 · 5 fps · 10.000 s · 302344 byte**; 50 fixture karesindeki sayaç
+  hareketi oynatmayı gösteriyor. `evidence/M3/NEN-024-transport.jpg` — yalnız
+  uygulama penceresi, seek/süre/volume kontrolleri. İki kayıtta da tam yol,
+  query veya motor adı yok.
