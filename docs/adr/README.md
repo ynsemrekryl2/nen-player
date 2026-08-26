@@ -20,6 +20,7 @@ Süreç: [`0001-adr-process.md`](0001-adr-process.md) · Şablon:
 | [0011](0011-playback-port-contract.md) | `PlaybackEngine` capability modeli ve contract test yaklaşımı | ✅ accepted | M3 |
 | [0031](0031-macos-shell-interaction-model.md) | macOS kabuk etkileşim modeli — hata sunumu, ekran gizliliği ve ayar yüzeyi | ✅ accepted | M3 |
 | [0012](0012-macos-playback-engine.md) | macOS playback motoru, linkleme modeli ve proje lisansı | ✅ accepted | M3 |
+| [0032](0032-container-language-codes.md) | Konteynerin ISO 639-2 dil kodları tek kanonik etikete indirgenir | ✅ accepted | M3 |
 | [0002](0002-core-language.md) | Shared core dili — go/no-go kapısı | ✅ accepted | M1 |
 | [0027](0027-performance-budget.md) | Performans bütçeleri — M1 baseline'larından marjlı kabul | ✅ accepted | M1 sonrası |
 
