@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 
 public struct PlayerCommands: Commands {
+    @Environment(\.openWindow) private var openWindow
     private let model: PlayerModel
 
     public init(model: PlayerModel) {
@@ -10,7 +11,7 @@ public struct PlayerCommands: Commands {
 
     public var body: some Commands {
         CommandGroup(replacing: .newItem) {
-            Button("Aç…", action: model.chooseMedia)
+            Button("Aç…", action: chooseMedia)
                 .keyboardShortcut("o", modifiers: .command)
         }
 
@@ -37,6 +38,12 @@ public struct PlayerCommands: Commands {
             Button("Tam Ekrandan Çık", action: leaveFullScreen)
                 .keyboardShortcut(KeyEquivalent("\u{1b}"), modifiers: [])
         }
+    }
+
+    private func chooseMedia() {
+        openWindow(id: "player")
+        model.resume()
+        model.chooseMedia()
     }
 
     private func toggleFullScreen() {

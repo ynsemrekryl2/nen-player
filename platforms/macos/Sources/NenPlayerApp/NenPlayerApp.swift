@@ -24,6 +24,18 @@ struct NenPlayerApp: App {
 
 private final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        true
+        false
+    }
+
+    func applicationShouldHandleReopen(
+        _ sender: NSApplication,
+        hasVisibleWindows _: Bool
+    ) -> Bool {
+        if let playerWindow = sender.windows.first(where: { $0.identifier?.rawValue == "player" }),
+           !playerWindow.isVisible {
+            playerWindow.makeKeyAndOrderFront(nil)
+            NotificationCenter.default.post(name: .nenPlayerWindowReopened, object: nil)
+        }
+        return true
     }
 }

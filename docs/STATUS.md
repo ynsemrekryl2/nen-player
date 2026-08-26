@@ -3,8 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-26** (**NEN-046 tamamlandı**; pencere kapanışı
-> artık penceresiz ve işlevsiz uygulama süreci bırakmıyor)
+> Son güncelleme: **2026-08-26** (**NEN-046 kullanıcı geri bildirimiyle
+> düzeltildi**; `⌘W`/kırmızı pencereyi, yalnız `⌘Q` uygulamayı kapatıyor)
 
 ## Nerede duruyoruz
 
@@ -13,18 +13,19 @@
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
 | **Son tamamlanan** | `NEN-046` — macOS window lifecycle — no inert app after the window closes |
-| **Sıradaki READY** | `NEN-025`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-048` |
-| **Task sayısı** | 48 · done 31 · active 0 · blocked 0 · backlog 17 |
+| **Sıradaki READY** | `NEN-025`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-048`, `NEN-049` |
+| **Task sayısı** | 49 · done 31 · active 0 · blocked 0 · backlog 18 |
 
-**`NEN-046` kapandı — kırmızı düğme artık ölü bir uygulama bırakmıyor.**
-Oynatıcı sahnesi `WindowGroup` yerine tek `Window`; son pencere kapanınca
-uygulama tamamen sonlanıyor. Model kapanışta eski medya, state, pozisyon ve
-süreyi temizliyor; aynı model yeniden bir video yüzeyine bağlanırsa yeni oturum
-ve polling kuruluyor, oturum yokken seçilmiş dosya da bağlanınca yükleniyor.
-İki yeni model testiyle birlikte macOS paketi **31 test / 6 suite** geçti.
-Gerçek `.app` üzerinde sentetik fixture ile oynatma → kırmızı kapatma → sürecin
-sonlanması → temiz yeniden açılış → fixture'ın yeniden oynaması **6/6** geçti.
-Kanıt: `evidence/M3/NEN-046-checklist.md`.
+**`NEN-046` kapandı — pencere ve uygulama kapanışı artık ayrı.** Oynatıcı
+sahnesi `WindowGroup` yerine tek `Window`. Kırmızı düğme ve `⌘W` oynatmayı
+temizleyip pencereyi kapatıyor fakat aynı uygulama PID'i yaşıyor; Dock ve
+pencere kapalıyken `⌘O` tek pencereyi yeni oturum/polling ile geri getiriyor.
+Yalnız `⌘Q` uygulamayı sonlandırıyor. Model eski medya, state, pozisyon ve
+süreyi temizliyor; saklanan video yüzeyine resume ile yeniden bağlanıyor.
+İki model testi, seri macOS paketinin **31 test / 6 suite** koşusu ve gerçek
+`.app` üzerinde **8/8** manuel yaşam döngüsü geçti. Paralel pakette ölçülen
+bağımsız libmpv test izolasyonu kusuru `NEN-049`'a ayrıldı. Kanıt:
+`evidence/M3/NEN-046-checklist.md`.
 
 **`NEN-024` kapandı — macOS artık tek pencerede gerçek video oynatıyor.**
 SwiftUI kabuk; AppKit/libmpv render yüzeyi, transport, yedi kısayol grubu,

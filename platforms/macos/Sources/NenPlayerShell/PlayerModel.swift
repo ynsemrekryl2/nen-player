@@ -50,6 +50,7 @@ public final class PlayerModel: ObservableObject {
     private var transientTask: Task<Void, Never>?
     private var applicationActive = true
     private var playWhenReady = false
+    private weak var videoView: MPVVideoView?
     private var accessedURL: URL?
     private var hasSecurityScope = false
     private var cursorHidden = false
@@ -78,6 +79,7 @@ public final class PlayerModel: ObservableObject {
     }
 
     public func attach(to videoView: MPVVideoView) {
+        self.videoView = videoView
         guard session == nil else { return }
         do {
             session = try sessionFactory(videoView)
@@ -91,6 +93,11 @@ public final class PlayerModel: ObservableObject {
         } catch {
             presentFatal(error)
         }
+    }
+
+    public func resume() {
+        guard let videoView else { return }
+        attach(to: videoView)
     }
 
     public func chooseMedia() {

@@ -59,18 +59,21 @@ yamalanmıyor (CLAUDE.md kural 5).
 
 ## Kanıt kaydı
 
-- Seçilen ürün davranışı: tek `Window`; son pencere kapanınca
-  `applicationShouldTerminateAfterLastWindowClosed` uygulamayı sonlandırıyor.
-  Penceresiz, menüsü yaşayan süreç oluşmuyor.
+- Seçilen ürün davranışı kullanıcı geri bildirimiyle macOS modeline getirildi:
+  kırmızı düğme ve `⌘W` yalnız pencereyi kapatıyor; aynı PID yaşıyor. Dock ve
+  pencere kapalıyken `⌘O` tek oynatıcı penceresini çalışan yeni oturumla geri
+  getiriyor. Yalnız `⌘Q` PID'i sonlandırıyor.
 - Manuel acceptance: Apple M5 · arm64 · macOS 27.0 (26A5416b) · debug,
-  ad-hoc imzalı `.app` · yalnız `fixtures/media/contract-clip.mkv`.
-  Oynatma → kırmızı kapatma → süreç listesinde Nen Player yok → temiz yeniden
-  açılış → son fixture yeniden oynatma adımları **6/6 geçti**. Ayrıntı:
-  `evidence/M3/NEN-046-checklist.md`.
-- `bash scripts/test-macos.sh` çıkış 0: **31 test / 6 suite**, 0 failure.
+  ad-hoc imzalı `.app` · yalnız sentetik fixture'lar. Kırmızı kapatma, Dock
+  dönüşü, aynı süreçte yeniden oynatma, `⌘W`, kapalı pencerede `⌘O` ve `⌘Q`
+  adımları **8/8 geçti**. Ayrıntı: `evidence/M3/NEN-046-checklist.md`.
+- `swift test --package-path platforms/macos --no-parallel` çıkış 0:
+  **31 test / 6 suite**, 0 failure.
   Yeni model testleri:
-  `shutdown clears stale playback state and a later attach opens pending media`
-  ve `reattaching after shutdown restarts event polling`.
+  `shutdown clears stale state and window resume opens pending media`
+  ve `window resume after shutdown restarts event polling`.
+- Tam paralel pakette ortaya çıkan bağımsız gerçek-libmpv test izolasyonu
+  sorunu `NEN-049` backlog task'ına ayrıldı; seek beklentisi gevşetilmedi.
 - `bash scripts/build-macos-app.sh` ve
   `codesign --verify --deep --strict platforms/macos/.build/NenPlayer.app`
   çıkış 0.

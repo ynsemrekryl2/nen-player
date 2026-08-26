@@ -108,8 +108,8 @@ struct PlayerModelTests {
         #expect(model.recentMediaName == "contract-clip.mkv")
     }
 
-    @Test("shutdown clears stale playback state and a later attach opens pending media")
-    func shutdownThenReattachOpensPendingMedia() {
+    @Test("shutdown clears stale state and window resume opens pending media")
+    func shutdownThenResumeOpensPendingMedia() {
         let first = FakeSession()
         let second = FakeSession()
         var sessions = [first, second]
@@ -119,7 +119,8 @@ struct PlayerModelTests {
             managesCursor: false,
             sessionFactory: { _ in sessions.removeFirst() }
         )
-        model.attach(to: MPVVideoView.makePlaybackSurface())
+        let surface = MPVVideoView.makePlaybackSurface()
+        model.attach(to: surface)
         model.openMedia(at: URL(fileURLWithPath: "/fixtures/media/first.mkv"))
         model.consume([.stateChanged(state: .ready), .stateChanged(state: .playing)])
 
@@ -134,15 +135,15 @@ struct PlayerModelTests {
         model.openMedia(at: next)
         #expect(second.loadedLocators.isEmpty)
 
-        model.attach(to: MPVVideoView.makePlaybackSurface())
+        model.resume()
 
         #expect(first.shutdownCount == 1)
         #expect(second.loadedLocators == [next.path])
         #expect(model.mediaName == "second.mkv")
     }
 
-    @Test("reattaching after shutdown restarts event polling")
-    func reattachRestartsPolling() async throws {
+    @Test("window resume after shutdown restarts event polling")
+    func resumeRestartsPolling() async throws {
         let first = FakeSession()
         let second = FakeSession()
         var sessions = [first, second]
@@ -152,13 +153,14 @@ struct PlayerModelTests {
             managesCursor: false,
             sessionFactory: { _ in sessions.removeFirst() }
         )
-        model.attach(to: MPVVideoView.makePlaybackSurface())
+        let surface = MPVVideoView.makePlaybackSurface()
+        model.attach(to: surface)
         model.shutdown()
 
         let next = URL(fileURLWithPath: "/fixtures/media/second.mkv")
         model.openMedia(at: next)
         second.events = [.stateChanged(state: .ready)]
-        model.attach(to: MPVVideoView.makePlaybackSurface())
+        model.resume()
 
         let deadline = Date().addingTimeInterval(0.5)
         while second.playCount == 0, Date() < deadline {

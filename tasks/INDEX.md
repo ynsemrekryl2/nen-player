@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **48** task · ✅ done 31 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 17
+Toplam **49** task · ✅ done 31 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 18
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -69,6 +69,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-046](done/NEN-046-macos-window-lifecycle.md) | macOS window lifecycle — no inert app after the window closes | S | ✅ done | NEN-024 |
 | [NEN-047](backlog/NEN-047-keyboard-shortcut-scope.md) | Scope playback shortcuts to the player surface and echo them on screen | S | ⚪ backlog | NEN-024 |
 | [NEN-048](backlog/NEN-048-transient-error-class.md) | Fix the spurious transient error and prove the transient error class | S | ⚪ backlog | NEN-024 |
+| [NEN-049](backlog/NEN-049-serialize-real-mpv-tests.md) | Serialize real libmpv platform tests | S | ⚪ backlog | NEN-022 NEN-045 |
 
 ## M5 — Translation Core
 
@@ -101,3 +102,4 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-044** — Embedded subtitle text extraction
 - **NEN-047** — Scope playback shortcuts to the player surface and echo them on screen
 - **NEN-048** — Fix the spurious transient error and prove the transient error class
+- **NEN-049** — Serialize real libmpv platform tests

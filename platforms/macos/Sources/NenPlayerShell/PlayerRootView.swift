@@ -2,6 +2,10 @@ import AppKit
 import NenPlaybackMPV
 import SwiftUI
 
+public extension Notification.Name {
+    static let nenPlayerWindowReopened = Notification.Name("player.nen.macos.window-reopened")
+}
+
 public struct PlayerRootView: View {
     @ObservedObject private var model: PlayerModel
 
@@ -69,6 +73,9 @@ public struct PlayerRootView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             model.applicationBecameActive()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .nenPlayerWindowReopened)) { _ in
+            model.resume()
+        }
         .onDisappear {
             model.shutdown()
         }
@@ -84,7 +91,9 @@ private struct VideoSurface: NSViewRepresentable {
         return view
     }
 
-    func updateNSView(_ nsView: MPVVideoView, context: Context) {}
+    func updateNSView(_ nsView: MPVVideoView, context: Context) {
+        model.attach(to: nsView)
+    }
 }
 
 private struct EmptyState: View {
