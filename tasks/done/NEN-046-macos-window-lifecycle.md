@@ -3,7 +3,7 @@ id: NEN-046
 title: macOS window lifecycle — no inert app after the window closes
 milestone: M3
 size: S
-state: backlog
+state: done
 depends_on: [NEN-024]
 blocks: []
 adr: [31]
@@ -48,15 +48,30 @@ yamalanmıyor (CLAUDE.md kural 5).
 
 ## Kanıt (DoD)
 
-- [ ] Medya oynarken pencere kapatılıp `⌘O` ile dosya seçildiğinde medya
+- [x] Medya oynarken pencere kapatılıp `⌘O` ile dosya seçildiğinde medya
       oynuyor **veya** uygulama pencere kapanınca sonlanmış oluyor (checklist)
-- [ ] Kapanış sonrası geri gelen pencerede video yüzeyi çalışıyor — siyah
+- [x] Kapanış sonrası geri gelen pencerede video yüzeyi çalışıyor — siyah
       kalmıyor (checklist)
-- [ ] `shutdown()` sonrası `openMedia` çağrısının sessizce yutulmadığını
+- [x] `shutdown()` sonrası `openMedia` çağrısının sessizce yutulmadığını
       gösteren model testi
-- [ ] `Pencere` menüsünde uygulama penceresiz kaldığında etkin bir geri
+- [x] `Pencere` menüsünde uygulama penceresiz kaldığında etkin bir geri
       dönüş yolu var veya bu durum hiç oluşmuyor (checklist)
 
 ## Kanıt kaydı
 
-<!-- done olurken doldurulacak -->
+- Seçilen ürün davranışı: tek `Window`; son pencere kapanınca
+  `applicationShouldTerminateAfterLastWindowClosed` uygulamayı sonlandırıyor.
+  Penceresiz, menüsü yaşayan süreç oluşmuyor.
+- Manuel acceptance: Apple M5 · arm64 · macOS 27.0 (26A5416b) · debug,
+  ad-hoc imzalı `.app` · yalnız `fixtures/media/contract-clip.mkv`.
+  Oynatma → kırmızı kapatma → süreç listesinde Nen Player yok → temiz yeniden
+  açılış → son fixture yeniden oynatma adımları **6/6 geçti**. Ayrıntı:
+  `evidence/M3/NEN-046-checklist.md`.
+- `bash scripts/test-macos.sh` çıkış 0: **31 test / 6 suite**, 0 failure.
+  Yeni model testleri:
+  `shutdown clears stale playback state and a later attach opens pending media`
+  ve `reattaching after shutdown restarts event polling`.
+- `bash scripts/build-macos-app.sh` ve
+  `codesign --verify --deep --strict platforms/macos/.build/NenPlayer.app`
+  çıkış 0.
+- ADR-0031 `accepted`; yeni mimari karar veya dış bağımlılık yok.

@@ -3,8 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-26** (**NEN-024 tamamlandı**; kabuk çalışır
-> `.app` üzerinde incelendi → `NEN-046`, `NEN-047`, `NEN-048` açıldı)
+> Son güncelleme: **2026-08-26** (**NEN-046 tamamlandı**; pencere kapanışı
+> artık penceresiz ve işlevsiz uygulama süreci bırakmıyor)
 
 ## Nerede duruyoruz
 
@@ -12,9 +12,19 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-024` — macOS SwiftUI shell with transport controls |
-| **Sıradaki READY** | `NEN-025`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-046`, `NEN-047`, `NEN-048` |
-| **Task sayısı** | 48 · done 30 · active 0 · blocked 0 · backlog 18 |
+| **Son tamamlanan** | `NEN-046` — macOS window lifecycle — no inert app after the window closes |
+| **Sıradaki READY** | `NEN-025`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-048` |
+| **Task sayısı** | 48 · done 31 · active 0 · blocked 0 · backlog 17 |
+
+**`NEN-046` kapandı — kırmızı düğme artık ölü bir uygulama bırakmıyor.**
+Oynatıcı sahnesi `WindowGroup` yerine tek `Window`; son pencere kapanınca
+uygulama tamamen sonlanıyor. Model kapanışta eski medya, state, pozisyon ve
+süreyi temizliyor; aynı model yeniden bir video yüzeyine bağlanırsa yeni oturum
+ve polling kuruluyor, oturum yokken seçilmiş dosya da bağlanınca yükleniyor.
+İki yeni model testiyle birlikte macOS paketi **31 test / 6 suite** geçti.
+Gerçek `.app` üzerinde sentetik fixture ile oynatma → kırmızı kapatma → sürecin
+sonlanması → temiz yeniden açılış → fixture'ın yeniden oynaması **6/6** geçti.
+Kanıt: `evidence/M3/NEN-046-checklist.md`.
 
 **`NEN-024` kapandı — macOS artık tek pencerede gerçek video oynatıyor.**
 SwiftUI kabuk; AppKit/libmpv render yüzeyi, transport, yedi kısayol grubu,
@@ -27,12 +37,12 @@ libmpv hâlâ Homebrew'dan dinamik bağlı — uygulama içine gömme/notarizati
 dosyası** geçti. Sentetik fixture ile 10 saniyelik oynatma kaydı, transport
 ekranı ve tam manuel checklist `evidence/M3/NEN-024-*` altında.
 
-**Kabuk çalışır `.app` üzerinde incelendi; üç kusur ölçüldü.** `NEN-024`'ün
+**Kabuk çalışır `.app` üzerinde incelendi; üç kusur ölçüldü, biri kapandı.** `NEN-024`'ün
 kapanışı geçerli — kapsam maddelerinin karşılığı kodda var, ADR-0031'in
 gizlilik kararları gerçekten uygulanmış. Ama kanıt kaydının kapsamadığı üç
 davranış canlı uygulamada doğrulandı: (1) pencere kapatılınca uygulama menü
 çubuğunda yaşamaya devam ediyor ve `⌘O` ile dosya seçilse bile hiçbir şey
-olmuyor — geri dönüş yolu yok → `NEN-046`; (2) yedi kısayol menü key
+olmuyor — geri dönüş yolu yok → **`NEN-046` ile kapandı**; (2) yedi kısayol menü key
 equivalent'ı olduğu için **Ayarlar penceresi öndeyken de** çalışıyor (`↓`
 sesi düşürdü, `←` konumu `00:30 → 00:25` aldı) ve kontroller gizliyken
 klavyeyle yapılan seek ekranda hiçbir iz bırakmıyor → `NEN-047`; (3) medya

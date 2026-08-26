@@ -108,6 +108,68 @@ struct PlayerModelTests {
         #expect(model.recentMediaName == "contract-clip.mkv")
     }
 
+    @Test("shutdown clears stale playback state and a later attach opens pending media")
+    func shutdownThenReattachOpensPendingMedia() {
+        let first = FakeSession()
+        let second = FakeSession()
+        var sessions = [first, second]
+        let model = PlayerModel(
+            recentStore: MemoryRecentStore(),
+            startsPolling: false,
+            managesCursor: false,
+            sessionFactory: { _ in sessions.removeFirst() }
+        )
+        model.attach(to: MPVVideoView.makePlaybackSurface())
+        model.openMedia(at: URL(fileURLWithPath: "/fixtures/media/first.mkv"))
+        model.consume([.stateChanged(state: .ready), .stateChanged(state: .playing)])
+
+        model.shutdown()
+
+        #expect(model.mediaName == nil)
+        #expect(model.playbackState == .idle)
+        #expect(model.positionMilliseconds == 0)
+        #expect(model.durationMilliseconds == nil)
+
+        let next = URL(fileURLWithPath: "/fixtures/media/second.mkv")
+        model.openMedia(at: next)
+        #expect(second.loadedLocators.isEmpty)
+
+        model.attach(to: MPVVideoView.makePlaybackSurface())
+
+        #expect(first.shutdownCount == 1)
+        #expect(second.loadedLocators == [next.path])
+        #expect(model.mediaName == "second.mkv")
+    }
+
+    @Test("reattaching after shutdown restarts event polling")
+    func reattachRestartsPolling() async throws {
+        let first = FakeSession()
+        let second = FakeSession()
+        var sessions = [first, second]
+        let model = PlayerModel(
+            recentStore: MemoryRecentStore(),
+            pollIntervalNanoseconds: 1_000_000,
+            managesCursor: false,
+            sessionFactory: { _ in sessions.removeFirst() }
+        )
+        model.attach(to: MPVVideoView.makePlaybackSurface())
+        model.shutdown()
+
+        let next = URL(fileURLWithPath: "/fixtures/media/second.mkv")
+        model.openMedia(at: next)
+        second.events = [.stateChanged(state: .ready)]
+        model.attach(to: MPVVideoView.makePlaybackSurface())
+
+        let deadline = Date().addingTimeInterval(0.5)
+        while second.playCount == 0, Date() < deadline {
+            try await Task.sleep(nanoseconds: 1_000_000)
+        }
+
+        #expect(second.playCount == 1)
+        #expect(model.playbackState == .ready)
+        model.shutdown()
+    }
+
     @Test("duration toggles between elapsed and remaining")
     func durationPresentation() {
         #expect(PlaybackPresentation.time(milliseconds: 65_000) == "01:05")
@@ -165,6 +227,7 @@ private final class FakeSession: PlaybackSessionClient {
     var currentState: FfiPlaybackState = .ready
     var requestedTrackKinds: [FfiTrackKind] = []
     var events: [FfiSessionEvent] = []
+    var shutdownCount = 0
 
     func load(locator: String) throws { loadedLocators.append(locator) }
     func play() throws { playCount += 1; currentState = .playing }
@@ -183,5 +246,5 @@ private final class FakeSession: PlaybackSessionClient {
         defer { events.removeAll() }
         return events
     }
-    func shutdown() throws {}
+    func shutdown() throws { shutdownCount += 1 }
 }

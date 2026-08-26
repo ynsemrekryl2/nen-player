@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **48** task · ✅ done 30 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 18
+Toplam **48** task · ✅ done 31 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 17
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -66,7 +66,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-042](backlog/NEN-042-recent-media-list.md) | Recent media list in the empty state | S | ⚪ backlog | NEN-024 |
 | [NEN-043](backlog/NEN-043-libmpv-app-bundling.md) | Bundle libmpv into the .app and notarize | M | ⚪ backlog | NEN-022 NEN-024 |
 | [NEN-045](done/NEN-045-playback-session-ffi.md) | Core playback session across the FFI boundary | M | ✅ done | NEN-021 NEN-022 |
-| [NEN-046](backlog/NEN-046-macos-window-lifecycle.md) | macOS window lifecycle — no inert app after the window closes | S | ⚪ backlog | NEN-024 |
+| [NEN-046](done/NEN-046-macos-window-lifecycle.md) | macOS window lifecycle — no inert app after the window closes | S | ✅ done | NEN-024 |
 | [NEN-047](backlog/NEN-047-keyboard-shortcut-scope.md) | Scope playback shortcuts to the player surface and echo them on screen | S | ⚪ backlog | NEN-024 |
 | [NEN-048](backlog/NEN-048-transient-error-class.md) | Fix the spurious transient error and prove the transient error class | S | ⚪ backlog | NEN-024 |
 
@@ -99,6 +99,5 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-042** — Recent media list in the empty state
 - **NEN-043** — Bundle libmpv into the .app and notarize
 - **NEN-044** — Embedded subtitle text extraction
-- **NEN-046** — macOS window lifecycle — no inert app after the window closes
 - **NEN-047** — Scope playback shortcuts to the player surface and echo them on screen
 - **NEN-048** — Fix the spurious transient error and prove the transient error class

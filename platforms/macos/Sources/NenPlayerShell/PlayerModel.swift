@@ -39,6 +39,7 @@ public final class PlayerModel: ObservableObject {
 
     private let recentStore: any RecentMediaStoring
     private let sessionFactory: SessionFactory
+    private let shouldPoll: Bool
     private let pollIntervalNanoseconds: UInt64
     private let controlsHideDelayNanoseconds: UInt64
     private let managesCursor: Bool
@@ -67,6 +68,7 @@ public final class PlayerModel: ObservableObject {
         self.recentStore = recentStore
         self.recentMediaName = recentStore.displayName
         self.sessionFactory = sessionFactory
+        self.shouldPoll = startsPolling
         self.pollIntervalNanoseconds = pollIntervalNanoseconds
         self.controlsHideDelayNanoseconds = controlsHideDelayNanoseconds
         self.managesCursor = managesCursor
@@ -79,6 +81,9 @@ public final class PlayerModel: ObservableObject {
         guard session == nil else { return }
         do {
             session = try sessionFactory(videoView)
+            if shouldPoll {
+                startPolling()
+            }
             if let pendingURL {
                 self.pendingURL = nil
                 openMedia(at: pendingURL)
@@ -236,12 +241,24 @@ public final class PlayerModel: ObservableObject {
 
     public func shutdown() {
         pollTask?.cancel()
+        pollTask = nil
         controlsTask?.cancel()
+        controlsTask = nil
         transientTask?.cancel()
+        transientTask = nil
         showCursorIfNeeded()
         try? session?.shutdown()
         session = nil
         releaseSecurityScope()
+        mediaName = nil
+        playbackState = .idle
+        positionMilliseconds = 0
+        durationMilliseconds = nil
+        seekPreviewMilliseconds = nil
+        fatalMessage = nil
+        transientMessage = nil
+        playWhenReady = false
+        controlsVisible = true
     }
 
     func consume(_ events: [FfiSessionEvent]) {
@@ -279,6 +296,7 @@ public final class PlayerModel: ObservableObject {
     }
 
     private func startPolling() {
+        guard pollTask == nil else { return }
         pollTask = Task { [weak self] in
             while !Task.isCancelled {
                 guard let self else { return }
