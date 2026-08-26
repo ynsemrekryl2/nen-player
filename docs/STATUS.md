@@ -3,9 +3,10 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-26** (**NEN-051 kapandı**; yüklemenin kendi
-> `playback-restart`'ı artık bir seek'i cevaplayamıyor, contract kiti seek'in
-> taşıdığı konumu sınıyor)
+> Son güncelleme: **2026-08-26** (kullanıcı bildirimiyle **üç kabuk kusuru
+> dosyalandı**: `NEN-053`, `NEN-054`, `NEN-055`. Aynı gün **NEN-051 kapandı**;
+> yüklemenin kendi `playback-restart`'ı artık bir seek'i cevaplayamıyor,
+> contract kiti seek'in taşıdığı konumu sınıyor)
 
 ## Nerede duruyoruz
 
@@ -14,8 +15,26 @@
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
 | **Son tamamlanan** | `NEN-051` — a seek is never answered by the load's own playback-restart |
-| **Sıradaki READY** | `NEN-025`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052` |
-| **Task sayısı** | 52 · done 33 · active 0 · blocked 0 · backlog 19 |
+| **Sıradaki READY** | `NEN-025`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-053`, `NEN-054` |
+| **Task sayısı** | 55 · done 33 · active 0 · blocked 0 · backlog 22 |
+
+**Kullanıcı üç transport gecikmesi bildirdi; üçü de dosyalandı.** Semptomlar:
+ses düzeyi değişimi geç duyuluyor, play/pause bazen geç dönüyor, kaydırıcı
+bırakıldığında top önce eski konuma ışınlanıp sonra bırakılan yere geliyor.
+Kod okundu, üç kök neden **farklı** çıktı ve üçü de kabukta:
+
+- `NEN-053` — `consume` bayat `positionChanged`'ı inmiş bir seek'in üstüne
+  yazıyor; uçuştaki seek'i tutan bayrak yok. Ayrıca `commitSeek` önizlemeyi
+  seek'ten önce siliyor.
+- `NEN-054` — ses düzeyi gecikmesinin **hangi** payının nereden geldiği
+  (kaydırıcının geriden gelmesi · bloklayan yazmaların birikmesi · mpv'nin ses
+  tamponu) okumayla belirlenemiyor; task ölçümle başlıyor.
+- `NEN-055` — durum olayı komut dönerken Rust kuyruğunda **hazır bekliyor**
+  (köprü her komuttan sonra çekiyor); gecikme yalnız kabuğun kendi 50 ms
+  poll'u. `NEN-053`'ten sonra yapılır.
+
+Henüz hiçbiri uygulanmadı; buradaki teşhisler kod okumasıdır, `NEN-054`'ünki
+ölçümle doğrulanacak.
 
 **`NEN-051` kapandı — bir seek artık yalnız kendi cevabını alıyor.**
 `NEN-049` "paralel koşuda `aSeekIsAnsweredThroughTheSession` kırmızı" diye
