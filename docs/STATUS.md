@@ -3,8 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-26** (**NEN-046 kullanıcı geri bildirimiyle
-> düzeltildi**; `⌘W`/kırmızı pencereyi, yalnız `⌘Q` uygulamayı kapatıyor)
+> Son güncelleme: **2026-08-26** (**NEN-048 kapandı**; boş durumda çıkan
+> sahte geçici bildirim gitti, geçici hata sınıfı artık kanıtlı)
 
 ## Nerede duruyoruz
 
@@ -12,9 +12,30 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-046` — macOS window lifecycle — no inert app after the window closes |
-| **Sıradaki READY** | `NEN-025`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-048`, `NEN-049` |
-| **Task sayısı** | 49 · done 31 · active 0 · blocked 0 · backlog 18 |
+| **Son tamamlanan** | `NEN-048` — spurious transient error fixed, transient error class proven |
+| **Sıradaki READY** | `NEN-025`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050` |
+| **Task sayısı** | 50 · done 32 · active 0 · blocked 0 · backlog 18 |
+
+**`NEN-048` kapandı — boş durumda sahte bildirim yok, geçici sınıf kanıtlı.**
+`resynchronize()` artık hatayı kullanıcıya haber etmiyor: resync kullanıcının
+eylemi değildir, reddedilmesi ADR-0031 Karar 1'in geçici sınıfına girmez.
+Uygulama medya yokken her öne geldiğinde çıkan `Önce bir medya açın.` bildirimi
+böylece kayboldu. Kullanıcı eyleminden türeyen üç yol (`seek`, `setVolume`,
+`togglePlayback`) olduğu gibi duruyor. `FakeSession` artık çağrı bazında hata
+enjekte edebiliyor — NEN-024'te bu sınıfın kanıtsız kalmasının sebebi buydu.
+Sekiz yeni testle seri paket **39 test / 6 suite** (art arda 2/2); gerçek
+`.app` üzerinde **4/4** manuel acceptance geçti. Testlerin boş olmadığı iki kez sınandı: düzeltme geri
+alınınca sessizlik testleri tam olarak bildirilen semptomu üretti, metne
+bilinçli sızıntı enjekte edilince negatif test yakaladı. Son-medya deposundan
+türeyen üç geçici yol testsiz kaldı ve `NEN-050`'ye ayrıldı. Kanıt:
+`evidence/M3/NEN-048-checklist.md`.
+
+**`NEN-049` hakkında yeni ölçüm.** Kusur "her paralel koşuda kırmızı" değil,
+**yük altında aralıklı**: aynı gün paket önce paralel modda art arda 4/4 yeşil
+geldi, kapanış doğrulamasında ise paralel 3/4 · seri 2/2 ölçüldü. Kırmızı olan
+hep `aSeekIsAnsweredThroughTheSession`. `NEN-049`'un DoD'si "değişiklik öncesi
+paralel kırmızı" kaydını istiyor; bu tek koşuyla değil, tekrarlı koşudaki
+kırmızı **oranıyla** üretilmeli.
 
 **`NEN-046` kapandı — pencere ve uygulama kapanışı artık ayrı.** Oynatıcı
 sahnesi `WindowGroup` yerine tek `Window`. Kırmızı düğme ve `⌘W` oynatmayı

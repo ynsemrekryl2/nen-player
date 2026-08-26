@@ -186,17 +186,166 @@ struct PlayerModelTests {
         )
     }
 
+    // MARK: - Transient error class (ADR-0031 Karar 1)
+
+    @Test("resynchronizing without media says nothing")
+    func resyncWithoutMediaIsSilent() {
+        let fixture = FakeSession()
+        // Exactly the shipped chain: a session exists from `attach`, but no
+        // media is loaded, so the engine refuses the position read.
+        fixture.errors[.position] = .NotLoaded
+        fixture.currentState = .idle
+        let model = makeModel(session: fixture)
+
+        model.applicationBecameActive()
+
+        #expect(model.transientMessage == nil)
+        #expect(model.fatalMessage == nil)
+        #expect(model.mediaName == nil)
+    }
+
+    @Test("EventsLost resynchronization stays silent when the engine refuses")
+    func eventsLostResyncIsSilent() {
+        let fixture = FakeSession()
+        fixture.errors[.position] = .NotLoaded
+        let model = makeModel(session: fixture)
+
+        model.consume([.eventsLost(dropped: 4)])
+
+        #expect(model.transientMessage == nil)
+        #expect(model.fatalMessage == nil)
+    }
+
+    @Test("a refused seek is reported transiently, not fatally")
+    func refusedSeekIsTransient() {
+        let fixture = FakeSession()
+        let model = makePlayingModel(session: fixture)
+        fixture.errors[.seek] = .NotLoaded
+
+        model.seekRelative(seconds: 10)
+
+        #expect(model.transientMessage == "Önce bir medya açın.")
+        #expect(model.fatalMessage == nil)
+        #expect(model.playbackState != .failed)
+    }
+
+    @Test("a refused volume change is reported transiently, not fatally")
+    func refusedVolumeIsTransient() {
+        let fixture = FakeSession()
+        let model = makePlayingModel(session: fixture)
+        fixture.errors[.volume] = .Unsupported(capability: .volume)
+
+        model.adjustVolume(by: -0.1)
+
+        #expect(model.transientMessage == "Bu işlem desteklenmiyor.")
+        #expect(model.fatalMessage == nil)
+        #expect(model.volume == 1)
+    }
+
+    @Test("a refused play command is reported transiently, not fatally")
+    func refusedPlaybackToggleIsTransient() {
+        let fixture = FakeSession()
+        let model = makePlayingModel(session: fixture)
+        fixture.errors[.play] = .ReentrantCall
+
+        model.togglePlayback()
+
+        #expect(model.transientMessage == "İşlem şu anda tamamlanamadı.")
+        #expect(model.fatalMessage == nil)
+        #expect(model.playbackState != .failed)
+    }
+
+    @Test("transient copy carries no path, engine name, or numeric code")
+    func transientCopyIsClosed() {
+        let engineNames = ["mpv", "libmpv", "MPV", "AVFoundation", "ffmpeg"]
+        for error in Self.everyPlaybackError {
+            let message = PlaybackPresentation.errorMessage(for: error)
+            #expect(!message.contains("/"), "path separator in: \(message)")
+            let carriesDigits = message.rangeOfCharacter(from: .decimalDigits) != nil
+            #expect(!carriesDigits, "numeric code in: \(message)")
+            for name in engineNames {
+                #expect(!message.contains(name), "engine name in: \(message)")
+            }
+            // `FfiPlaybackError` reflects itself in `errorDescription`; the
+            // shell must never fall through to that.
+            #expect(message != String(reflecting: error))
+            #expect(message != error.localizedDescription)
+        }
+    }
+
+    @Test("every playback error variant has its own Turkish sentence")
+    func everyErrorVariantHasDistinctCopy() {
+        let messages = Self.everyPlaybackError.map(PlaybackPresentation.errorMessage(for:))
+        #expect(Set(messages).count == messages.count)
+        for message in messages {
+            #expect(!message.isEmpty)
+            #expect(message.hasSuffix("."))
+        }
+        #expect(PlaybackPresentation.errorMessage(for: CocoaError(.fileNoSuchFile))
+            == "İşlem tamamlanamadı.")
+    }
+
+    @Test("a transient message clears itself")
+    func transientMessageExpires() async throws {
+        let fixture = FakeSession()
+        let model = makePlayingModel(
+            session: fixture,
+            transientMessageDurationNanoseconds: 20_000_000
+        )
+        fixture.errors[.seek] = .NotLoaded
+
+        model.seekRelative(seconds: 10)
+        #expect(model.transientMessage != nil)
+
+        try await Task.sleep(nanoseconds: 300_000_000)
+        #expect(model.transientMessage == nil)
+    }
+
+    /// Every `FfiPlaybackError` variant, including all four load failures.
+    /// Payload values are deliberately distinctive so the negative test would
+    /// catch them if they ever leaked into user-facing copy.
+    private static let everyPlaybackError: [FfiPlaybackError] = [
+        .Unsupported(capability: .volume),
+        .ReentrantCall,
+        .NotLoaded,
+        .ShutDown,
+        .UnknownTrack(kind: .subtitle),
+        .RateOutOfRange(requested: 7.5, min: 0.25, max: 4),
+        .LoadFailed(reason: .notFound),
+        .LoadFailed(reason: .unreadable),
+        .LoadFailed(reason: .unsupportedFormat),
+        .LoadFailed(reason: .networkUnavailable),
+        .EngineFailure(code: 4242),
+    ]
+
     private func makeModel(
         session: FakeSession,
-        store: MemoryRecentStore = MemoryRecentStore()
+        store: MemoryRecentStore = MemoryRecentStore(),
+        transientMessageDurationNanoseconds: UInt64 = 3_000_000_000
     ) -> PlayerModel {
         let model = PlayerModel(
             recentStore: store,
             startsPolling: false,
+            transientMessageDurationNanoseconds: transientMessageDurationNanoseconds,
             managesCursor: false,
             sessionFactory: { _ in session }
         )
         model.attach(to: MPVVideoView.makePlaybackSurface())
+        return model
+    }
+
+    /// Loads media and settles it into `Ready`, so refusal tests start from a
+    /// model that genuinely has media.
+    private func makePlayingModel(
+        session: FakeSession,
+        transientMessageDurationNanoseconds: UInt64 = 3_000_000_000
+    ) -> PlayerModel {
+        let model = makeModel(
+            session: session,
+            transientMessageDurationNanoseconds: transientMessageDurationNanoseconds
+        )
+        model.openMedia(at: URL(fileURLWithPath: "/fixtures/media/contract-clip.mkv"))
+        model.consume([.stateChanged(state: .ready)])
         return model
     }
 }
@@ -218,7 +367,15 @@ private final class MemoryRecentStore: RecentMediaStoring {
     }
 }
 
+/// The session calls a test can make fail, so the shell's refusal paths run.
+private enum FakeSessionCall: Hashable {
+    case load, play, pause, stop, seek, position, duration, state, tracks, volume
+}
+
 private final class FakeSession: PlaybackSessionClient {
+    /// Errors keyed by call: every listed call throws instead of succeeding.
+    var errors: [FakeSessionCall: FfiPlaybackError] = [:]
+
     var loadedLocators: [String] = []
     var playCount = 0
     var pauseCount = 0
@@ -231,19 +388,54 @@ private final class FakeSession: PlaybackSessionClient {
     var events: [FfiSessionEvent] = []
     var shutdownCount = 0
 
-    func load(locator: String) throws { loadedLocators.append(locator) }
-    func play() throws { playCount += 1; currentState = .playing }
-    func pause() throws { pauseCount += 1; currentState = .paused }
-    func stop() throws { currentState = .idle }
-    func seek(toMs: UInt64) throws { seekTargets.append(toMs); currentPosition = toMs }
-    func positionMs() throws -> UInt64 { currentPosition }
-    func durationMs() throws -> UInt64? { currentDuration }
-    func state() throws -> FfiPlaybackState { currentState }
+    private func refuse(_ call: FakeSessionCall) throws {
+        if let error = errors[call] { throw error }
+    }
+
+    func load(locator: String) throws {
+        try refuse(.load)
+        loadedLocators.append(locator)
+    }
+    func play() throws {
+        try refuse(.play)
+        playCount += 1
+        currentState = .playing
+    }
+    func pause() throws {
+        try refuse(.pause)
+        pauseCount += 1
+        currentState = .paused
+    }
+    func stop() throws {
+        try refuse(.stop)
+        currentState = .idle
+    }
+    func seek(toMs: UInt64) throws {
+        try refuse(.seek)
+        seekTargets.append(toMs)
+        currentPosition = toMs
+    }
+    func positionMs() throws -> UInt64 {
+        try refuse(.position)
+        return currentPosition
+    }
+    func durationMs() throws -> UInt64? {
+        try refuse(.duration)
+        return currentDuration
+    }
+    func state() throws -> FfiPlaybackState {
+        try refuse(.state)
+        return currentState
+    }
     func tracks(kind: FfiTrackKind) throws -> [FfiTrackDescriptor] {
+        try refuse(.tracks)
         requestedTrackKinds.append(kind)
         return []
     }
-    func setVolume(volume: Float) throws { volumes.append(volume) }
+    func setVolume(volume: Float) throws {
+        try refuse(.volume)
+        volumes.append(volume)
+    }
     func drainEvents() -> [FfiSessionEvent] {
         defer { events.removeAll() }
         return events

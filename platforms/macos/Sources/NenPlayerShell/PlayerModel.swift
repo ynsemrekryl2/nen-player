@@ -42,6 +42,7 @@ public final class PlayerModel: ObservableObject {
     private let shouldPoll: Bool
     private let pollIntervalNanoseconds: UInt64
     private let controlsHideDelayNanoseconds: UInt64
+    private let transientMessageDurationNanoseconds: UInt64
     private let managesCursor: Bool
     private var session: (any PlaybackSessionClient)?
     private var pendingURL: URL?
@@ -60,6 +61,7 @@ public final class PlayerModel: ObservableObject {
         startsPolling: Bool = true,
         pollIntervalNanoseconds: UInt64 = 50_000_000,
         controlsHideDelayNanoseconds: UInt64 = 2_500_000_000,
+        transientMessageDurationNanoseconds: UInt64 = 3_000_000_000,
         managesCursor: Bool = true,
         sessionFactory: @escaping SessionFactory = { view in
             let engine = try MPVPlaybackEngine(videoView: view)
@@ -72,6 +74,7 @@ public final class PlayerModel: ObservableObject {
         self.shouldPoll = startsPolling
         self.pollIntervalNanoseconds = pollIntervalNanoseconds
         self.controlsHideDelayNanoseconds = controlsHideDelayNanoseconds
+        self.transientMessageDurationNanoseconds = transientMessageDurationNanoseconds
         self.managesCursor = managesCursor
         if startsPolling {
             startPolling()
@@ -360,7 +363,7 @@ public final class PlayerModel: ObservableObject {
             _ = try session.tracks(kind: .audio)
             _ = try session.tracks(kind: .subtitle)
         } catch {
-            presentTransient(PlaybackPresentation.errorMessage(for: error))
+            Self.logger.debug("Playback resynchronization found no readable state")
         }
     }
 
@@ -406,8 +409,9 @@ public final class PlayerModel: ObservableObject {
     private func presentTransient(_ message: String) {
         transientTask?.cancel()
         transientMessage = message
+        let lifetime = transientMessageDurationNanoseconds
         transientTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            try? await Task.sleep(nanoseconds: lifetime)
             guard !Task.isCancelled else { return }
             self?.transientMessage = nil
         }
