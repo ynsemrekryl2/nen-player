@@ -114,7 +114,8 @@ Stremio subtitle add-on · browser player · web dashboard · hosted multi-user
 backend · merkezi hesap · scraping · torrent/debrid · DRM bypass · progressive
 incomplete translation · tam subtitle editörü · cloud sync · sosyal özellikler ·
 kullanıcıya playback engine seçtirmek · teknik ID girişi · düşük güvenli
-auto-sync'i onaysız uygulamak · protected/DRM audio extraction.
+auto-sync'i onaysız uygulamak · protected/DRM audio extraction ·
+Mac App Store dağıtımı (ADR-0034).
 
 ## Doğrulama
 

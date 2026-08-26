@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **55** task · ✅ done 36 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 19
+Toplam **58** task · ✅ done 37 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 21
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -54,7 +54,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-022](done/NEN-022-libmpv-adapter.md) | libmpv playback adapter for macOS | L | ✅ done | NEN-021 NEN-004 |
 | [NEN-023](done/NEN-023-track-enumeration.md) | Embedded track enumeration and selection | M | ✅ done | NEN-022 |
 | [NEN-024](done/NEN-024-macos-shell.md) | macOS SwiftUI shell with transport controls | M | ✅ done | NEN-022 NEN-045 |
-| [NEN-025](backlog/NEN-025-user-subtitle-loading.md) | User subtitle loading and sidecar discovery | M | ⚪ backlog | NEN-013 NEN-015 NEN-024 |
+| [NEN-025](done/NEN-025-user-subtitle-loading.md) | User subtitle loading and sidecar discovery | M | ✅ done | NEN-013 NEN-015 NEN-024 |
 | [NEN-026](backlog/NEN-026-subtitle-menu-ui.md) | Subtitle menu UI | M | ⚪ backlog | NEN-019 NEN-025 |
 | [NEN-027](backlog/NEN-027-subtitle-renderer.md) | SubtitleRenderer port and libmpv injection adapter | M | ⚪ backlog | NEN-017 NEN-026 |
 | [NEN-028](backlog/NEN-028-slice-acceptance.md) | macOS vertical slice acceptance | S | ⚪ backlog | NEN-027 |
@@ -76,6 +76,9 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-053](done/NEN-053-stale-position-overrides-seek.md) | A stale position event never overrides a seek that landed | S | ✅ done | NEN-051 |
 | [NEN-054](done/NEN-054-volume-change-latency.md) | A volume change is heard when it is made | M | ✅ done | NEN-024 |
 | [NEN-055](done/NEN-055-transport-feedback-latency.md) | A transport command is shown without waiting for the next poll tick | S | ✅ done | NEN-053 |
+| [NEN-056](backlog/NEN-056-too-large-label-is-unreachable.md) | Resolve the unreachable "çok büyük" reason label | S | ⚪ backlog | NEN-025 |
+| [NEN-057](backlog/NEN-057-filename-language-hint.md) | Read the language a subtitle filename declares | S | ⚪ backlog | NEN-025 |
+| [NEN-058](backlog/NEN-058-media-fails-beside-symlinked-sidecar.md) | A medium fails to load when a symlinked sidecar sits beside it | S | ⚪ backlog | NEN-022 NEN-025 |
 
 ## M5 — Translation Core
 
@@ -96,7 +99,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 
 Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 
-- **NEN-025** — User subtitle loading and sidecar discovery
+- **NEN-026** — Subtitle menu UI
 - **NEN-033** — OpenSubtitles hash-based identity lookup
 - **NEN-034** — AI-assisted release name normalization
 - **NEN-035** — Identity confidence scoring and candidate ranking
@@ -110,3 +113,6 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-049** — Serialize real libmpv platform tests
 - **NEN-050** — Cover the recent-media store's transient error paths
 - **NEN-052** — Decide and pin what a seek during loading does
+- **NEN-056** — Resolve the unreachable "çok büyük" reason label
+- **NEN-057** — Read the language a subtitle filename declares
+- **NEN-058** — A medium fails to load when a symlinked sidecar sits beside it

@@ -460,6 +460,117 @@ struct PlayerModelTests {
         .EngineFailure(code: 4242),
     ]
 
+    // MARK: - Subtitle loading and sidecar discovery (NEN-025)
+    //
+    // These drive the real `FfiSubtitleLibrary` against real files, because the
+    // thing under test is the shell's *reaction* to a real gate verdict. The
+    // gates themselves are proved in `nen-app`; what is proved here is
+    // ADR-0031 Karar 5's split — who gets told, and who does not.
+
+    @Test("a sidecar beside the medium is picked up when it opens")
+    func sidecarIsDiscoveredOnOpen() {
+        let dir = TempFixture("discovered")
+        defer { dir.remove() }
+        let media = dir.write("Film.mkv", "not really a video")
+        dir.write("Film.srt", TempFixture.validSrt)
+
+        let model = makeModel(session: FakeSession())
+        model.openMedia(at: media)
+
+        #expect(model.subtitleSourceCount == 1)
+        #expect(model.transientMessage == nil)
+    }
+
+    @Test("a file the user picked and had refused produces a notification")
+    func explicitRefusalIsAnnounced() {
+        let dir = TempFixture("explicit-refusal")
+        defer { dir.remove() }
+        let real = dir.write("real.srt", TempFixture.validSrt)
+        let link = dir.symlink("Chosen.srt", to: real)
+
+        let model = makePlayingModel(session: FakeSession())
+        model.loadSubtitleFile(at: link)
+
+        #expect(model.transientMessage == "Bu bir kısayol; altyazı olarak açılamıyor.")
+        #expect(model.subtitleSourceCount == 0)
+    }
+
+    @Test("the same refusal found by a scan says nothing at all")
+    func scannedRefusalIsSilent() {
+        // The negative control for the test above: identical file, identical
+        // verdict, different discoverer. Only the announcement differs.
+        let dir = TempFixture("scanned-refusal")
+        defer { dir.remove() }
+        let media = dir.write("Film.mkv", "not really a video")
+        let real = dir.write("real.srt", TempFixture.validSrt)
+        _ = dir.symlink("Film.srt", to: real)
+
+        let model = makeModel(session: FakeSession())
+        model.openMedia(at: media)
+
+        #expect(model.transientMessage == nil)
+        #expect(model.subtitleSourceCount == 0)
+    }
+
+    @Test("a broken subtitle is catalogued quietly rather than interrupting playback")
+    func brokenSubtitleDoesNotInterrupt() {
+        // ADR-0031 Karar 5: its surface is the menu, not the transport. The
+        // spine of the product is that a subtitle problem never stops playback.
+        let dir = TempFixture("broken")
+        defer { dir.remove() }
+        let broken = dir.write("Broken.srt", "this is not a timecode")
+
+        let session = FakeSession()
+        let model = makePlayingModel(session: session)
+        model.loadSubtitleFile(at: broken)
+
+        #expect(model.transientMessage == nil)
+        #expect(model.subtitleSourceCount == 1)
+        // Playback was neither failed nor interrupted by the broken file.
+        #expect(model.fatalMessage == nil)
+        #expect(model.playbackState != .failed)
+        #expect(session.pauseCount == 0)
+        #expect(session.shutdownCount == 0)
+    }
+
+    @Test("loading one file twice leaves one source")
+    func loadingTwiceLeavesOneSource() {
+        let dir = TempFixture("twice")
+        defer { dir.remove() }
+        let subtitle = dir.write("Film.srt", TempFixture.validSrt)
+
+        let model = makePlayingModel(session: FakeSession())
+        model.loadSubtitleFile(at: subtitle)
+        model.loadSubtitleFile(at: subtitle)
+
+        #expect(model.subtitleSourceCount == 1)
+    }
+
+    @Test("a new medium does not inherit the previous one's subtitles")
+    func openingAnotherMediumClearsTheCatalog() {
+        let dir = TempFixture("cleared")
+        defer { dir.remove() }
+        let first = dir.write("First.mkv", "not really a video")
+        dir.write("First.srt", TempFixture.validSrt)
+        let second = dir.write("Second.mkv", "not really a video")
+
+        let model = makeModel(session: FakeSession())
+        model.openMedia(at: first)
+        #expect(model.subtitleSourceCount == 1)
+
+        model.openMedia(at: second)
+        #expect(model.subtitleSourceCount == 0)
+    }
+
+    @Test("asking for a subtitle before a medium is refused, and says why")
+    func subtitleWithoutMediaIsRefused() {
+        let model = makeModel(session: FakeSession())
+        model.chooseSubtitleFile()
+
+        #expect(model.transientMessage == "Önce bir medya açın.")
+        #expect(model.subtitleSourceCount == 0)
+    }
+
     private func makeModel(
         session: FakeSession,
         store: MemoryRecentStore = MemoryRecentStore(),
@@ -497,6 +608,40 @@ struct PlayerModelTests {
         model.openMedia(at: URL(fileURLWithPath: "/fixtures/media/contract-clip.mkv"))
         model.consume([.stateChanged(state: .ready)])
         return model
+    }
+}
+
+/// A real directory with real files in it.
+///
+/// NEN-025's gates answer questions about the filesystem, so a shell test that
+/// wants a real verdict has to hand them something real to look at.
+private struct TempFixture {
+    static let validSrt = "1\n00:00:01,000 --> 00:00:02,000\nHello there.\n"
+
+    let url: URL
+
+    init(_ tag: String) {
+        url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("nen-025-shell-\(tag)-\(ProcessInfo.processInfo.processIdentifier)")
+        try? FileManager.default.removeItem(at: url)
+        try! FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+    }
+
+    @discardableResult
+    func write(_ name: String, _ contents: String) -> URL {
+        let file = url.appendingPathComponent(name)
+        try! contents.write(to: file, atomically: true, encoding: .utf8)
+        return file
+    }
+
+    func symlink(_ name: String, to target: URL) -> URL {
+        let link = url.appendingPathComponent(name)
+        try! FileManager.default.createSymbolicLink(at: link, withDestinationURL: target)
+        return link
+    }
+
+    func remove() {
+        try? FileManager.default.removeItem(at: url)
     }
 }
 

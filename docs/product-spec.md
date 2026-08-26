@@ -370,7 +370,8 @@ hosted multi-user backend · merkezi kullanıcı hesabı · scraping · torrent/
 acquisition · DRM bypass · progressive incomplete translation · tam subtitle
 editörü · cloud sync · sosyal özellikler · kullanıcıya playback engine
 seçtirmek · teknik ID girişi · düşük güvenli auto sync'i kullanıcı onayı olmadan
-uygulamak · protected/DRM audio extraction.
+uygulamak · protected/DRM audio extraction · Mac App Store dağıtımı (ADR-0034:
+sandbox içinde sidecar keşfi ölçülüp elendi; kanal Developer ID + notarization).
 
 ## 18. Geliştirme ve test yaklaşımı
 

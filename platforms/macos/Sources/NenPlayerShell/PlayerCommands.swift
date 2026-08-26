@@ -13,6 +13,8 @@ public struct PlayerCommands: Commands {
         CommandGroup(replacing: .newItem) {
             Button("Aç…", action: chooseMedia)
                 .keyboardShortcut("o", modifiers: .command)
+            Button("Altyazı Dosyası Yükle…", action: model.chooseSubtitleFile)
+                .keyboardShortcut("o", modifiers: [.command, .shift])
         }
 
         CommandMenu("Oynatma") {

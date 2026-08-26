@@ -16,3 +16,7 @@ nen-translate.workspace = true
 nen-sync.workspace = true
 nen-persist.workspace = true
 nen-providers.workspace = true
+
+# Path digests for user subtitle identity (ADR-0010 Karar 2, NEN-025). Already
+# a workspace dependency for NEN-016's timeline fingerprint; no new crate.
+blake3.workspace = true

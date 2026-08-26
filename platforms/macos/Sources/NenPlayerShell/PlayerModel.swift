@@ -4,6 +4,7 @@ import Foundation
 import NenCore
 import NenPlaybackMPV
 import OSLog
+import UniformTypeIdentifiers
 
 @MainActor
 public final class PlayerModel: ObservableObject {
@@ -20,6 +21,12 @@ public final class PlayerModel: ObservableObject {
     @Published public private(set) var controlsVisible = true
     @Published public private(set) var showsRemainingTime = false
     @Published public private(set) var seekPreviewMilliseconds: UInt64?
+    /// How many subtitle sources are known for the medium being played.
+    ///
+    /// The menu itself is NEN-026's; this is what NEN-025 can honestly publish
+    /// — enough for the shell to prove the catalog is wired up, and nothing
+    /// that would commit the menu to a shape before it is designed.
+    @Published public private(set) var subtitleSourceCount: UInt32 = 0
 
     public var hasMedia: Bool { mediaName != nil && fatalMessage == nil }
     public var isPlaying: Bool { playbackState == .playing }
@@ -52,6 +59,13 @@ public final class PlayerModel: ObservableObject {
     /// A monotonic clock, injectable so a test can reach the expiry without waiting.
     private let now: () -> UInt64
     private let managesCursor: Bool
+    /// The catalog and the documents behind it, owned by the core (NEN-025).
+    ///
+    /// Not behind a protocol, unlike `PlaybackSessionClient`: that one exists
+    /// because a real playback session needs a real libmpv process. This one
+    /// needs a filesystem and nothing else, so the tests drive the real thing
+    /// and prove the real gates.
+    private let subtitles = FfiSubtitleLibrary()
     private var session: (any PlaybackSessionClient)?
     private var pendingURL: URL?
     private var pollTask: Task<Void, Never>?
@@ -152,6 +166,7 @@ public final class PlayerModel: ObservableObject {
         mediaName = url.lastPathComponent
         fatalMessage = nil
         transientMessage = nil
+        discoverSidecar(besides: url)
         playbackState = .buffering
         positionMilliseconds = 0
         durationMilliseconds = nil
@@ -173,6 +188,54 @@ public final class PlayerModel: ObservableObject {
             playWhenReady = false
             presentFatal(error)
         }
+    }
+
+    /// Asks the user for a subtitle file and loads it.
+    ///
+    /// A medium first: a subtitle catalog belongs to something being played,
+    /// and an entry with nothing to attach to would be a row the user cannot
+    /// act on.
+    public func chooseSubtitleFile() {
+        guard hasMedia else {
+            presentTransient("Önce bir medya açın.")
+            return
+        }
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.allowedContentTypes = [.init(filenameExtension: "srt")].compactMap { $0 }
+        panel.prompt = "Yükle"
+        if panel.runModal() == .OK, let url = panel.url {
+            loadSubtitleFile(at: url)
+        }
+    }
+
+    /// Loads a subtitle file the user picked.
+    ///
+    /// A refusal is the user's own action being turned down, so it earns the
+    /// *geçici* notification of ADR-0031 Karar 1. A file that was catalogued
+    /// and marked broken earns nothing here: its surface is the menu
+    /// (Karar 5), and interrupting playback for it would break the product's
+    /// spine — "altyazı sorunu playback'i durdurmaz".
+    public func loadSubtitleFile(at url: URL) {
+        let outcome = subtitles.addFile(path: url.path)
+        subtitleSourceCount = subtitles.sourceCount()
+        if case let .rejected(reason) = outcome {
+            presentTransient(PlaybackPresentation.subtitleRejectionMessage(for: reason))
+        }
+    }
+
+    /// Looks for a sidecar next to a medium being opened.
+    ///
+    /// **Silent, whatever it finds** (ADR-0031 Karar 5). A scan is not the
+    /// user's action; telling them that a file they never mentioned was refused
+    /// would be noise at the exact moment they asked to watch something — and
+    /// it would confirm that the refused file exists.
+    private func discoverSidecar(besides url: URL) {
+        subtitles.clear()
+        _ = subtitles.addSidecarFor(mediaPath: url.path)
+        subtitleSourceCount = subtitles.sourceCount()
     }
 
     public func openRecentMedia() {

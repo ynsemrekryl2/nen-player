@@ -58,4 +58,23 @@ public enum PlaybackPresentation {
             return "Medya oynatılamadı."
         }
     }
+
+    /// What the user is told when a subtitle file they picked was refused at a
+    /// security gate (ADR-0031 Karar 1, *geçici* sınıf; NEN-025).
+    ///
+    /// One sentence per variant, in the user's words. No path, no gate name, no
+    /// errno: ADR-0031 Karar 2 keeps the path off every surface, and the reason
+    /// a file was refused is not made clearer by naming the rule it broke.
+    ///
+    /// Only a **rejection** reaches this function. A file that was catalogued
+    /// and marked broken says so in the menu instead (Karar 5) and never
+    /// interrupts playback.
+    public static func subtitleRejectionMessage(for rejection: FfiFileRejection) -> String {
+        switch rejection {
+        case .symlink: return "Bu bir kısayol; altyazı olarak açılamıyor."
+        case .traversal: return "Bu altyazı dosyasının konumu kullanılamıyor."
+        case .notRegularFile: return "Bu bir altyazı dosyası değil."
+        case .tooLarge: return "Bu altyazı dosyası çok büyük."
+        }
+    }
 }

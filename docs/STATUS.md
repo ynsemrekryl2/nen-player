@@ -3,12 +3,10 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-26** (kullanıcı bildirimiyle **üç kabuk kusuru
-> dosyalandı**: `NEN-053`, `NEN-054`, `NEN-055`; **`NEN-053` kapandı** —
-> sürükleme bırakıldığında top artık eski konuma dönmüyor. Aynı gün
-> **NEN-051 kapandı**;
-> yüklemenin kendi `playback-restart`'ı artık bir seek'i cevaplayamıyor,
-> contract kiti seek'in taşıdığı konumu sınıyor)
+> Son güncelleme: **2026-08-27** (**`NEN-025` kapandı** — kullanıcı altyazısı
+> yükleniyor ve sidecar bulunuyor, güvenlik kapıları gerçek dosya sistemiyle
+> sınanmış durumda. Kapanışa giden yolda bir mimari karar çıktı ve kabul
+> edildi: **ADR-0034** — macOS dağıtımı artık sandbox'sız)
 
 ## Nerede duruyoruz
 
@@ -16,9 +14,45 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-054` — a volume change is heard when it is made |
-| **Sıradaki READY** | `NEN-025`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052` |
-| **Task sayısı** | 55 · done 36 · active 0 · blocked 0 · backlog 19 |
+| **Son tamamlanan** | `NEN-025` — user subtitle loading and sidecar discovery |
+| **Sıradaki READY** | `NEN-026`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-056`, `NEN-057`, `NEN-058` |
+| **Task sayısı** | 58 · done 37 · active 0 · blocked 0 · backlog 21 |
+
+**`NEN-025` kapandı — altyazı dosyası yükleniyor, sidecar bulunuyor, kapılar
+gerçek dosya sistemiyle sınanıyor.** Rust **489** test (`NEN-051`'de 453'tü),
+Swift **56** (seri 2/2, paralel 4/4). Kapılar `nen-app`'te düz `std::fs` ile:
+fake bir port "bu symlink" demekten ibaret olurdu, bu yüzden testler gerçek
+symlink, gerçek FIFO, gerçek dizin-symlink'i ve seyrek 10 MiB dosya kuruyor.
+
+**Sidecar keşfi kod yazılmadan önce ölçüldü ve planlanan çözüm elendi.**
+Sandbox altında, medyanın security scope'u **açıkken**: kardeş `.srt` `EPERM`,
+dizin listeleme `EPERM`, ve Apple'ın bu iş için gösterdiği related-item
+koordinasyonu (`NSIsRelatedItemType` + `NSFileCoordinator`) da üç ayrı
+Info.plist kurulumunda `EPERM`. Yani karar "sandbox mı, kolaylık mı" değildi.
+Kullanıcı kararıyla **ADR-0034** kabul edildi: App Sandbox kaldırıldı, Mac App
+Store non-goal listesine eklendi, notarization (`NEN-043`) etkilenmedi.
+Karşılığı açıkça yazıldı — `security-policy.md` §4 kapıları artık **tek**
+savunma hattı. Ölçüm: `evidence/M3/NEN-025-sandbox-measurement.md`.
+
+**Boyut sınırı icat edilmedi; var olanı paylaşıldı.** Plan 16 MiB'lık yeni bir
+sabit öngörüyordu, oysa `nen_subtitle::encoding::MAX_INPUT_BYTES` (10 MiB,
+NEN-015) zaten vardı. İkinci ve daha büyük bir sınır, aradaki bandın önce
+tamamen okunup sonra reddedilmesi demek olurdu — §4 #4'ün yasakladığı şey. Bir
+test ikisinin ayrışmasını engelliyor.
+
+**Bir DoD maddesi beklenenden farklı yoldan karşılandı.** `NSOpenPanel`
+symlink'i **çözüyor** (ölçüldü), yani kullanıcı panel üzerinden symlink teslim
+edemiyor. Symlink kapısı tarama yolunda çalışıyor ve gerçek `.app`'te
+gösterildi: symlink sidecar sessizce elendi, geçerli sidecar bulundu, 11 MiB'lık
+dosya elle yüklendiğinde "Bu altyazı dosyası çok büyük." bildirimi çıktı ve
+oynatma sürdü. Kanıt: `evidence/M3/NEN-025-checklist.md`.
+
+Üç yan bulgu ayrıldı: **`NEN-056`** (ADR-0031 Karar 5'in `çok büyük` etiketi
+üretilemez durumda — ADR kendi içinde çelişiyor), **`NEN-057`** (dosya adından
+dil ipucu), **`NEN-058`** (yanında symlink `.srt` olan medya açılmıyor —
+gözlendi, teşhis **edilmedi**). Ayrıca `NEN-049`'a yük altında gözlenen bir
+paralel kırmızı işlendi: aranan bağımsız kırmızı sınıfı bir kez görüldü, ama
+`aSeekIsAnsweredThroughTheSession`'da değil.
 
 **Kullanıcı üç transport gecikmesi bildirdi; üçü de dosyalandı.** Semptomlar:
 ses düzeyi değişimi geç duyuluyor, play/pause bazen geç dönüyor, kaydırıcı

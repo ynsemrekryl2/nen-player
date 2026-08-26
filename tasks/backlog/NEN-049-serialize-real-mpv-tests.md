@@ -60,6 +60,27 @@ doğrulanamaz. **Karar kullanıcıya ait:** yeni bir kırmızı gözlenene kadar
 beklemek ya da task'ı kapatmak. O gözlem gelmeden implementasyona
 başlanmamalıdır.
 
+### Gözlem — 2026-08-27, `NEN-025` sırasında
+
+Aranan "bağımsız kırmızı" **bir kez gözlendi**, fakat beklenen testte değil.
+`NEN-025`'in ilk paket koşusunda paralel modda `transientMessageExpires`
+kırmızı geldi: 20 ms'lik geçici bildirim 300 ms'lik beklemeden sonra hâlâ
+temizlenmemişti. O koşuda derleme de aynı anda sürüyordu.
+
+Aynı ağaçta hemen ardından:
+
+| Mod | Sonuç |
+|---|---|
+| yalnız o test | 1/1 yeşil |
+| seri, tam paket | 3/3 yeşil (56 test) |
+| paralel, tam paket (derleme sıcakken) | 4/4 yeşil |
+
+Yani kırmızı **yükle ilişkili**, testle değil: ana aktörü meşgul eden bir
+koşuda `Task.sleep`'e dayanan bir bekleyiş aç kalıyor.
+`aSeekIsAnsweredThroughTheSession` değil, ama **sınıf aynı** — bu task'ın
+gerekçesindeki "paralellik sebep değil, dar bir pencereyi genişleten koşul"
+ifadesiyle uyumlu. Tek gözlem; oran ölçümü yapılmadı.
+
 ## Kanıt (DoD)
 
 - [ ] `bash scripts/test-macos.sh` art arda en az 3 kez çıkış 0
