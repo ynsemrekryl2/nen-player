@@ -58,5 +58,7 @@ alındıktan sonra workflow'un yerel eşdeğeri bütünüyle çıkış 0 verdi:
 - `bash scripts/task-index.sh --check` — `OK: tasks/INDEX.md güncel.`
 - `bash scripts/check-docs.sh` — `SONUÇ: tüm denetimler geçti.`
 
-Runtime davranışı veya public API değişmedi. GitHub Actions sonucu task
-commit'i push edildikten sonra teslimat doğrulaması olarak izlenecek.
+Runtime davranışı veya public API değişmedi. Task commit'i `0e434d6` için
+GitHub Actions `CI` run **33042520202**, bütün adımları **1 dk 57 sn** içinde
+geçerek `success` tamamlandı:
+https://github.com/ynsemrekryl2/nen-player/actions/runs/33042520202

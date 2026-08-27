@@ -24,7 +24,8 @@ dışı içerik dört dosyada birebir aynı, beşincideki tek token farkı Rust
 1.98'in `clippy::assertions_on_constants` lint'inin istediği
 `const { assert!(...) }` wrapper'ı. Tam yerel workflow — fmt, clippy, workspace
 testleri, cargo-deny, shell testleri, task-index ve docs kapıları — çıkış 0.
-GitHub Actions sonucu commit push edildikten sonra ayrıca izlenecek.
+Task commit'i `0e434d6` için GitHub Actions `CI` run **33042520202**, tüm
+adımları **1 dk 57 sn** içinde geçerek `success` tamamlandı.
 
 **`NEN-058` kapandı — bildirilen hipotez ölçümle ikiye ayrıldı.** Task
 "yanında symlink `.srt` olan medya açılmıyor" diye açılmıştı ve tek hipotezi
