@@ -22,17 +22,32 @@ public final class PlayerModel: ObservableObject {
     @Published public private(set) var showsRemainingTime = false
     @Published public private(set) var seekPreviewMilliseconds: UInt64?
     /// How many subtitle sources are known for the medium being played.
-    ///
-    /// The menu itself is NEN-026's; this is what NEN-025 can honestly publish
-    /// — enough for the shell to prove the catalog is wired up, and nothing
-    /// that would commit the menu to a shape before it is designed.
     @Published public private(set) var subtitleSourceCount: UInt32 = 0
+    /// §8's menu, re-derived by the core every time the catalog moves.
+    @Published public private(set) var subtitleMenu: [FfiMenuSection] = []
+    /// Which heading column two is showing. Bound to the heading's identity,
+    /// never to its row index — column one grows while the menu is open
+    /// (ADR-0031 Karar 4.2).
+    @Published public private(set) var browsedSubtitleGroup: SubtitleMenuGroupID = .closed
+    /// The row being shown, or `nil` for `Kapalı`.
+    @Published public private(set) var selectedSubtitleToken: UInt32?
+    /// Whether the sidecar scan is still running (ADR-0031 Karar 4).
+    @Published public private(set) var isScanningSubtitles = false
 
     public var hasMedia: Bool { mediaName != nil && fatalMessage == nil }
     public var isPlaying: Bool { playbackState == .playing }
     public var windowTitle: String { mediaName ?? "Nen Player" }
     public var displayedPositionMilliseconds: UInt64 {
         seekPreviewMilliseconds ?? positionMilliseconds
+    }
+    /// Whether the catalog holds anything at all — what tells the two empty
+    /// states apart.
+    public var hasAnySubtitleSource: Bool { subtitleSourceCount > 0 }
+    /// The rows under the heading column two is showing.
+    public var browsedSubtitleEntries: [FfiMenuEntry] {
+        subtitleMenu
+            .first { SubtitleMenuGroupID($0.group) == browsedSubtitleGroup }?
+            .entries ?? []
     }
     public var durationText: String {
         PlaybackPresentation.duration(
@@ -59,6 +74,13 @@ public final class PlayerModel: ObservableObject {
     /// A monotonic clock, injectable so a test can reach the expiry without waiting.
     private let now: () -> UInt64
     private let managesCursor: Bool
+    /// The language the menu hoists and auto-selection looks for.
+    ///
+    /// Injected rather than read from `Locale` at the point of use: read
+    /// statically, every menu test would depend on the language of the machine
+    /// running it — green on a Turkish laptop and red on an English one, for a
+    /// reason that has nothing to do with the code.
+    private let preferredSubtitleLanguage: String?
     /// The catalog and the documents behind it, owned by the core (NEN-025).
     ///
     /// Not behind a protocol, unlike `PlaybackSessionClient`: that one exists
@@ -69,6 +91,10 @@ public final class PlayerModel: ObservableObject {
     private var session: (any PlaybackSessionClient)?
     private var pendingURL: URL?
     private var pollTask: Task<Void, Never>?
+    private var sidecarScanTask: Task<Void, Never>?
+    /// ADR-0031 Karar 4.3: automatic selection runs **once**, at the start.
+    /// A source discovered later never re-triggers it, however well it matches.
+    private var hasAutoSelected = false
     private var controlsTask: Task<Void, Never>?
     private var transientTask: Task<Void, Never>?
     private var applicationActive = true
@@ -96,6 +122,7 @@ public final class PlayerModel: ObservableObject {
         seekGuardTimeoutNanoseconds: UInt64 = 1_500_000_000,
         now: @escaping () -> UInt64 = { DispatchTime.now().uptimeNanoseconds },
         managesCursor: Bool = true,
+        preferredSubtitleLanguage: String? = Locale.preferredLanguages.first,
         sessionFactory: @escaping SessionFactory = { view in
             let engine = try MPVPlaybackEngine(videoView: view)
             return FfiPlaybackSession(engine: engine)
@@ -111,6 +138,7 @@ public final class PlayerModel: ObservableObject {
         self.seekGuardTimeoutNanoseconds = seekGuardTimeoutNanoseconds
         self.now = now
         self.managesCursor = managesCursor
+        self.preferredSubtitleLanguage = preferredSubtitleLanguage
         if startsPolling {
             startPolling()
         }
@@ -166,7 +194,8 @@ public final class PlayerModel: ObservableObject {
         mediaName = url.lastPathComponent
         fatalMessage = nil
         transientMessage = nil
-        discoverSidecar(besides: url)
+        resetSubtitleCatalog()
+        startSidecarScan(besides: url)
         playbackState = .buffering
         positionMilliseconds = 0
         durationMilliseconds = nil
@@ -226,16 +255,147 @@ public final class PlayerModel: ObservableObject {
         }
     }
 
-    /// Looks for a sidecar next to a medium being opened.
+    /// Forgets the previous medium's subtitles.
+    private func resetSubtitleCatalog() {
+        sidecarScanTask?.cancel()
+        sidecarScanTask = nil
+        subtitles.clear()
+        selectedSubtitleToken = nil
+        browsedSubtitleGroup = .closed
+        hasAutoSelected = false
+        isScanningSubtitles = false
+        refreshSubtitleMenu()
+    }
+
+    /// Looks for a sidecar next to a medium being opened — **without the
+    /// medium waiting for it** (ADR-0031 Karar 4).
+    ///
+    /// The scan touches the filesystem, so it runs off the main actor; the
+    /// menu is openable throughout and fills in when the answer lands. M3's
+    /// scan is one `stat` and one parse, but the phase is real rather than
+    /// decorative: a shell that did this inline would make "tarama sürüyor" a
+    /// state that never happens, and the rule it exists to protect
+    /// (a growing list must not move the user's selection) untested.
     ///
     /// **Silent, whatever it finds** (ADR-0031 Karar 5). A scan is not the
     /// user's action; telling them that a file they never mentioned was refused
     /// would be noise at the exact moment they asked to watch something — and
     /// it would confirm that the refused file exists.
-    private func discoverSidecar(besides url: URL) {
-        subtitles.clear()
-        _ = subtitles.addSidecarFor(mediaPath: url.path)
+    private func startSidecarScan(besides url: URL) {
+        let library = subtitles
+        let path = url.path
+        isScanningSubtitles = true
+        sidecarScanTask = Task { [weak self] in
+            _ = await Task.detached(priority: .utility) {
+                library.addSidecarFor(mediaPath: path)
+            }.value
+            guard !Task.isCancelled, let self else { return }
+            self.isScanningSubtitles = false
+            self.refreshSubtitleMenu()
+        }
+    }
+
+    /// Waits for the sidecar scan to land.
+    ///
+    /// For tests only, and internal so it cannot become a way for the UI to
+    /// wait — the whole point of ADR-0031 Karar 4 is that nothing does.
+    func awaitSidecarScan() async {
+        await sidecarScanTask?.value
+    }
+
+    /// Catalogues the medium's own tracks and, once, opens the preferred one.
+    ///
+    /// Driven by the engine reaching `ready`, which is when the tracks exist.
+    /// Calling it again is harmless: the catalog upserts and the tokens hold,
+    /// so a resync re-reads without renumbering anything.
+    private func catalogEmbeddedTracks() {
+        guard let session, let tracks = try? session.tracks(kind: .subtitle) else { return }
+        subtitles.addEmbedded(tracks: tracks)
+        refreshSubtitleMenu()
+        applyAutoSelectionIfNeeded()
+    }
+
+    /// Re-derives the menu. Cheap, and the only way the shell learns the list
+    /// changed — the core owns grouping, order and which headings exist at all.
+    private func refreshSubtitleMenu() {
+        subtitleMenu = subtitles.menu(
+            primary: preferredSubtitleLanguage,
+            secondary: nil
+        )
         subtitleSourceCount = subtitles.sourceCount()
+        // Only when the heading is *gone* — a new medium. A heading that merely
+        // moved down a row because the scan landed must not reset anything.
+        if !subtitleMenu.contains(where: { SubtitleMenuGroupID($0.group) == browsedSubtitleGroup }) {
+            browsedSubtitleGroup = .closed
+        }
+    }
+
+    private func applyAutoSelectionIfNeeded() {
+        guard !hasAutoSelected else { return }
+        hasAutoSelected = true
+        guard let token = subtitles.autoSelection(
+            primary: preferredSubtitleLanguage,
+            secondary: nil
+        ) else { return }
+        selectSubtitle(token: token)
+    }
+
+    // MARK: - Menu actions
+
+    /// Points column two at a heading. Shows nothing, changes nothing.
+    public func browseSubtitleGroup(_ group: SubtitleMenuGroupID) {
+        guard group != .closed else {
+            turnSubtitlesOff()
+            return
+        }
+        browsedSubtitleGroup = group
+    }
+
+    /// §8's `Kapalı`: the subtitle goes away and column two says so.
+    public func turnSubtitlesOff() {
+        guard applySubtitleTrack(nil) else { return }
+        selectedSubtitleToken = nil
+        browsedSubtitleGroup = .closed
+    }
+
+    /// Shows a row.
+    ///
+    /// An embedded row reaches the engine; a user file is only recorded, since
+    /// putting one on screen is NEN-027's job. Either way the engine's own
+    /// track is set or cleared first, so two subtitles can never be showing at
+    /// once. A broken row is refused here as well as being undrawable —
+    /// the rule is the model's, not the view's (ADR-0031 Karar 5).
+    public func selectSubtitle(token: UInt32) {
+        guard subtitles.isUsable(token: token) else { return }
+        guard applySubtitleTrack(subtitles.embeddedTrackOf(token: token)) else { return }
+        selectedSubtitleToken = token
+        // Column one's highlight is always what column two is showing, and the
+        // row that is showing has to be reachable from it. Without this, a
+        // subtitle opened by automatic selection leaves the menu pointing at
+        // `Kapalı` — and column two then says "Altyazılar kapalı." over a
+        // subtitle that is on screen. Measured on the real .app.
+        if let group = groupContaining(token) {
+            browsedSubtitleGroup = group
+        }
+    }
+
+    private func groupContaining(_ token: UInt32) -> SubtitleMenuGroupID? {
+        subtitleMenu
+            .first { $0.entries.contains { $0.token == token } }
+            .map { SubtitleMenuGroupID($0.group) }
+    }
+
+    /// Tells the engine which of its own tracks to draw, if any.
+    /// Returns whether the command was accepted.
+    private func applySubtitleTrack(_ track: UInt32?) -> Bool {
+        guard let session else { return true }
+        do {
+            try session.selectTrack(kind: .subtitle, track: track)
+            return true
+        } catch {
+            presentTransient(PlaybackPresentation.errorMessage(for: error))
+            return false
+        }
     }
 
     public func openRecentMedia() {
@@ -348,6 +508,8 @@ public final class PlayerModel: ObservableObject {
     public func shutdown() {
         pollTask?.cancel()
         pollTask = nil
+        sidecarScanTask?.cancel()
+        sidecarScanTask = nil
         controlsTask?.cancel()
         controlsTask = nil
         transientTask?.cancel()
@@ -366,6 +528,13 @@ public final class PlayerModel: ObservableObject {
         transientMessage = nil
         playWhenReady = false
         controlsVisible = true
+        subtitles.clear()
+        subtitleMenu = []
+        subtitleSourceCount = 0
+        selectedSubtitleToken = nil
+        browsedSubtitleGroup = .closed
+        hasAutoSelected = false
+        isScanningSubtitles = false
     }
 
     func consume(_ events: [FfiSessionEvent]) {
@@ -395,7 +564,7 @@ public final class PlayerModel: ObservableObject {
             case let .stateChanged(state):
                 apply(state)
             case .tracksChanged:
-                break
+                catalogEmbeddedTracks()
             case .endReached:
                 apply(.ended)
             case let .failed(error):
@@ -441,6 +610,13 @@ public final class PlayerModel: ObservableObject {
 
     private func apply(_ state: FfiPlaybackState) {
         playbackState = state
+        // The tracks exist the moment the file is loaded, which is what `ready`
+        // means here. Cataloguing before play keeps ADR-0031 Karar 4's promise
+        // literal: the menu holds `Kapalı` plus the embedded tracks from the
+        // first frame, with no scan having finished.
+        if state == .ready {
+            catalogEmbeddedTracks()
+        }
         if state == .ready, playWhenReady, let session {
             playWhenReady = false
             do {
@@ -483,7 +659,7 @@ public final class PlayerModel: ObservableObject {
             positionMilliseconds = try session.positionMs()
             durationMilliseconds = try session.durationMs()
             _ = try session.tracks(kind: .audio)
-            _ = try session.tracks(kind: .subtitle)
+            catalogEmbeddedTracks()
         } catch {
             Self.logger.debug("Playback resynchronization found no readable state")
         }

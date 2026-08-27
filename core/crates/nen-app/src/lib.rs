@@ -9,10 +9,12 @@ pub mod subtitle_files;
 pub mod subtitles;
 
 // The FFI gate is only allowed to depend on this crate (ADR-0006 kural 3), but
-// the types it has to translate — states, capabilities, track kinds — are the
-// port's and the domain's. Re-exporting them here keeps the dependency arrow
-// where the ADR draws it (`nen-ffi -> nen-app`) instead of adding an edge, and
-// makes the gate name them as what they are: this layer's vocabulary.
+// the types it has to translate — states, capabilities, track kinds, menu
+// headings — are the port's, the domain's and the catalog's. Re-exporting them
+// here keeps the dependency arrow where the ADR draws it (`nen-ffi -> nen-app`)
+// instead of adding an edge, and makes the gate name them as what they are:
+// this layer's vocabulary.
+pub use nen_catalog as catalog;
 pub use nen_domain as domain;
 pub use nen_ports as ports;
 

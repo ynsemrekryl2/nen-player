@@ -3,9 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-27** (**`NEN-056` kapandı** — ADR-0031 Karar 5'in
-> kendi içindeki çelişki `ADR-0035` ile giderildi; menünün sebep etiketi kümesi
-> iki elemana indi ve her elemanın üreticisi teste bağlandı)
+> Son güncelleme: **2026-08-27** (**`NEN-026` kapandı** — altyazı menüsü
+> çekirdeğin projeksiyonunu çiziyor; §8'in görünen metni ilk kez var)
 
 ## Nerede duruyoruz
 
@@ -13,9 +12,69 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-056` — resolve the unreachable "çok büyük" reason label |
-| **Sıradaki READY** | `NEN-026`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-057` |
-| **Task sayısı** | 59 · done 40 · active 0 · blocked 0 · backlog 19 |
+| **Son tamamlanan** | `NEN-026` — subtitle menu UI |
+| **Sıradaki READY** | `NEN-027`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-060` |
+| **Task sayısı** | 60 · done 41 · active 0 · blocked 0 · backlog 19 |
+
+**`NEN-026` kapandı — altyazı menüsü ekranda ve §8'in görünen metni ilk kez
+var.** Menü çekirdeğin projeksiyonunu çiziyor: gruplama, sıra, dedup ve "boş
+grup görünmez" kuralı `nen-catalog`'da kaldı ve NEN-019'un dört golden'ı onu
+tutuyor; Swift yalnız **metni** üretiyor — endonim başlıklar (`English` ·
+`Français` · `Türkçe`) ve Türkçe chrome (`Kapalı` · `Kullanıcı Altyazıları` ·
+`Dil Belirsiz`). ADR-0010 Karar 7'nin "dilin adı kendi dilindedir" kuralı
+Foundation'ın kendi tablosundan geliyor, ikinci bir kopya shipping edilmedi.
+
+**Yüzey Claude Design mockup'ından alındı, semantiği §8'de bırakıldı.** Sabit
+yükseklikli iki kolonlu panel: kolon 1 projeksiyonun bölümleri, kolon 2 seçili
+bölümün girdileri. Yükseklik sabit çünkü kaynak geldikçe büyüyen bir panel
+işaretçinin altındaki satırı kaydırırdı (ADR-0031 Karar 4.2). Mockup'ın üçüncü
+kolonu — `AI İLE ÇEVİR`, gecikme, manuel ve otomatik senkronizasyon — M5 · M7 ·
+M8 olduğu için **yazılmadı**; grid ileride açılacak biçimde kuruldu.
+
+**`Kapalı` bir eylem, gezinme hedefi değil.** Kullanıcı kararı: tıklanınca
+altyazı kapanıyor **ve** kolon 2'yi devralıp `Altyazılar kapalı.` diyor. Kural
+tek: kolon 1'deki vurgu her zaman kolon 2'nin gösterdiğidir. Bunun karşılığı
+`Bu dil için altyazı yok.` satırının hiç yazılmaması — kolon 1 yalnız dolu
+grupları listelediği için o durum üretilemez (ADR-0035 Karar 3'ün mantığı).
+
+**Token kimlik değil, ve sebebi ölçülmüş.** `SubtitleSourceId`'nin anahtarı bir
+yol digest'i (K23 #8) ve Swift'in üretilmiş struct'ı her alanını
+`String(reflecting:)` ile basar — NEN-023'te sınırı çizilen şey. Menü satırı
+bunun yerine ömür boyu sabit, opak bir sayaç taşıyor: basacak bir şeyi yok ve
+liste büyürken değişmiyor.
+
+**Elle koşu üç kusur buldu, üçü de düzeltildi.** (1) Otomatik seçim Türkçe'yi
+açtığında menü `Kapalı`'ya bakıyor kalıyordu ve kolon 2 **ekranda altyazı
+varken** `Altyazılar kapalı.` yazıyordu; seçim artık bakılan grubu da taşıyor.
+(2) Panel video üzerinde okunmuyordu — popover'ın kendi materyali parlak bir
+karede yetmiyordu; opak zemin kondu. (3) Sebep etiketi çift kararma yüzünden
+(satır %40 opaklık × ikincil renk) panelin en soluk yazısıydı — oysa satırın
+var olma sebebi tam olarak o bilgi.
+
+**Negatif kontrol on yönde, ve kontrollerin kendisi iki kez düzeltildi.**
+`Kapalı` testi ilk turda **0 kırmızı** verdi: test, `Kapalı`'ya basmadan önce
+zaten `Kapalı`'ya bakıyordu. Geç-sidecar testinin sidecar'ı İngilizce metindi
+ve Türkçe tercihle hiç eşleşmiyordu — yani testi geçiren şey kuralın kendisi
+değil, eşleşmenin yokluğuydu. Üçüncüsü kaydedildi: **tek-atış guard'ını tek
+başına kaldırmak hiçbir testi kırmıyor**, çünkü özelliği bugün çağrı yerinin
+kendisi tutuyor; guard ancak ikinci bir çağrı yeri eklendiğinde taşıyıcı
+oluyor, ve o senaryoda 2 test kırmızıya dönüyor.
+
+**Bir gözlem kapatılmadı → `NEN-060`.** Seçilen gömülü track **tam ekranda**
+ekrana çizilmedi. Seçimin kendisi gerçek motorla ölçüldü ve doğru: dört
+track'in her biri seçiliyor ve `ff-index` geri okunuyor. Çizim pencere modunda
+bir kez çalıştı, tam ekranda hiçbir denemede çalışmadı. Tek değişken denendi,
+kök neden **ölçülmedi** — NEN-058'in açıldığı andaki gibi gözlem olarak ayrıldı.
+
+**Yol üstünde bir test iskeleti kusuru bulundu.** `TempFixture`'ın dizin adı
+yalnız etiket + pid'di; swift-testing paralel koştuğu için aynı etiketi kullanan
+iki test aynı dizini paylaşıyor ve `init`'teki `removeItem` kardeşinin
+fixture'larını yarı yolda siliyordu. Sayaç eklendi. Ayrıca `PlayerModel` tercihi
+`Locale.preferredLanguages`'tan statik okuyordu, yani otomatik seçim testleri
+makinenin sistem diline bağlıydı; enjekte edildi.
+
+Rust **491 → 513**, Swift **62 → 86**. Yeni dış bağımlılık yok. Tam kanıt:
+`tasks/done/NEN-026-*.md` · `evidence/M3/NEN-026-checklist.md`.
 
 **`NEN-056` kapandı ve `ADR-0035` accepted oldu — menünün sebep etiketi kümesi
 artık üretilebilen durumlarla birebir.** ADR-0031 Karar 5 iki madde taşıyordu ve

@@ -468,7 +468,7 @@ struct PlayerModelTests {
     // ADR-0031 Karar 5's split — who gets told, and who does not.
 
     @Test("a sidecar beside the medium is picked up when it opens")
-    func sidecarIsDiscoveredOnOpen() {
+    func sidecarIsDiscoveredOnOpen() async {
         let dir = TempFixture("discovered")
         defer { dir.remove() }
         let media = dir.write("Film.mkv", "not really a video")
@@ -476,6 +476,7 @@ struct PlayerModelTests {
 
         let model = makeModel(session: FakeSession())
         model.openMedia(at: media)
+        await model.awaitSidecarScan()
 
         #expect(model.subtitleSourceCount == 1)
         #expect(model.transientMessage == nil)
@@ -547,7 +548,7 @@ struct PlayerModelTests {
     }
 
     @Test("a new medium does not inherit the previous one's subtitles")
-    func openingAnotherMediumClearsTheCatalog() {
+    func openingAnotherMediumClearsTheCatalog() async {
         let dir = TempFixture("cleared")
         defer { dir.remove() }
         let first = dir.write("First.mkv", "not really a video")
@@ -556,9 +557,13 @@ struct PlayerModelTests {
 
         let model = makeModel(session: FakeSession())
         model.openMedia(at: first)
+        // The scan is a phase of its own now (NEN-026): the medium never waits
+        // for it, so the count only exists once it has landed.
+        await model.awaitSidecarScan()
         #expect(model.subtitleSourceCount == 1)
 
         model.openMedia(at: second)
+        await model.awaitSidecarScan()
         #expect(model.subtitleSourceCount == 0)
     }
 
@@ -585,6 +590,10 @@ struct PlayerModelTests {
             seekGuardTimeoutNanoseconds: seekGuardTimeoutNanoseconds,
             now: { clock.nanoseconds },
             managesCursor: false,
+            // Pinned rather than inherited from the machine: automatic subtitle
+            // selection reads this, and a suite whose result depends on the
+            // laptop's system language is not a suite.
+            preferredSubtitleLanguage: nil,
             sessionFactory: { _ in session }
         )
         model.attach(to: MPVVideoView.makePlaybackSurface())
@@ -609,142 +618,4 @@ struct PlayerModelTests {
         model.consume([.stateChanged(state: .ready)])
         return model
     }
-}
-
-/// A real directory with real files in it.
-///
-/// NEN-025's gates answer questions about the filesystem, so a shell test that
-/// wants a real verdict has to hand them something real to look at.
-private struct TempFixture {
-    static let validSrt = "1\n00:00:01,000 --> 00:00:02,000\nHello there.\n"
-
-    let url: URL
-
-    init(_ tag: String) {
-        url = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent("nen-025-shell-\(tag)-\(ProcessInfo.processInfo.processIdentifier)")
-        try? FileManager.default.removeItem(at: url)
-        try! FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-    }
-
-    @discardableResult
-    func write(_ name: String, _ contents: String) -> URL {
-        let file = url.appendingPathComponent(name)
-        try! contents.write(to: file, atomically: true, encoding: .utf8)
-        return file
-    }
-
-    func symlink(_ name: String, to target: URL) -> URL {
-        let link = url.appendingPathComponent(name)
-        try! FileManager.default.createSymbolicLink(at: link, withDestinationURL: target)
-        return link
-    }
-
-    func remove() {
-        try? FileManager.default.removeItem(at: url)
-    }
-}
-
-/// A clock a test moves by hand, so the seek guard's expiry is reachable
-/// without waiting for it.
-private final class TestClock {
-    var nanoseconds: UInt64 = 0
-}
-
-private final class MemoryRecentStore: RecentMediaStoring {
-    var url: URL?
-    var displayName: String? { url?.lastPathComponent }
-
-    func save(_ url: URL) throws {
-        self.url = url
-    }
-
-    func resolve() throws -> URL? {
-        url
-    }
-
-    func clear() {
-        url = nil
-    }
-}
-
-/// The session calls a test can make fail, so the shell's refusal paths run.
-private enum FakeSessionCall: Hashable {
-    case load, play, pause, stop, seek, position, duration, state, tracks, volume
-}
-
-private final class FakeSession: PlaybackSessionClient {
-    /// Errors keyed by call: every listed call throws instead of succeeding.
-    var errors: [FakeSessionCall: FfiPlaybackError] = [:]
-
-    var loadedLocators: [String] = []
-    var playCount = 0
-    var pauseCount = 0
-    var seekTargets: [UInt64] = []
-    var volumes: [Float] = []
-    var currentPosition: UInt64 = 0
-    var currentDuration: UInt64? = 30_008
-    var currentState: FfiPlaybackState = .ready
-    var requestedTrackKinds: [FfiTrackKind] = []
-    var events: [FfiSessionEvent] = []
-    var shutdownCount = 0
-
-    private func refuse(_ call: FakeSessionCall) throws {
-        if let error = errors[call] { throw error }
-    }
-
-    func load(locator: String) throws {
-        try refuse(.load)
-        loadedLocators.append(locator)
-    }
-    func play() throws {
-        try refuse(.play)
-        playCount += 1
-        currentState = .playing
-        // The real adapter appends the transition before the command returns
-        // and the bridge pulls right after it, so it is queued by the time the
-        // caller gets control back. Measured at 50-180 us (NEN-055).
-        events.append(.stateChanged(state: .playing))
-    }
-    func pause() throws {
-        try refuse(.pause)
-        pauseCount += 1
-        currentState = .paused
-        events.append(.stateChanged(state: .paused))
-    }
-    func stop() throws {
-        try refuse(.stop)
-        currentState = .idle
-    }
-    func seek(toMs: UInt64) throws {
-        try refuse(.seek)
-        seekTargets.append(toMs)
-        currentPosition = toMs
-    }
-    func positionMs() throws -> UInt64 {
-        try refuse(.position)
-        return currentPosition
-    }
-    func durationMs() throws -> UInt64? {
-        try refuse(.duration)
-        return currentDuration
-    }
-    func state() throws -> FfiPlaybackState {
-        try refuse(.state)
-        return currentState
-    }
-    func tracks(kind: FfiTrackKind) throws -> [FfiTrackDescriptor] {
-        try refuse(.tracks)
-        requestedTrackKinds.append(kind)
-        return []
-    }
-    func setVolume(volume: Float) throws {
-        try refuse(.volume)
-        volumes.append(volume)
-    }
-    func drainEvents() -> [FfiSessionEvent] {
-        defer { events.removeAll() }
-        return events
-    }
-    func shutdown() throws { shutdownCount += 1 }
 }

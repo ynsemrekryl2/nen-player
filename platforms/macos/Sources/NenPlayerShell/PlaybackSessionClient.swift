@@ -14,6 +14,8 @@ public protocol PlaybackSessionClient: AnyObject {
     func durationMs() throws -> UInt64?
     func state() throws -> FfiPlaybackState
     func tracks(kind: FfiTrackKind) throws -> [FfiTrackDescriptor]
+    /// `nil` deselects — §8's `Kapalı`.
+    func selectTrack(kind: FfiTrackKind, track: UInt32?) throws
     func setVolume(volume: Float) throws
     func drainEvents() -> [FfiSessionEvent]
     func shutdown() throws

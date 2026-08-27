@@ -1,0 +1,81 @@
+# fixtures/media/menu-clip.mkv — NEN-026 altyazı menüsü kanıtı
+#
+# Telif-temiz, tamamen sentetik (docs/testing-strategy.md → "fixtures/ düzeni").
+# Aşağıdaki blok depo kökünden çalıştırıldığında dosyayı yeniden üretir.
+#
+# İçerik: 20 s · 160x90 @ 5 fps · 1 audio (eng) · 4 subtitle track:
+#   eng "English"  ·  fre "Français"  ·  tur "Türkçe"  ·  dilsiz ve başlıksız
+#
+# Neden contract-clip.mkv yetmiyor: onda yalnız eng + tur var. Şartname §8'in
+# kanonik örneği English · Français · Türkçe grupları gösteriyor, ve menünün
+# `Dil Belirsiz` grubu ancak dili olmayan bir track varsa çiziliyor. Dördüncü
+# track başlıksız da: NEN-023 başlıksız track'e boş etiket veriyor ve o boşluğu
+# dilin kendi adıyla dolduran yer NEN-026'nın sunum katmanı (ADR-0010 Karar 7);
+# dilsiz VE başlıksız track ise "Adsız parça" yolunu yürütüyor.
+#
+# ADR-0032 notu: konteyner ISO 639-2 yazıyor (`eng` · `fre` · `tur`), çekirdek
+# `en` · `fr` · `tr` diye kanonikleştiriyor. Menüde beklenen başlıklar bu
+# yüzden endonimlerdir: English · Français · Türkçe.
+#
+# Yanına konacak sidecar'lar kanıt üretilirken elle yazılır ve depoya girmez:
+#   menu-clip.srt        → geçerli SRT, `Kullanıcı Altyazıları` grubunu açar
+#   (bozuk bir kopya)    → `biçim hatalı` etiketini gösterir
+
+cd "$(git rev-parse --show-toplevel)"
+TMP="$(mktemp -d)"
+
+cat > "$TMP/en.srt" <<'SRT'
+1
+00:00:01,000 --> 00:00:04,000
+The afternoon light moved across the floor.
+
+2
+00:00:10,000 --> 00:00:13,000
+Nobody had opened that door in years.
+SRT
+
+cat > "$TMP/fr.srt" <<'SRT'
+1
+00:00:01,000 --> 00:00:04,000
+La lumière de l'après-midi traversait le sol.
+
+2
+00:00:10,000 --> 00:00:13,000
+Personne n'avait ouvert cette porte depuis des années.
+SRT
+
+cat > "$TMP/tr.srt" <<'SRT'
+1
+00:00:01,000 --> 00:00:04,000
+Öğleden sonranın ışığı yerde ilerliyordu.
+
+2
+00:00:10,000 --> 00:00:13,000
+O kapıyı yıllardır kimse açmamıştı.
+SRT
+
+cat > "$TMP/none.srt" <<'SRT'
+1
+00:00:01,000 --> 00:00:04,000
+- - -
+
+2
+00:00:10,000 --> 00:00:13,000
+- - -
+SRT
+
+ffmpeg -y -loglevel error \
+  -f lavfi -i "testsrc=size=160x90:rate=5:duration=20" \
+  -f lavfi -i "sine=frequency=440:duration=20" \
+  -i "$TMP/en.srt" -i "$TMP/fr.srt" -i "$TMP/tr.srt" -i "$TMP/none.srt" \
+  -map 0:v -map 1:a -map 2:s -map 3:s -map 4:s -map 5:s \
+  -c:v libx264 -preset veryfast -crf 45 -g 50 -pix_fmt yuv420p \
+  -c:a libopus -b:a 6k -ac 1 \
+  -c:s srt \
+  -metadata:s:a:0 language=eng \
+  -metadata:s:s:0 language=eng -metadata:s:s:0 title=English \
+  -metadata:s:s:1 language=fre -metadata:s:s:1 title=Français \
+  -metadata:s:s:2 language=tur -metadata:s:s:2 title=Türkçe \
+  fixtures/media/menu-clip.mkv
+
+rm -rf "$TMP"
