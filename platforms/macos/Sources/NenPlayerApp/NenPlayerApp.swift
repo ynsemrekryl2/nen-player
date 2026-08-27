@@ -11,6 +11,7 @@ struct NenPlayerApp: App {
         Window("Nen Player", id: "player") {
             PlayerRootView(model: model)
         }
+        .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1_080, height: 680)
         .commands {
             PlayerCommands(model: model)

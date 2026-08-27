@@ -3,7 +3,7 @@ id: NEN-061
 title: Frameless chrome and glass transport bar
 milestone: M3
 size: M
-state: backlog
+state: done
 depends_on: [NEN-024]
 blocks: [NEN-062, NEN-063]
 adr: [31]
@@ -45,17 +45,26 @@ yüzeyi olarak birlikte görünür ve kaybolur.
 
 ## Kanıt (DoD)
 
-- [ ] `selectionLabel`: seçim yokken `Kapalı`, seçili gömülü track varken
+- [x] `selectionLabel`: seçim yokken `Kapalı`, seçili gömülü track varken
       girdinin görünen etiketi (`SubtitleMenuTests`)
-- [ ] `bash scripts/test-macos.sh` yeşil
-- [ ] Parlak ve koyu fixture karelerinde süre, ses ve CC etiketi okunuyor
-- [ ] Bar + medya adı + trafik lambaları oynarken birlikte kaybolup geliyor,
+- [x] `bash scripts/test-macos.sh` yeşil
+- [x] Parlak ve koyu fixture karelerinde süre, ses ve CC etiketi okunuyor
+- [x] Bar + medya adı + trafik lambaları oynarken birlikte kaybolup geliyor,
       duraklıyken kalıcı; tam ekranda sistem düğmeleriyle yarışılmıyor
-- [ ] Özel seek/volume kontrolleri sürükleme, tıklama, klavye ve VoiceOver
+- [x] Özel seek/volume kontrolleri sürükleme, tıklama, klavye ve VoiceOver
       checklist'ini geçiyor
-- [ ] `NEN-046` regresyonu yok: pencere kapanıyor, uygulama yaşıyor ve yeniden
+- [x] `NEN-046` regresyonu yok: pencere kapanıyor, uygulama yaşıyor ve yeniden
       açılıyor
 
 ## Kanıt kaydı
 
-<!-- Kapanışta gerçek test ve acceptance çıktısıyla doldurulur. -->
+- `bash scripts/test-macos.sh`: 87 test / 10 suite, 0 failure
+- `bash scripts/check-docs.sh`: tüm denetimler geçti
+- `bash scripts/build-macos-app.sh`: çıkış 0; ad-hoc imzalı `.app` üretildi
+- `codesign --verify --deep --strict platforms/macos/.build/NenPlayer.app`:
+  çıkış 0
+- Elle kabul: `evidence/M3/NEN-061-checklist.md` — parlak/koyu fixture,
+  2,5 sn ortak gizleme, duraklatma, tam ekran, seek/volume pointer + klavye +
+  adjustable action ve NEN-046 yaşam döngüsü geçti
+- Görsel kanıt: `evidence/M3/NEN-061-bright.png`,
+  `evidence/M3/NEN-061-dark.png`, `evidence/M3/NEN-061-fullscreen.png`

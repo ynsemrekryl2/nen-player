@@ -3,8 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-27** (`NEN-061` · `NEN-062` · `NEN-063`
-> planlandı; video presentation metadata kararı `ADR-0036` proposed)
+> Son güncelleme: **2026-08-27** (`NEN-061` kapandı — çerçevesiz krom ve cam
+> transport barı gerçek `.app` üzerinde doğrulandı)
 
 ## Nerede duruyoruz
 
@@ -12,9 +12,19 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-026` — subtitle menu UI |
-| **Sıradaki READY** | `NEN-027`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-060`, `NEN-061` |
-| **Task sayısı** | 63 · done 41 · active 0 · blocked 0 · backlog 22 |
+| **Son tamamlanan** | `NEN-061` — frameless chrome and glass transport bar |
+| **Sıradaki READY** | `NEN-027`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-060`, `NEN-062`, `NEN-063` |
+| **Task sayısı** | 63 · done 42 · active 0 · blocked 0 · backlog 21 |
+
+**`NEN-061` kapandı — oynatıcı yüzeyi artık videoya kadar uzanan macOS
+kromu ve tek cam transport katmanı.** Medya adı, trafik lambaları ve bar aynı
+0,24 sn ease-out görünürlük döngüsünde; düğmeler gizlenince hit-test'ten de
+çıkıyor, tam ekranda sistem yönetimine bırakılıyor. HUD materyali üstündeki
+özel seek/volume kontrolleri pointer sürükleme ve tıklamayı, klavye odağını ve
+VoiceOver adjustable eylemlerini koruyor. Süre sesin yanında ve tıklanabilir;
+CC etiketi `Kapalı` veya seçili kaynağın görünen adını kullanıyor. Parlak/koyu
+sentetik fixture, otomatik gizleme, duraklatma ve NEN-046 yaşam döngüsü gerçek
+`.app` üzerinde geçti; Swift paketi **87/87** yeşil.
 
 **macOS cam yüzey turu üç task'a ayrıldı.** `NEN-061` çerçevesiz krom ve cam
 transportu, `NEN-062` popover dışı altyazı panelini taşır. Bunlar ADR-0031

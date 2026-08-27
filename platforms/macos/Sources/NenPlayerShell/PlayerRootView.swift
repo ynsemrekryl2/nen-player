@@ -33,10 +33,8 @@ public struct PlayerRootView: View {
                     openAction: model.chooseMedia,
                     openRecentAction: model.openRecentMedia
                 )
-            } else if model.controlsVisible {
-                TransportControls(model: model)
-                    .transition(.opacity)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            } else {
+                playerChrome
             }
 
             if let transientMessage = model.transientMessage {
@@ -45,14 +43,20 @@ public struct PlayerRootView: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 9)
                     .background(.ultraThinMaterial, in: Capsule())
-                    .padding(.bottom, 104)
+                    .padding(.bottom, 150)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                     .transition(.opacity)
             }
         }
         .frame(minWidth: 720, minHeight: 450)
-        .background(WindowTitleWriter(title: model.windowTitle))
-        .animation(.easeOut(duration: 0.16), value: model.controlsVisible)
+        .background(
+            WindowTitleWriter(
+                title: model.windowTitle,
+                controlsVisible: model.controlsVisible,
+                hasMedia: model.hasMedia
+            )
+        )
+        .animation(.easeOut(duration: 0.24), value: model.controlsVisible)
         .animation(.easeOut(duration: 0.16), value: model.transientMessage)
         .onContinuousHover { phase in
             switch phase {
@@ -78,6 +82,42 @@ public struct PlayerRootView: View {
         }
         .onDisappear {
             model.shutdown()
+        }
+    }
+
+    private var playerChrome: some View {
+        ZStack {
+            LinearGradient(
+                colors: [.black.opacity(0.42), .clear],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 116)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .opacity(model.controlsVisible ? 1 : 0)
+            .allowsHitTesting(false)
+
+            if let mediaName = model.mediaName {
+                Text(mediaName)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Color.white.opacity(0.96))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .shadow(color: .black.opacity(0.50), radius: 6, y: 1)
+                    .padding(.leading, 92)
+                    .padding(.trailing, 22)
+                    .padding(.top, 18)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .opacity(model.controlsVisible ? 1 : 0)
+                    .offset(y: model.controlsVisible ? 0 : -10)
+                    .allowsHitTesting(false)
+            }
+
+            TransportControls(model: model)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                .opacity(model.controlsVisible ? 1 : 0)
+                .offset(y: model.controlsVisible ? 0 : 14)
+                .allowsHitTesting(model.controlsVisible)
         }
     }
 }
@@ -157,15 +197,80 @@ private struct FatalState: View {
 
 private struct WindowTitleWriter: NSViewRepresentable {
     let title: String
+    let controlsVisible: Bool
+    let hasMedia: Bool
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
 
     func makeNSView(context: Context) -> NSView {
         NSView()
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
-        nsView.window?.title = title
-        // Deliberately do not set `representedURL`: its proxy icon exposes the
-        // full path, which ADR-0031 forbids on recorded evidence surfaces.
-        nsView.window?.representedURL = nil
+        let title = title
+        let showButtons = !hasMedia || controlsVisible
+        DispatchQueue.main.async {
+            guard let window = nsView.window else { return }
+            window.title = title
+            window.titleVisibility = .hidden
+            window.titlebarAppearsTransparent = true
+            // Deliberately do not set `representedURL`: its proxy icon exposes
+            // the full path, which ADR-0031 forbids on evidence surfaces.
+            window.representedURL = nil
+            context.coordinator.updateButtons(in: window, visible: showButtons)
+        }
+    }
+
+    @MainActor
+    final class Coordinator {
+        private var generation = 0
+
+        func updateButtons(in window: NSWindow, visible: Bool) {
+            generation += 1
+            let updateGeneration = generation
+            let buttons = [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton]
+                .compactMap(window.standardWindowButton)
+
+            guard !window.styleMask.contains(.fullScreen) else {
+                for button in buttons {
+                    button.isHidden = false
+                    button.isEnabled = true
+                    button.alphaValue = 1
+                }
+                return
+            }
+
+            if visible {
+                for button in buttons {
+                    button.isHidden = false
+                    button.isEnabled = true
+                }
+            }
+
+            NSAnimationContext.runAnimationGroup { animation in
+                animation.duration = 0.24
+                animation.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                for button in buttons {
+                    button.animator().alphaValue = visible ? 1 : 0
+                }
+            }
+
+            guard !visible else { return }
+            Task { @MainActor [weak self, weak window] in
+                try? await Task.sleep(for: .milliseconds(240))
+                guard let self,
+                      let window,
+                      updateGeneration == generation,
+                      !window.styleMask.contains(.fullScreen)
+                else { return }
+                for buttonType in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+                    guard let button = window.standardWindowButton(buttonType) else { continue }
+                    button.isEnabled = false
+                    button.isHidden = true
+                }
+            }
+        }
     }
 }

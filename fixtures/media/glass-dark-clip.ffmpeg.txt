@@ -1,0 +1,14 @@
+# fixtures/media/glass-dark-clip.mkv — NEN-061 dark-surface evidence
+#
+# Copyright-clean, deterministic synthetic fixture. It deliberately keeps the
+# image near black while retaining a slow horizontal luminance gradient, so
+# glass borders, labels and slider geometry can be judged against dark video.
+# Run from the repository root to reproduce the tracked media file.
+
+cd "$(git rev-parse --show-toplevel)"
+
+ffmpeg -y -loglevel error \
+  -f lavfi -i "color=c=0x080a0f:size=160x90:rate=5:duration=10" \
+  -vf "geq=r='8+18*X/W':g='10+14*X/W':b='15+10*X/W'" \
+  -c:v libx264 -preset veryfast -crf 35 -g 25 -pix_fmt yuv420p \
+  fixtures/media/glass-dark-clip.mkv

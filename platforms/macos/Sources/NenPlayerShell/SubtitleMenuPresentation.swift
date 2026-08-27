@@ -31,6 +31,25 @@ public enum SubtitleMenuGroupID: Hashable, Sendable {
 /// chrome is Turkish. Both halves are the platform's business, and they are
 /// written here so a test can read them without drawing a view.
 public enum SubtitleMenuPresentation {
+    /// The compact transport label for the source currently on screen.
+    ///
+    /// A token is deliberately resolved through the menu rather than printed:
+    /// it is an opaque lifetime-local identity (NEN-026), not user-facing text.
+    public static func selectionLabel(
+        selectedToken: UInt32?,
+        menu: [FfiMenuSection]
+    ) -> String {
+        guard let selectedToken else { return "Kapalı" }
+        for section in menu {
+            if let entry = section.entries.first(where: { $0.token == selectedToken }) {
+                return entryTitle(entry)
+            }
+        }
+        // A stale token is not evidence that subtitles are off. This state is
+        // transient during a refresh; keep the control truthful and generic.
+        return "Altyazı"
+    }
+
     // MARK: - Column one
 
     /// A heading, in the words §8 uses.

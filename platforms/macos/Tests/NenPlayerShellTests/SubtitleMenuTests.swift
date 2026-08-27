@@ -64,6 +64,19 @@ struct SubtitleMenuTests {
         )
     }
 
+    @Test("the transport label says Kapalı or the selected entry title")
+    func transportSelectionLabel() {
+        let selected = entry(label: "English (SDH)", language: "en")
+        let menu = [FfiMenuSection(group: .language(tag: "en"), entries: [selected])]
+
+        #expect(SubtitleMenuPresentation.selectionLabel(selectedToken: nil, menu: menu) == "Kapalı")
+        #expect(
+            SubtitleMenuPresentation.selectionLabel(selectedToken: selected.token, menu: menu)
+                == "English (SDH)"
+        )
+        #expect(SubtitleMenuPresentation.selectionLabel(selectedToken: 99, menu: menu) == "Altyazı")
+    }
+
     // MARK: - Column two with nothing in it
 
     @Test("the three empty states say three different things, in priority order")

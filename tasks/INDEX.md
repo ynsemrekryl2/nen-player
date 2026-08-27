@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **63** task · ✅ done 41 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 22
+Toplam **63** task · ✅ done 42 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 21
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -81,7 +81,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-058](done/NEN-058-media-fails-beside-symlinked-sidecar.md) | A medium fails to load when a symlinked sidecar sits beside it | S | ✅ done | NEN-022 NEN-025 |
 | [NEN-059](done/NEN-059-restore-rust-ci-gates.md) | Restore the Rust CI gates | S | ✅ done | NEN-025 NEN-051 |
 | [NEN-060](backlog/NEN-060-selected-track-not-drawn-fullscreen.md) | A selected embedded track is not drawn while the window is full screen | S | ⚪ backlog | NEN-022 NEN-026 |
-| [NEN-061](backlog/NEN-061-frameless-chrome-and-glass-bar.md) | Frameless chrome and glass transport bar | M | ⚪ backlog | NEN-024 |
+| [NEN-061](done/NEN-061-frameless-chrome-and-glass-bar.md) | Frameless chrome and glass transport bar | M | ✅ done | NEN-024 |
 | [NEN-062](backlog/NEN-062-subtitle-menu-panel.md) | Subtitle menu panel above the transport bar | M | ⚪ backlog | NEN-026 NEN-061 |
 | [NEN-063](backlog/NEN-063-video-quality-badge.md) | Video presentation metadata and quality badge | L | ⚪ backlog | NEN-045 NEN-061 |
 
@@ -120,4 +120,5 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-052** — Decide and pin what a seek during loading does
 - **NEN-057** — Read the language a subtitle filename declares
 - **NEN-060** — A selected embedded track is not drawn while the window is full screen
-- **NEN-061** — Frameless chrome and glass transport bar
+- **NEN-062** — Subtitle menu panel above the transport bar
+- **NEN-063** — Video presentation metadata and quality badge
