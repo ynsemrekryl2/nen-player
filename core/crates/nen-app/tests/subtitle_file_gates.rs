@@ -342,6 +342,61 @@ fn a_malformed_subtitle_leaves_every_other_source_alone() {
 }
 
 #[test]
+fn an_undecodable_subtitle_is_catalogued_and_marked_unreadable() {
+    // The second half of ADR-0035 Karar 2's closed set, and the half nothing
+    // produced until now: `biçim hatalı` had a test, `okunamadı` did not, so
+    // the menu label NEN-026 is about to draw rested on a code path no test
+    // had ever walked.
+    //
+    // A lone UTF-16 high surrogate, which ADR-0008 refuses rather than
+    // replacing with U+FFFD. The bytes pass every gate in §4 — a real, regular,
+    // small file — so the refusal happens where it should: after admission,
+    // against the content, as a defect rather than a rejection.
+    let dir = TempDir::new("undecodable");
+    let path = dir.path().join("Film.srt");
+    let mut bytes = vec![0xFF, 0xFE]; // UTF-16LE BOM
+    bytes.extend_from_slice(&0xD800u16.to_le_bytes());
+    fs::write(&path, &bytes).expect("write fixture");
+
+    let mut library = SubtitleLibrary::new();
+    assert_eq!(
+        library.add_file(&path, dir.path()),
+        AddOutcome::Defective(SourceDefect::Unreadable)
+    );
+
+    let source = library
+        .catalog()
+        .of_kind(SubtitleSourceKind::User)
+        .next()
+        .expect("an unreadable source is still an entry");
+    assert_eq!(library.defect(source.id()), Some(SourceDefect::Unreadable));
+    assert!(!library.is_usable(source.id()));
+    assert!(library.document(source.id()).is_none());
+}
+
+#[test]
+fn the_menu_reason_labels_are_a_closed_set_of_exactly_two() {
+    // ADR-0035 Karar 2 and 3. The set is `okunamadı` · `biçim hatalı`, and a
+    // third member may only be added by an ADR that also brings a test
+    // producing it — which is exactly what ADR-0031 Karar 5's `çok büyük` never
+    // had. The `match` below is the mechanical half of that rule: a new variant
+    // stops this file compiling, so the label set cannot grow by accident.
+    for defect in [SourceDefect::Unreadable, SourceDefect::Malformed] {
+        let label = match defect {
+            SourceDefect::Unreadable => "unreadable",
+            SourceDefect::Malformed => "malformed",
+        };
+        assert_eq!(defect.as_str(), label);
+    }
+
+    // The other direction, and the reason this task exists: exceeding the size
+    // limit is a *gate*, not a defect. `a_file_over_the_size_limit_is_refused`
+    // proves the catalog stays empty; here it is enough that `FileRejection`
+    // is where the variant lives, so no label can ever be asked of it.
+    assert_eq!(FileRejection::TooLarge.as_str(), "too-large");
+}
+
+#[test]
 #[cfg(unix)]
 fn every_gate_refusal_leaves_the_catalog_completely_empty() {
     // ADR-0031 Karar 5: a refused file is not listed, not even as a broken

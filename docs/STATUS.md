@@ -3,9 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-27** (**`NEN-059` kapandı** — push sonrasında
-> kırmızı olan Rust biçimlendirme ve lint kapıları, davranış değiştirmeyen
-> mekanik düzeltmelerle yerelde yeniden yeşil)
+> Son güncelleme: **2026-08-27** (**`NEN-056` kapandı** — ADR-0031 Karar 5'in
+> kendi içindeki çelişki `ADR-0035` ile giderildi; menünün sebep etiketi kümesi
+> iki elemana indi ve her elemanın üreticisi teste bağlandı)
 
 ## Nerede duruyoruz
 
@@ -13,9 +13,52 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-059` — restore the Rust CI gates |
-| **Sıradaki READY** | `NEN-026`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-056`, `NEN-057` |
-| **Task sayısı** | 59 · done 39 · active 0 · blocked 0 · backlog 20 |
+| **Son tamamlanan** | `NEN-056` — resolve the unreachable "çok büyük" reason label |
+| **Sıradaki READY** | `NEN-026`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-057` |
+| **Task sayısı** | 59 · done 40 · active 0 · blocked 0 · backlog 19 |
+
+**`NEN-056` kapandı ve `ADR-0035` accepted oldu — menünün sebep etiketi kümesi
+artık üretilebilen durumlarla birebir.** ADR-0031 Karar 5 iki madde taşıyordu ve
+ikisi aynı anda doğru olamazdı: birincisi kataloğa giren bozuk kaynağın
+taşıyacağı etiketleri `okunamadı` · `biçim hatalı` · **`çok büyük`** diye
+sayıyor, ikincisi boyut sınırını güvenlik kapısına koyup kapıdan dönen dosyayı
+kataloğa **hiç** sokmuyordu. Boyut kapıda eleniyorsa katalogdaki hiçbir kaynak
+`çok büyük` taşıyamaz — yani `NEN-026` **üretilemeyecek bir durum için UI
+yazmak** üzereydi.
+
+**Tutarsız olan kod değil, dokümandı.** `admit()` sınırı, dosya açılmadan önce
+elde olan `symlink_metadata`'ya soruyor; `MAX_SUBTITLE_BYTES` ayrıca
+`encoding::MAX_INPUT_BYTES` ile aynı sayı (NEN-015) ve ayrışmalarını bir test
+engelliyor. Kullanıcı kararıyla bu yarı korundu: **boyut bir güvenlik
+kapısıdır**, `çok büyük` kümeden düştü. Diğer yarı ölçülen bir maliyet yüzünden
+elendi — kataloğa sokmak `NEN-025`'in kapılarını değiştirir ve kullanıcının
+kendi seçtiği büyük dosyanın geçici bildirimini götürürdü (Karar 1'e göre
+kaynak-düzeyi hata yalnız menüde görünür), yani `.app` üzerinde kanıtlanmış bir
+davranış geri alınırdı. Kabul edilen maliyet açık: 10 MiB üstü bir **sidecar**
+sessizce görünmez kalıyor — ölçülen en büyük gerçek altyazı 3.1 MiB, sınır onun
+3 katından fazlası.
+
+**ADR-0031 düzenlenmedi, tümüyle de supersede edilmedi.** Gövde olduğu gibi
+duruyor, Notlar'a ADR-0035'e işaret eden bir madde eklendi (ADR-0001'in açık
+istisnası). Tümüyle supersede etmek `adr:` alanıyla ADR-0031'e referans veren
+**7 done task**'ı `check-docs.sh` adım 6'da kırmızıya döndürürdü.
+
+**Asıl bulgu kümenin diğer yarısındaydı: `okunamadı`'yı üreten hiçbir test
+yoktu.** `biçim hatalı`'nın üreticisi vardı, ötekinin yoktu — menünün çizeceği
+etiket, hiçbir testin yürümediği bir kod yoluna dayanıyordu. Yeni test gerçek
+bir dosyaya UTF-16LE BOM + tek başına yüksek surrogate yazıyor: §4'ün kapılarını
+geçiyor, sonra ADR-0008 gereği mojibake yerine reddediliyor, yani sonuç
+`Rejected` değil `Defective(Unreadable)` — kaynak katalogda kalıyor.
+İkinci test kümeyi kapatıyor.
+
+**Negatif kontrol iki yönde.** Beklenti `Malformed`'a çevrilince **1** kırmızı
+(`left: unreadable / right: malformed` — test tam olarak bu kusuru ölçüyor);
+`SourceDefect`'e üçüncü varyant eklenince guard **derlenmiyor**
+(`E0004: non-exhaustive patterns`), yani ADR-0035 Karar 3 mekanik olarak
+zorlanıyor. İkisi de geri alındı.
+
+Rust testleri **489 → 491**, Swift değişmedi (bu iş Swift'e dokunmadı). Ürün
+kodu değişmedi. Tam kanıt: `tasks/done/NEN-056-*.md`.
 
 **`NEN-059` kapandı — push'ta görülen CI kırmızısı yerelde bütünüyle
 giderildi.** Rust 1.98.0 `rustfmt`, NEN-025/NEN-051'den kalan beş dosyada satır

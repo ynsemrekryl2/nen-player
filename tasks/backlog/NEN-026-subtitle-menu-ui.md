@@ -4,9 +4,9 @@ title: Subtitle menu UI
 milestone: M3
 size: M
 state: backlog
-depends_on: [NEN-019, NEN-025]
+depends_on: [NEN-019, NEN-025, NEN-056]
 blocks: [NEN-027]
-adr: [10, 31]
+adr: [10, 31, 35]
 ---
 
 # NEN-026 — Subtitle menu UI
@@ -35,7 +35,9 @@ gösterir.
   odak ve scroll sıfırlanmaz · otomatik seçim **yeniden tetiklenmez**
 - **Hatalı kaynak (ADR-0031 Karar 5):** kataloğa girmiş ama kullanılamayan
   kaynak menüde **kalır**, soluk ve **seçilemez** gösterilir, yanında kapalı
-  kümeden kısa sebep etiketi taşır — `okunamadı` · `biçim hatalı` · `çok büyük`
+  kümeden kısa sebep etiketi taşır — `okunamadı` · `biçim hatalı`. Küme tam
+  olarak bu iki elemandır (ADR-0035 Karar 2); `çok büyük` dosya kataloğa hiç
+  girmediği için etiketi de yoktur (ADR-0035 Karar 1)
 - Seçim → o anki gösterilen kaynak **ve** AI çeviri komutunun kaynağı olur
 
 ## YAPILMAYACAK
@@ -46,7 +48,8 @@ gösterir.
 - Kaynak seçiminin çeviri başlatması — **yasak** (§9)
 - Aynı listenin menü bar'a ikinci kez yansıtılması — M3'te tek yüzey
 - Güvenlik kapısından dönen dosyanın menüde görünmesi — **yasak**; o dosya
-  kaynak olmadı (ADR-0031 Karar 5, NEN-025)
+  kaynak olmadı (ADR-0031 Karar 5, ADR-0035 Karar 1, NEN-025). Boyut sınırını
+  aşan dosya da bu gruptadır
 - Sebep etiketinde teknik detay veya dosya yolu — **yasak**
 
 ## Kanıt (DoD)
@@ -63,7 +66,8 @@ gösterir.
 - [ ] Oynatma başladıktan sonra bulunan tercih edilen dildeki sidecar otomatik
       **seçilmiyor**
 - [ ] Bozuk `.srt` menüde soluk ve seçilemez, sebep etiketi görünüyor
-- [ ] Negatif: symlink/traversal ile verilen dosya menüde **hiç görünmüyor**
+- [ ] Negatif: güvenlik kapısından dönen dosya menüde **hiç görünmüyor** —
+      symlink · traversal · dizin/FIFO · **boyut sınırını aşan dosya**
 - [ ] Ekran görüntüsü `fixtures/` medyasıyla üretilmiş, dosya yolu görünmüyor
 
 ## Kanıt kaydı
