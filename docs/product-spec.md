@@ -379,4 +379,6 @@ küçük vertical slice'lar · aynı anda tek ana implementation task · archite
 değişiklikleri ADR · deterministic fake provider/client · unit, golden,
 contract, integration, security ve platform testleri · gerçek cihaz acceptance
 testleri · test kanıtı olmadan task DONE değil · unrelated refactor yok ·
-commit yalnız doğrulanmış kapanışta, push kullanıcı kararıyla.
+commit yalnız doğrulanmış kapanışta · her doğrulanmış commit normal
+`origin/main` push'u ve yeşil CI ile teslim edilir · geçmiş değiştirme kullanıcı
+kararıyla.

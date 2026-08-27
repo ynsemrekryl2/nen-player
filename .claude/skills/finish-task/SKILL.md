@@ -1,6 +1,6 @@
 ---
 name: finish-task
-description: Nen Player'da aktif task'ın kabul kriterlerini denetler, testleri çalıştırır, kanıt kaydını yazar, task'ı done'a taşır ve commit'ler. Eksik kanıtta done yapmaz, push atmaz, başka task'a başlamaz.
+description: Nen Player'da aktif task'ı kanıtla kapatır, commit'ler, origin/main'e push eder ve CI sonucunu izler. Eksik kanıtta done/commit/push yapmaz, başka task'a başlamaz.
 ---
 
 # /finish-task
@@ -31,7 +31,10 @@ Aktif task'ı **kanıtla kapat** — eksikse kapatma.
 15. **Commit at** — CLAUDE.md → "Commit politikası". Kapanış kendi commit'ini
     alır; bu oturumda kabul edilmiş bir ADR varsa o ayrı commit olur.
     Ön koşul: adım 14 çıkış 0 vermiş olmalı.
-16. **Push atma**, geçmişi değiştirme, **başka task'a başlama.** Dur ve raporla.
+16. Commit'i `git push origin main` ile gönder ve GitHub CI sonucunu izle.
+    Push/CI başarısızsa force, pull, rebase veya geçmiş değiştirme yapma;
+    **başka task'a başlama.** Sebebi ve yerel commit durumunu raporla.
+17. CI yeşilse **başka task'a başlamadan** dur ve kapanışı raporla.
 
 ## Sınırlar
 

@@ -29,7 +29,7 @@ Kararların durumu için `docs/DECISIONS.md`; açık sorular için
 | 3 | **Kanıt üretilmeden `done` yok.** Kanıt **task tipine göre** seçilir (`docs/testing-strategy.md` → "Kanıt formatı"): logic→test, format→golden, security→**negatif test (zorunlu)**, performans→baseline raporu, UI→screenshot veya checklist, spike→ölçüm raporu+ADR, doküman→link/tutarlılık kontrolü. Benchmark veya ekran kaydı her task için zorunlu **değildir**. |
 | 4 | **Mimari karar → önce ADR.** `proposed` yazılır, kullanıcı onaylar, `accepted` olur. ADR olmadan mimari değişmez. İlgili ADR kabul edilene kadar teknoloji seçimleri **aday**dır; belgelerde kesin karar gibi yazılmaz. |
 | 5 | **Unrelated refactor yok.** Yol üstünde görülen iyileştirme → yeni backlog task'ı, mevcut task'a eklenmez. |
-| 6 | **Commit doğrulanmış kapanışta atılır** — yarım işe, kırmızı teste, eksik kanıta commit yok. Push ve geçmiş değiştirme kullanıcıya aittir → "Commit politikası". |
+| 6 | **Doğrulanmış kapanış commit edilir ve hemen push edilir** — yarım işe, kırmızı teste, eksik kanıta commit/push yok. Her doğrulanmış commit `origin/main`'e gider ve CI sonucu izlenir; geçmiş değiştirme kullanıcıya aittir → "Commit politikası". |
 | 7 | **Spike kodu ürün kodu değildir.** `core/spikes/` altında kalır, terfi etmez. |
 | 8 | **Testler gerçek provider kredisi/kotası kullanmaz.** Deterministic fake zorunlu. |
 | 9 | `tasks/INDEX.md` elle düzenlenmez — `scripts/task-index.sh` üretir. |
@@ -72,9 +72,27 @@ Hepsinde ortak zorunluluk: **staged içerikte yarım iş, kırmızı test veya
 `.gitignore`'lu üretilmiş dosya yok.** Bir commit'e sığmayan iki ayrı iş varsa
 iki commit atılır.
 
+### Sormadan push edilir
+
+Yukarıdaki koşullarla oluşturulan **her doğrulanmış commit**, oluşturulur
+oluşturulmaz ayrı ayrı `git push origin main` ile gönderilir. Push yalnız mevcut
+`main` dalından mevcut `origin/main` hedefine normal fast-forward teslimattır.
+Her push'tan sonra GitHub Actions CI sonucu izlenir; CI yeşil olmadan iş
+tamamlanmış raporlanmaz ve başka task'a geçilmez.
+
+- Push bağlantı, kimlik doğrulama veya non-fast-forward nedeniyle reddedilirse
+  force/pull/rebase yapılmaz; yerel commit korunur ve teslimatın beklediği
+  bildirilir.
+- CI aynı commit'ten kaynaklanan bir kusurla kırılırsa kusur giderilir, tüm
+  kapılar yeniden doğrulanır, yeni commit normal push edilir ve CI yeniden
+  izlenir.
+- CI bağımsız bir kusur gösterirse yeni backlog task'ı açılır; mevcut kırmızı
+  durum ve engel raporlanır.
+
 ### Sorulmadan yapılmaz
 
-- **`git push`** ve uzağa giden her şey (PR açma, remote branch)
+- **Normal `origin/main` push'u dışındaki uzağa giden işler:** PR açma, remote
+  branch oluşturma veya başka remote/branch'e push
 - **Geçmişi değiştiren her şey:** `--amend` · `rebase` · `reset --hard` ·
   force push · tag · branch silme
 - **Kırmızı testle veya eksik kanıtla commit** (WIP kaydı) — kullanıcı açıkça
