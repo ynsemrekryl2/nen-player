@@ -3,8 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-27** (**`NEN-026` kapandı** — altyazı menüsü
-> çekirdeğin projeksiyonunu çiziyor; §8'in görünen metni ilk kez var)
+> Son güncelleme: **2026-08-27** (`NEN-061` · `NEN-062` · `NEN-063`
+> planlandı; video presentation metadata kararı `ADR-0036` proposed)
 
 ## Nerede duruyoruz
 
@@ -13,8 +13,14 @@
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
 | **Son tamamlanan** | `NEN-026` — subtitle menu UI |
-| **Sıradaki READY** | `NEN-027`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-060` |
-| **Task sayısı** | 60 · done 41 · active 0 · blocked 0 · backlog 19 |
+| **Sıradaki READY** | `NEN-027`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-060`, `NEN-061` |
+| **Task sayısı** | 63 · done 41 · active 0 · blocked 0 · backlog 22 |
+
+**macOS cam yüzey turu üç task'a ayrıldı.** `NEN-061` çerçevesiz krom ve cam
+transportu, `NEN-062` popover dışı altyazı panelini taşır. Bunlar ADR-0031
+Notlar'ın task kapsamına bıraktığı yüzey kararlarıdır. Teknik kalite rozeti ise
+playback portu ve iki FFI yönünü genişlettiği için `NEN-063` olarak ayrıldı;
+dayanağı `ADR-0036` kullanıcı kabulüne kadar `proposed` durumundadır.
 
 **`NEN-026` kapandı — altyazı menüsü ekranda ve §8'in görünen metni ilk kez
 var.** Menü çekirdeğin projeksiyonunu çiziyor: gruplama, sıra, dedup ve "boş
