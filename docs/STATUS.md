@@ -3,9 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-27** (**`NEN-058` kapandı** — ikinci medyanın açılışı
-> artık sahte bir hata üretmiyor ve mpv kataloğu atlayan bir altyazı açmıyor.
-> Bildirilen hipotez ölçümle ikiye ayrıldı: yarısı doğru, yarısı yanlış çıktı)
+> Son güncelleme: **2026-08-27** (**`NEN-059` kapandı** — push sonrasında
+> kırmızı olan Rust biçimlendirme ve lint kapıları, davranış değiştirmeyen
+> mekanik düzeltmelerle yerelde yeniden yeşil)
 
 ## Nerede duruyoruz
 
@@ -13,9 +13,18 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-058` — a medium fails to load when a symlinked sidecar sits beside it |
+| **Son tamamlanan** | `NEN-059` — restore the Rust CI gates |
 | **Sıradaki READY** | `NEN-026`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-056`, `NEN-057` |
-| **Task sayısı** | 58 · done 38 · active 0 · blocked 0 · backlog 20 |
+| **Task sayısı** | 59 · done 39 · active 0 · blocked 0 · backlog 20 |
+
+**`NEN-059` kapandı — push'ta görülen CI kırmızısı yerelde bütünüyle
+giderildi.** Rust 1.98.0 `rustfmt`, NEN-025/NEN-051'den kalan beş dosyada satır
+düzeni farkı buldu; `cargo fmt` yalnız bu beş dosyayı değiştirdi. Whitespace
+dışı içerik dört dosyada birebir aynı, beşincideki tek token farkı Rust
+1.98'in `clippy::assertions_on_constants` lint'inin istediği
+`const { assert!(...) }` wrapper'ı. Tam yerel workflow — fmt, clippy, workspace
+testleri, cargo-deny, shell testleri, task-index ve docs kapıları — çıkış 0.
+GitHub Actions sonucu commit push edildikten sonra ayrıca izlenecek.
 
 **`NEN-058` kapandı — bildirilen hipotez ölçümle ikiye ayrıldı.** Task
 "yanında symlink `.srt` olan medya açılmıyor" diye açılmıştı ve tek hipotezi

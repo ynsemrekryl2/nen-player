@@ -66,7 +66,11 @@ fn a_rejection_never_prints_a_path() {
 
 #[test]
 fn a_defect_never_prints_the_line_that_caused_it() {
-    let output = format!("{:?} {:?}", SourceDefect::Unreadable, SourceDefect::Malformed);
+    let output = format!(
+        "{:?} {:?}",
+        SourceDefect::Unreadable,
+        SourceDefect::Malformed
+    );
     forbidden(&output);
     assert!(output.contains("malformed"), "{output}");
 }

@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **58** task · ✅ done 38 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 20
+Toplam **59** task · ✅ done 39 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 20
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -79,6 +79,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-056](backlog/NEN-056-too-large-label-is-unreachable.md) | Resolve the unreachable "çok büyük" reason label | S | ⚪ backlog | NEN-025 |
 | [NEN-057](backlog/NEN-057-filename-language-hint.md) | Read the language a subtitle filename declares | S | ⚪ backlog | NEN-025 |
 | [NEN-058](done/NEN-058-media-fails-beside-symlinked-sidecar.md) | A medium fails to load when a symlinked sidecar sits beside it | S | ✅ done | NEN-022 NEN-025 |
+| [NEN-059](done/NEN-059-restore-rust-ci-gates.md) | Restore the Rust CI gates | S | ✅ done | NEN-025 NEN-051 |
 
 ## M5 — Translation Core
 

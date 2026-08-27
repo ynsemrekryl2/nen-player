@@ -28,10 +28,8 @@ impl TempDir {
         use std::sync::atomic::{AtomicU32, Ordering};
         static COUNTER: AtomicU32 = AtomicU32::new(0);
         let unique = COUNTER.fetch_add(1, Ordering::Relaxed);
-        let path = std::env::temp_dir().join(format!(
-            "nen-025-{tag}-{}-{unique}",
-            std::process::id()
-        ));
+        let path =
+            std::env::temp_dir().join(format!("nen-025-{tag}-{}-{unique}", std::process::id()));
         let _ = fs::remove_dir_all(&path);
         fs::create_dir_all(&path).expect("temp dir");
         Self(path)
@@ -288,10 +286,7 @@ fn a_file_exactly_at_the_size_limit_is_still_admitted() {
     let mut padded = String::from(VALID_SRT);
     padded.push_str(&"\n".repeat(MAX_SUBTITLE_BYTES as usize - VALID_SRT.len()));
     let path = dir.write("Film.srt", &padded);
-    assert_eq!(
-        fs::metadata(&path).expect("stat").len(),
-        MAX_SUBTITLE_BYTES
-    );
+    assert_eq!(fs::metadata(&path).expect("stat").len(), MAX_SUBTITLE_BYTES);
 
     let mut library = SubtitleLibrary::new();
     assert_eq!(library.add_file(&path, dir.path()), AddOutcome::Added);

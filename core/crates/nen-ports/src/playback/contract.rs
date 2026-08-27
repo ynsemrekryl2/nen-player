@@ -967,9 +967,7 @@ fn run_step<E: PlaybackEngine>(
         Action::AwaitSeekLanding { near_ms } => {
             await_events(engine, &[EventShape::SeekCompleted], inputs, seen)?;
             let Some(landed) = seen.seek_landings.last().copied() else {
-                return Err(
-                    "a SeekCompleted arrived but carried no position to check".to_string()
-                );
+                return Err("a SeekCompleted arrived but carried no position to check".to_string());
             };
             let drift = landed.abs_diff(near_ms);
             if drift <= inputs.seek_tolerance_ms {

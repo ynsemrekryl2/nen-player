@@ -154,7 +154,9 @@ impl Default for FfiSubtitleLibrary {
 /// Takes the lock without caring whether a previous holder panicked, on the
 /// same reasoning as [`crate::session`]: the catalog behind it is still true.
 fn lock(mutex: &Mutex<SubtitleLibrary>) -> std::sync::MutexGuard<'_, SubtitleLibrary> {
-    mutex.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+    mutex
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
 #[cfg(test)]

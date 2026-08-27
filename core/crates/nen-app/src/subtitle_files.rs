@@ -307,7 +307,10 @@ mod tests {
         // "aynı basename" — `Inception.2010.mkv.srt` would be a different one.
         let sidecar = sidecar_of(Path::new("/m/Inception.2010.mkv")).expect("a name");
         assert_eq!(sidecar.extension().and_then(|e| e.to_str()), Some("srt"));
-        assert_eq!(sidecar.file_stem().and_then(|e| e.to_str()), Some("Inception.2010"));
+        assert_eq!(
+            sidecar.file_stem().and_then(|e| e.to_str()),
+            Some("Inception.2010")
+        );
     }
 
     #[test]
@@ -342,6 +345,6 @@ mod tests {
         // M1's 50 000-cue document is 3.1 MiB and is already far past what a
         // single film produces. Guards against someone tightening the shared
         // limit to a number that refuses legitimate files.
-        assert!(MAX_SUBTITLE_BYTES > 3 * 3_100_000);
+        const { assert!(MAX_SUBTITLE_BYTES > 3 * 3_100_000) };
     }
 }
