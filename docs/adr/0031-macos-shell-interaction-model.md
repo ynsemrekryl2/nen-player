@@ -218,3 +218,11 @@ popover olması, rozet metinleri — mimari değildir ve ilgili task dosyaların
 Beyin fırtınasının 2. turu `NEN-024` çalışır hale geldikten sonra, `NEN-026`
 başlamadan yapılacaktır: ekrandaki gerçek şeye bakarak görsel ince ayar ve §8'in
 görünen metninin doğrulanması.
+
+**Karar 5'in etiket kümesi [ADR-0035](0035-subtitle-source-reason-labels.md)
+ile daraltıldı (2026-08-27, `NEN-056`).** Karar 5'in birinci maddesi
+`çok büyük` etiketini sayıyor, ikinci maddesi ise boyut sınırını güvenlik
+kapısına koyuyor — kapıdan dönen dosya kataloğa hiç girmediği için o etiket
+hiçbir zaman üretilemezdi. ADR-0035 kümeyi `okunamadı` · `biçim hatalı` olarak
+sabitliyor; Karar 5'in geri kalanı ve bu ADR'nin diğer beş kararı yürürlükte.
+Gövde ADR-0001 gereği olduğu gibi bırakıldı.
