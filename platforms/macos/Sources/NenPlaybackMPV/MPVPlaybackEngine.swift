@@ -88,6 +88,19 @@ public final class MPVPlaybackEngine: ForeignPlaybackEngine, @unchecked Sendable
     /// answering a seek, because no seek had started.
     var seekInFlight = false
     var stopRequested = false
+    /// The playlist entry id of the medium this adapter is currently loading or
+    /// playing, as mpv numbered it.
+    ///
+    /// mpv ends the outgoing file when `loadfile` replaces it, and that end is
+    /// indistinguishable by reason code from a genuine load failure: NEN-058
+    /// measured both as `reason=STOP, error=0`. What separates them is *which
+    /// entry* ended — the outgoing one or the one just asked for — and mpv says
+    /// so in `playlist_entry_id`.
+    ///
+    /// Set to `noEntry` before each `loadfile` is issued, so an end that arrives
+    /// while no id is known belongs to no load this adapter is waiting on. That
+    /// ordering is structural rather than a race won by timing.
+    var currentEntryId: Int64 = MPVPlaybackEngine.noEntry
     var shutDown = false
     /// The last `eof-reached` value seen, so a repeat does not re-announce the
     /// end and a rewind can announce it again.
@@ -113,12 +126,20 @@ public final class MPVPlaybackEngine: ForeignPlaybackEngine, @unchecked Sendable
         // M3's first exit criterion depends on the distinction.
         // `keep-open=yes`: at EOF the medium stays loaded, so `position`,
         // `duration` and `tracks` still answer in the `Ended` state.
-        // `sid=no`: subtitle selection is the core's decision (§8, the menu's
-        // `Kapalı` entry), never the engine's own default.
+        // `sid=no` and `sub-auto=no`: subtitles are the core's decision (§8,
+        // the menu's `Kapalı` entry), never the engine's own.
+        //
+        // Both halves are needed and NEN-058 measured why. `sid=no` only stops
+        // mpv from *showing* a subtitle; with mpv's default `sub-auto=exact` the
+        // engine still **opens** the `.srt` sitting next to the medium, and it
+        // showed up as a third subtitle track on a fixture that has two.
+        // A file opened that way is a source no catalog ever saw, no menu ever
+        // listed (ADR-0031 Karar 4/5), and none of NEN-025's file gates ever
+        // examined — the engine would be loading subtitles behind the core's back.
         var options = [
             ("config", "no"), ("terminal", "no"),
             ("idle", "yes"), ("pause", "yes"),
-            ("keep-open", "yes"), ("sid", "no")
+            ("keep-open", "yes"), ("sid", "no"), ("sub-auto", "no")
         ]
         if videoView == nil {
             options.append(("vo", "null"))
@@ -172,9 +193,14 @@ public final class MPVPlaybackEngine: ForeignPlaybackEngine, @unchecked Sendable
             atEndOfFile = false
             seekInFlight = false
             trackList = []
+            // Cleared *before* the command: from here until mpv answers, no
+            // entry id is this load's, so the outgoing file's end cannot be
+            // mistaken for this one's failure.
+            currentEntryId = Self.noEntry
             pending.append(.stateChanged(state: .buffering))
         }
-        try command(["loadfile", locator])
+        let entry = try loadFile(locator)
+        try mutate(requireLoaded: false) { currentEntryId = entry }
     }
 
     public func play() throws {
@@ -416,4 +442,8 @@ extension MPVPlaybackEngine {
     /// The capability set this adapter declares, as a value a test can compare
     /// against without instantiating an engine.
     public static let declaredCapabilities: [FfiCapability] = [.playbackRate, .volume]
+
+    /// No playlist entry. mpv numbers its entries from 1, so no real entry can
+    /// collide with this.
+    static let noEntry: Int64 = 0
 }

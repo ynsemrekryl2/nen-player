@@ -81,6 +81,17 @@ koşuda `Task.sleep`'e dayanan bir bekleyiş aç kalıyor.
 gerekçesindeki "paralellik sebep değil, dar bir pencereyi genişleten koşul"
 ifadesiyle uyumlu. Tek gözlem; oran ölçümü yapılmadı.
 
+## İkinci gözlem (2026-08-27, NEN-058 sırasında)
+
+Aynı sınıf ikinci kez görüldü. `NEN-058`'in kapanış koşusunda paralel tam paket
+**1 kırmızı** verdi: `window resume after shutdown restarts event polling`
+(`PlayerModelTests`) — beklenen `.ready` yerine `.playing`. Yine `FakeSession`
+tabanlı, gerçek libmpv adapter'ıyla ilgisi olmayan bir shell testi ve yine
+`Task.sleep`'e dayanan bir bekleyiş.
+
+Aynı ağaçta **seri** paket art arda **2/2** yeşil (62 test). Oran ölçümü yine
+yapılmadı; bu satır yalnız gözlemi kaydediyor, bu task'a iş eklemiyor (Kural 5).
+
 ## Kanıt (DoD)
 
 - [ ] `bash scripts/test-macos.sh` art arda en az 3 kez çıkış 0

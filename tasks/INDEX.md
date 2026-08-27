@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **58** task · ✅ done 37 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 21
+Toplam **58** task · ✅ done 38 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 20
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -78,7 +78,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-055](done/NEN-055-transport-feedback-latency.md) | A transport command is shown without waiting for the next poll tick | S | ✅ done | NEN-053 |
 | [NEN-056](backlog/NEN-056-too-large-label-is-unreachable.md) | Resolve the unreachable "çok büyük" reason label | S | ⚪ backlog | NEN-025 |
 | [NEN-057](backlog/NEN-057-filename-language-hint.md) | Read the language a subtitle filename declares | S | ⚪ backlog | NEN-025 |
-| [NEN-058](backlog/NEN-058-media-fails-beside-symlinked-sidecar.md) | A medium fails to load when a symlinked sidecar sits beside it | S | ⚪ backlog | NEN-022 NEN-025 |
+| [NEN-058](done/NEN-058-media-fails-beside-symlinked-sidecar.md) | A medium fails to load when a symlinked sidecar sits beside it | S | ✅ done | NEN-022 NEN-025 |
 
 ## M5 — Translation Core
 
@@ -115,4 +115,3 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-052** — Decide and pin what a seek during loading does
 - **NEN-056** — Resolve the unreachable "çok büyük" reason label
 - **NEN-057** — Read the language a subtitle filename declares
-- **NEN-058** — A medium fails to load when a symlinked sidecar sits beside it

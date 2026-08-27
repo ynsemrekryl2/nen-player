@@ -78,23 +78,41 @@ extension MPVPlaybackEngine {
             pending.append(.positionChanged(positionMs: at))
 
         case MPV_EVENT_END_FILE:
-            let reason = event.pointee.data
-                .map { $0.assumingMemoryBound(to: mpv_event_end_file.self).pointee }
+            guard let end = event.pointee.data
+                .map({ $0.assumingMemoryBound(to: mpv_event_end_file.self).pointee })
+            else { break }
             if stopRequested {
                 stopRequested = false
                 break
             }
-            // Not our `stop`, so the medium ended by itself or failed. With
-            // `keep-open=yes` a natural EOF does not produce this event at all,
-            // which is what makes the remaining cases failures.
+            // An end only concerns the caller if it is *this* load's end.
+            //
+            // `loadfile` over an open medium ends the outgoing entry first, and
+            // NEN-058 measured that end as `reason=STOP, error=0` — byte for
+            // byte what a medium whose bytes are not a container produces. Read
+            // as a failure it made the shell report `Dosya okunamadı.` for a
+            // file that then went on to load and play, which is how the symptom
+            // was first seen: the *second* medium opened in a session always
+            // failed, and the sidecar beside it was never the variable.
+            //
+            // `playlist_entry_id` is what tells them apart, and it is mpv's own
+            // answer rather than something inferred: the outgoing entry ends
+            // under its own id while `loadfile` has already reported the new
+            // one.
+            guard end.playlist_entry_id == currentEntryId else { break }
+
+            // Neither our `stop` nor a file we have moved on from, so this
+            // medium ended by itself or failed. With `keep-open=yes` a natural
+            // EOF does not produce this event at all, which is what makes the
+            // remaining cases failures.
             //
             // Measured on two shapes of bad input: a missing file gives
             // `REASON_ERROR` with "loading failed"; a file whose bytes are not
             // a container gives `REASON_STOP` with no error code. Both are
             // load failures, and the reason code alone cannot tell them from
-            // each other — only from a stop we asked for.
+            // each other.
             phase = .failed
-            let error = Self.loadFailure(from: reason)
+            let error = Self.loadFailure(from: end)
             pending.append(.stateChanged(state: .failed))
             pending.append(.failed(error: error))
 
@@ -131,8 +149,7 @@ extension MPVPlaybackEngine {
         }
     }
 
-    private static func loadFailure(from reason: mpv_event_end_file?) -> FfiPlaybackError {
-        guard let reason else { return .LoadFailed(reason: .unreadable) }
+    private static func loadFailure(from reason: mpv_event_end_file) -> FfiPlaybackError {
         if reason.error == MPV_ERROR_LOADING_FAILED.rawValue {
             return .LoadFailed(reason: .notFound)
         }

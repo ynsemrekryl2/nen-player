@@ -3,10 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-27** (**`NEN-025` kapandı** — kullanıcı altyazısı
-> yükleniyor ve sidecar bulunuyor, güvenlik kapıları gerçek dosya sistemiyle
-> sınanmış durumda. Kapanışa giden yolda bir mimari karar çıktı ve kabul
-> edildi: **ADR-0034** — macOS dağıtımı artık sandbox'sız)
+> Son güncelleme: **2026-08-27** (**`NEN-058` kapandı** — ikinci medyanın açılışı
+> artık sahte bir hata üretmiyor ve mpv kataloğu atlayan bir altyazı açmıyor.
+> Bildirilen hipotez ölçümle ikiye ayrıldı: yarısı doğru, yarısı yanlış çıktı)
 
 ## Nerede duruyoruz
 
@@ -14,9 +13,53 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-025` — user subtitle loading and sidecar discovery |
-| **Sıradaki READY** | `NEN-026`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-056`, `NEN-057`, `NEN-058` |
-| **Task sayısı** | 58 · done 37 · active 0 · blocked 0 · backlog 21 |
+| **Son tamamlanan** | `NEN-058` — a medium fails to load when a symlinked sidecar sits beside it |
+| **Sıradaki READY** | `NEN-026`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-056`, `NEN-057` |
+| **Task sayısı** | 58 · done 38 · active 0 · blocked 0 · backlog 20 |
+
+**`NEN-058` kapandı — bildirilen hipotez ölçümle ikiye ayrıldı.** Task
+"yanında symlink `.srt` olan medya açılmıyor" diye açılmıştı ve tek hipotezi
+mpv'nin sidecar'ı kendi yükleyip symlink'te takılmasıydı. Ölçüm hipotezin
+**yarısını çürüttü, yarısını doğruladı** — ve iki ayrı kusur çıkardı.
+
+**Symlink değişken değildi.** Aynı medyanın yanına dokuz farklı komşu kondu —
+düz `.srt`, kardeşe mutlak/göreli symlink, kırık symlink, dizin dışına symlink,
+dizine symlink, kendine dönen symlink, boş `.srt` — ve dokuzunda da medya
+açıldı. **Değişken sıraydı:** NEN-025'in elle koşusu `Probe.mkv`'yi önce,
+`Linked.mkv`'yi sonra açmıştı ve semptomu üreten şey ikinci olmaktı. Ters
+sırada aynı `Linked.mkv` hiçbir hata üretmiyor. Symlink ile sıra o koşuda
+birbirine karışmıştı; sidecar seyirciydi.
+
+**Kök neden: `loadfile` giden dosyayı bitiriyor ve bu son, gerçek bir hatadan
+sebep koduyla ayırt edilemiyor.** İkisi de `reason=STOP, error=0` — kodun kendi
+yorumu bunu zaten kaydetmişti. Adapter yalnız `stopRequested` ile susuyordu,
+dolayısıyla giden dosyanın sonunu yeni dosyanın hatası sanıyor, kabuk da yoldan
+geçen fatal olayı görüp `Dosya okunamadı.` basıyordu — motor bir an sonra
+`ready` olsa bile. **Ayırt eden işaret mpv'nin kendisindeydi:**
+`playlist_entry_id`. `loadfile` yeni id'yi `mpv_command_ret` ile senkron
+döndürüyor ve bu, giden dosyanın sonundan ~560 µs **önce** oluyor (ölçüldü).
+Kör yutma kullanılmadı — NEN-051'de reddedilen yaklaşımın aynısı olurdu.
+
+**Hipotezin doğru çıkan yarısı ikinci bir kusurdu ve mimari sınırı deliyordu.**
+`sid=no` yalnız **gösterimi** kapatıyor; mpv'nin default `sub-auto=exact`'i
+yanındaki `.srt`'yi **açmaya** devam ediyordu. İki gömülü subtitle track'i olan
+fixture `[3, 4, 0]` raporluyordu — üçüncüsü external. Yani kataloğun hiç
+görmediği, menünün hiç listelemediği (ADR-0031 Karar 4/5) ve NEN-025'in dört
+kapısının hiç incelemediği bir kaynak vardı; **symlink kapısı dahil**, çünkü
+symlink'li komşu da açılıyordu. `sub-auto=no` eklendi. Bu, `NEN-026`'nın menü
+iddiasının zeminini düzeltiyor: menü "kaynakların tamamı burada" diyecekse
+motorun arkadan kaynak açmaması gerekiyordu.
+
+**Negatif kontrol iki yönde ve ayrık:** entry-id guard'ı kaldırılınca **2**
+kırmızı (semptomu birebir üretiyor), `sub-auto=no` kaldırılınca **2** kırmızı
+(track listesi). Her düzeltmenin kendi testleri var. Ayrıca guard'ın sağır
+kalmadığı ölçülüyor: açık bir medyadan sonra gerçek bir yükleme hatası hâlâ
+raporlanıyor. **Ölçümün kendisi bir kez düzeltildi** — ilk turda negatif
+kontroller `git checkout` ile geri alınıyordu ve dosyalar commit edilmediği için
+bu iki düzeltmeyi birden siliyordu.
+
+Swift **56 → 62** (seri 2/2), Rust **489** (değişmedi — bu iş Rust'a
+dokunmadı). Kanıt: `evidence/M3/NEN-058-measurement.md`.
 
 **`NEN-025` kapandı — altyazı dosyası yükleniyor, sidecar bulunuyor, kapılar
 gerçek dosya sistemiyle sınanıyor.** Rust **489** test (`NEN-051`'de 453'tü),

@@ -44,6 +44,41 @@ extension MPVPlaybackEngine {
         }
     }
 
+    /// Issues `loadfile` and returns the playlist entry id mpv gave the new
+    /// medium.
+    ///
+    /// `mpv_command_ret` rather than `mpv_command`: `loadfile` answers with the
+    /// id of the entry it just created, and that id is the only thing that tells
+    /// this adapter which file a later `MPV_EVENT_END_FILE` is about. Measured
+    /// (NEN-058, libmpv 2.5.0): the reply carries the new id roughly 600 us
+    /// before mpv ends the outgoing entry, so the id is known in time.
+    func loadFile(_ locator: String) throws -> Int64 {
+        try requireLive()
+        let arguments: [String] = ["loadfile", locator]
+        let owned: [UnsafeMutablePointer<CChar>?] = arguments.map { strdup($0) }
+        defer { owned.forEach { if let pointer = $0 { free(pointer) } } }
+        var argv: [UnsafePointer<CChar>?] = owned.map { pointer in pointer.map { UnsafePointer($0) } }
+        argv.append(nil)
+
+        var result = mpv_node()
+        let status = argv.withUnsafeMutableBufferPointer { buffer in
+            mpv_command_ret(handle, buffer.baseAddress, &result)
+        }
+        try check(status)
+        defer { mpv_free_node_contents(&result) }
+
+        guard result.format == MPV_FORMAT_NODE_MAP, let map = result.u.list else {
+            return MPVPlaybackEngine.noEntry
+        }
+        for index in 0..<Int(map.pointee.num) {
+            guard let key = map.pointee.keys[index] else { continue }
+            if String(cString: key) == "playlist_entry_id" {
+                return map.pointee.values[index].u.int64
+            }
+        }
+        return MPVPlaybackEngine.noEntry
+    }
+
     func string(_ name: String) throws -> String {
         guard let raw = mpv_get_property_string(handle, name) else {
             throw FfiPlaybackError.NotLoaded
