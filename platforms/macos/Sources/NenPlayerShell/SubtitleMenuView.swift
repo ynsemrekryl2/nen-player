@@ -1,7 +1,7 @@
 import NenCore
 import SwiftUI
 
-/// §8's menu: one popover, two columns, fixed height.
+/// §8's menu: one in-window glass panel, two columns, fixed height.
 ///
 /// Column one is the projection's headings, column two the rows under the
 /// heading being browsed. The height is fixed and each column scrolls inside
@@ -23,17 +23,22 @@ struct SubtitleMenuView: View {
         HStack(spacing: 0) {
             groupColumn
                 .frame(width: Self.groupColumnWidth)
-            Divider()
             entryColumn
                 .frame(width: Self.entryColumnWidth)
         }
-        .frame(height: Self.panelHeight)
-        // An explicit opaque backing, not the popover's own material.
-        // Measured on the real .app: over the video surface the translucent
-        // popover let the picture through far enough that the group names were
-        // unreadable on a bright frame — and a menu you cannot read on a bright
-        // film is a menu that works only on dark ones.
-        .background(Color(nsColor: .controlBackgroundColor))
+        .frame(
+            width: Self.groupColumnWidth + Self.entryColumnWidth,
+            height: Self.panelHeight
+        )
+        .overlay(alignment: .leading) {
+            Rectangle()
+                .fill(Color.white.opacity(0.14))
+                .frame(width: 1)
+                .offset(x: Self.groupColumnWidth)
+        }
+        .background { GlassSurface() }
+        .environment(\.colorScheme, .dark)
+        .foregroundStyle(.white)
     }
 
     // MARK: - Column one
@@ -192,6 +197,6 @@ struct SubtitleMenuView: View {
     private func activeDot(_ isActive: Bool) -> some View {
         Circle()
             .fill(isActive ? Color.accentColor : .clear)
-            .frame(width: 5, height: 5)
+            .frame(width: 7, height: 7)
     }
 }

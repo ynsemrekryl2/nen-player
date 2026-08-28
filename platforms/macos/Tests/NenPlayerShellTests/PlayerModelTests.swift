@@ -236,6 +236,77 @@ struct PlayerModelTests {
         #expect(model.controlsVisible)
     }
 
+    @Test("pinned controls stay visible and unpin restores the hide timer")
+    func pinnedControlsSuspendAndRestoreAutomaticHiding() async throws {
+        let fixture = FakeSession()
+        let model = makeModel(
+            session: fixture,
+            controlsHideDelayNanoseconds: 2_000_000
+        )
+        model.openMedia(at: URL(fileURLWithPath: "/fixtures/media/contract-clip.mkv"))
+        model.consume([.stateChanged(state: .playing)])
+
+        model.setControlsPinned(true)
+        try await Task.sleep(nanoseconds: 10_000_000)
+        #expect(model.controlsVisible)
+        #expect(model.controlsPinned)
+
+        model.setControlsPinned(false)
+        try await Task.sleep(nanoseconds: 10_000_000)
+        #expect(!model.controlsVisible)
+        #expect(!model.controlsPinned)
+    }
+
+    @Test("releasing a pin while paused leaves the controls visible")
+    func pausedControlsRemainVisibleAfterUnpinning() async throws {
+        let model = makeModel(
+            session: FakeSession(),
+            controlsHideDelayNanoseconds: 2_000_000
+        )
+        model.openMedia(at: URL(fileURLWithPath: "/fixtures/media/contract-clip.mkv"))
+        model.consume([.stateChanged(state: .paused)])
+
+        model.setControlsPinned(true)
+        model.setControlsPinned(false)
+        try await Task.sleep(nanoseconds: 10_000_000)
+
+        #expect(model.controlsVisible)
+        #expect(!model.controlsPinned)
+    }
+
+    @Test("media changes, fatal failure, and shutdown clear the controls pin")
+    func lifecycleBoundariesClearTheControlsPin() {
+        let model = makeModel(session: FakeSession())
+        model.openMedia(at: URL(fileURLWithPath: "/fixtures/media/first.mkv"))
+
+        model.setControlsPinned(true)
+        model.openMedia(at: URL(fileURLWithPath: "/fixtures/media/second.mkv"))
+        #expect(!model.controlsPinned)
+
+        model.setControlsPinned(true)
+        model.consume([.failed(error: .EngineFailure(code: -13))])
+        #expect(!model.controlsPinned)
+
+        model.setControlsPinned(true)
+        model.shutdown()
+        #expect(!model.controlsPinned)
+    }
+
+    @Test("media presentation revision changes even for equal basenames")
+    func mediaRevisionDoesNotDependOnTheBasename() {
+        let model = makeModel(session: FakeSession())
+        let first = URL(fileURLWithPath: "/fixtures/one/shared.mkv")
+        let second = URL(fileURLWithPath: "/fixtures/two/shared.mkv")
+
+        model.openMedia(at: first)
+        let firstRevision = model.mediaPresentationRevision
+        model.openMedia(at: second)
+
+        #expect(firstRevision > 0)
+        #expect(model.mediaPresentationRevision == firstRevision + 1)
+        #expect(model.mediaName == "shared.mkv")
+    }
+
     @Test("the one stored bookmark reopens in the same model")
     func recentMediaReopens() {
         let fixture = FakeSession()
@@ -305,12 +376,16 @@ struct PlayerModelTests {
         model.resume()
 
         let deadline = Date().addingTimeInterval(0.5)
-        while second.playCount == 0, Date() < deadline {
+        // The first resumed poll consumes Ready and calls play; FakeSession
+        // then queues Playing for the next poll, just like the real bridge.
+        // Observing exactly between those two polls is valid, so wait for the
+        // stable post-command state instead of asserting that transient gap.
+        while (second.playCount == 0 || model.playbackState != .playing), Date() < deadline {
             try await Task.sleep(nanoseconds: 1_000_000)
         }
 
         #expect(second.playCount == 1)
-        #expect(model.playbackState == .ready)
+        #expect(model.playbackState == .playing)
         model.shutdown()
     }
 
@@ -579,6 +654,7 @@ struct PlayerModelTests {
     private func makeModel(
         session: FakeSession,
         store: MemoryRecentStore = MemoryRecentStore(),
+        controlsHideDelayNanoseconds: UInt64 = 2_500_000_000,
         transientMessageDurationNanoseconds: UInt64 = 3_000_000_000,
         seekGuardTimeoutNanoseconds: UInt64 = 1_500_000_000,
         clock: TestClock = TestClock()
@@ -586,6 +662,7 @@ struct PlayerModelTests {
         let model = PlayerModel(
             recentStore: store,
             startsPolling: false,
+            controlsHideDelayNanoseconds: controlsHideDelayNanoseconds,
             transientMessageDurationNanoseconds: transientMessageDurationNanoseconds,
             seekGuardTimeoutNanoseconds: seekGuardTimeoutNanoseconds,
             now: { clock.nanoseconds },

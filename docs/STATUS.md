@@ -3,8 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-27** (`NEN-061` kapandı — çerçevesiz krom ve cam
-> transport barı gerçek `.app` üzerinde doğrulandı)
+> Son güncelleme: **2026-08-29** (`NEN-062` done — altyazı menüsü transport
+> üstündeki pencere içi cam panelde)
 
 ## Nerede duruyoruz
 
@@ -12,9 +12,26 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-061` — frameless chrome and glass transport bar |
-| **Sıradaki READY** | `NEN-027`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-060`, `NEN-062`, `NEN-063` |
-| **Task sayısı** | 63 · done 42 · active 0 · blocked 0 · backlog 21 |
+| **Son tamamlanan** | `NEN-062` — subtitle menu panel above the transport bar |
+| **Sıradaki READY** | `NEN-027`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-060`, `NEN-063` |
+| **Task sayısı** | 63 · done 43 · active 0 · blocked 0 · backlog 20 |
+
+**`NEN-062` kapandı — altyazı menüsü artık popover değil, transportun sağ
+kenarına hizalı pencere içi cam panel.** Panel ve bar aynı `GlassSurface`'i
+kullanıyor; aralarında 12 pt var, panel 440×260 pt ve kolonlar toplam genişliği
+büyütmeyen 190/250 pt sınırında. Grup vurgusu bakılan kolonu, 7 pt aktif nokta
+gerçek kaynağı göstermeye devam ediyor; NEN-026'nın sıra, endonim, dedup,
+kusurlu satır ve boş durum semantiği değişmedi.
+
+Panel açıkken `setControlsPinned(_:)` otomatik gizlemeyi askıya alıyor; gerçek
+`.app`te 3,2 sn sonra panel, transport ve chrome görünür kaldı. CC, video alanı
+ve transport tıklamaları paneli kapatıyor, transport eylemi kaybolmuyor; medya,
+fatal, pasifleşme ve shutdown sınırları stale panel/pin bırakmıyor. Aynı
+basename taşıyan farklı dosyalar monoton `mediaPresentationRevision` ile
+ayrılıyor. Parlak fixture ve kusurlu sidecar kanıtları kaydedildi; geçici
+sidecar kaldırıldı. Swift paketi **91/91** yeşil, `.app` build ve strict
+codesign doğrulaması geçti. Tam kayıt:
+`tasks/done/NEN-062-*.md` · `evidence/M3/NEN-062-checklist.md`.
 
 **`NEN-061` kapandı — oynatıcı yüzeyi artık videoya kadar uzanan macOS
 kromu ve tek cam transport katmanı.** Medya adı, trafik lambaları ve bar aynı

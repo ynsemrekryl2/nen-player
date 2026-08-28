@@ -8,6 +8,7 @@ public extension Notification.Name {
 
 public struct PlayerRootView: View {
     @ObservedObject private var model: PlayerModel
+    @State private var showsSubtitlePanel = false
 
     public init(model: PlayerModel) {
         self.model = model
@@ -57,7 +58,16 @@ public struct PlayerRootView: View {
             )
         )
         .animation(.easeOut(duration: 0.24), value: model.controlsVisible)
+        .animation(.easeOut(duration: 0.24), value: showsSubtitlePanel)
         .animation(.easeOut(duration: 0.16), value: model.transientMessage)
+        .onChange(of: model.mediaPresentationRevision) { _, _ in
+            setSubtitlePanelPresented(false)
+        }
+        .onChange(of: model.fatalMessage) { _, fatalMessage in
+            if fatalMessage != nil {
+                setSubtitlePanelPresented(false)
+            }
+        }
         .onContinuousHover { phase in
             switch phase {
             case .active:
@@ -72,6 +82,7 @@ public struct PlayerRootView: View {
             return true
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in
+            setSubtitlePanelPresented(false)
             model.applicationResignedActive()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
@@ -81,6 +92,7 @@ public struct PlayerRootView: View {
             model.resume()
         }
         .onDisappear {
+            setSubtitlePanelPresented(false)
             model.shutdown()
         }
     }
@@ -113,12 +125,49 @@ public struct PlayerRootView: View {
                     .allowsHitTesting(false)
             }
 
-            TransportControls(model: model)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            if showsSubtitlePanel {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        setSubtitlePanelPresented(false)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+
+            VStack(alignment: .trailing, spacing: 12) {
+                if showsSubtitlePanel {
+                    SubtitleMenuView(model: model)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+
+                TransportControls(
+                    model: model,
+                    showsSubtitlePanel: subtitlePanelBinding,
+                    onInteractionOutsideSubtitlePanel: {
+                        setSubtitlePanelPresented(false)
+                    }
+                )
+                .frame(maxWidth: .infinity)
+            }
+                .padding(.horizontal, 22)
+                .padding(.bottom, 20)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 .opacity(model.controlsVisible ? 1 : 0)
                 .offset(y: model.controlsVisible ? 0 : 14)
                 .allowsHitTesting(model.controlsVisible)
         }
+    }
+
+    private var subtitlePanelBinding: Binding<Bool> {
+        Binding(
+            get: { showsSubtitlePanel },
+            set: { setSubtitlePanelPresented($0) }
+        )
+    }
+
+    private func setSubtitlePanelPresented(_ presented: Bool) {
+        showsSubtitlePanel = presented
+        model.setControlsPinned(presented)
     }
 }
 

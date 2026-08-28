@@ -21,6 +21,10 @@ public final class PlayerModel: ObservableObject {
     @Published public private(set) var controlsVisible = true
     @Published public private(set) var showsRemainingTime = false
     @Published public private(set) var seekPreviewMilliseconds: UInt64?
+    /// Changes for every medium that reaches the playback session, even when
+    /// two different files share the same basename. In-window presentation
+    /// state uses this to discard UI that belongs to the previous medium.
+    @Published private(set) var mediaPresentationRevision: UInt64 = 0
     /// How many subtitle sources are known for the medium being played.
     @Published public private(set) var subtitleSourceCount: UInt32 = 0
     /// §8's menu, re-derived by the core every time the catalog moves.
@@ -96,6 +100,7 @@ public final class PlayerModel: ObservableObject {
     /// A source discovered later never re-triggers it, however well it matches.
     private var hasAutoSelected = false
     private var controlsTask: Task<Void, Never>?
+    private(set) var controlsPinned = false
     private var transientTask: Task<Void, Never>?
     private var applicationActive = true
     private var playWhenReady = false
@@ -190,6 +195,7 @@ public final class PlayerModel: ObservableObject {
         releaseSecurityScope()
         hasSecurityScope = url.startAccessingSecurityScopedResource()
         accessedURL = url
+        mediaPresentationRevision &+= 1
 
         mediaName = url.lastPathComponent
         fatalMessage = nil
@@ -203,6 +209,7 @@ public final class PlayerModel: ObservableObject {
         releaseSeekGuard()
         controlsVisible = true
         playWhenReady = true
+        setControlsPinned(false)
 
         do {
             try recentStore.save(url)
@@ -485,7 +492,7 @@ public final class PlayerModel: ObservableObject {
 
     public func pointerMoved() {
         showControls()
-        if isPlaying {
+        if isPlaying, !controlsPinned {
             scheduleControlsHide()
         }
     }
@@ -505,6 +512,17 @@ public final class PlayerModel: ObservableObject {
         resynchronize()
     }
 
+    /// Keeps the complete player chrome and cursor visible while an in-window
+    /// control surface needs them. Releasing the pin restores the ordinary
+    /// playback-driven hide cycle rather than hiding immediately.
+    public func setControlsPinned(_ pinned: Bool) {
+        controlsPinned = pinned
+        showControls()
+        if !pinned, isPlaying {
+            scheduleControlsHide()
+        }
+    }
+
     public func shutdown() {
         pollTask?.cancel()
         pollTask = nil
@@ -512,6 +530,7 @@ public final class PlayerModel: ObservableObject {
         sidecarScanTask = nil
         controlsTask?.cancel()
         controlsTask = nil
+        controlsPinned = false
         transientTask?.cancel()
         transientTask = nil
         showCursorIfNeeded()
@@ -579,7 +598,7 @@ public final class PlayerModel: ObservableObject {
     }
 
     func hideControlsNow() {
-        guard isPlaying else {
+        guard isPlaying, !controlsPinned else {
             showControls()
             return
         }
@@ -696,6 +715,10 @@ public final class PlayerModel: ObservableObject {
     }
 
     private func scheduleControlsHide() {
+        guard isPlaying, !controlsPinned else {
+            showControls()
+            return
+        }
         controlsTask?.cancel()
         controlsTask = Task { [weak self] in
             guard let self else { return }
@@ -721,6 +744,7 @@ public final class PlayerModel: ObservableObject {
     private func presentFatal(_ error: Error) {
         playbackState = .failed
         fatalMessage = PlaybackPresentation.errorMessage(for: error)
+        controlsPinned = false
         showControls()
     }
 

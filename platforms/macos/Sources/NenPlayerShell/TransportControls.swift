@@ -3,7 +3,18 @@ import SwiftUI
 
 struct TransportControls: View {
     @ObservedObject var model: PlayerModel
-    @State private var showsSubtitleMenu = false
+    @Binding private var showsSubtitlePanel: Bool
+    private let onInteractionOutsideSubtitlePanel: () -> Void
+
+    init(
+        model: PlayerModel,
+        showsSubtitlePanel: Binding<Bool>,
+        onInteractionOutsideSubtitlePanel: @escaping () -> Void
+    ) {
+        self.model = model
+        _showsSubtitlePanel = showsSubtitlePanel
+        self.onInteractionOutsideSubtitlePanel = onInteractionOutsideSubtitlePanel
+    }
 
     var body: some View {
         VStack(spacing: 14) {
@@ -19,14 +30,21 @@ struct TransportControls: View {
                 accessibilityLabel: "Oynatma konumu",
                 accessibilityValue: model.durationText,
                 onEditingChanged: { editing in
-                    if !editing { model.commitSeek() }
+                    if editing {
+                        onInteractionOutsideSubtitlePanel()
+                    } else {
+                        model.commitSeek()
+                    }
                 }
             )
             .frame(height: 22)
             .disabled(model.durationMilliseconds == nil)
 
             HStack(spacing: 6) {
-                Button(action: model.togglePlayback) {
+                Button {
+                    onInteractionOutsideSubtitlePanel()
+                    model.togglePlayback()
+                } label: {
                     Image(systemName: model.isPlaying ? "pause.fill" : "play.fill")
                         .font(.system(size: 17, weight: .semibold))
                         .frame(width: 46, height: 46)
@@ -40,9 +58,11 @@ struct TransportControls: View {
                 .help(model.isPlaying ? "Duraklat" : "Oynat")
 
                 transportButton(symbol: "gobackward.5", help: "5 saniye geri") {
+                    onInteractionOutsideSubtitlePanel()
                     model.seekRelative(seconds: -5)
                 }
                 transportButton(symbol: "goforward.5", help: "5 saniye ileri") {
+                    onInteractionOutsideSubtitlePanel()
                     model.seekRelative(seconds: 5)
                 }
 
@@ -62,11 +82,18 @@ struct TransportControls: View {
                     keyboardStep: 0.05,
                     accessibilityLabel: "Ses düzeyi",
                     accessibilityValue: "%\(Int((model.volume * 100).rounded()))",
-                    onEditingChanged: { _ in }
+                    onEditingChanged: { editing in
+                        if editing {
+                            onInteractionOutsideSubtitlePanel()
+                        }
+                    }
                 )
                 .frame(width: 92, height: 22)
 
-                Button(model.durationText, action: model.toggleDurationMode)
+                Button(model.durationText) {
+                    onInteractionOutsideSubtitlePanel()
+                    model.toggleDurationMode()
+                }
                     .buttonStyle(.plain)
                     .font(.system(size: 12, weight: .medium, design: .monospaced))
                     .foregroundStyle(Color.white.opacity(0.88))
@@ -80,7 +107,7 @@ struct TransportControls: View {
                 // surface — the same list is deliberately not mirrored into the
                 // menu bar.
                 Button {
-                    showsSubtitleMenu.toggle()
+                    showsSubtitlePanel.toggle()
                 } label: {
                     HStack(spacing: 7) {
                         Text("CC")
@@ -103,24 +130,23 @@ struct TransportControls: View {
                     .padding(.horizontal, 12)
                     .frame(height: 36)
                     .background(
-                        Color.white.opacity(showsSubtitleMenu ? 0.18 : 0.07),
+                        Color.white.opacity(showsSubtitlePanel ? 0.18 : 0.07),
                         in: RoundedRectangle(cornerRadius: 12)
                     )
                 }
                 .buttonStyle(.plain)
                 .help("Altyazılar")
                 .disabled(!model.hasMedia)
-                .popover(isPresented: $showsSubtitleMenu, arrowEdge: .top) {
-                    SubtitleMenuView(model: model)
-                }
             }
         }
         .padding(.horizontal, 20)
         .padding(.top, 18)
         .padding(.bottom, 14)
-        .background { GlassSurface() }
-        .padding(.horizontal, 22)
-        .padding(.bottom, 20)
+        .background {
+            GlassSurface()
+                .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .onTapGesture(perform: onInteractionOutsideSubtitlePanel)
+        }
         .foregroundStyle(.white)
     }
 
