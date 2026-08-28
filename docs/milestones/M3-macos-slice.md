@@ -17,7 +17,6 @@
 - Çerçevesiz pencere kromu, okunabilir cam transport ve üst medya şeridi
 - Kullanıcı altyazısı yükleme + sidecar keşfi (güvenlik kapılarıyla)
 - Altyazı menüsü UI ve transport üstüne hizalı panel yüzeyi
-- Optional video presentation metadata ve çözünürlük/SDR/HDR rozeti
 - `SubtitleRenderer` port + libmpv injection adapter
 
 ## Kapsam dışı
@@ -53,7 +52,10 @@ geçmelidir.
 ## Task'lar
 
 `NEN-021` · `NEN-022` · `NEN-023` · `NEN-024` · `NEN-025` · `NEN-026` ·
-`NEN-027` · `NEN-028` · `NEN-061` · `NEN-062` · `NEN-063`
+`NEN-027` · `NEN-028` · `NEN-061` · `NEN-062`
+
+İptal edilen kapsam: `NEN-063` — teknik video kalitesi rozeti
+(ADR-0036 `rejected`).
 
 ## Bağımlılıklar
 

@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **63** task · ✅ done 43 · 🔵 active 0 · ⛔ blocked 0 · ⚪ backlog 20
+Toplam **64** task · ✅ done 43 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 1 · ⚪ backlog 20
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -83,7 +83,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-060](backlog/NEN-060-selected-track-not-drawn-fullscreen.md) | A selected embedded track is not drawn while the window is full screen | S | ⚪ backlog | NEN-022 NEN-026 |
 | [NEN-061](done/NEN-061-frameless-chrome-and-glass-bar.md) | Frameless chrome and glass transport bar | M | ✅ done | NEN-024 |
 | [NEN-062](done/NEN-062-subtitle-menu-panel.md) | Subtitle menu panel above the transport bar | M | ✅ done | NEN-026 NEN-061 |
-| [NEN-063](backlog/NEN-063-video-quality-badge.md) | Video presentation metadata and quality badge | L | ⚪ backlog | NEN-045 NEN-061 |
+| [NEN-063](canceled/NEN-063-video-quality-badge.md) | Video presentation metadata and quality badge | L | 🚫 canceled | NEN-045 NEN-061 |
 
 ## M5 — Translation Core
 
@@ -99,6 +99,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-034](backlog/NEN-034-ai-release-name-normalization.md) | AI-assisted release name normalization | M | ⚪ backlog | NEN-018 |
 | [NEN-035](backlog/NEN-035-identity-confidence-and-candidates.md) | Identity confidence scoring and candidate ranking | M | ⚪ backlog | NEN-018 |
 | [NEN-038](backlog/NEN-038-preferred-language-auto-download.md) | Auto-download subtitles for the preferred language | M | ⚪ backlog | NEN-019 NEN-033 NEN-035 NEN-036 |
+| [NEN-064](backlog/NEN-064-verified-media-identity-strip.md) | Verified media identity in player chrome | L | ⚪ backlog | NEN-033 NEN-061 |
 
 ## Sıradaki uygun task'lar
 
@@ -120,4 +121,3 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-052** — Decide and pin what a seek during loading does
 - **NEN-057** — Read the language a subtitle filename declares
 - **NEN-060** — A selected embedded track is not drawn while the window is full screen
-- **NEN-063** — Video presentation metadata and quality badge

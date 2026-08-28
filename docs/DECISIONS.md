@@ -38,6 +38,7 @@ ADR metnini tekrarlamaz, onlara işaret eder.
 | Karar | Tarih | Gerekçe |
 |---|---|---|
 | Task sistemi **repo içi markdown** (GitHub Issues değil) | 2026-08-24 | Agent ve insan aynı kaynağı okur, offline çalışır, PR diff'inde görünür |
+| Task sistemi tamamlanmamış ama ürün kararıyla bırakılan işi **`canceled`** olarak korur | 2026-08-29 | `done` kanıtlanmış sonucu, `canceled` ise tarih ve gerekçeli vazgeçişi anlatır. İptal edilen ID silinmez, READY olmaz ve bağımlılık tamamlamaz |
 | Doküman dili **Türkçe**; kod/tip/dosya adı/commit **İngilizce** | 2026-08-24 | İletişim diliyle tutarlı, kod evrensel |
 | Milestone sırasında **subtitle core ile translation core ayrıldı**, macOS slice araya alındı | 2026-08-24 | FFI kontratı ve capability modeli, en ağır core işi yazılmadan gerçek bir UI'a karşı doğrulansın. Gerekçe: [`roadmap.md`](roadmap.md) → "Şartnameden sapma" |
 | NEN-005 (CI) ve NEN-006 (redaction) M0'dan **M1'e taşındı** | 2026-08-24 | İkisi de Rust crate'i gerektiriyor; M0'ın "araç gerektirmez" özelliği korundu |
@@ -116,8 +117,9 @@ için **yalnız durum**, ADR içeriği değil.
 
 | Durum | Sayı | ADR'ler |
 |---|---|---|
-| ✅ accepted | 17 | 0001 · 0002 · 0006 · 0007 · 0008 · 0009 · 0010 · 0011 · 0012 · 0026 · 0027 · 0028 · 0029 · 0030 · 0031 · 0032 · 0033 |
+| ✅ accepted | 19 | 0001 · 0002 · 0006 · 0007 · 0008 · 0009 · 0010 · 0011 · 0012 · 0026 · 0027 · 0028 · 0029 · 0030 · 0031 · 0032 · 0033 · 0034 · 0035 |
 | 🟡 proposed | 0 | — |
+| ❌ rejected | 1 | 0036 |
 
 En kritik üçü: **0002** (core dili, M1 kapısı) · **0026** (playback ownership,
 NEN-021'in ön koşulu) · **0012** (libmpv, linkleme ve proje lisansı — NEN-022'nin

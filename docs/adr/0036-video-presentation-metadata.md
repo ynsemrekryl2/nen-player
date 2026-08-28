@@ -1,17 +1,25 @@
 ---
 adr: 0036
 title: Video presentation metadata playback portundan geçer
-status: proposed
+status: rejected
 milestone: M3
 tasks: [NEN-063]
-date: 2026-08-27
+date: 2026-08-29
 ---
 
 # ADR-0036 — Video presentation metadata playback portundan geçer
 
 ## Durum
 
-`proposed`
+`rejected`
+
+## Ret gerekçesi
+
+Kullanıcı 2026-08-29'da oynatıcı kromunda teknik video kalitesi yerine
+yalnız medya kimliğinin bulunmasına karar verdi. Bu nedenle çözünürlük,
+codec, SDR/HDR ve benzeri presentation metadata'sı şimdilik ürün kapsamından
+çıkarıldı. Aşağıdaki öneri tarihsel karar izi olarak korunur; playback
+portu, session, FFI ve adapter yüzeylerine uygulanmamıştır.
 
 ## Bağlam
 
@@ -25,7 +33,7 @@ libmpv `video-params/dw`/`dh` ile aspect-correct display boyutunu ve
 `video-params/gamma` ile transfer fonksiyonunu verir. Raw property adları ve
 string değerleri engine ayrıntısıdır; core ve UI bunlarla dallanmamalıdır.
 
-## Karar
+## Önerilen karar (uygulanmadı)
 
 Playback portu optional `VideoPresentationMetadata` sorgusu taşıyacaktır.
 Metadata yalnız pozitif display boyutunu ve kapalı `DynamicRange` (`sdr`,

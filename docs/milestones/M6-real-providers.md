@@ -10,6 +10,8 @@ OpenSubtitles, OpenAI ve OpenRouter'ın gerçek entegrasyonu ve kullanıcı API 
 ## Kapsam
 
 - OpenSubtitles resmi API (yalnız metadata kataloglama; indirme seçimde)
+- Kesin hash eşleşmesinden gelen doğrulanmış medya kimliğinin macOS üst
+  şeridinde sunulması
 - OpenAI Responses API ve OpenRouter provider port implementasyonları
 - OpenRouter structured-output capability preflight
 - SecureCredentialStore: Keychain (bu milestone'da macOS)
@@ -33,7 +35,7 @@ OpenSubtitles, OpenAI ve OpenRouter'ın gerçek entegrasyonu ve kullanıcı API 
 
 ## Task'lar
 
-_(henüz kırılmadı)_
+`NEN-033` · `NEN-034` · `NEN-035` · `NEN-038` · `NEN-064`
 
 ## Bağımlılıklar
 

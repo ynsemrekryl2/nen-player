@@ -36,7 +36,7 @@ list_items() {
 }
 
 collect() {
-  for d in backlog active done; do
+  for d in backlog active done canceled; do
     [ -d "$TASKS/$d" ] || continue
     for f in "$TASKS/$d"/NEN-*.md; do
       [ -e "$f" ] || continue
@@ -64,7 +64,7 @@ while IFS= read -r f; do
   dir="$(basename "$(dirname "$f")")"
   st="$(fm_get "$f" state)"
   case "$dir:$st" in
-    backlog:backlog|backlog:blocked|active:active|done:done) ;;
+    backlog:backlog|backlog:blocked|active:active|done:done|canceled:canceled) ;;
     *)
       err "${f#$ROOT/}: state '$st' ile dizin '$dir' uyumsuz."
       echo "      Yapılacak: state'i düzeltin veya dosyayı doğru dizine taşıyın." >&2
@@ -89,6 +89,21 @@ done <<EOF
 $FILES
 EOF
 [ "$bad" = "0" ] && ok "tüm done task'ların kanıt kaydı dolu"
+
+echo "== 3b. canceled task'larda iptal kaydı =="
+bad=0
+while IFS= read -r f; do
+  [ "$(fm_get "$f" state)" = "canceled" ] || continue
+  body="$(awk '/^## İptal kaydı/{flag=1; next} flag && /^## /{exit} flag' "$f" | sed 's/<!--.*-->//' | tr -d '[:space:]')"
+  if [ -z "$body" ] || [ "$body" = "TBD" ]; then
+    err "${f#$ROOT/}: canceled ama 'İptal kaydı' bölümü boş."
+    echo "      Yapılacak: iptal tarihini ve gerekçesini yazın." >&2
+    bad=1
+  fi
+done <<EOF
+$FILES
+EOF
+[ "$bad" = "0" ] && ok "tüm canceled task'ların iptal kaydı dolu"
 
 echo "== 4. depends_on / blocks hedefleri =="
 ALL_IDS="$(while IFS= read -r f; do fm_get "$f" id; done <<EOF

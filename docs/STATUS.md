@@ -3,8 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-29** (`NEN-062` done — altyazı menüsü transport
-> üstündeki pencere içi cam panelde)
+> Son güncelleme: **2026-08-29** (`NEN-063` canceled — teknik kalite rozeti
+> kapsamdan çıkarıldı; doğrulanmış medya kimliği `NEN-064` ile M6'ya taşındı)
 
 ## Nerede duruyoruz
 
@@ -13,8 +13,8 @@
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
 | **Son tamamlanan** | `NEN-062` — subtitle menu panel above the transport bar |
-| **Sıradaki READY** | `NEN-027`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-060`, `NEN-063` |
-| **Task sayısı** | 63 · done 43 · active 0 · blocked 0 · backlog 20 |
+| **Sıradaki READY** | `NEN-027`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-060` |
+| **Task sayısı** | 64 · done 43 · active 0 · blocked 0 · canceled 1 · backlog 20 |
 
 **`NEN-062` kapandı — altyazı menüsü artık popover değil, transportun sağ
 kenarına hizalı pencere içi cam panel.** Panel ve bar aynı `GlassSurface`'i
@@ -43,11 +43,12 @@ CC etiketi `Kapalı` veya seçili kaynağın görünen adını kullanıyor. Parl
 sentetik fixture, otomatik gizleme, duraklatma ve NEN-046 yaşam döngüsü gerçek
 `.app` üzerinde geçti; Swift paketi **87/87** yeşil.
 
-**macOS cam yüzey turu üç task'a ayrıldı.** `NEN-061` çerçevesiz krom ve cam
-transportu, `NEN-062` popover dışı altyazı panelini taşır. Bunlar ADR-0031
-Notlar'ın task kapsamına bıraktığı yüzey kararlarıdır. Teknik kalite rozeti ise
-playback portu ve iki FFI yönünü genişlettiği için `NEN-063` olarak ayrıldı;
-dayanağı `ADR-0036` kullanıcı kabulüne kadar `proposed` durumundadır.
+**Teknik video kalitesi rozeti iptal edildi.** `NEN-063` uygulanmadan
+`canceled` oldu; ADR-0036 `rejected`. Playback portu, FFI ve libmpv yüzeyine
+çözünürlük, codec veya SDR/HDR metadata hattı eklenmedi. M3 boyunca üst
+şerit mevcut basename'i göstermeye devam eder. Resmi API'deki kesin hash
+eşleşmesine dayanan zengin medya kimliği ayrı `NEN-064` task'ıyla M6'ya
+ertelendi; bu task `NEN-033` bitmeden READY değildir.
 
 **`NEN-026` kapandı — altyazı menüsü ekranda ve §8'in görünen metni ilk kez
 var.** Menü çekirdeğin projeksiyonunu çiziyor: gruplama, sıra, dedup ve "boş

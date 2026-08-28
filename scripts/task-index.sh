@@ -60,6 +60,7 @@ state_icon() {
     done)    echo "✅" ;;
     active)  echo "🔵" ;;
     blocked) echo "⛔" ;;
+    canceled) echo "🚫" ;;
     backlog) echo "⚪" ;;
     *)       echo "❓" ;;
   esac
@@ -67,7 +68,7 @@ state_icon() {
 
 # id'ye göre sıralı dosya listesi
 collect() {
-  for d in backlog active done; do
+  for d in backlog active done canceled; do
     [ -d "$TASKS/$d" ] || continue
     for f in "$TASKS/$d"/NEN-*.md; do
       [ -e "$f" ] || continue
@@ -80,7 +81,7 @@ generate() {
   FILES="$(collect)"
   [ -z "$FILES" ] && { echo "HATA: hiç task dosyası bulunamadı" >&2; exit 1; }
 
-  total=0; n_done=0; n_active=0; n_blocked=0; n_backlog=0
+  total=0; n_done=0; n_active=0; n_blocked=0; n_backlog=0; n_canceled=0
   while IFS= read -r f; do
     total=$((total + 1))
     case "$(fm_get "$f" state)" in
@@ -88,6 +89,7 @@ generate() {
       active)  n_active=$((n_active + 1)) ;;
       blocked) n_blocked=$((n_blocked + 1)) ;;
       backlog) n_backlog=$((n_backlog + 1)) ;;
+      canceled) n_canceled=$((n_canceled + 1)) ;;
     esac
   done <<EOF
 $FILES
@@ -98,7 +100,7 @@ EOF
   echo "<!-- ÜRETİLEN DOSYA — elle düzenlemeyin."
   echo "     Yenilemek için: bash scripts/task-index.sh -->"
   echo
-  echo "Toplam **$total** task · ✅ done $n_done · 🔵 active $n_active · ⛔ blocked $n_blocked · ⚪ backlog $n_backlog"
+  echo "Toplam **$total** task · ✅ done $n_done · 🔵 active $n_active · ⛔ blocked $n_blocked · 🚫 canceled $n_canceled · ⚪ backlog $n_backlog"
   echo
   echo "Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)"
 

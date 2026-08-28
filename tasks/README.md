@@ -19,7 +19,7 @@ tasks/<state>/NEN-###-kebab-case-english-slug.md
 | `title` | ✅ | Kısa İngilizce başlık |
 | `milestone` | ✅ | `M0`…`M11` |
 | `size` | ✅ | `S` · `M` · `L` (`XL` yasak) |
-| `state` | ✅ | `backlog` · `active` · `blocked` · `done` — **bulunduğu dizinle uyumlu olmalı** |
+| `state` | ✅ | `backlog` · `active` · `blocked` · `done` · `canceled` — **bulunduğu dizinle uyumlu olmalı** |
 | `depends_on` | ✅ | Önce bitmesi gereken task ID'leri (`[]` olabilir) |
 | `blocks` | ✅ | Bunu bekleyen task ID'leri (`[]` olabilir) |
 | `adr` | ✅ | İlgili ADR numaraları (`[]` olabilir). Doluysa, ADR `accepted` olmadan task `done` olamaz |
@@ -64,8 +64,9 @@ kalır; gövdesinde **neden bloke olduğu** ve engelleyen task/soru yazılır.
 
 ```
 backlog ──▶ active ──▶ done
-   ▲          │
-   └── blocked ┘
+   │          │
+   ├── blocked ┘
+   └──▶ canceled
 ```
 
 **Aynı anda `tasks/active/` içinde en fazla bir implementation task.**
@@ -88,16 +89,33 @@ bash scripts/task-index.sh
 bash scripts/check-docs.sh
 ```
 
+### İptal
+
+İptal, tamamlanmış iş değildir. Task'ın özgün kapsamı ve DoD'u silinmez;
+kararın izi olarak korunur.
+
+```bash
+# 1. Tarih ve gerekçe içeren "## İptal kaydı" bölümünü ekle
+# 2. frontmatter'da: state: canceled
+git mv tasks/backlog/NEN-017-*.md tasks/canceled/
+bash scripts/task-index.sh
+bash scripts/check-docs.sh
+```
+
+Canceled task READY listesine girmez, `done` sayılmaz ve onu bekleyen task'ın
+bağımlılığını karşılamaz. ADR'sinin kabul edilmiş olması gerekmez; ret
+edilen bir kararın task kaydı da bu dizinde korunabilir.
+
 ## Denetimler
 
 `scripts/check-docs.sh` şunları zorlar:
 
 1. `tasks/active/` içinde en fazla bir task
 2. `state` alanı bulunduğu dizinle uyumlu
-3. `done` task'ların **Kanıt kaydı** bölümü boş değil
+3. `done` task'ların **Kanıt kaydı**, `canceled` task'ların **İptal kaydı** boş değil
 4. `depends_on` hedefleri var olan task'lara işaret ediyor
 5. Bağımlılık döngüsü yok
-6. `adr` alanı dolu olan `done` task'ın ADR'si `accepted`
+6. `adr` alanı dolu olan `done` task'ın ADR'si `accepted`; canceled task bu kapıya girmez
 7. `INDEX.md` güncel
 
 ## Yeni task açma

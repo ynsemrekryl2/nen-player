@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# scripts/check-docs.sh denetim 8 — STATUS.md ↔ INDEX ready listesi.
+# scripts/check-docs.sh denetim 3b/6/8 — canceled kaydı, ADR kapısı ve
+# STATUS.md ↔ INDEX ready listesi.
 #
 # Test kendi task fixture'ını kurar: canlı tasks/ ve INDEX.md OKUNMAZ. Sonuç
 # bu yüzden repo'nun o anki durumundan — aktif task var mı, ready listesi boş
@@ -61,6 +62,46 @@ Fixture — scripts/tests/check-docs.test.sh tarafından üretildi.
 EOF
 }
 
+write_canceled_task() { # <iptal kaydı var mı: yes|no>
+  cat > "$REPO/tasks/canceled/NEN-902-fixture.md" <<EOF
+---
+id: NEN-902
+title: Canceled fixture task
+milestone: M0
+size: S
+state: canceled
+depends_on: [NEN-901]
+blocks: []
+adr: [99]
+---
+
+# NEN-902 — Canceled fixture task
+
+## Kanıt kaydı
+
+<!-- canceled task gerçek test kanıtı taşımaz -->
+EOF
+  if [ "$1" = "yes" ]; then
+    cat >> "$REPO/tasks/canceled/NEN-902-fixture.md" <<'EOF'
+
+## İptal kaydı
+
+2026-08-29 — fixture kararıyla iptal edildi.
+EOF
+  fi
+
+  cat > "$REPO/docs/adr/0099-rejected-fixture.md" <<'EOF'
+---
+adr: 0099
+title: Rejected fixture
+status: rejected
+milestone: M0
+tasks: [NEN-902]
+date: 2026-08-29
+---
+EOF
+}
+
 # Yalnız denetim 8'in ihtiyaç duyduğu satırı taşıyan minimal STATUS.md.
 write_status() {
   cat > "$STATUS" <<'EOF'
@@ -76,18 +117,21 @@ EOF
 # Sandbox'ı sıfırdan kurar.
 #   ready → ready listesi DOLU  (NEN-902 backlog, bağımlılığı done)
 #   empty → ready listesi BOŞ   (NEN-902 active, hiç backlog task'ı yok)
+#   canceled → ready listesi BOŞ (NEN-902 canceled, rejected ADR'li)
 # core/ ve platforms/ kopyalanmaz; check-docs.sh'ın ihtiyacı olan tek şey
 # scripts/ + docs/STATUS.md + tasks/.
 make_fixture() {
   rm -rf "$REPO"
-  mkdir -p "$REPO/scripts" "$REPO/docs" \
-           "$REPO/tasks/backlog" "$REPO/tasks/active" "$REPO/tasks/done"
+  mkdir -p "$REPO/scripts" "$REPO/docs/adr" \
+           "$REPO/tasks/backlog" "$REPO/tasks/active" "$REPO/tasks/done" \
+           "$REPO/tasks/canceled"
   cp "$ROOT/scripts/check-docs.sh" "$ROOT/scripts/task-index.sh" "$REPO/scripts/"
 
   write_task done NEN-901 done ""
   case "$1" in
     ready) write_task backlog NEN-902 backlog "NEN-901" ;;
     empty) write_task active  NEN-902 active  "NEN-901" ;;
+    canceled) write_canceled_task yes ;;
     *) echo "make_fixture: bilinmeyen mod '$1'" >&2; exit 1 ;;
   esac
 
@@ -208,7 +252,25 @@ set_status_row '`NEN-902`'
 run_check
 expect 1 "INDEX ile uyuşmuyor" "T9 boş INDEX + dolu STATUS → hata"
 
-# =============================================================== C. yan etkisizlik
+# ================================================ C. canceled task davranışı
+
+echo "  Fixture: NEN-902 canceled, ADR-0099 rejected"
+make_fixture canceled
+expect_index_ready ""
+set_status_row 'henüz belirlenmedi'
+
+echo "  T10: canceled task READY değil ve rejected ADR done kapısına girmez"
+run_check
+expect 0 "tüm canceled task'ların iptal kaydı dolu" "T10 geçerli canceled → geçiyor"
+
+echo "  T11: canceled task iptal kaydı olmadan geçmez"
+awk '/^## İptal kaydı/{exit} {print}' \
+  "$REPO/tasks/canceled/NEN-902-fixture.md" > "$REPO/tasks/canceled/NEN-902-fixture.tmp"
+mv "$REPO/tasks/canceled/NEN-902-fixture.tmp" "$REPO/tasks/canceled/NEN-902-fixture.md"
+run_check
+expect 1 "canceled ama 'İptal kaydı' bölümü boş" "T11 eksik iptal kaydı → hata"
+
+# =============================================================== D. yan etkisizlik
 
 echo "  T7: gerçek repo dosyaları değişmedi"
 if [ "$(real_fingerprint)" = "$FINGERPRINT_BEFORE" ]; then

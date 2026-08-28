@@ -3,7 +3,7 @@ id: NEN-063
 title: Video presentation metadata and quality badge
 milestone: M3
 size: L
-state: backlog
+state: canceled
 depends_on: [NEN-045, NEN-061]
 blocks: []
 adr: [11, 31, 33, 36]
@@ -52,3 +52,11 @@ biliniyorsa SDR/HDR dinamik aralığını doğru gösterir.
 ## Kanıt kaydı
 
 <!-- Kapanışta gerçek test ve acceptance çıktısıyla doldurulur. -->
+
+## İptal kaydı
+
+**2026-08-29 — kullanıcı kararıyla iptal edildi.** Üst şeritte şimdilik
+yalnız medya kimliği kalacak; çözünürlük, codec, SDR/HDR ve başka teknik
+kalite metadata'sı gösterilmeyecek. Playback portu, FFI ve libmpv metadata
+hattı bu task kapsamında genişletilmedi. Doğrulanmış zengin medya kimliği
+ayrı `NEN-064` task'ına taşındı.

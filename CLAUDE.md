@@ -38,8 +38,9 @@ Kararların durumu için `docs/DECISIONS.md`; açık sorular için
 
 ```
 backlog ──▶ active ──▶ done
-   ▲          │
-   └── blocked ┘        (blocked ise sebep + engelleyen task/soru zorunlu)
+   │          │
+   ├── blocked ┘        (blocked ise sebep + engelleyen task/soru zorunlu)
+   └──▶ canceled         (iptal kaydı: tarih + gerekçe zorunlu)
 ```
 
 Bir task'ı başlatmak:
@@ -51,6 +52,11 @@ bash scripts/task-index.sh
 
 Bir task'ı kapatmak: **Kanıt kaydı** bölümünü gerçek çıktıyla doldur, `state: done`
 yap, `tasks/done/` altına taşı, index'i yeniden üret, `scripts/check-docs.sh` çalıştır.
+
+Bir task'ı iptal etmek: özgün kapsamı ve DoD'u tarihsel kayıt olarak koru,
+`state: canceled` yap, tarih ve gerekçe içeren **İptal kaydı** ekle,
+`tasks/canceled/` altına taşı ve index'i yeniden üret. İptal edilen task
+`done` sayılmaz ve bağımlılıkları tamamlamaz.
 
 ## Commit politikası
 
