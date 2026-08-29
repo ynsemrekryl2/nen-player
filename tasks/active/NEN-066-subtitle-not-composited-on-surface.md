@@ -3,10 +3,10 @@ id: NEN-066
 title: A subtitle mpv reports drawing is missing from the video surface
 milestone: M3
 size: M
-state: backlog
+state: active
 depends_on: [NEN-024]
 blocks: [NEN-027]
-adr: []
+adr: [37]
 ---
 
 # NEN-066 — Motorun çizdiğini söylediği altyazı ekranda yok

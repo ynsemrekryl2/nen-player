@@ -15,7 +15,7 @@
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — (`NEN-027` **blocked**: kodu bitti, `NEN-066` bekliyor) |
 | **Son tamamlanan** | `NEN-062` — subtitle menu panel above the transport bar |
-| **Sıradaki READY** | `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-060`, `NEN-065`, `NEN-066` |
+| **Sıradaki READY** | `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-060`, `NEN-065` |
 | **Task sayısı** | 66 · done 43 · active 0 · blocked 1 · canceled 1 · backlog 21 |
 
 **`NEN-062` kapandı — altyazı menüsü artık popover değil, transportun sağ

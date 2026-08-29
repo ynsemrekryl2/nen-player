@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **66** task · ✅ done 43 · 🔵 active 0 · ⛔ blocked 1 · 🚫 canceled 1 · ⚪ backlog 21
+Toplam **66** task · ✅ done 43 · 🔵 active 1 · ⛔ blocked 1 · 🚫 canceled 1 · ⚪ backlog 20
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -85,7 +85,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-062](done/NEN-062-subtitle-menu-panel.md) | Subtitle menu panel above the transport bar | M | ✅ done | NEN-026 NEN-061 |
 | [NEN-063](canceled/NEN-063-video-quality-badge.md) | Video presentation metadata and quality badge | L | 🚫 canceled | NEN-045 NEN-061 |
 | [NEN-065](backlog/NEN-065-flaky-controls-timing-test.md) | Stabilize the pinned-controls timing test | S | ⚪ backlog | NEN-061 |
-| [NEN-066](backlog/NEN-066-subtitle-not-composited-on-surface.md) | A subtitle mpv reports drawing is missing from the video surface | M | ⚪ backlog | NEN-024 |
+| [NEN-066](active/NEN-066-subtitle-not-composited-on-surface.md) | A subtitle mpv reports drawing is missing from the video surface | M | 🔵 active | NEN-024 |
 
 ## M5 — Translation Core
 
@@ -123,4 +123,3 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-057** — Read the language a subtitle filename declares
 - **NEN-060** — A selected embedded track is not drawn while the window is full screen
 - **NEN-065** — Stabilize the pinned-controls timing test
-- **NEN-066** — A subtitle mpv reports drawing is missing from the video surface
