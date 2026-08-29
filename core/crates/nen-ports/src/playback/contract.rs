@@ -108,6 +108,14 @@ pub enum Action {
         track: TrackRef,
     },
     InjectSubtitle,
+    /// Seeks to a moment the injected document has a cue at.
+    ///
+    /// Not a number a scenario chose: the runner takes it from the document in
+    /// [`ContractInputs`], so the same step means the same thing whatever
+    /// document an adapter supplies.
+    SeekIntoDocument,
+    /// Asks the engine what subtitle text it is drawing right now.
+    RenderedText,
     Shutdown,
     /// Waits until a given event shape has been reported, or gives up.
     ///
@@ -252,6 +260,17 @@ pub enum Outcome {
     /// Text came back and is non-empty. The text itself is subtitle dialogue
     /// (K23 #4) and is never compared or printed here.
     NonEmptyText,
+    /// Something is on screen, within the fixture's settle timeout.
+    ///
+    /// Waited for rather than sampled, on [`Outcome::Events`]' reasoning: a
+    /// real engine draws on its own schedule, and asking the instant after a
+    /// seek asks before the frame exists. **What** is drawn is never inspected
+    /// here — it is dialogue (K23 #4), and the kit's business is that the
+    /// engine draws what it was given, which the caller checks against its own
+    /// document.
+    Drawing,
+    /// Nothing is on screen, within the fixture's settle timeout.
+    Blank,
 }
 
 /// One step of a scenario.
@@ -311,6 +330,12 @@ pub enum Applicability {
     /// Only for engines that do not — this is where the typed refusal is
     /// proven.
     WithoutCapability(Capability),
+    /// Only for engines that declare **all** of these.
+    ///
+    /// One scenario genuinely needs two: proving that what was injected is
+    /// what gets drawn takes both the injecting and the reporting ability, and
+    /// splitting it in two would prove neither half.
+    WithCapabilities(Capabilities),
 }
 
 impl Applicability {
@@ -319,6 +344,9 @@ impl Applicability {
             Self::Always => true,
             Self::WithCapability(capability) => capabilities.contains(capability),
             Self::WithoutCapability(capability) => !capabilities.contains(capability),
+            Self::WithCapabilities(needed) => needed
+                .iter()
+                .all(|capability| capabilities.contains(capability)),
         }
     }
 }
@@ -784,6 +812,49 @@ fn capability_scenarios() -> Vec<Scenario> {
                 Step::new(Action::InjectSubtitle, Outcome::Ok),
             ],
         },
+        Scenario {
+            name: "rendered text: refused when the capability is absent",
+            applies: Applicability::WithoutCapability(Capability::RenderedTextObservation),
+            steps: vec![
+                Step::new(Action::Load, Outcome::Ok),
+                Step::settle(PlaybackState::Ready),
+                Step::new(Action::RenderedText, Outcome::Error(ErrorKind::Unsupported)),
+            ],
+        },
+        Scenario {
+            name: "rendered text: nothing is drawn before anything is shown",
+            applies: Applicability::WithCapability(Capability::RenderedTextObservation),
+            steps: vec![
+                Step::new(Action::Load, Outcome::Ok),
+                Step::settle(PlaybackState::Ready),
+                Step::new(Action::RenderedText, Outcome::Blank),
+            ],
+        },
+        Scenario {
+            // M3's exit criterion, in contract form: an injected document is
+            // not merely accepted, it reaches the screen — and deselecting the
+            // subtitle takes it off again.
+            name: "rendered text: an injected document is drawn at its own moment",
+            applies: Applicability::WithCapabilities(Capabilities::new([
+                Capability::ExternalSubtitleInjection,
+                Capability::RenderedTextObservation,
+            ])),
+            steps: vec![
+                Step::new(Action::Load, Outcome::Ok),
+                Step::settle(PlaybackState::Ready),
+                Step::new(Action::InjectSubtitle, Outcome::Ok),
+                Step::new(Action::SeekIntoDocument, Outcome::Ok),
+                Step::new(Action::RenderedText, Outcome::Drawing),
+                Step::new(
+                    Action::SelectTrack {
+                        kind: TrackKind::Subtitle,
+                        track: None,
+                    },
+                    Outcome::Ok,
+                ),
+                Step::new(Action::RenderedText, Outcome::Blank),
+            ],
+        },
     ]
 }
 
@@ -868,6 +939,19 @@ impl ContractInputs {
     pub fn with_settle_timeout_ms(mut self, timeout_ms: u64) -> Self {
         self.settle_timeout_ms = timeout_ms;
         self
+    }
+
+    /// A moment the injected document really has a cue at, in milliseconds.
+    ///
+    /// Derived from the document rather than declared, so an adapter cannot
+    /// get it wrong and no scenario has to name a number. The midpoint of the
+    /// first cue: far enough from either boundary that a real engine landing a
+    /// few milliseconds off is still inside the cue.
+    pub fn document_moment_ms(&self) -> Option<u64> {
+        let span = self.document.cues().first()?.span();
+        Some(u64::from(
+            span.start_ms() + (span.end_ms() - span.start_ms()) / 2,
+        ))
     }
 
     fn track_count(&self, kind: TrackKind) -> usize {
@@ -956,6 +1040,13 @@ fn run_step<E: PlaybackEngine>(
         Action::SetRate { rate } => check_unit(engine.set_rate(rate), expect),
         Action::SetVolume { volume } => check_unit(engine.set_volume(volume), expect),
         Action::InjectSubtitle => check_unit(engine.inject_subtitle(&inputs.document), expect),
+        Action::SeekIntoDocument => {
+            let Some(moment_ms) = inputs.document_moment_ms() else {
+                return Err("the fixture's document has no cue to seek into".to_string());
+            };
+            check_unit(engine.seek(Duration::from_millis(moment_ms)), expect)
+        }
+        Action::RenderedText => await_drawing(engine, expect, inputs),
         Action::SelectTrack { kind, track } => check_unit(
             engine.select_track(kind, track.map(|reference| reference.resolve(inputs))),
             expect,
@@ -1185,6 +1276,47 @@ fn check_events(actual: &[EventShape], expected: &[EventShape]) -> Result<(), St
         }
     }
     Ok(())
+}
+
+/// Waits until the engine is drawing something, or drawing nothing.
+///
+/// Waiting rather than sampling, for [`Outcome::Events`]' reason: a real engine
+/// puts a cue on screen on its own schedule, and asking the instant after a
+/// seek asks before the frame exists. An engine that answers immediately — the
+/// fake does — leaves on the first pass.
+///
+/// The text itself is never inspected. It is dialogue (K23 #4), and whether it
+/// is the *right* dialogue is a question the caller answers against its own
+/// document; the contract's business is only that something is drawn at all.
+fn await_drawing<E: PlaybackEngine>(
+    engine: &mut E,
+    expect: &Outcome,
+    inputs: &ContractInputs,
+) -> Result<(), String> {
+    let wanted = match expect {
+        Outcome::Drawing => true,
+        Outcome::Blank => false,
+        other => return check_unit(engine.rendered_subtitle_text(), other),
+    };
+    let deadline = Instant::now() + Duration::from_millis(inputs.settle_timeout_ms);
+    loop {
+        match engine.rendered_subtitle_text() {
+            Ok(drawn) => {
+                if drawn.is_some() == wanted {
+                    return Ok(());
+                }
+            }
+            Err(error) => return Err(format!("failed with {error:?}, expected {expect:?}")),
+        }
+        if Instant::now() >= deadline {
+            return Err(format!(
+                "still {} after {} ms, expected {expect:?}",
+                if wanted { "blank" } else { "drawing" },
+                inputs.settle_timeout_ms
+            ));
+        }
+        std::thread::sleep(Duration::from_millis(POLL_INTERVAL_MS));
+    }
 }
 
 fn check_unit<T>(result: Result<T, PlaybackError>, expect: &Outcome) -> Result<(), String> {

@@ -101,7 +101,7 @@ motorudur. Core yalnız çıkan metni parse eder.
 | Port | Kim implemente eder | Neden port |
 |---|---|---|
 | `PlaybackEngine` | libmpv / AVPlayer / Media3 adapter | Cihaz medya API'si. **Capability tabanlı** — bkz. aşağıda |
-| `SubtitleRenderer` | libmpv / Apple timed-text / Media3 / custom overlay | Ekrana çizim platforma ait |
+| `SubtitleRenderer` | Engine-native adapter (core'da, motorun enjeksiyon capability'sine delege eder) · ileride custom overlay | Çizim stratejisi değişebilir; çağrı yeri değişmesin (ADR-0013) |
 | `SecureCredentialStore` | Keychain / Keystore / CredMan / Secret Service | OS güvenlik API'si |
 | `MediaFileAccess` | Platform dosya seçici + sandbox/bookmark | İzin modeli platforma özgü |
 | `EmbeddedTrackExtractor` | Playback motoru | Çıkarımı motor yapar |
@@ -128,6 +128,20 @@ Capability'si olmayan bir operasyon çağrılırsa **typed error** döner, panik
 sessiz no-op olmaz.
 
 Kullanıcı motor adını görmez ve motor seçmez (şartname §4).
+
+### Altyazı çizimi — engine-native, ayrı port (ADR-0013)
+
+`SubtitleRenderer` kendi trait'i, kendi capability kümesi ve kendi contract
+kitiyle `nen-ports` içinde durur; ilk adapter'ı **core'da** yaşar ve
+`PlaybackEngine`'in `ExternalSubtitleInjection` capability'sine delege eder.
+Belge motora WebVTT olarak `memory://` üzerinden geçer, diske yazılmaz.
+
+Bunun iki sonucu var: platform tarafında yeni bir callback yüzeyi açılmıyor —
+bir motor `inject_subtitle`'ı implemente edince renderer'ı hazır oluyor — ve
+M7'nin manuel sync overlay'i çağrı yerlerine dokunmadan ikinci adapter olarak
+girebiliyor. Hangi satırın nasıl gösterileceği (gömülü track mi, kullanıcı
+dosyası mı) kabuğun değil **core session'ın** kararıdır; altyazı diyaloğu
+FFI'dan kabuğa hiç geçmez.
 
 ### Ownership yönü — core-owned session (ADR-0026)
 

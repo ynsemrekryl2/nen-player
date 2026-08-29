@@ -17,8 +17,9 @@ use crate::playback::{
     shell_engine, FfiPlaybackError, FfiPlaybackState, FfiTrackDescriptor, FfiTrackKind,
     ForeignPlaybackEngine,
 };
+use crate::subtitles::FfiSubtitleLibrary;
 use nen_app::ports::playback::{PlaybackEvent, TrackId};
-use nen_app::session::PlaybackSession;
+use nen_app::session::{PlaybackSession, ShowOutcome};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -72,6 +73,29 @@ impl From<PlaybackEvent> for FfiSessionEvent {
                 error: error.into(),
             },
             PlaybackEvent::EventsLost { dropped } => Self::EventsLost { dropped },
+        }
+    }
+}
+
+/// What showing a menu row did.
+///
+/// Not an error channel, on the same reasoning as
+/// [`FfiSubtitleOutcome`](crate::subtitles::FfiSubtitleOutcome): a row that
+/// cannot be shown is an outcome the product has a defined behaviour for —
+/// nothing happens — while an engine refusing is a failure the user hears
+/// about. The shell distinguishes them because it must show a message for one
+/// and stay silent for the other.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum FfiShowOutcome {
+    Shown,
+    Unusable,
+}
+
+impl From<ShowOutcome> for FfiShowOutcome {
+    fn from(outcome: ShowOutcome) -> Self {
+        match outcome {
+            ShowOutcome::Shown => Self::Shown,
+            ShowOutcome::Unusable => Self::Unusable,
         }
     }
 }
@@ -162,6 +186,49 @@ impl FfiPlaybackSession {
             .selected_track(kind.into())
             .map(|track| track.map(|id| id.index()))
             .map_err(Into::into)
+    }
+
+    /// Puts the subtitle a menu row names on screen (ADR-0013 Karar 3).
+    ///
+    /// The shell hands over its library and a token and is told what happened.
+    /// Which kind of row it was — an embedded track or a file the user loaded
+    /// — is decided here and nowhere else, so a second platform cannot decide
+    /// it differently. **No dialogue crosses this call in either direction.**
+    pub fn show_subtitle(
+        &self,
+        library: Arc<FfiSubtitleLibrary>,
+        token: u32,
+    ) -> Result<FfiShowOutcome, FfiPlaybackError> {
+        library
+            .with(|library| self.inner.show_source(library, token))
+            .map(Into::into)
+            .map_err(Into::into)
+    }
+
+    /// §8's `Kapalı`: nothing on screen, whatever was drawing it.
+    pub fn hide_subtitle(&self) -> Result<(), FfiPlaybackError> {
+        self.inner.hide_subtitle().map_err(Into::into)
+    }
+
+    /// The text that **should** be on screen at a moment.
+    ///
+    /// `nen_subtitle::CueIndex`'s answer over the document being shown
+    /// (NEN-017), or `None` when nothing is shown and in a gap between cues.
+    ///
+    /// **Security:** subtitle dialogue (K23 #4). Displayable and comparable,
+    /// never loggable.
+    pub fn expected_subtitle_text(&self, at_ms: u64) -> Option<String> {
+        self.inner.expected_subtitle_text(at_ms)
+    }
+
+    /// The text that **is** on screen, as the engine reports it.
+    ///
+    /// The pair with [`Self::expected_subtitle_text`]: comparing the two is
+    /// how "the right cue is displayed after a seek" becomes something a test
+    /// can measure rather than assert. Needs the engine to declare
+    /// `RenderedTextObservation`; without it this is a typed refusal.
+    pub fn rendered_subtitle_text(&self) -> Result<Option<String>, FfiPlaybackError> {
+        self.inner.rendered_subtitle_text().map_err(Into::into)
     }
 
     pub fn set_rate(&self, rate: f32) -> Result<(), FfiPlaybackError> {

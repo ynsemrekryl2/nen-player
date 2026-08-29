@@ -87,6 +87,11 @@ pub trait ShellEngine: Send + Sync {
     /// The document, already serialized as WebVTT — the form an engine that
     /// renders external subtitles actually wants (NEN-027).
     fn inject_subtitle(&self, webvtt: String) -> Result<(), PlaybackError>;
+    /// What the engine is drawing right now, if anything.
+    ///
+    /// The text is subtitle dialogue (K23 #4): displayable and comparable,
+    /// never loggable.
+    fn rendered_subtitle_text(&self) -> Result<Option<String>, PlaybackError>;
 }
 
 /// Builds a fresh engine.
@@ -233,6 +238,11 @@ impl PlaybackEngine for ShellEngineBridge {
         guard_reentrancy(Operation::InjectSubtitle)?;
         self.inner
             .inject_subtitle(nen_subtitle::webvtt::write(document))
+    }
+
+    fn rendered_subtitle_text(&self) -> Result<Option<String>, PlaybackError> {
+        guard_reentrancy(Operation::RenderedText)?;
+        self.inner.rendered_subtitle_text()
     }
 }
 

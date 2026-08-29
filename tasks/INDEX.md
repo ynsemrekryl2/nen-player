@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **64** task · ✅ done 43 · 🔵 active 1 · ⛔ blocked 0 · 🚫 canceled 1 · ⚪ backlog 19
+Toplam **66** task · ✅ done 43 · 🔵 active 0 · ⛔ blocked 1 · 🚫 canceled 1 · ⚪ backlog 21
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -56,7 +56,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-024](done/NEN-024-macos-shell.md) | macOS SwiftUI shell with transport controls | M | ✅ done | NEN-022 NEN-045 |
 | [NEN-025](done/NEN-025-user-subtitle-loading.md) | User subtitle loading and sidecar discovery | M | ✅ done | NEN-013 NEN-015 NEN-024 |
 | [NEN-026](done/NEN-026-subtitle-menu-ui.md) | Subtitle menu UI | M | ✅ done | NEN-019 NEN-025 NEN-056 |
-| [NEN-027](active/NEN-027-subtitle-renderer.md) | SubtitleRenderer port and libmpv injection adapter | M | 🔵 active | NEN-017 NEN-026 |
+| [NEN-027](backlog/NEN-027-subtitle-renderer.md) | SubtitleRenderer port and libmpv injection adapter | M | ⛔ blocked | NEN-017 NEN-026 NEN-066 |
 | [NEN-028](backlog/NEN-028-slice-acceptance.md) | macOS vertical slice acceptance | S | ⚪ backlog | NEN-027 |
 | [NEN-036](backlog/NEN-036-remote-evidence-port.md) | Remote media evidence port (HEAD, Content-Disposition, Range) | M | ⚪ backlog | NEN-018 |
 | [NEN-037](backlog/NEN-037-subtitle-language-preferences.md) | Subtitle language preference setting (primary and secondary) | S | ⚪ backlog | NEN-019 NEN-024 NEN-047 |
@@ -84,6 +84,8 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-061](done/NEN-061-frameless-chrome-and-glass-bar.md) | Frameless chrome and glass transport bar | M | ✅ done | NEN-024 |
 | [NEN-062](done/NEN-062-subtitle-menu-panel.md) | Subtitle menu panel above the transport bar | M | ✅ done | NEN-026 NEN-061 |
 | [NEN-063](canceled/NEN-063-video-quality-badge.md) | Video presentation metadata and quality badge | L | 🚫 canceled | NEN-045 NEN-061 |
+| [NEN-065](backlog/NEN-065-flaky-controls-timing-test.md) | Stabilize the pinned-controls timing test | S | ⚪ backlog | NEN-061 |
+| [NEN-066](backlog/NEN-066-subtitle-not-composited-on-surface.md) | A subtitle mpv reports drawing is missing from the video surface | M | ⚪ backlog | NEN-024 |
 
 ## M5 — Translation Core
 
@@ -120,3 +122,5 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-052** — Decide and pin what a seek during loading does
 - **NEN-057** — Read the language a subtitle filename declares
 - **NEN-060** — A selected embedded track is not drawn while the window is full screen
+- **NEN-065** — Stabilize the pinned-controls timing test
+- **NEN-066** — A subtitle mpv reports drawing is missing from the video surface

@@ -40,6 +40,7 @@ pub enum Operation {
     SelectTrack,
     ExtractText,
     InjectSubtitle,
+    RenderedText,
     Shutdown,
 }
 
@@ -61,6 +62,7 @@ impl Operation {
             Self::SelectTrack => "select_track",
             Self::ExtractText => "extract_text",
             Self::InjectSubtitle => "inject_subtitle",
+            Self::RenderedText => "rendered_text",
             Self::Shutdown => "shutdown",
         }
     }

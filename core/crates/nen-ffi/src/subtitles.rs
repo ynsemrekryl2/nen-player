@@ -329,6 +329,18 @@ impl FfiSubtitleLibrary {
     }
 }
 
+impl FfiSubtitleLibrary {
+    /// Lends the library to the session for one call.
+    ///
+    /// The two objects are separate across the boundary — a shell holds one of
+    /// each — but the decision that joins them (ADR-0013 Karar 3: which row is
+    /// a track and which is a document) belongs to the core. This is how the
+    /// session reaches it without the shell taking anything apart.
+    pub(crate) fn with<T>(&self, body: impl FnOnce(&SubtitleLibrary) -> T) -> T {
+        body(&lock(&self.inner))
+    }
+}
+
 impl Default for FfiSubtitleLibrary {
     fn default() -> Self {
         Self::new()

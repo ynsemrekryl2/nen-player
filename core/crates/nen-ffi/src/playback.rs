@@ -49,6 +49,7 @@ use std::time::Duration;
 pub enum FfiCapability {
     EmbeddedTextExtraction,
     ExternalSubtitleInjection,
+    RenderedTextObservation,
     PlaybackRate,
     Volume,
 }
@@ -58,6 +59,7 @@ impl From<FfiCapability> for Capability {
         match value {
             FfiCapability::EmbeddedTextExtraction => Self::EmbeddedTextExtraction,
             FfiCapability::ExternalSubtitleInjection => Self::ExternalSubtitleInjection,
+            FfiCapability::RenderedTextObservation => Self::RenderedTextObservation,
             FfiCapability::PlaybackRate => Self::PlaybackRate,
             FfiCapability::Volume => Self::Volume,
         }
@@ -69,6 +71,7 @@ impl From<Capability> for FfiCapability {
         match value {
             Capability::EmbeddedTextExtraction => Self::EmbeddedTextExtraction,
             Capability::ExternalSubtitleInjection => Self::ExternalSubtitleInjection,
+            Capability::RenderedTextObservation => Self::RenderedTextObservation,
             Capability::PlaybackRate => Self::PlaybackRate,
             Capability::Volume => Self::Volume,
         }
@@ -427,6 +430,11 @@ pub trait ForeignPlaybackEngine: Send + Sync {
     /// Subtitle dialogue (K23 #4): displayable, never loggable.
     fn extract_text(&self, track: u32) -> Result<String, FfiPlaybackError>;
     fn inject_subtitle(&self, webvtt: String) -> Result<(), FfiPlaybackError>;
+    /// What the engine is drawing right now, if anything.
+    ///
+    /// Subtitle dialogue again (K23 #4): displayable and comparable, never
+    /// loggable. `None` is the ordinary answer in a gap between cues.
+    fn rendered_subtitle_text(&self) -> Result<Option<String>, FfiPlaybackError>;
 }
 
 /// Builds a fresh engine. The kit rebuilds one per scenario.
@@ -559,6 +567,12 @@ impl ShellEngine for ForeignEngineAdapter {
         self.inner
             .inject_subtitle(webvtt)
             .map_err(|error| error.into_port(Operation::InjectSubtitle))
+    }
+
+    fn rendered_subtitle_text(&self) -> Result<Option<String>, PlaybackError> {
+        self.inner
+            .rendered_subtitle_text()
+            .map_err(|error| error.into_port(Operation::RenderedText))
     }
 }
 

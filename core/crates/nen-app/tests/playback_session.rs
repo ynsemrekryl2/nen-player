@@ -128,6 +128,10 @@ impl nen_app::playback::ShellEngine for ScriptedEngine {
     fn inject_subtitle(&self, _webvtt: String) -> Result<(), PlaybackError> {
         Ok(())
     }
+
+    fn rendered_subtitle_text(&self) -> Result<Option<String>, PlaybackError> {
+        Ok(None)
+    }
 }
 
 fn engine() -> Arc<ScriptedEngine> {

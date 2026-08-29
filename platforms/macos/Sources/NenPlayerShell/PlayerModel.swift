@@ -360,21 +360,25 @@ public final class PlayerModel: ObservableObject {
 
     /// §8's `Kapalı`: the subtitle goes away and column two says so.
     public func turnSubtitlesOff() {
-        guard applySubtitleTrack(nil) else { return }
+        guard accepted({ try $0.hideSubtitle() }) else { return }
         selectedSubtitleToken = nil
         browsedSubtitleGroup = .closed
     }
 
     /// Shows a row.
     ///
-    /// An embedded row reaches the engine; a user file is only recorded, since
-    /// putting one on screen is NEN-027's job. Either way the engine's own
-    /// track is set or cleared first, so two subtitles can never be showing at
-    /// once. A broken row is refused here as well as being undrawable —
-    /// the rule is the model's, not the view's (ADR-0031 Karar 5).
+    /// **The shell does not know how.** Whether the row is one of the medium's
+    /// own tracks or a file the user loaded — and therefore whether it is
+    /// selected or drawn — is the core session's decision (ADR-0013 Karar 3),
+    /// so this method hands over a token and reacts to what came back. A row
+    /// that cannot be shown, because the menu shrank underneath the click or
+    /// because it is marked broken, changes nothing and says nothing: that is
+    /// an outcome, not a failure (ADR-0031 Karar 5).
     public func selectSubtitle(token: UInt32) {
-        guard subtitles.isUsable(token: token) else { return }
-        guard applySubtitleTrack(subtitles.embeddedTrackOf(token: token)) else { return }
+        var shown = true
+        guard accepted({ shown = try $0.showSubtitle(library: self.subtitles, token: token) == .shown })
+        else { return }
+        guard shown else { return }
         selectedSubtitleToken = token
         // Column one's highlight is always what column two is showing, and the
         // row that is showing has to be reachable from it. Without this, a
@@ -392,12 +396,17 @@ public final class PlayerModel: ObservableObject {
             .map { SubtitleMenuGroupID($0.group) }
     }
 
-    /// Tells the engine which of its own tracks to draw, if any.
-    /// Returns whether the command was accepted.
-    private func applySubtitleTrack(_ track: UInt32?) -> Bool {
+    /// Runs a subtitle command against the session, if there is one.
+    ///
+    /// Returns whether the caller may go on. With no session yet there is
+    /// nothing to refuse, so the model's own state still moves — the menu is
+    /// usable before a medium is open. A refusal is shown to the user and
+    /// stops the caller, which is what keeps the highlight off a subtitle that
+    /// never appeared.
+    private func accepted(_ body: (any PlaybackSessionClient) throws -> Void) -> Bool {
         guard let session else { return true }
         do {
-            try session.selectTrack(kind: .subtitle, track: track)
+            try body(session)
             return true
         } catch {
             presentTransient(PlaybackPresentation.errorMessage(for: error))

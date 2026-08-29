@@ -155,6 +155,24 @@ pub trait PlaybackEngine {
         })
     }
 
+    /// The subtitle text the engine is drawing right now, if any.
+    ///
+    /// Needs [`Capability::RenderedTextObservation`]. `None` means nothing is
+    /// on screen at this moment — a gap between cues is not an error.
+    ///
+    /// The answer is what the engine **actually drew**, not what it was asked
+    /// to draw. That distinction is the whole point: it is what lets a caller
+    /// check a rendered cue against the document it came from (ADR-0013).
+    ///
+    /// **Security:** the returned text is subtitle dialogue (K23 #4). It may be
+    /// displayed and compared; it may never be logged.
+    fn rendered_subtitle_text(&self) -> Result<Option<String>, PlaybackError> {
+        Err(PlaybackError::Unsupported {
+            operation: Operation::RenderedText,
+            capability: Capability::RenderedTextObservation,
+        })
+    }
+
     /// Hands the engine a subtitle document to render.
     ///
     /// Needs [`Capability::ExternalSubtitleInjection`]. The rendering path

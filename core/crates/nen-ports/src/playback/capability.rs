@@ -31,6 +31,17 @@ pub enum Capability {
     /// Optional because the rendering path is platform-owned (NEN-027); an
     /// engine may only be able to show what is already inside the container.
     ExternalSubtitleInjection,
+    /// The engine can be asked what subtitle text it is drawing **right now**.
+    ///
+    /// Optional because drawing and reporting are different abilities: an
+    /// engine may render a subtitle perfectly and expose no way to read the
+    /// line it has on screen. Where it exists, it is what turns "the right cue
+    /// is displayed" from an assertion about what we *asked for* into one
+    /// about what the engine actually drew (ADR-0013 Karar 2).
+    ///
+    /// **Security:** the answer is subtitle dialogue (K23 #4). Displayable,
+    /// never loggable.
+    RenderedTextObservation,
     /// The engine can play at a rate other than 1.0.
     ///
     /// The most commonly restricted capability: an engine may support no rate
@@ -46,9 +57,10 @@ pub enum Capability {
 impl Capability {
     /// Every capability, in declaration order. Used by the contract kit to
     /// prove that *each* unsupported capability produces a typed error.
-    pub const ALL: [Capability; 4] = [
+    pub const ALL: [Capability; 5] = [
         Capability::EmbeddedTextExtraction,
         Capability::ExternalSubtitleInjection,
+        Capability::RenderedTextObservation,
         Capability::PlaybackRate,
         Capability::Volume,
     ];
@@ -58,6 +70,7 @@ impl Capability {
         match self {
             Self::EmbeddedTextExtraction => "embedded_text_extraction",
             Self::ExternalSubtitleInjection => "external_subtitle_injection",
+            Self::RenderedTextObservation => "rendered_text_observation",
             Self::PlaybackRate => "playback_rate",
             Self::Volume => "volume",
         }
@@ -67,8 +80,9 @@ impl Capability {
         match self {
             Self::EmbeddedTextExtraction => 1 << 0,
             Self::ExternalSubtitleInjection => 1 << 1,
-            Self::PlaybackRate => 1 << 2,
-            Self::Volume => 1 << 3,
+            Self::RenderedTextObservation => 1 << 2,
+            Self::PlaybackRate => 1 << 3,
+            Self::Volume => 1 << 4,
         }
     }
 }
@@ -92,7 +106,7 @@ impl Capabilities {
     pub const NONE: Capabilities = Capabilities(0);
 
     /// Every optional capability.
-    pub const ALL: Capabilities = Capabilities(0b1111);
+    pub const ALL: Capabilities = Capabilities(0b1_1111);
 
     /// Builds a set from the given capabilities.
     pub fn new(capabilities: impl IntoIterator<Item = Capability>) -> Self {

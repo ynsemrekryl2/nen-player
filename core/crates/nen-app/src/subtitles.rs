@@ -249,6 +249,24 @@ impl SubtitleLibrary {
             .and_then(|source| self.token_of(source.id()))
     }
 
+    /// Whether the row a token names may be shown.
+    ///
+    /// `false` for a token nothing was ever given, which is the answer a shell
+    /// holding a stale row gets — not an error, because a menu that shrank
+    /// underneath a click is an ordinary race, not a fault.
+    pub fn is_token_usable(&self, token: u32) -> bool {
+        self.id_of(token).is_some_and(|id| self.is_usable(id))
+    }
+
+    /// The parsed document a token refers to, when the row has one.
+    ///
+    /// `None` for an embedded row: that one is the engine's own track and has
+    /// no document on this side. The two together are what let a caller decide
+    /// how a row is shown without knowing what kind it is.
+    pub fn document_of(&self, token: u32) -> Option<&SubtitleDocument> {
+        self.document(self.id_of(token)?)
+    }
+
     /// The engine track a token refers to, or `None` when the row is not one.
     ///
     /// `None` is the ordinary answer for a user file: it is a perfectly good

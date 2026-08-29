@@ -167,11 +167,21 @@ extension MPVPlaybackEngine {
     /// Read field by field rather than by parsing the JSON `track-list`: the
     /// individual properties are a documented interface, and a JSON parse would
     /// be a second place for the shape of that document to matter.
+    ///
+    /// **Externally added tracks are skipped** (ADR-0013 Karar 5). A document
+    /// this adapter injected is a subtitle track as far as mpv is concerned,
+    /// and reporting it would be wrong twice over: the catalog would list a
+    /// source it never saw — the exact shape of the defect NEN-058 found in
+    /// `sub-auto` — and the id would collide, because mpv gives an external
+    /// track `ff-index = 0`, which is the video track's number
+    /// (`evidence/M3/NEN-027-injection-measurement.md`). The port's `TrackId`
+    /// *is* the ff-index, so the collision is not cosmetic.
     func reloadTracksUnlocked() {
         trackList = []
         guard let count = try? int("track-list/count") else { return }
         for index in 0..<count {
             let prefix = "track-list/\(index)"
+            if (try? flag("\(prefix)/external")) == true { continue }
             guard let type = try? string("\(prefix)/type"),
                   let kind = Self.kind(of: type),
                   let ffIndex = try? int("\(prefix)/ff-index"),
@@ -198,6 +208,21 @@ extension MPVPlaybackEngine {
         case "sub": return .subtitle
         default: return nil   // video, and anything a container invents
         }
+    }
+
+    /// Drops the document this adapter injected, if there is one.
+    ///
+    /// Best effort by design: the id is mpv's, and the only ways it stops being
+    /// valid are the two that already cleared it here — a new `loadfile` and a
+    /// `stop`. A refusal therefore means the track is gone anyway, which is the
+    /// state this call wanted.
+    func removeInjectedSubtitle() {
+        lock.lock()
+        let id = injectedSubtitleId
+        injectedSubtitleId = MPVPlaybackEngine.noTrack
+        lock.unlock()
+        guard id != MPVPlaybackEngine.noTrack else { return }
+        try? command(["sub-remove", String(id)])
     }
 
     // MARK: - State helpers

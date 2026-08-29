@@ -14,8 +14,14 @@ public protocol PlaybackSessionClient: AnyObject {
     func durationMs() throws -> UInt64?
     func state() throws -> FfiPlaybackState
     func tracks(kind: FfiTrackKind) throws -> [FfiTrackDescriptor]
-    /// `nil` deselects — §8's `Kapalı`.
-    func selectTrack(kind: FfiTrackKind, track: UInt32?) throws
+    /// Puts the subtitle a menu row names on screen.
+    ///
+    /// The shell hands over its library and a token; which kind of row it is,
+    /// and therefore whether the engine selects a track or is given a document
+    /// to draw, is the core's decision (ADR-0013 Karar 3).
+    func showSubtitle(library: FfiSubtitleLibrary, token: UInt32) throws -> FfiShowOutcome
+    /// §8's `Kapalı`: nothing on screen, whatever was drawing it.
+    func hideSubtitle() throws
     func setVolume(volume: Float) throws
     func drainEvents() -> [FfiSessionEvent]
     func shutdown() throws

@@ -36,10 +36,13 @@
 //! future consumer.
 
 use crate::playback::{ShellEngine, ShellEngineBridge};
+use crate::renderer::{playback_error, EngineNativeRenderer, RendererState};
+use crate::subtitles::SubtitleLibrary;
 use nen_ports::playback::{
     MediaSource, Operation, PlaybackEngine, PlaybackError, PlaybackEvent, PlaybackState,
     TrackDescriptor, TrackId, TrackKind,
 };
+use nen_ports::renderer::{RenderError, SubtitleRenderer};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
 use std::thread::JoinHandle;
@@ -73,6 +76,23 @@ struct Pump {
     handle: JoinHandle<()>,
 }
 
+/// What showing a menu row did.
+///
+/// Not a `Result`: a row that cannot be shown is not an error the shell has to
+/// handle as one, on exactly the reasoning
+/// [`AddOutcome`](crate::subtitles::AddOutcome) is built on. A stale token, or
+/// one naming a source marked broken, is an **outcome** with a defined
+/// behaviour — do nothing — while the engine refusing is a genuine failure the
+/// user is told about. Collapsing the two would put a shrunken menu on the
+/// same path as a dead engine.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShowOutcome {
+    /// On screen now.
+    Shown,
+    /// Nothing happened: no such row, or the row is marked unusable.
+    Unusable,
+}
+
 /// One medium, one engine, one event queue.
 ///
 /// Every command forwards to the port through [`ShellEngineBridge`], which is
@@ -81,6 +101,12 @@ struct Pump {
 /// on its own, and a lifetime.
 pub struct PlaybackSession {
     engine: Arc<Mutex<ShellEngineBridge>>,
+    /// What the renderer remembers between calls (ADR-0013 Karar 2).
+    ///
+    /// Beside the engine rather than inside it: the engine draws, but only
+    /// this side knows *which document* it was given, and that is what makes
+    /// "the right cue is on screen" a question with an answer.
+    renderer: Mutex<RendererState>,
     pump: Mutex<Option<Pump>>,
     shut_down: AtomicBool,
 }
@@ -115,12 +141,17 @@ impl PlaybackSession {
     fn idle(engine: Arc<dyn ShellEngine>) -> Self {
         Self {
             engine: Arc::new(Mutex::new(ShellEngineBridge::new(engine))),
+            renderer: Mutex::new(RendererState::new()),
             pump: Mutex::new(None),
             shut_down: AtomicBool::new(false),
         }
     }
 
     pub fn load(&self, locator: String) -> Result<(), PlaybackError> {
+        // Forgotten before the command, not after: the outgoing medium's
+        // document says nothing about the incoming one's moments, and a load
+        // that fails must not leave the old answer standing either.
+        lock(&self.renderer).forget();
         self.command(Operation::Load, |engine| {
             engine.load(&MediaSource::new(locator))
         })
@@ -178,6 +209,73 @@ impl PlaybackSession {
         self.command(Operation::SelectTrack, |engine| engine.selected_track(kind))
     }
 
+    /// Shows the subtitle a menu row names (ADR-0013 Karar 3).
+    ///
+    /// **The one place that decides how a row reaches the screen.** An
+    /// embedded row is the engine's own track and is selected; a user file is
+    /// a document and is drawn by the renderer. The shell asks for a row and
+    /// is told what happened — it does not learn which kind the row was, and
+    /// the dialogue never leaves this side.
+    ///
+    /// Either way exactly one subtitle ends up on screen: selecting a track
+    /// replaces whatever was drawn, and showing a document replaces whatever
+    /// was selected.
+    pub fn show_source(
+        &self,
+        library: &SubtitleLibrary,
+        token: u32,
+    ) -> Result<ShowOutcome, PlaybackError> {
+        if !library.is_token_usable(token) {
+            return Ok(ShowOutcome::Unusable);
+        }
+        if let Some(track) = library.embedded_track_of(token) {
+            self.command(Operation::SelectTrack, |engine| {
+                engine.select_track(TrackKind::Subtitle, Some(track))
+            })?;
+            // The engine is drawing its own track now, so nothing this side
+            // showed is on screen any more.
+            lock(&self.renderer).forget();
+            return Ok(ShowOutcome::Shown);
+        }
+        let Some(document) = library.document_of(token) else {
+            // Catalogued, not broken, not a track and with no document behind
+            // it. Nothing exists to draw, and inventing a failure for it would
+            // tell the user about a state that is not theirs.
+            return Ok(ShowOutcome::Unusable);
+        };
+        self.render(|renderer| renderer.show(document))?;
+        Ok(ShowOutcome::Shown)
+    }
+
+    /// §8's `Kapalı`: nothing on screen, whatever was drawing it.
+    pub fn hide_subtitle(&self) -> Result<(), PlaybackError> {
+        self.render(|renderer| renderer.clear())
+    }
+
+    /// The text that **should** be on screen at a moment, from the document
+    /// the renderer was given.
+    ///
+    /// `nen_subtitle::CueIndex`'s answer (NEN-017), and nobody else's.
+    /// `None` when nothing is showing or the moment falls in a gap.
+    ///
+    /// **Security:** dialogue (K23 #4). Comparable and displayable, never
+    /// loggable.
+    pub fn expected_subtitle_text(&self, at_ms: u64) -> Option<String> {
+        let at_ms = u32::try_from(at_ms).unwrap_or(u32::MAX);
+        lock(&self.renderer).expected_at(at_ms)
+    }
+
+    /// The text that **is** on screen, as the engine reports it.
+    ///
+    /// The other half of the pair: comparing the two is how NEN-027 proves the
+    /// cue after a seek is the right one instead of assuming it. Needs the
+    /// engine to declare
+    /// [`RenderedTextObservation`](nen_ports::playback::Capability::RenderedTextObservation);
+    /// without it the answer is a typed refusal, not a guess.
+    pub fn rendered_subtitle_text(&self) -> Result<Option<String>, PlaybackError> {
+        self.render(|renderer| renderer.rendered_text())
+    }
+
     pub fn set_rate(&self, rate: f32) -> Result<(), PlaybackError> {
         self.command(Operation::SetRate, |engine| engine.set_rate(rate))
     }
@@ -226,6 +324,26 @@ impl PlaybackSession {
             return Err(PlaybackError::ShutDown { operation });
         }
         body(&mut lock(&self.engine))
+    }
+
+    /// Runs one renderer operation with the engine and the state in hand.
+    ///
+    /// The lock order is engine-then-state everywhere, which is what keeps two
+    /// callers from meeting in the middle; nothing takes them the other way
+    /// round.
+    fn render<T>(
+        &self,
+        body: impl FnOnce(&mut EngineNativeRenderer<'_>) -> Result<T, RenderError>,
+    ) -> Result<T, PlaybackError> {
+        if self.shut_down.load(Ordering::Acquire) {
+            return Err(PlaybackError::ShutDown {
+                operation: Operation::InjectSubtitle,
+            });
+        }
+        let mut engine = lock(&self.engine);
+        let mut state = lock(&self.renderer);
+        let mut renderer = EngineNativeRenderer::new(&mut *engine, &mut state);
+        body(&mut renderer).map_err(playback_error)
     }
 
     fn stop_pump(&self) {

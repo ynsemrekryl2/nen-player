@@ -3,8 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-29** (`NEN-027` active — altyazı çizimi; ADR-0013
-> `accepted`. Önceki: `NEN-063` canceled — teknik kalite rozeti
+> Son güncelleme: **2026-08-29** (`NEN-027` blocked — altyazı çizimi kodlandı
+> ve ölçüldü, ama video yüzeyi çizmiyor → `NEN-066`; ADR-0013 `accepted`.
+> Önceki: `NEN-063` canceled — teknik kalite rozeti
 > kapsamdan çıkarıldı; doğrulanmış medya kimliği `NEN-064` ile M6'ya taşındı)
 
 ## Nerede duruyoruz
@@ -12,10 +13,10 @@
 | | |
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
-| **Aktif task** | `NEN-027` — SubtitleRenderer portu ve libmpv injection adapter'ı (ADR-0013 `accepted`) |
+| **Aktif task** | — (`NEN-027` **blocked**: kodu bitti, `NEN-066` bekliyor) |
 | **Son tamamlanan** | `NEN-062` — subtitle menu panel above the transport bar |
-| **Sıradaki READY** | `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-060` |
-| **Task sayısı** | 64 · done 43 · active 1 · blocked 0 · canceled 1 · backlog 19 |
+| **Sıradaki READY** | `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-060`, `NEN-065`, `NEN-066` |
+| **Task sayısı** | 66 · done 43 · active 0 · blocked 1 · canceled 1 · backlog 21 |
 
 **`NEN-062` kapandı — altyazı menüsü artık popover değil, transportun sağ
 kenarına hizalı pencere içi cam panel.** Panel ve bar aynı `GlassSurface`'i

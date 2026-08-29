@@ -12,6 +12,9 @@
 //! through the bridge instead of straight at the engine. Whatever the Swift run
 //! then reports is about Swift.
 
+mod support;
+use support::read_webvtt;
+
 use nen_app::playback::{
     run_contract, ContractFixture, ContractReport, ShellEngine, ShellEngineBridge,
     ShellEngineFactory,
@@ -142,10 +145,19 @@ impl ShellEngine for FakeShellEngine {
     }
 
     fn inject_subtitle(&self, webvtt: String) -> Result<(), PlaybackError> {
-        // What crosses the boundary is text, so the one thing the bridge can be
-        // asked to prove here is that it really serialized a document.
+        // What crosses the boundary is text, so the far side has to turn it
+        // back into cues before it can draw anything — which is exactly what a
+        // real engine does with the string it is handed. Reading it back here
+        // is what lets the kit ask the harder question through the bridge: not
+        // "was a document accepted" but "is the document that arrived the one
+        // that was sent".
         assert!(webvtt.starts_with("WEBVTT"), "the bridge sent {webvtt:?}");
-        self.with(|engine| engine.inject_subtitle(&SubtitleDocument::new(Vec::new())))
+        let document = read_webvtt(&webvtt);
+        self.with(|engine| engine.inject_subtitle(&document))
+    }
+
+    fn rendered_subtitle_text(&self) -> Result<Option<String>, PlaybackError> {
+        self.with(|engine| engine.rendered_subtitle_text())
     }
 }
 
@@ -332,6 +344,9 @@ impl ShellEngine for NeverCalled {
         never!()
     }
     fn inject_subtitle(&self, _webvtt: String) -> Result<(), PlaybackError> {
+        never!()
+    }
+    fn rendered_subtitle_text(&self) -> Result<Option<String>, PlaybackError> {
         never!()
     }
 }

@@ -4,6 +4,7 @@
 
 pub mod embedded;
 pub mod playback;
+pub mod renderer;
 pub mod session;
 pub mod subtitle_files;
 pub mod subtitles;

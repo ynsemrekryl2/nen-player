@@ -55,7 +55,16 @@ pub struct FakeEngine {
     volume: f32,
     selected_audio: Option<TrackId>,
     selected_subtitle: Option<TrackId>,
-    injected_cues: Option<usize>,
+    /// The last injected document, kept whole so the fake can answer what it
+    /// would be drawing. A real engine keeps one too; this is not test-only
+    /// state bolted on.
+    injected: Option<SubtitleDocument>,
+    /// Whether the injected document is the thing on screen.
+    ///
+    /// Mirrors what a real engine does: injecting selects the new document,
+    /// and selecting anything else — including nothing — takes it off screen
+    /// without forgetting it.
+    showing_injected: bool,
     shut_down: bool,
     events: EventQueue,
 }
@@ -83,7 +92,8 @@ impl FakeEngine {
             volume: 1.0,
             selected_audio: None,
             selected_subtitle: None,
-            injected_cues: None,
+            injected: None,
+            showing_injected: false,
             shut_down: false,
             events: EventQueue::default(),
         }
@@ -102,7 +112,29 @@ impl FakeEngine {
     /// How many cues the last injected document carried, if any.
     /// Test-facing; not part of the port.
     pub fn injected_cues(&self) -> Option<usize> {
-        self.injected_cues
+        self.injected.as_ref().map(SubtitleDocument::len)
+    }
+
+    /// The cues an injected document puts on screen at a moment, **found by
+    /// walking the whole list**.
+    ///
+    /// Deliberately naive. `nen_subtitle::CueIndex` answers the same question
+    /// with two binary searches, and a reference implementation that shared its
+    /// cleverness could share its mistake. A scan cannot: it is slow and
+    /// obviously right, which is exactly what a reference is for. The half-open
+    /// reading (`start <= t < end`) is `TimeSpan`'s.
+    fn drawn_at(&self, at_ms: u32) -> Option<String> {
+        if !self.showing_injected {
+            return None;
+        }
+        let document = self.injected.as_ref()?;
+        let lines: Vec<String> = document
+            .cues()
+            .iter()
+            .filter(|cue| cue.span().start_ms() <= at_ms && at_ms < cue.span().end_ms())
+            .map(|cue| cue.lines().join("\n"))
+            .collect();
+        (!lines.is_empty()).then(|| lines.join("\n"))
     }
 
     fn descriptors(&self, kind: TrackKind) -> Vec<TrackDescriptor> {
@@ -270,7 +302,10 @@ impl PlaybackEngine for FakeEngine {
         }
         match kind {
             TrackKind::Audio => self.selected_audio = track,
-            TrackKind::Subtitle => self.selected_subtitle = track,
+            TrackKind::Subtitle => {
+                self.selected_subtitle = track;
+                self.showing_injected = false;
+            }
         }
         Ok(())
     }
@@ -335,8 +370,17 @@ impl PlaybackEngine for FakeEngine {
             Capability::ExternalSubtitleInjection,
             Operation::InjectSubtitle,
         )?;
-        self.injected_cues = Some(document.len());
+        self.injected = Some(document.clone());
+        self.showing_injected = true;
+        self.selected_subtitle = None;
         Ok(())
+    }
+
+    fn rendered_subtitle_text(&self) -> Result<Option<String>, PlaybackError> {
+        self.ensure_live(Operation::RenderedText)?;
+        self.require(Capability::RenderedTextObservation, Operation::RenderedText)?;
+        let at_ms = u32::try_from(self.position.as_millis()).unwrap_or(u32::MAX);
+        Ok(self.drawn_at(at_ms))
     }
 }
 

@@ -16,9 +16,12 @@ import NenCore
 ///   ``MPVVideoView``, but creating and retaining the window stays in
 ///   `NenPlayerShell`. Tests use the headless initializer and keep `vo=null` /
 ///   `ao=null`.
-/// - **No text extraction, no external subtitles.** Both are capabilities and
-///   both are declared absent, so the contract checks the typed refusal
-///   instead. They arrive with NEN-044 and NEN-027.
+/// - **No text extraction.** It is a capability and it is declared absent, so
+///   the contract checks the typed refusal instead. It arrives with NEN-044.
+/// - **No drawing decisions.** External subtitles are drawn by mpv itself
+///   (ADR-0013 Karar 1), but *which* document reaches this adapter, and when,
+///   is the core session's answer. Nothing here consults a catalog, and
+///   nothing here opens a file: the document arrives as text.
 /// - **No classifying.** The adapter reports what the container says — the
 ///   codec — and never decides what it means. Whether a subtitle codec carries
 ///   text is answered once, in `nen-ports`, for every platform (NEN-023).
@@ -106,7 +109,17 @@ public final class MPVPlaybackEngine: ForeignPlaybackEngine, @unchecked Sendable
     /// end and a rewind can announce it again.
     var atEndOfFile = false
     /// The loaded medium's tracks, in the adapter's own model.
+    ///
+    /// Only the medium's own. A document this adapter injected is a track as
+    /// far as mpv is concerned, and it is deliberately not here — see
+    /// ``reloadTracksUnlocked()``.
     var trackList: [Track] = []
+    /// mpv's id for the document this adapter injected, or ``noTrack``.
+    ///
+    /// Kept because `sub-add` appends: injecting a second document without
+    /// removing the first leaves both loaded, and the medium collects one more
+    /// every time the user picks another subtitle.
+    var injectedSubtitleId: Int64 = MPVPlaybackEngine.noTrack
     var pending: [FfiPlaybackEvent] = []
 
     /// Creates either a headless contract-test engine or an engine embedded in
@@ -177,8 +190,8 @@ public final class MPVPlaybackEngine: ForeignPlaybackEngine, @unchecked Sendable
     // MARK: - ForeignPlaybackEngine
 
     public func capabilities() -> [FfiCapability] {
-        // Rate and volume are real here. Text extraction (NEN-044) and external
-        // subtitle injection (NEN-027) are not implemented yet, and declaring a
+        // Rate, volume, external subtitle injection and rendered-text
+        // observation are real here; text extraction (NEN-044) is not. A
         // capability this engine does not have would make the contract check
         // the wrong half — the kit verifies the typed refusal for whatever is
         // absent, which is exactly the behaviour a caller gets today.
@@ -193,6 +206,9 @@ public final class MPVPlaybackEngine: ForeignPlaybackEngine, @unchecked Sendable
             atEndOfFile = false
             seekInFlight = false
             trackList = []
+            // mpv drops external subtitles with the outgoing file, so the id
+            // this adapter is holding stops meaning anything at that moment.
+            injectedSubtitleId = Self.noTrack
             // Cleared *before* the command: from here until mpv answers, no
             // entry id is this load's, so the outgoing file's end cannot be
             // mistaken for this one's failure.
@@ -222,6 +238,7 @@ public final class MPVPlaybackEngine: ForeignPlaybackEngine, @unchecked Sendable
             started = false
             seekInFlight = false
             trackList = []
+            injectedSubtitleId = Self.noTrack
             pending.append(.stateChanged(state: .idle))
         }
     }
@@ -380,8 +397,47 @@ public final class MPVPlaybackEngine: ForeignPlaybackEngine, @unchecked Sendable
         throw FfiPlaybackError.Unsupported(capability: .embeddedTextExtraction)
     }
 
-    public func injectSubtitle(webvtt _: String) throws {
-        throw FfiPlaybackError.Unsupported(capability: .externalSubtitleInjection)
+    /// Hands mpv a document to draw, over `memory://` (ADR-0013 Karar 4).
+    ///
+    /// **The dialogue never touches the filesystem.** `sub-add` takes a URL and
+    /// the obvious one would be a temp file; measured on libmpv 2.5.0,
+    /// `memory://` is accepted for subtitles, so the user's own text stays in
+    /// this process — no file to protect, no file to clean up, and nothing left
+    /// behind by a crash (`evidence/M3/NEN-027-injection-measurement.md`).
+    ///
+    /// `select` is part of the command rather than a following `sid` write: mpv
+    /// numbers the new track itself, so asking it to select what it just added
+    /// avoids having to guess the id before reading it back.
+    ///
+    /// **Security (K23 #4):** `webvtt` is dialogue. It is passed to mpv and
+    /// dropped; it is never logged, never stored and never included in an error.
+    public func injectSubtitle(webvtt: String) throws {
+        try requireMedia()
+        // Before, not after: `sub-add` appends, so a second document without
+        // this leaves the first one loaded for the rest of the medium.
+        removeInjectedSubtitle()
+        try command(["sub-add", "memory://" + webvtt, "select"])
+        // `select` made it the current subtitle, so mpv's own answer is the id.
+        if let raw = try? string("sid"), let id = Int64(raw) {
+            lock.lock()
+            injectedSubtitleId = id
+            lock.unlock()
+        }
+    }
+
+    /// What mpv is drawing right now, if anything.
+    ///
+    /// `sub-text` is what reached the screen, not what was asked for — which is
+    /// the whole reason this exists (ADR-0013 Karar 2). mpv answers with an
+    /// empty string in a gap between cues; that is `nil` here, because "nothing
+    /// is on screen" is a state and not an empty line of dialogue.
+    ///
+    /// **Security (K23 #4):** dialogue again. It crosses to the core and is
+    /// never logged here.
+    public func renderedSubtitleText() throws -> String? {
+        try requireMedia()
+        guard let text = try? string("sub-text"), !text.isEmpty else { return nil }
+        return text
     }
 
     /// What `speed` this engine accepts. mpv goes wider; this is the range the
@@ -436,14 +492,20 @@ final class DeadEngine: ForeignPlaybackEngine, @unchecked Sendable {
     func setVolume(volume _: Float) throws { throw FfiPlaybackError.NotLoaded }
     func extractText(track _: UInt32) throws -> String { throw FfiPlaybackError.NotLoaded }
     func injectSubtitle(webvtt _: String) throws { throw FfiPlaybackError.NotLoaded }
+    func renderedSubtitleText() throws -> String? { throw FfiPlaybackError.NotLoaded }
 }
 
 extension MPVPlaybackEngine {
     /// The capability set this adapter declares, as a value a test can compare
     /// against without instantiating an engine.
-    public static let declaredCapabilities: [FfiCapability] = [.playbackRate, .volume]
+    public static let declaredCapabilities: [FfiCapability] = [
+        .externalSubtitleInjection, .renderedTextObservation, .playbackRate, .volume
+    ]
 
     /// No playlist entry. mpv numbers its entries from 1, so no real entry can
     /// collide with this.
     static let noEntry: Int64 = 0
+
+    /// No injected subtitle. mpv numbers subtitle tracks from 1 as well.
+    static let noTrack: Int64 = 0
 }

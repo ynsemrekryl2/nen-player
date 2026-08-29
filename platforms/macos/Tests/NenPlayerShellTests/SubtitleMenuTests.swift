@@ -181,20 +181,20 @@ struct SubtitleMenuTests {
         #expect(model.selectedSubtitleToken == nil)
         #expect(model.browsedSubtitleGroup == .closed, "column two came back to Kapalı")
         #expect(model.browsedSubtitleEntries.isEmpty)
-        #expect(fixture.selectedSubtitleTracks.last == UInt32?.none, "the engine was told to stop")
+        #expect(fixture.drawnSubtitles.last == .off, "the engine was told to stop")
     }
 
     @Test("looking at a language while subtitles are off does not turn them on")
     func browsingIsNotSelecting() async {
         let (model, fixture) = await playingModelWithTracks()
-        let before = fixture.selectedSubtitleTracks.count
+        let before = fixture.drawnSubtitles.count
 
         model.browseSubtitleGroup(.language("en"))
 
         #expect(model.browsedSubtitleGroup == .language("en"))
         #expect(!model.browsedSubtitleEntries.isEmpty, "the rows are there to look at")
         #expect(model.selectedSubtitleToken == nil, "nothing is showing")
-        #expect(fixture.selectedSubtitleTracks.count == before, "the engine was not touched")
+        #expect(fixture.drawnSubtitles.count == before, "the engine was not touched")
     }
 
     // MARK: - Selection
@@ -207,13 +207,13 @@ struct SubtitleMenuTests {
         model.selectSubtitle(token: turkish)
 
         #expect(model.selectedSubtitleToken == turkish)
-        #expect(fixture.selectedSubtitleTracks.last == 3)
+        #expect(fixture.drawnSubtitles.last == .track(3))
     }
 
-    @Test("selecting a user file clears the engine's track instead of adding a second one")
-    func aUserFileTurnsTheEmbeddedTrackOff() async throws {
-        // Showing the file itself is NEN-027's job. What must not happen here
-        // is two subtitles on screen at once.
+    @Test("selecting a user file draws the file instead of an embedded track")
+    func aUserFileReplacesTheEmbeddedTrack() async throws {
+        // What must not happen is two subtitles on screen at once: the file
+        // replaces the track rather than joining it (NEN-027).
         let (model, fixture) = await playingModelWithTracks(withSidecar: true)
         model.selectSubtitle(token: try #require(token(in: model, group: .language("en"))))
 
@@ -221,7 +221,8 @@ struct SubtitleMenuTests {
         model.selectSubtitle(token: sidecar)
 
         #expect(model.selectedSubtitleToken == sidecar)
-        #expect(fixture.selectedSubtitleTracks.last == UInt32?.none)
+        #expect(fixture.drawnSubtitles.last == .document(sidecar))
+        #expect(fixture.drawnSubtitles.count == 2, "one replaced the other, nothing stacked")
     }
 
     @Test("a broken row is in the list and out of reach")
@@ -338,7 +339,7 @@ struct SubtitleMenuTests {
 
         let turkish = try #require(token(in: model, group: .language("tr")))
         #expect(model.selectedSubtitleToken == turkish)
-        #expect(fixture.selectedSubtitleTracks == [3], "the engine drew it, once")
+        #expect(fixture.drawnSubtitles == [.track(3)], "the engine drew it, once")
         #expect(
             SubtitleMenuGroupID(model.subtitleMenu[1].group) == .language("tr"),
             "a regional preference still hoists its language (ADR-0030)"
@@ -349,7 +350,7 @@ struct SubtitleMenuTests {
     func withoutAPreferenceNothingIsOpened() async {
         let (model, fixture) = await playingModelWithTracks()
         #expect(model.selectedSubtitleToken == nil)
-        #expect(fixture.selectedSubtitleTracks.isEmpty)
+        #expect(fixture.drawnSubtitles.isEmpty)
     }
 
     @Test("a preferred sidecar found after playback started is not opened by itself")
@@ -378,7 +379,7 @@ struct SubtitleMenuTests {
             "and it really is the kind of source that would have been picked"
         )
         #expect(model.selectedSubtitleToken == nil, "and it is not showing")
-        #expect(fixture.selectedSubtitleTracks.isEmpty)
+        #expect(fixture.drawnSubtitles.isEmpty)
     }
 
     @Test("the same sidecar found before playback starts is opened")

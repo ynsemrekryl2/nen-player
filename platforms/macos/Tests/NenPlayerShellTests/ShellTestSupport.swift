@@ -117,7 +117,18 @@ final class MemoryRecentStore: RecentMediaStoring {
 
 /// The session calls a test can make fail, so the shell's refusal paths run.
 enum FakeSessionCall: Hashable {
-    case load, play, pause, stop, seek, position, duration, state, tracks, selectTrack, volume
+    case load, play, pause, stop, seek, position, duration, state, tracks, showSubtitle,
+        hideSubtitle, volume
+}
+
+/// What ended up on screen, as the fake session saw it.
+enum DrawnSubtitle: Equatable {
+    /// One of the medium's own tracks, by engine id.
+    case track(UInt32)
+    /// A document, by the row that named it.
+    case document(UInt32)
+    /// Nothing — §8's `Kapalı`.
+    case off
 }
 
 final class FakeSession: PlaybackSessionClient {
@@ -136,8 +147,13 @@ final class FakeSession: PlaybackSessionClient {
     /// What `tracks(kind: .subtitle)` reports. Empty by default so every test
     /// written before NEN-026 keeps meaning what it meant.
     var subtitleTracks: [FfiTrackDescriptor] = []
-    /// Every subtitle track the shell asked the engine to draw, `nil` for off.
-    var selectedSubtitleTracks: [UInt32?] = []
+    /// Everything the shell asked to be put on screen, in order.
+    ///
+    /// The fake makes the same decision the core session makes — an embedded
+    /// row is a track, anything else is a document — because a fake that
+    /// merely recorded the token would let the shell stop distinguishing them
+    /// without any test noticing.
+    var drawnSubtitles: [DrawnSubtitle] = []
     var events: [FfiSessionEvent] = []
     var shutdownCount = 0
 
@@ -190,10 +206,19 @@ final class FakeSession: PlaybackSessionClient {
         requestedTrackKinds.append(kind)
         return kind == .subtitle ? subtitleTracks : []
     }
-    func selectTrack(kind: FfiTrackKind, track: UInt32?) throws {
-        try refuse(.selectTrack)
-        guard kind == .subtitle else { return }
-        selectedSubtitleTracks.append(track)
+    func showSubtitle(library: FfiSubtitleLibrary, token: UInt32) throws -> FfiShowOutcome {
+        try refuse(.showSubtitle)
+        guard library.isUsable(token: token) else { return .unusable }
+        if let track = library.embeddedTrackOf(token: token) {
+            drawnSubtitles.append(.track(track))
+        } else {
+            drawnSubtitles.append(.document(token))
+        }
+        return .shown
+    }
+    func hideSubtitle() throws {
+        try refuse(.hideSubtitle)
+        drawnSubtitles.append(.off)
     }
     func setVolume(volume: Float) throws {
         try refuse(.volume)
