@@ -3,7 +3,7 @@ id: NEN-027
 title: SubtitleRenderer port and libmpv injection adapter
 milestone: M3
 size: M
-state: backlog
+state: active
 depends_on: [NEN-017, NEN-026]
 blocks: [NEN-028]
 adr: [13]

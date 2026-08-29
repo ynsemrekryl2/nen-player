@@ -20,6 +20,7 @@ Süreç: [`0001-adr-process.md`](0001-adr-process.md) · Şablon:
 | [0011](0011-playback-port-contract.md) | `PlaybackEngine` capability modeli ve contract test yaklaşımı | ✅ accepted | M3 |
 | [0031](0031-macos-shell-interaction-model.md) | macOS kabuk etkileşim modeli — hata sunumu, ekran gizliliği ve ayar yüzeyi | ✅ accepted | M3 |
 | [0012](0012-macos-playback-engine.md) | macOS playback motoru, linkleme modeli ve proje lisansı | ✅ accepted | M3 |
+| [0013](0013-subtitle-renderer-strategy.md) | `SubtitleRenderer` stratejisi — engine-native çizim ve portun sınırları | ✅ accepted | M3 |
 | [0032](0032-container-language-codes.md) | Konteynerin ISO 639-2 dil kodları tek kanonik etikete indirgenir | ✅ accepted | M3 |
 | [0033](0033-playback-session-ffi-surface.md) | Çekirdek playback oturumunun FFI yüzeyi ve olay teslimat yönü | ✅ accepted | M3 |
 | [0036](0036-video-presentation-metadata.md) | Video presentation metadata playback portundan geçer | ❌ rejected | M3 |
@@ -39,7 +40,6 @@ karar verilmiş sayılmaz (bkz. `docs/architecture.md` → "Karar statüsü").
 | 0003 | FFI binding stratejisi (aday: UniFFI + C ABI); büyük veri geçiş modeli | M1 |
 | 0004 | Async / cancellation / progress kontratı ve late-commit yasağı | M1 |
 | 0005 | Typed error taksonomisi ve redaction kuralları | M1 |
-| 0013 | `SubtitleRenderer` stratejisi: engine-native vs. custom overlay | M3 |
 | 0014 | Stremio handoff kontratı (Android Intent + macOS argüman) ve log yasakları | M4 |
 | 0015 | Translation blok stratejisi: boyut, overlap, context analizi | M5 |
 | 0016 | Validation ve repair politikası; authoritative local validation | M5 |
