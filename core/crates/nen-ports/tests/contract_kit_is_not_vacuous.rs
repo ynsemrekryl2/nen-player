@@ -210,6 +210,10 @@ impl PlaybackEngine for BrokenEngine {
         self.inner.set_volume(volume)
     }
 
+    fn set_subtitle_bottom_inset(&mut self, fraction: f32) -> Result<(), PlaybackError> {
+        self.inner.set_subtitle_bottom_inset(fraction)
+    }
+
     fn extract_text(&mut self, track: TrackId) -> Result<String, PlaybackError> {
         self.inner.extract_text(track)
     }

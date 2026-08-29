@@ -65,6 +65,9 @@ pub struct FakeEngine {
     /// and selecting anything else — including nothing — takes it off screen
     /// without forgetting it.
     showing_injected: bool,
+    /// The share of the surface the shell says its own chrome covers
+    /// (ADR-0037). A real engine keeps this too, as a rendering option.
+    subtitle_bottom_inset: f32,
     shut_down: bool,
     events: EventQueue,
 }
@@ -94,6 +97,7 @@ impl FakeEngine {
             selected_subtitle: None,
             injected: None,
             showing_injected: false,
+            subtitle_bottom_inset: 0.0,
             shut_down: false,
             events: EventQueue::default(),
         }
@@ -107,6 +111,12 @@ impl FakeEngine {
     /// The current volume. Test-facing; not part of the port.
     pub fn volume(&self) -> f32 {
         self.volume
+    }
+
+    /// The inset the engine was last told about. Test-facing; not part of the
+    /// port.
+    pub fn subtitle_bottom_inset(&self) -> f32 {
+        self.subtitle_bottom_inset
     }
 
     /// How many cues the last injected document carried, if any.
@@ -343,6 +353,15 @@ impl PlaybackEngine for FakeEngine {
             });
         }
         self.rate = rate;
+        Ok(())
+    }
+
+    fn set_subtitle_bottom_inset(&mut self, fraction: f32) -> Result<(), PlaybackError> {
+        // Base, so no capability gate (ADR-0037 Karar 4). The range is the
+        // renderer port's and is validated there; what the fake models is that
+        // an engine accepts the call and remembers it.
+        self.ensure_live(Operation::SetSubtitleBottomInset)?;
+        self.subtitle_bottom_inset = fraction;
         Ok(())
     }
 

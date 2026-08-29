@@ -22,6 +22,9 @@ public protocol PlaybackSessionClient: AnyObject {
     func showSubtitle(library: FfiSubtitleLibrary, token: UInt32) throws -> FfiShowOutcome
     /// §8's `Kapalı`: nothing on screen, whatever was drawing it.
     func hideSubtitle() throws
+    /// The share of the surface height this shell's own chrome covers, so the
+    /// subtitle is not drawn underneath it (ADR-0037).
+    func setSubtitleBottomInset(fraction: Float) throws
     func setVolume(volume: Float) throws
     func drainEvents() -> [FfiSessionEvent]
     func shutdown() throws

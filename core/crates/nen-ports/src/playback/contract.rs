@@ -173,6 +173,7 @@ pub enum ErrorKind {
     ShutDown,
     UnknownTrack,
     RateOutOfRange,
+    InsetOutOfRange,
     LoadFailed,
     EngineFailure,
 }
@@ -186,6 +187,7 @@ impl ErrorKind {
             PlaybackError::ShutDown { .. } => Self::ShutDown,
             PlaybackError::UnknownTrack { .. } => Self::UnknownTrack,
             PlaybackError::RateOutOfRange { .. } => Self::RateOutOfRange,
+            PlaybackError::InsetOutOfRange { .. } => Self::InsetOutOfRange,
             PlaybackError::LoadFailed { .. } => Self::LoadFailed,
             PlaybackError::EngineFailure { .. } => Self::EngineFailure,
         }

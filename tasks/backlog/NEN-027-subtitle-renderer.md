@@ -3,7 +3,7 @@ id: NEN-027
 title: SubtitleRenderer port and libmpv injection adapter
 milestone: M3
 size: M
-state: blocked
+state: backlog
 depends_on: [NEN-017, NEN-026, NEN-066]
 blocks: [NEN-028]
 adr: [13]
@@ -36,10 +36,11 @@ gösterilir.
 - [ ] Cue'suz bir ana seek → altyazı gösterilmiyor (boş, artık cue kalmıyor)
 - [ ] UI kodunda renderer implementasyon adı geçmiyor (grep kanıtı)
 
-## Engel
+## Kalan kabul işi
 
-**Engelleyen:** `NEN-066` — motorun çizdiğini bildirdiği replik gerçek `.app`in
-penceresinde görünmüyor.
+`NEN-066` 2026-08-29'da kapandı: motorun çizdiği replik gerçek `.app`te
+görünüyor ve transport güvenli alanı ADR-0037 ile ölçülüyor. Bu task artık
+engelli değil.
 
 Bu task'ın kodu yerinde ve ölçülü: port, engine-native adapter, session yolu,
 FFI ve kabuk sadeleştirmesi bitti; Rust tarafında 4 000 momentlik parite
@@ -53,7 +54,7 @@ belge motora ulaşıyor, seçiliyor ve motor o an çizdiğini bildiriyor
 de vuruyor, yani enjeksiyon yolundan eski ve ondan geniş; bu yüzden ayrı bir
 task'a ayrıldı. Ölçümün tamamı: `evidence/M3/NEN-027-checklist.md`.
 
-`NEN-066` kapanınca bu task'ın kalan işi yalnız görsel koşuyu yürütüp kanıt
+Kalan iş yalnız NEN-027'ye özgü seek/CueIndex görsel koşusunu yürütüp kanıt
 kaydını doldurmaktır.
 
 ## Kanıt kaydı

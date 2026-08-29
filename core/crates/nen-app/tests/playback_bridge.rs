@@ -159,6 +159,10 @@ impl ShellEngine for FakeShellEngine {
     fn rendered_subtitle_text(&self) -> Result<Option<String>, PlaybackError> {
         self.with(|engine| engine.rendered_subtitle_text())
     }
+
+    fn set_subtitle_bottom_inset(&self, fraction: f32) -> Result<(), PlaybackError> {
+        self.with(|engine| engine.set_subtitle_bottom_inset(fraction))
+    }
 }
 
 struct FakeShellFactory {
@@ -347,6 +351,9 @@ impl ShellEngine for NeverCalled {
         never!()
     }
     fn rendered_subtitle_text(&self) -> Result<Option<String>, PlaybackError> {
+        never!()
+    }
+    fn set_subtitle_bottom_inset(&self, _fraction: f32) -> Result<(), PlaybackError> {
         never!()
     }
 }

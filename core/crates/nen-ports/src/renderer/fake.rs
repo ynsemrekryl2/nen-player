@@ -12,7 +12,7 @@
 
 use super::capability::{Capabilities, Capability};
 use super::error::{Operation, RenderError};
-use super::surface::SubtitleRenderer;
+use super::surface::{SubtitleRenderer, MAX_BOTTOM_INSET};
 use nen_domain::subtitle::SubtitleDocument;
 use std::fmt;
 
@@ -20,6 +20,7 @@ use std::fmt;
 pub struct FakeRenderer {
     capabilities: Capabilities,
     showing: Option<SubtitleDocument>,
+    bottom_inset: f32,
 }
 
 impl FakeRenderer {
@@ -41,6 +42,7 @@ impl FakeRenderer {
         Self {
             capabilities,
             showing: None,
+            bottom_inset: 0.0,
         }
     }
 
@@ -48,6 +50,11 @@ impl FakeRenderer {
     /// Test-facing; not part of the port.
     pub fn showing_cues(&self) -> Option<usize> {
         self.showing.as_ref().map(SubtitleDocument::len)
+    }
+
+    /// The inset last accepted. Test-facing; not part of the port.
+    pub fn bottom_inset(&self) -> f32 {
+        self.bottom_inset
     }
 }
 
@@ -58,6 +65,19 @@ impl SubtitleRenderer for FakeRenderer {
 
     fn show(&mut self, document: &SubtitleDocument) -> Result<(), RenderError> {
         self.showing = Some(document.clone());
+        Ok(())
+    }
+
+    fn set_bottom_inset(&mut self, fraction: f32) -> Result<(), RenderError> {
+        // The reference reading of ADR-0037 Karar 2: refuse, do not clamp.
+        // `!(0.0..=MAX).contains()` rather than two comparisons, so a NaN —
+        // which compares false against everything — is refused too.
+        if !(0.0..=MAX_BOTTOM_INSET).contains(&fraction) {
+            return Err(RenderError::InsetOutOfRange {
+                operation: Operation::SetBottomInset,
+            });
+        }
+        self.bottom_inset = fraction;
         Ok(())
     }
 
@@ -94,6 +114,7 @@ impl fmt::Debug for FakeRenderer {
         f.debug_struct("FakeRenderer")
             .field("capabilities", &self.capabilities)
             .field("showing_cues", &self.showing_cues())
+            .field("bottom_inset", &self.bottom_inset)
             .finish()
     }
 }

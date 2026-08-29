@@ -83,6 +83,15 @@ impl FakeShell {
     fn with<T>(&self, body: impl FnOnce(&mut FakeEngine) -> T) -> T {
         body(&mut self.inner.lock().expect("the fake never panics"))
     }
+
+    /// What the engine underneath was actually told (ADR-0037 Karar 5).
+    ///
+    /// Reads the engine rather than the renderer on purpose: a session test
+    /// that asked the renderer would be asking the thing that recorded the
+    /// value, not the thing that has to act on it.
+    pub fn subtitle_bottom_inset(&self) -> f32 {
+        self.with(|engine| engine.subtitle_bottom_inset())
+    }
 }
 
 impl ShellEngine for FakeShell {
@@ -165,6 +174,10 @@ impl ShellEngine for FakeShell {
 
     fn rendered_subtitle_text(&self) -> Result<Option<String>, PlaybackError> {
         self.with(|engine| engine.rendered_subtitle_text())
+    }
+
+    fn set_subtitle_bottom_inset(&self, fraction: f32) -> Result<(), PlaybackError> {
+        self.with(|engine| engine.set_subtitle_bottom_inset(fraction))
     }
 }
 

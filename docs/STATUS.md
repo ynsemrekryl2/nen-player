@@ -3,9 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-29** (`NEN-027` blocked — altyazı çizimi kodlandı
-> ve ölçüldü, ama video yüzeyi çizmiyor → `NEN-066`; ADR-0013 `accepted`.
-> Önceki: `NEN-063` canceled — teknik kalite rozeti
+> Son güncelleme: **2026-08-29** (`NEN-066` done — altyazı çizim bandını
+> örten transport kök nedeni ölçülüp ADR-0037 güvenli alanıyla kapatıldı;
+> `NEN-027` yeniden READY. Önceki: `NEN-063` canceled — teknik kalite rozeti
 > kapsamdan çıkarıldı; doğrulanmış medya kimliği `NEN-064` ile M6'ya taşındı)
 
 ## Nerede duruyoruz
@@ -13,10 +13,25 @@
 | | |
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
-| **Aktif task** | — (`NEN-027` **blocked**: kodu bitti, `NEN-066` bekliyor) |
-| **Son tamamlanan** | `NEN-062` — subtitle menu panel above the transport bar |
-| **Sıradaki READY** | `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-060`, `NEN-065` |
-| **Task sayısı** | 66 · done 43 · active 0 · blocked 1 · canceled 1 · backlog 21 |
+| **Aktif task** | — |
+| **Son tamamlanan** | `NEN-066` — subtitle safe area above player chrome |
+| **Sıradaki READY** | `NEN-027`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-065` |
+| **Task sayısı** | 66 · done 44 · active 0 · blocked 0 · canceled 2 · backlog 20 |
+
+**`NEN-066` kapandı — motorun çizdiği altyazı gerçek video yüzeyinde ve
+transport katmanının üstünde görünür.** A/B ölçümü render bileştirme
+hipotezlerini eledi: libmpv gömülü ve kullanıcı track'lerini oynarken ve
+duraklatılmışken çiziyordu; 134 pt'lik cam transport bu piksel bandını
+örtüyordu. ADR-0037 ile kabuk görünür kromun gerçek alt inset oranını playback
+session'a taşıyor, adapter bunu `sub-pos`'a mapliyor ve krom gizlenince
+sıfırlıyor.
+
+Gerçek libmpv offscreen piksel testi dahil Swift paketi **102/102**, Rust
+workspace ve renderer kontratları yeşil. Ad-hoc imzalı `.app`te gömülü/kullanıcı
+altyazısı, oynatma/duraklatma, görünür/gizli krom, `F`/`Esc` tam ekran ve
+`Kapalı` koşuları geçti; iki ekran kanıtı kaydedildi. `NEN-060` aynı kök nedene
+katlanıp canceled oldu, `NEN-027` artık READY. Tam kayıt:
+`tasks/done/NEN-066-*.md` · `evidence/M3/NEN-066-checklist.md`.
 
 **`NEN-062` kapandı — altyazı menüsü artık popover değil, transportun sağ
 kenarına hizalı pencere içi cam panel.** Panel ve bar aynı `GlassSurface`'i
@@ -96,11 +111,10 @@ başına kaldırmak hiçbir testi kırmıyor**, çünkü özelliği bugün çağ
 kendisi tutuyor; guard ancak ikinci bir çağrı yeri eklendiğinde taşıyıcı
 oluyor, ve o senaryoda 2 test kırmızıya dönüyor.
 
-**Bir gözlem kapatılmadı → `NEN-060`.** Seçilen gömülü track **tam ekranda**
-ekrana çizilmedi. Seçimin kendisi gerçek motorla ölçüldü ve doğru: dört
-track'in her biri seçiliyor ve `ff-index` geri okunuyor. Çizim pencere modunda
-bir kez çalıştı, tam ekranda hiçbir denemede çalışmadı. Tek değişken denendi,
-kök neden **ölçülmedi** — NEN-058'in açıldığı andaki gibi gözlem olarak ayrıldı.
+**Tam ekran gözlemi `NEN-066` içinde kapandı; `NEN-060` canceled.** Seçilen
+track'in görünmemesi tam ekrana özgü değildi: aynı transport örtüşmesi pencere
+modunda da ölçüldü. ADR-0037 güvenli alanı ve gerçek `.app` koşusu hem pencere
+hem tam ekranı kapsıyor.
 
 **Yol üstünde bir test iskeleti kusuru bulundu.** `TempFixture`'ın dizin adı
 yalnız etiket + pid'di; swift-testing paralel koştuğu için aynı etiketi kullanan

@@ -29,7 +29,9 @@ use nen_domain::subtitle::SubtitleDocument;
 use nen_ports::playback::{Capability as EngineCapability, PlaybackEngine, PlaybackError};
 use nen_ports::playback::{Operation as EngineOperation, TrackKind};
 use nen_ports::renderer::error::Operation;
-use nen_ports::renderer::{Capabilities, Capability, RenderError, SubtitleRenderer};
+use nen_ports::renderer::{
+    Capabilities, Capability, RenderError, SubtitleRenderer, MAX_BOTTOM_INSET,
+};
 use nen_subtitle::index::CueIndex;
 use std::fmt;
 
@@ -40,6 +42,7 @@ use std::fmt;
 #[derive(Default)]
 pub struct RendererState {
     showing: Option<SubtitleDocument>,
+    bottom_inset: f32,
 }
 
 impl RendererState {
@@ -75,6 +78,15 @@ impl RendererState {
         self.showing.is_some()
     }
 
+    /// The share of the surface the shell last said its chrome covers.
+    ///
+    /// Kept across [`Self::forget`] on purpose: the chrome does not move when
+    /// the medium changes, so a new document arrives on a surface that is
+    /// covered exactly as much as the old one was.
+    pub fn bottom_inset(&self) -> f32 {
+        self.bottom_inset
+    }
+
     /// Forgets the document. Called when a new medium is loaded: the old
     /// document's timeline says nothing about the new medium's moments.
     pub fn forget(&mut self) {
@@ -94,6 +106,7 @@ impl fmt::Debug for RendererState {
                 "cue_count",
                 &self.showing.as_ref().map(SubtitleDocument::len),
             )
+            .field("bottom_inset", &self.bottom_inset)
             .finish()
     }
 }
@@ -146,6 +159,24 @@ impl SubtitleRenderer for EngineNativeRenderer<'_> {
     /// Deliberately not "remove the document we injected": §8's `Kapalı` means
     /// *nothing* on screen, and the thing on screen may be an embedded track
     /// this renderer never touched.
+    /// Refuses an impossible inset before the engine ever hears about it.
+    ///
+    /// The range check lives here rather than in the engine because the unit
+    /// is this port's (ADR-0037 Karar 2): an engine is handed a value that is
+    /// already in range and has nothing left to judge.
+    fn set_bottom_inset(&mut self, fraction: f32) -> Result<(), RenderError> {
+        if !(0.0..=MAX_BOTTOM_INSET).contains(&fraction) {
+            return Err(RenderError::InsetOutOfRange {
+                operation: Operation::SetBottomInset,
+            });
+        }
+        self.engine
+            .set_subtitle_bottom_inset(fraction)
+            .map_err(|error| render_error(error, Operation::SetBottomInset))?;
+        self.state.bottom_inset = fraction;
+        Ok(())
+    }
+
     fn clear(&mut self) -> Result<(), RenderError> {
         self.engine
             .select_track(TrackKind::Subtitle, None)
@@ -186,8 +217,13 @@ fn render_error(error: PlaybackError, operation: Operation) -> RenderError {
         // Nothing else can reach a render call — there is no track id, no rate
         // and no locator on this path — so they collapse into the honest
         // catch-all rather than into a variant that would describe them wrongly.
+        // `InsetOutOfRange` is here rather than mapped straight through
+        // because it cannot reach this function: the range is checked above,
+        // before the engine is called, so an engine answering it would be
+        // answering a question nobody asked.
         PlaybackError::UnknownTrack { .. }
         | PlaybackError::RateOutOfRange { .. }
+        | PlaybackError::InsetOutOfRange { .. }
         | PlaybackError::LoadFailed { .. } => RenderError::SurfaceFailure { operation, code: 0 },
     }
 }
@@ -204,6 +240,7 @@ pub(crate) fn playback_error(error: RenderError) -> PlaybackError {
         Operation::Show => EngineOperation::InjectSubtitle,
         Operation::Clear => EngineOperation::SelectTrack,
         Operation::RenderedText => EngineOperation::RenderedText,
+        Operation::SetBottomInset => EngineOperation::SetSubtitleBottomInset,
     };
     match error {
         RenderError::Unsupported { .. } => PlaybackError::Unsupported {
@@ -217,6 +254,7 @@ pub(crate) fn playback_error(error: RenderError) -> PlaybackError {
         RenderError::NoMedia { .. } => PlaybackError::NotLoaded { operation },
         RenderError::ShutDown { .. } => PlaybackError::ShutDown { operation },
         RenderError::ReentrantCall { .. } => PlaybackError::ReentrantCall { operation },
+        RenderError::InsetOutOfRange { .. } => PlaybackError::InsetOutOfRange { operation },
         RenderError::SurfaceFailure { code, .. } => PlaybackError::EngineFailure { code },
     }
 }

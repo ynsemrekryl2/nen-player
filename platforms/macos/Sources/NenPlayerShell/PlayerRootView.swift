@@ -9,6 +9,11 @@ public extension Notification.Name {
 public struct PlayerRootView: View {
     @ObservedObject private var model: PlayerModel
     @State private var showsSubtitlePanel = false
+    /// The surface's own height, and the top edge of the transport bar in the
+    /// same space. Together they are the share of the surface the chrome
+    /// covers — the number ADR-0037 sends to the core.
+    @State private var surfaceHeight: CGFloat = 0
+    @State private var chromeTop: CGFloat = 0
 
     public init(model: PlayerModel) {
         self.model = model
@@ -50,6 +55,19 @@ public struct PlayerRootView: View {
             }
         }
         .frame(minWidth: 720, minHeight: 450)
+        .coordinateSpace(name: Self.surfaceSpace)
+        .background(
+            GeometryReader { surface in
+                Color.clear
+                    .onAppear { surfaceHeight = surface.size.height }
+                    .onChange(of: surface.size.height) { _, height in
+                        surfaceHeight = height
+                    }
+            }
+        )
+        .onChange(of: surfaceHeight) { _, _ in reportSubtitleInset() }
+        .onChange(of: chromeTop) { _, _ in reportSubtitleInset() }
+        .onChange(of: model.controlsVisible) { _, _ in reportSubtitleInset() }
         .background(
             WindowTitleWriter(
                 title: model.windowTitle,
@@ -148,9 +166,20 @@ public struct PlayerRootView: View {
                     }
                 )
                 .frame(maxWidth: .infinity)
+                .background(
+                    GeometryReader { bar in
+                        Color.clear
+                            .onAppear {
+                                chromeTop = bar.frame(in: .named(Self.surfaceSpace)).minY
+                            }
+                            .onChange(of: bar.frame(in: .named(Self.surfaceSpace)).minY) {
+                                _, top in chromeTop = top
+                            }
+                    }
+                )
             }
                 .padding(.horizontal, 22)
-                .padding(.bottom, 20)
+                .padding(.bottom, Self.chromeBottomPadding)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 .opacity(model.controlsVisible ? 1 : 0)
                 .offset(y: model.controlsVisible ? 0 : 14)
@@ -164,6 +193,58 @@ public struct PlayerRootView: View {
             set: { setSubtitlePanelPresented($0) }
         )
     }
+
+    /// The coordinate space the surface and the chrome are measured in.
+    private static let surfaceSpace = "nen.player.surface"
+
+    /// How far the transport bar sits above the bottom of the surface.
+    ///
+    /// Named rather than inline because it is half of what the chrome covers,
+    /// and NEN-066's test measures the other half from the bar itself.
+    static let chromeBottomPadding: CGFloat = 20
+
+    /// Tells the model how much of the surface the transport bar covers.
+    ///
+    /// Measured rather than hard-coded: the bar's height is a layout result
+    /// (114 pt today) and a constant here would go stale the first time the
+    /// bar gains a row. What is sent is the share of the **height**, because
+    /// that is the unit the renderer port takes (ADR-0037 Karar 2).
+    ///
+    /// Only the transport bar, not the subtitle panel above it: the panel is
+    /// right-aligned and open only while the user is picking a row, and
+    /// declaring it too would push the subtitle towards the middle of the
+    /// picture (ADR-0037 Karar 6).
+    ///
+    /// Zero while the chrome is hidden, which is where the player spends most
+    /// of a session — the subtitle belongs at the bottom of the picture
+    /// whenever nothing is covering it.
+    private func reportSubtitleInset() {
+        guard surfaceHeight > 0 else { return }
+        // `chromeTop` is zero until the bar has been laid out, and it is never
+        // laid out at all in the empty and fatal states — there is no
+        // transport bar without a medium. Reading that zero as "the chrome
+        // covers everything" would push the subtitle half way up the picture
+        // for as long as no bar exists.
+        guard model.controlsVisible, chromeTop > 0 else {
+            model.setSubtitleBottomInset(0)
+            return
+        }
+        let covered = surfaceHeight - chromeTop
+        guard covered > 0 else {
+            model.setSubtitleBottomInset(0)
+            return
+        }
+        model.setSubtitleBottomInset(min(covered / surfaceHeight, PlayerRootView.maximumInset))
+    }
+
+    /// The port's own ceiling, mirrored so a pathological layout is capped
+    /// here rather than refused there.
+    ///
+    /// Not a disagreement with ADR-0037 Karar 2: the refusal still exists and
+    /// still fires for anything this shell sends wrong. This only keeps a
+    /// transient layout — a window mid-resize, a bar measured before the
+    /// surface — from producing a value the core is right to reject.
+    private static let maximumInset: CGFloat = 0.5
 
     private func setSubtitlePanelPresented(_ presented: Bool) {
         showsSubtitlePanel = presented

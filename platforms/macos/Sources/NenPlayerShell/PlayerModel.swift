@@ -108,6 +108,9 @@ public final class PlayerModel: ObservableObject {
     private var accessedURL: URL?
     private var hasSecurityScope = false
     private var cursorHidden = false
+    /// The share of the surface the chrome was last reported to cover.
+    private var subtitleBottomInset: Float = 0
+
     /// Seeks issued and not yet answered.
     ///
     /// A count rather than a flag: mpv merges seeks it cannot serve one by one
@@ -154,6 +157,13 @@ public final class PlayerModel: ObservableObject {
         guard session == nil else { return }
         do {
             session = try sessionFactory(videoView)
+            // A new session starts with the subtitle at the bottom, and the
+            // chrome the last one was told about is still on screen. Nothing
+            // reports geometry again until the layout changes, so the value is
+            // carried over rather than waited for.
+            if subtitleBottomInset != 0 {
+                try? session?.setSubtitleBottomInset(fraction: subtitleBottomInset)
+            }
             if shouldPoll {
                 startPolling()
             }
@@ -519,6 +529,29 @@ public final class PlayerModel: ObservableObject {
         applicationActive = true
         drainSessionEvents()
         resynchronize()
+    }
+
+    /// Tells the core how much of the surface this shell's own chrome covers,
+    /// so the subtitle is not drawn underneath it (ADR-0037).
+    ///
+    /// `fraction` is a share of the surface **height** and comes from the
+    /// view's own geometry — the only place that knows how tall the transport
+    /// bar is and how tall the surface under it is. `0` when the chrome is
+    /// hidden, which is where the player spends most of a session.
+    ///
+    /// Deduplicated because geometry reports arrive on every layout pass while
+    /// this value changes twice per hide cycle.
+    ///
+    /// A refusal is swallowed on purpose. An inset outside the accepted range
+    /// is this shell's own layout bug and never the user's doing; ADR-0031
+    /// Karar 1 has no class for it, and a notification would tell the user
+    /// about a state that is not theirs.
+    public func setSubtitleBottomInset(_ fraction: Double) {
+        guard fraction.isFinite else { return }
+        let inset = Float(fraction)
+        guard inset != subtitleBottomInset else { return }
+        subtitleBottomInset = inset
+        try? session?.setSubtitleBottomInset(fraction: inset)
     }
 
     /// Keeps the complete player chrome and cursor visible while an in-window

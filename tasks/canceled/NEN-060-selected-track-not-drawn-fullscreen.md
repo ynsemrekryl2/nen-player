@@ -3,7 +3,7 @@ id: NEN-060
 title: A selected embedded track is not drawn while the window is full screen
 milestone: M3
 size: S
-state: backlog
+state: canceled
 depends_on: [NEN-022, NEN-026]
 blocks: []
 adr: [12, 31]
@@ -60,6 +60,26 @@ bir değişken denendi, kök neden ölçülmedi.
 - [ ] Negatif kontrol: düzeltme geri alınınca test kırmızıya dönüyor
 - [ ] Ekran kaydı `fixtures/` medyasıyla (ADR-0031 Karar 2)
 
-## Kanıt kaydı
+## İptal kaydı
 
-<!-- done olurken doldurulacak -->
+**Tarih:** 2026-08-29 · **Karar:** kullanıcı (bu task `NEN-066`'ya katlandı).
+
+**Gerekçe: aynı kusur.** `NEN-066` ölçtü ve kök neden çizimde değil, örtmede
+çıktı: render yolu altyazıyı dört durumun dördünde de (gömülü/enjekte ×
+duraklatılmış/oynarken) kareye bileştiriyor, ama motor onu pencerenin altından
+**15–32,5 pt** bandına koyuyor ve `TransportControls` + `.padding(.bottom, 20)`
+o bandın üstünü **20–134 pt** ile örtüyor. Tam ekranda da bar aynı sabit
+yüksekliği kaplıyor, ve **kontroller yalnız oynarken gizleniyor** — bu task'ın
+"tam ekranda hiç çizilmedi, pencere modunda bir kez çizildi" gözlemi tam olarak
+bu iki kuralın bileşimi. Ölçüm: `evidence/M3/NEN-066-measurement.md`.
+
+Bu task'ın "Ölçülmemiş olan" listesinin üç maddesi de `NEN-066`'da yanıtlandı:
+tam ekran değişken değil; mpv duraklatılmışken `sid` değiştiğinde kareyi
+yeniden çiziyor (offscreen ölçümde duraklatılmış hücre çiziyor); yüzey boyutu
+motora her render çağrısında veriliyor ve bant yüzey yüksekliğiyle orantılı
+ölçekleniyor.
+
+Düzeltme `ADR-0037` ile `NEN-066`'da yapıldı ve tam ekran adımı `NEN-066`'nın
+elle koşusuna eklendi (`evidence/M3/NEN-066-checklist.md`). Bu task ayrı bir
+kanıt üretmez; `done` sayılmaz ve hiçbir bağımlılığı tamamlamaz (`blocks: []`
+olduğu için bir şeyi de engellemiyor).

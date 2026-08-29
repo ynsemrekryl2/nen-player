@@ -7,7 +7,9 @@
 use nen_domain::subtitle::{Cue, CueId, SubtitleDocument, TimeSpan};
 use nen_ports::renderer::contract::{run_all, RenderInputs};
 use nen_ports::renderer::error::Operation;
-use nen_ports::renderer::{Capabilities, Capability, RenderError, SubtitleRenderer};
+use nen_ports::renderer::{
+    Capabilities, Capability, RenderError, SubtitleRenderer, MAX_BOTTOM_INSET,
+};
 
 fn inputs() -> RenderInputs {
     RenderInputs::new(SubtitleDocument::new(vec![Cue::new(
@@ -28,6 +30,9 @@ impl SubtitleRenderer for Liar {
         Ok(())
     }
     fn clear(&mut self) -> Result<(), RenderError> {
+        Ok(())
+    }
+    fn set_bottom_inset(&mut self, _: f32) -> Result<(), RenderError> {
         Ok(())
     }
     // The default impl refuses — which is correct only for a renderer that
@@ -52,6 +57,9 @@ impl SubtitleRenderer for NeverClears {
         // and leaves the subtitle on screen.
         Ok(())
     }
+    fn set_bottom_inset(&mut self, _: f32) -> Result<(), RenderError> {
+        Ok(())
+    }
     fn rendered_text(&self) -> Result<Option<String>, RenderError> {
         Ok(self.showing.then(|| "still here".to_string()))
     }
@@ -72,6 +80,9 @@ impl SubtitleRenderer for Refuses {
     fn clear(&mut self) -> Result<(), RenderError> {
         Ok(())
     }
+    fn set_bottom_inset(&mut self, _: f32) -> Result<(), RenderError> {
+        Ok(())
+    }
 }
 
 /// Draws nothing even after being shown a document.
@@ -87,8 +98,37 @@ impl SubtitleRenderer for DrawsNothing {
     fn clear(&mut self) -> Result<(), RenderError> {
         Ok(())
     }
+    fn set_bottom_inset(&mut self, _: f32) -> Result<(), RenderError> {
+        Ok(())
+    }
     fn rendered_text(&self) -> Result<Option<String>, RenderError> {
         Ok(None)
+    }
+}
+
+/// Accepts every inset by clamping it into range.
+///
+/// The twin ADR-0037 Karar 2 exists for. It never fails, never panics and
+/// never draws anything wrong on its own — it simply turns "you asked for
+/// something impossible" into "done", so a shell with a broken layout keeps
+/// believing its subtitle is clear of its own chrome.
+struct ClampsTheInset {
+    inset: f32,
+}
+
+impl SubtitleRenderer for ClampsTheInset {
+    fn capabilities(&self) -> Capabilities {
+        Capabilities::NONE
+    }
+    fn show(&mut self, _: &SubtitleDocument) -> Result<(), RenderError> {
+        Ok(())
+    }
+    fn clear(&mut self) -> Result<(), RenderError> {
+        Ok(())
+    }
+    fn set_bottom_inset(&mut self, fraction: f32) -> Result<(), RenderError> {
+        self.inset = fraction.clamp(0.0, MAX_BOTTOM_INSET);
+        Ok(())
     }
 }
 
@@ -110,4 +150,9 @@ fn a_renderer_that_cannot_show_is_caught() {
 #[test]
 fn a_renderer_that_draws_nothing_is_caught() {
     assert!(!run_all(|| DrawsNothing, &inputs()).is_empty());
+}
+
+#[test]
+fn an_inset_that_is_clamped_instead_of_refused_is_caught() {
+    assert!(!run_all(|| ClampsTheInset { inset: 0.0 }, &inputs()).is_empty());
 }

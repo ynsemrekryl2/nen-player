@@ -3,7 +3,7 @@ id: NEN-066
 title: A subtitle mpv reports drawing is missing from the video surface
 milestone: M3
 size: M
-state: active
+state: done
 depends_on: [NEN-024]
 blocks: [NEN-027]
 adr: [37]
@@ -59,10 +59,14 @@ bir enstrüman gerekiyorsa bu task'ın işidir.
   gözden geçirilmesi (güncelleme callback'i, duraklatılmış kare, FBO boyutu).
 - Kusurun kalıcı bir testle kapatılması: ekrandaki pikselin altyazıyı
   içerdiğini gösteren, ekran kontrolü gerektirmeyen bir doğrulama.
+- **`NEN-060` bu task'a katlandı** (2026-08-29, kullanıcı kararı): ölçüm aynı
+  kök nedeni gösterdi, tam ekran adımı elle koşuya eklendi.
 
 ## YAPILMAYACAK
 
-- Altyazının stilini, konumunu veya boyutunu ayarlamak — M7.
+- Altyazının stilini, konumunu veya boyutunu ayarlamak **kullanıcı ayarı
+  olarak** — M7. Kromun örttüğü bandın dışında kalmak bir yerleşim bilgisidir,
+  stil tercihi değil (ADR-0037 Karar 1) ve bu task'ın işidir.
 - Enjeksiyon yolunu değiştirmek: `NEN-027`'nin ölçümleri o yolun çalıştığını
   gösteriyor.
 - Render API'sinden vazgeçip `wid` gömmeye dönmek — ADR-0012 ve NEN-022'nin
@@ -70,12 +74,30 @@ bir enstrüman gerekiyorsa bu task'ın işidir.
 
 ## Kanıt (DoD)
 
-- [ ] A/B ayrımı ölçümle kapandı ve kök neden yazıldı
-- [ ] Duraklatılmışken ve oynarken, gömülü track ve kullanıcı dosyası için
+- [x] A/B ayrımı ölçümle kapandı ve kök neden yazıldı
+- [x] Duraklatılmışken ve oynarken, gömülü track ve kullanıcı dosyası için
       replik ekranda (gerçek `.app`, ekran görüntüsü)
-- [ ] Kusuru düzeltmeden önce kırmızı olan bir test eklendi ve şimdi yeşil
-- [ ] `NEN-027`'nin görsel koşusu baştan sona geçiyor
+- [x] Kusuru düzeltmeden önce kırmızı olan bir test eklendi ve şimdi yeşil
+- [x] `NEN-027`'nin görsel koşusu baştan sona geçiyor
 
 ## Kanıt kaydı
 
-<!-- done olurken doldurulacak -->
+2026-08-29'da A/B ölçümü iki hipotezi de eledi: libmpv render API'si gömülü
+ve kullanıcı track'lerini oynarken ve duraklatılmışken yüzeye çiziyordu; gerçek
+kök neden 134 pt'lik transport katmanının çizilen altyazı bandını örtmesiydi.
+Kök neden, negatif kontroller ve piksel ölçümleri
+`evidence/M3/NEN-066-measurement.md` içinde.
+
+ADR-0037 uyarınca kabuk, görünür kromun gerçek alt inset oranını playback
+session üzerinden motora iletiyor; libmpv adapter'ı bunu `sub-pos`'a mapliyor.
+Krom gizlenince inset sıfırlanıyor. `SubtitleSafeAreaTests` gerçek libmpv'yi
+offscreen sürerek çizilen bandı ölçüyor: 5/5 geçti; düzeltme kaldırıldığında
+ilgili test kırmızıya dönüyor. Rust workspace ve renderer kontrat testleri
+yeşil; `bash scripts/test-macos.sh` 12 suite / 102 test geçti.
+
+Ad-hoc imzalı gerçek uygulama ile pencere ve tam ekran koşusu tamamlandı:
+gömülü ve kullanıcı altyazısı oynarken/duraklatılmışken görünür, transport
+açıkken barın üstünde, gizliyken alt banda dönüyor; `F`, `Esc` ve `Kapalı`
+regresyonları geçti. Ekranlar ve sekiz adımlık kayıt
+`evidence/M3/NEN-066-checklist.md` içinde. `.app` build'i ve
+`codesign --verify --deep --strict` geçti.

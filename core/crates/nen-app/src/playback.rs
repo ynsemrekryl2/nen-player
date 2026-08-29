@@ -92,6 +92,10 @@ pub trait ShellEngine: Send + Sync {
     /// The text is subtitle dialogue (K23 #4): displayable and comparable,
     /// never loggable.
     fn rendered_subtitle_text(&self) -> Result<Option<String>, PlaybackError>;
+    /// Keeps the subtitle out of the bottom `fraction` of the surface
+    /// (ADR-0037). Already validated by the renderer port; the engine applies
+    /// it and does not judge it.
+    fn set_subtitle_bottom_inset(&self, fraction: f32) -> Result<(), PlaybackError>;
 }
 
 /// Builds a fresh engine.
@@ -227,6 +231,11 @@ impl PlaybackEngine for ShellEngineBridge {
     fn set_volume(&mut self, volume: f32) -> Result<(), PlaybackError> {
         guard_reentrancy(Operation::SetVolume)?;
         self.inner.set_volume(volume)
+    }
+
+    fn set_subtitle_bottom_inset(&mut self, fraction: f32) -> Result<(), PlaybackError> {
+        guard_reentrancy(Operation::SetSubtitleBottomInset)?;
+        self.inner.set_subtitle_bottom_inset(fraction)
     }
 
     fn extract_text(&mut self, track: TrackId) -> Result<String, PlaybackError> {

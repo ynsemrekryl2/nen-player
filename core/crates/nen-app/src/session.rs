@@ -247,6 +247,20 @@ impl PlaybackSession {
         Ok(ShowOutcome::Shown)
     }
 
+    /// Declares the share of the surface the shell's own chrome covers, so
+    /// the subtitle stays out of it (ADR-0037).
+    ///
+    /// Called whenever the chrome appears or disappears, not once at startup:
+    /// the transport bar is on screen for a fraction of a session and the
+    /// subtitle belongs at the bottom the rest of the time. `0.0` is the
+    /// ordinary value.
+    ///
+    /// Refuses anything outside `0.0..=0.5` instead of clamping — a clamped
+    /// inset is indistinguishable from an honoured one (ADR-0037 Karar 2).
+    pub fn set_subtitle_bottom_inset(&self, fraction: f32) -> Result<(), PlaybackError> {
+        self.render(|renderer| renderer.set_bottom_inset(fraction))
+    }
+
     /// §8's `Kapalı`: nothing on screen, whatever was drawing it.
     pub fn hide_subtitle(&self) -> Result<(), PlaybackError> {
         self.render(|renderer| renderer.clear())

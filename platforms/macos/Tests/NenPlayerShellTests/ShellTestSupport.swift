@@ -140,6 +140,8 @@ final class FakeSession: PlaybackSessionClient {
     var pauseCount = 0
     var seekTargets: [UInt64] = []
     var volumes: [Float] = []
+    /// Every bottom inset the shell declared, in order (ADR-0037).
+    var subtitleBottomInsets: [Float] = []
     var currentPosition: UInt64 = 0
     var currentDuration: UInt64? = 30_008
     var currentState: FfiPlaybackState = .ready
@@ -219,6 +221,9 @@ final class FakeSession: PlaybackSessionClient {
     func hideSubtitle() throws {
         try refuse(.hideSubtitle)
         drawnSubtitles.append(.off)
+    }
+    func setSubtitleBottomInset(fraction: Float) throws {
+        subtitleBottomInsets.append(fraction)
     }
     func setVolume(volume: Float) throws {
         try refuse(.volume)

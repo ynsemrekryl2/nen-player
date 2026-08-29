@@ -26,11 +26,16 @@ use super::surface::SubtitleRenderer;
 use nen_domain::subtitle::SubtitleDocument;
 
 /// One port operation, as data.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+// No `Eq`: `SetBottomInset` carries an `f32`, and a total equality on floats
+// would be a claim this type has no business making (`PlaybackError`'s reason,
+// for the same kind of payload).
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Action {
     Show,
     Clear,
     RenderedText,
+    /// A share of the surface height the shell says is covered (ADR-0037).
+    SetBottomInset(f32),
 }
 
 /// The variant of a [`RenderError`], without its payload.
@@ -45,6 +50,7 @@ pub enum ErrorKind {
     NoMedia,
     ShutDown,
     ReentrantCall,
+    InsetOutOfRange,
     SurfaceFailure,
 }
 
@@ -56,6 +62,7 @@ impl ErrorKind {
             RenderError::NoMedia { .. } => Self::NoMedia,
             RenderError::ShutDown { .. } => Self::ShutDown,
             RenderError::ReentrantCall { .. } => Self::ReentrantCall,
+            RenderError::InsetOutOfRange { .. } => Self::InsetOutOfRange,
             RenderError::SurfaceFailure { .. } => Self::SurfaceFailure,
         }
     }
@@ -78,7 +85,7 @@ pub enum Outcome {
 }
 
 /// One step of a scenario.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Step {
     pub action: Action,
     pub expect: Outcome,
@@ -113,7 +120,7 @@ impl Applicability {
 }
 
 /// A named sequence of steps.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Scenario {
     pub name: &'static str,
     pub applies: Applicability,
@@ -121,7 +128,7 @@ pub struct Scenario {
 }
 
 /// A step that did not produce what the contract requires.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Failure {
     pub scenario: &'static str,
     pub step: usize,
@@ -185,6 +192,43 @@ pub fn scenarios() -> Vec<Scenario> {
                 Step::new(Action::Clear, Outcome::Ok),
                 Step::new(Action::Clear, Outcome::Ok),
             ],
+        },
+        Scenario {
+            name: "bottom inset: an inset inside the range is accepted",
+            applies: Applicability::Always,
+            steps: vec![Step::new(Action::SetBottomInset(0.372), Outcome::Ok)],
+        },
+        Scenario {
+            name: "bottom inset: zero is accepted — the shell's chrome can be gone",
+            applies: Applicability::Always,
+            steps: vec![
+                Step::new(Action::SetBottomInset(0.372), Outcome::Ok),
+                Step::new(Action::SetBottomInset(0.0), Outcome::Ok),
+            ],
+        },
+        Scenario {
+            name: "bottom inset: applies to a document that is already showing",
+            applies: Applicability::Always,
+            steps: vec![
+                Step::new(Action::Show, Outcome::Ok),
+                Step::new(Action::SetBottomInset(0.372), Outcome::Ok),
+            ],
+        },
+        Scenario {
+            name: "bottom inset: an inset past the ceiling is refused, not clamped",
+            applies: Applicability::Always,
+            steps: vec![Step::new(
+                Action::SetBottomInset(0.9),
+                Outcome::Error(ErrorKind::InsetOutOfRange),
+            )],
+        },
+        Scenario {
+            name: "bottom inset: a negative inset is refused",
+            applies: Applicability::Always,
+            steps: vec![Step::new(
+                Action::SetBottomInset(-0.1),
+                Outcome::Error(ErrorKind::InsetOutOfRange),
+            )],
         },
         Scenario {
             name: "rendered text: refused when the capability is absent",
@@ -279,6 +323,7 @@ fn run_step<R: SubtitleRenderer>(
     match step.action {
         Action::Show => check_unit(renderer.show(&inputs.document), expect),
         Action::Clear => check_unit(renderer.clear(), expect),
+        Action::SetBottomInset(fraction) => check_unit(renderer.set_bottom_inset(fraction), expect),
         Action::RenderedText => match (renderer.rendered_text(), expect) {
             (Ok(Some(_)), Outcome::Drawing) | (Ok(None), Outcome::Blank) => Ok(()),
             (Ok(Some(_)), Outcome::Blank) => Err("something is on screen".to_string()),

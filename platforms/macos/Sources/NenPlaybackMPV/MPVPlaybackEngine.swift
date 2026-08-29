@@ -425,6 +425,31 @@ public final class MPVPlaybackEngine: ForeignPlaybackEngine, @unchecked Sendable
         }
     }
 
+    /// Keeps the subtitle out of the bottom `inset` of the surface
+    /// (ADR-0037 Karar 5).
+    ///
+    /// `sub-pos` is a percentage of the surface height with `100` at the
+    /// bottom, so `(1 - inset) x 100` lifts the line by exactly the share the
+    /// shell says its chrome covers. Measured on this engine, at a 360 pt
+    /// surface: `sub-pos = 80` moved the band up 69 pt (20.0%) and `65` moved
+    /// it 120.5 pt (33.5%), identically for an embedded track and an injected
+    /// document (`evidence/M3/NEN-066-measurement.md`).
+    ///
+    /// mpv's own bottom margin is left alone, and after the lift it becomes
+    /// the gap between the subtitle and whatever the shell put there.
+    ///
+    /// `sub-margin-y` was measured and not used: it needs `sub-use-margins`
+    /// and, on the ASS side, `sub-ass-force-margins`, while `sub-pos` gave the
+    /// same linear result for both kinds of subtitle with neither.
+    ///
+    /// The value arrives already inside `0.0...0.5` — the renderer port
+    /// refuses anything else before the engine is called — so this rounds
+    /// rather than judges.
+    public func setSubtitleBottomInset(fraction: Float) throws {
+        let position = min(100, max(0, Int(((1 - Double(fraction)) * 100).rounded())))
+        try setString("sub-pos", String(position))
+    }
+
     /// What mpv is drawing right now, if anything.
     ///
     /// `sub-text` is what reached the screen, not what was asked for — which is
@@ -493,6 +518,7 @@ final class DeadEngine: ForeignPlaybackEngine, @unchecked Sendable {
     func extractText(track _: UInt32) throws -> String { throw FfiPlaybackError.NotLoaded }
     func injectSubtitle(webvtt _: String) throws { throw FfiPlaybackError.NotLoaded }
     func renderedSubtitleText() throws -> String? { throw FfiPlaybackError.NotLoaded }
+    func setSubtitleBottomInset(fraction _: Float) throws { throw FfiPlaybackError.NotLoaded }
 }
 
 extension MPVPlaybackEngine {

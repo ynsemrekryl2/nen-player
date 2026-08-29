@@ -7,10 +7,16 @@
 //! reach a single call site.
 //!
 //! The port is deliberately small. It says what a renderer must do (show a
-//! document, take it off screen), what only some can do (say what is on screen
-//! right now), and nothing at all about *how* — no styling, no positioning, no
-//! sync offset. Those are M7's questions and would be answered here by
-//! guessing.
+//! document, take it off screen, keep clear of the part of the surface the
+//! shell has covered), what only some can do (say what is on screen right
+//! now), and nothing at all about *how* — no styling, no font, no sync offset.
+//! Those are M7's questions and would be answered here by guessing.
+//!
+//! The one thing that looks like positioning is not (ADR-0037): a bottom inset
+//! says which part of the surface is **not visible**, which is a fact about
+//! the shell's layout rather than a preference about how a subtitle should
+//! look. NEN-066 measured what its absence costs — libmpv drew every line
+//! correctly and the transport bar covered all of them.
 //!
 //! # What this port does not own
 //!
@@ -25,6 +31,14 @@
 use super::capability::{Capabilities, Capability};
 use super::error::{Operation, RenderError};
 use nen_domain::subtitle::SubtitleDocument;
+
+/// The largest share of the surface a shell may declare covered.
+///
+/// A shell whose own chrome hides more than half the surface is describing a
+/// mistake, not a layout: what it asks for would put the subtitle above the
+/// middle of the picture. Measured need is far below it — NEN-066's transport
+/// bar covers `134 / 360 = 0.372` of the shortest window the player allows.
+pub const MAX_BOTTOM_INSET: f32 = 0.5;
 
 /// Something that can put a subtitle document on screen.
 ///
@@ -50,6 +64,28 @@ pub trait SubtitleRenderer {
     /// **Security:** the document is dialogue (K23 #4). It may be drawn; it
     /// may never be logged, and no error returned here may name any part of it.
     fn show(&mut self, document: &SubtitleDocument) -> Result<(), RenderError>;
+
+    /// Declares that the bottom `fraction` of the surface is covered by
+    /// something else, and keeps the subtitle out of it (ADR-0037).
+    ///
+    /// `fraction` is a share of the **surface height** — never points, pixels
+    /// or dp. The shell is the only place that knows how tall its own chrome
+    /// is and the only place that knows the surface it sits on; a unit of
+    /// length would make the core ask for a scale factor it has no use for.
+    ///
+    /// Values outside `0.0..=`[`MAX_BOTTOM_INSET`] are refused with
+    /// [`RenderError::InsetOutOfRange`] rather than clamped: a clamped inset
+    /// is indistinguishable from an honoured one, and the caller would go on
+    /// believing the subtitle is clear of its chrome.
+    ///
+    /// This is **not** styling. A renderer is told which part of the surface
+    /// is not visible, not where a subtitle should look best — position, size
+    /// and style stay M7's questions and stay out of this port.
+    ///
+    /// Base rather than a capability (ADR-0037 Karar 4): a renderer that
+    /// cannot be told where not to draw would put the line under the shell's
+    /// own controls, which is a defect and not a degraded mode.
+    fn set_bottom_inset(&mut self, fraction: f32) -> Result<(), RenderError>;
 
     /// Takes whatever is showing off screen.
     ///

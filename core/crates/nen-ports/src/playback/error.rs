@@ -41,6 +41,7 @@ pub enum Operation {
     ExtractText,
     InjectSubtitle,
     RenderedText,
+    SetSubtitleBottomInset,
     Shutdown,
 }
 
@@ -63,6 +64,7 @@ impl Operation {
             Self::ExtractText => "extract_text",
             Self::InjectSubtitle => "inject_subtitle",
             Self::RenderedText => "rendered_text",
+            Self::SetSubtitleBottomInset => "set_subtitle_bottom_inset",
             Self::Shutdown => "shutdown",
         }
     }
@@ -144,6 +146,14 @@ pub enum PlaybackError {
     /// Loading failed. See [`LoadFailure`] — deliberately says nothing about
     /// which medium (K23 #1, #3).
     LoadFailed { reason: LoadFailure },
+    /// The bottom inset is outside `0.0..=MAX_SUBTITLE_BOTTOM_INSET`
+    /// (ADR-0037 Karar 2).
+    ///
+    /// Carries no number: the caller sent the value and the ceiling is a
+    /// constant of this crate, so repeating either would only give the error a
+    /// float to print. The refusal exists so an out-of-range inset cannot pass
+    /// as a silently clamped one.
+    InsetOutOfRange { operation: Operation },
     /// The engine failed for a reason of its own.
     ///
     /// The code is the engine's, opaque to the core and meaningless to the
@@ -160,7 +170,8 @@ impl PlaybackError {
             Self::Unsupported { operation, .. }
             | Self::ReentrantCall { operation }
             | Self::NotLoaded { operation }
-            | Self::ShutDown { operation } => Some(*operation),
+            | Self::ShutDown { operation }
+            | Self::InsetOutOfRange { operation } => Some(*operation),
             Self::UnknownTrack { .. }
             | Self::RateOutOfRange { .. }
             | Self::LoadFailed { .. }
@@ -181,6 +192,9 @@ impl fmt::Display for PlaybackError {
             }
             Self::NotLoaded { operation } => write!(f, "{operation} needs loaded media"),
             Self::ShutDown { operation } => write!(f, "{operation} after shutdown"),
+            Self::InsetOutOfRange { operation } => {
+                write!(f, "{operation} outside the accepted inset range")
+            }
             Self::UnknownTrack { kind } => write!(f, "no such {kind} track"),
             Self::RateOutOfRange {
                 requested,

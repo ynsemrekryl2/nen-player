@@ -126,6 +126,10 @@ impl PlaybackEngine for TripwireEngine {
     fn inject_subtitle(&mut self, _document: &SubtitleDocument) -> Result<(), PlaybackError> {
         panic!("the catalog path pushed a document into the engine");
     }
+
+    fn set_subtitle_bottom_inset(&mut self, _fraction: f32) -> Result<(), PlaybackError> {
+        Ok(())
+    }
 }
 
 #[test]

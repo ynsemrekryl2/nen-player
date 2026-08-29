@@ -173,6 +173,21 @@ pub trait PlaybackEngine {
         })
     }
 
+    /// Keeps the subtitle out of the bottom `fraction` of the surface
+    /// (ADR-0037 Karar 5).
+    ///
+    /// **Base, not a capability**, and it has no default: an engine that
+    /// silently ignored this would draw the subtitle underneath whatever the
+    /// shell put on top of it, which is exactly the defect NEN-066 measured —
+    /// libmpv composited the line correctly and the transport bar covered it.
+    /// A renderer that cannot be told where not to draw cannot be paired with
+    /// a shell that draws anything of its own.
+    ///
+    /// `fraction` is a share of the **surface height**, never points or
+    /// pixels, and is always within `0.0..=`[`renderer::MAX_BOTTOM_INSET`](crate::renderer::MAX_BOTTOM_INSET):
+    /// the renderer port validates before delegating here (ADR-0037 Karar 2).
+    fn set_subtitle_bottom_inset(&mut self, fraction: f32) -> Result<(), PlaybackError>;
+
     /// Hands the engine a subtitle document to render.
     ///
     /// Needs [`Capability::ExternalSubtitleInjection`]. The rendering path

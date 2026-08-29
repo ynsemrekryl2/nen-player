@@ -54,6 +54,12 @@ public enum PlaybackPresentation {
             return "Bu işlem desteklenmiyor."
         case .ReentrantCall:
             return "İşlem şu anda tamamlanamadı."
+        case .InsetOutOfRange:
+            // Nothing the user did and nothing they can fix: the value came
+            // from this shell's own layout (ADR-0037). It gets a sentence
+            // because the set is closed, not because it is meant to be read —
+            // the same one a caller-side contract violation gets.
+            return "İşlem şu anda tamamlanamadı."
         case .EngineFailure:
             return "Medya oynatılamadı."
         }

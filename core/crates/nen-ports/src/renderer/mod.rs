@@ -30,4 +30,4 @@ pub mod surface;
 pub use capability::{Capabilities, Capability};
 pub use error::{Operation, RenderError};
 pub use fake::FakeRenderer;
-pub use surface::SubtitleRenderer;
+pub use surface::{SubtitleRenderer, MAX_BOTTOM_INSET};

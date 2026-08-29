@@ -205,6 +205,19 @@ impl FfiPlaybackSession {
             .map_err(Into::into)
     }
 
+    /// Declares the share of the surface the shell's own chrome covers, so
+    /// the subtitle stays out from under it (ADR-0037).
+    ///
+    /// A fraction of the surface **height**, `0.0..=0.5`. The shell is the
+    /// only side that knows how tall its chrome is and how tall the surface
+    /// is; sending points would make this side ask for a scale factor it has
+    /// no use for. `0.0` when the chrome is hidden.
+    pub fn set_subtitle_bottom_inset(&self, fraction: f32) -> Result<(), FfiPlaybackError> {
+        self.inner
+            .set_subtitle_bottom_inset(fraction)
+            .map_err(Into::into)
+    }
+
     /// §8's `Kapalı`: nothing on screen, whatever was drawing it.
     pub fn hide_subtitle(&self) -> Result<(), FfiPlaybackError> {
         self.inner.hide_subtitle().map_err(Into::into)

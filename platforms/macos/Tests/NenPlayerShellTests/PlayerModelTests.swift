@@ -375,7 +375,11 @@ struct PlayerModelTests {
         second.events = [.stateChanged(state: .ready)]
         model.resume()
 
-        let deadline = Date().addingTimeInterval(0.5)
+        // Generous on purpose: the loop exits the moment the condition holds,
+        // so the number only decides how much main-actor contention the test
+        // survives. NEN-066 added a suite that drives a real libmpv surface on
+        // the main actor, and half a second stopped being enough.
+        let deadline = Date().addingTimeInterval(5)
         // The first resumed poll consumes Ready and calls play; FakeSession
         // then queues Playing for the next poll, just like the real bridge.
         // Observing exactly between those two polls is valid, so wait for the
@@ -514,7 +518,13 @@ struct PlayerModelTests {
         model.seekRelative(seconds: 10)
         #expect(model.transientMessage != nil)
 
-        try await Task.sleep(nanoseconds: 300_000_000)
+        // Waited for rather than slept through: the message's own lifetime is
+        // 20 ms and what this test is about is that it ends by itself, not
+        // that it ends within any particular slice of a busy machine.
+        let deadline = Date().addingTimeInterval(5)
+        while model.transientMessage != nil, Date() < deadline {
+            try await Task.sleep(nanoseconds: 5_000_000)
+        }
         #expect(model.transientMessage == nil)
     }
 

@@ -21,6 +21,7 @@ pub enum Operation {
     Show,
     Clear,
     RenderedText,
+    SetBottomInset,
 }
 
 impl Operation {
@@ -30,6 +31,7 @@ impl Operation {
             Self::Show => "show",
             Self::Clear => "clear",
             Self::RenderedText => "rendered_text",
+            Self::SetBottomInset => "set_bottom_inset",
         }
     }
 }
@@ -63,6 +65,17 @@ pub enum RenderError {
     /// Called synchronously from inside an event callback, on the same thread
     /// (ADR-0011 Karar 2).
     ReentrantCall { operation: Operation },
+    /// The bottom inset is outside `0.0..=`[`MAX_BOTTOM_INSET`]
+    /// (ADR-0037 Karar 2).
+    ///
+    /// [`MAX_BOTTOM_INSET`]: crate::renderer::MAX_BOTTOM_INSET
+    ///
+    /// Carries no number. The caller sent the value and the ceiling is a
+    /// constant of this crate, so repeating either would only give the error a
+    /// float to print. What the variant exists for is the refusal itself: a
+    /// shell that asks for an impossible inset must not get a quietly clamped
+    /// one back, because a clamped inset looks exactly like a working one.
+    InsetOutOfRange { operation: Operation },
     /// The surface failed for a reason of its own.
     ///
     /// The code belongs to whatever draws; it is opaque to the core and
@@ -81,6 +94,7 @@ impl RenderError {
             | Self::NoMedia { operation }
             | Self::ShutDown { operation }
             | Self::ReentrantCall { operation }
+            | Self::InsetOutOfRange { operation }
             | Self::SurfaceFailure { operation, .. } => *operation,
         }
     }
@@ -100,6 +114,9 @@ impl fmt::Display for RenderError {
             Self::ShutDown { operation } => write!(f, "{operation} after shutdown"),
             Self::ReentrantCall { operation } => {
                 write!(f, "{operation} called from inside an event callback")
+            }
+            Self::InsetOutOfRange { operation } => {
+                write!(f, "{operation} outside the accepted inset range")
             }
             Self::SurfaceFailure { operation, .. } => write!(f, "{operation} failed"),
         }

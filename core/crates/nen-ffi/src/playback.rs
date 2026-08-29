@@ -195,6 +195,12 @@ pub enum FfiPlaybackError {
     UnknownTrack { kind: FfiTrackKind },
     /// The rate is outside what the engine accepts.
     RateOutOfRange { requested: f32, min: f32, max: f32 },
+    /// The subtitle bottom inset is outside the accepted range (ADR-0037).
+    ///
+    /// A shell-side layout mistake rather than anything the user did: the
+    /// value came from the shell's own geometry. It is a typed refusal so it
+    /// cannot pass as a quietly clamped success.
+    InsetOutOfRange,
     /// Loading failed.
     LoadFailed { reason: FfiLoadFailure },
     /// The engine failed for a reason of its own. The code is opaque and must
@@ -216,6 +222,7 @@ impl std::fmt::Display for FfiPlaybackError {
             Self::ShutDown => "shut_down",
             Self::UnknownTrack { .. } => "unknown_track",
             Self::RateOutOfRange { .. } => "rate_out_of_range",
+            Self::InsetOutOfRange => "inset_out_of_range",
             Self::LoadFailed { .. } => "load_failed",
             Self::EngineFailure { .. } => "engine_failure",
         })
@@ -248,6 +255,7 @@ impl From<PlaybackError> for FfiPlaybackError {
                 min,
                 max,
             },
+            PlaybackError::InsetOutOfRange { .. } => Self::InsetOutOfRange,
             PlaybackError::LoadFailed { reason } => Self::LoadFailed {
                 reason: reason.into(),
             },
@@ -277,6 +285,7 @@ impl FfiPlaybackError {
                 min,
                 max,
             },
+            Self::InsetOutOfRange => PlaybackError::InsetOutOfRange { operation },
             Self::LoadFailed { reason } => PlaybackError::LoadFailed {
                 reason: reason.into(),
             },
@@ -435,6 +444,10 @@ pub trait ForeignPlaybackEngine: Send + Sync {
     /// Subtitle dialogue again (K23 #4): displayable and comparable, never
     /// loggable. `None` is the ordinary answer in a gap between cues.
     fn rendered_subtitle_text(&self) -> Result<Option<String>, FfiPlaybackError>;
+    /// Keeps the subtitle out of the bottom `fraction` of the surface
+    /// (ADR-0037). Always within `0.0..=0.5` — the core validated it before
+    /// this call, so an adapter applies it rather than judging it.
+    fn set_subtitle_bottom_inset(&self, fraction: f32) -> Result<(), FfiPlaybackError>;
 }
 
 /// Builds a fresh engine. The kit rebuilds one per scenario.
@@ -573,6 +586,12 @@ impl ShellEngine for ForeignEngineAdapter {
         self.inner
             .rendered_subtitle_text()
             .map_err(|error| error.into_port(Operation::RenderedText))
+    }
+
+    fn set_subtitle_bottom_inset(&self, fraction: f32) -> Result<(), PlaybackError> {
+        self.inner
+            .set_subtitle_bottom_inset(fraction)
+            .map_err(|error| error.into_port(Operation::SetSubtitleBottomInset))
     }
 }
 

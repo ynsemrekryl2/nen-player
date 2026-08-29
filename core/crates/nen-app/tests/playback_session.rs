@@ -132,6 +132,10 @@ impl nen_app::playback::ShellEngine for ScriptedEngine {
     fn rendered_subtitle_text(&self) -> Result<Option<String>, PlaybackError> {
         Ok(None)
     }
+
+    fn set_subtitle_bottom_inset(&self, _fraction: f32) -> Result<(), PlaybackError> {
+        Ok(())
+    }
 }
 
 fn engine() -> Arc<ScriptedEngine> {

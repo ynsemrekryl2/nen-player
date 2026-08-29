@@ -92,14 +92,32 @@ public final class MPVVideoView: NSOpenGLView, @unchecked Sendable {
 
     public override func draw(_ dirtyRect: NSRect) {
         openGLContext?.makeCurrentContext()
+        let backing = convertToBacking(bounds).size
+        renderFrame(
+            intoFramebuffer: 0,
+            width: Int32(max(1, backing.width)),
+            height: Int32(max(1, backing.height))
+        )
+        openGLContext?.flushBuffer()
+    }
+
+    /// Draws mpv's current frame into `fbo` at the given size.
+    ///
+    /// Split out of ``draw(_:)`` so a test can drive **this** path — the one the
+    /// product uses — into an offscreen framebuffer and read the pixels back.
+    /// Until NEN-066 there was no test that rendered this view at all, which is
+    /// why a frame that never composited the subtitle went unnoticed.
+    ///
+    /// The caller owns the GL context: it must be current, and on the screen
+    /// path it must be flushed afterwards.
+    func renderFrame(intoFramebuffer fbo: Int32, width: Int32, height: Int32) {
         renderLock.lock()
         let context = renderContext
         if let context {
-            let backing = convertToBacking(bounds).size
             var framebuffer = mpv_opengl_fbo(
-                fbo: 0,
-                w: Int32(max(1, backing.width)),
-                h: Int32(max(1, backing.height)),
+                fbo: fbo,
+                w: width,
+                h: height,
                 internal_format: 0
             )
             var flip: Int32 = 1
@@ -124,7 +142,6 @@ public final class MPVVideoView: NSOpenGLView, @unchecked Sendable {
             glClear(GLbitfield(GL_COLOR_BUFFER_BIT))
         }
         renderLock.unlock()
-        openGLContext?.flushBuffer()
     }
 }
 

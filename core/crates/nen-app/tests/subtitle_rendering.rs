@@ -136,7 +136,11 @@ fn library_with_file(directory: &Path, contents: &str) -> (SubtitleLibrary, u32)
 }
 
 fn session(capabilities: Capabilities) -> PlaybackSession {
-    let engine: Arc<dyn ShellEngine> = Arc::new(FakeShell::new(capabilities));
+    session_over(Arc::new(FakeShell::new(capabilities)))
+}
+
+fn session_over(shell: Arc<FakeShell>) -> PlaybackSession {
+    let engine: Arc<dyn ShellEngine> = shell;
     let session = PlaybackSession::without_pump(engine);
     session
         .load("fixtures/media/contract-clip.mkv".to_string())
@@ -331,6 +335,58 @@ fn an_engine_that_cannot_draw_an_external_document_refuses_and_says_so() {
         ),
         "{error:?}"
     );
+}
+
+#[test]
+fn the_share_the_shell_says_its_chrome_covers_reaches_the_engine() {
+    // NEN-066's defect in one line: libmpv drew every cue correctly and the
+    // transport bar covered all of them, because nothing ever told the engine
+    // that the bottom of the surface was not visible.
+    let shell = Arc::new(FakeShell::new(Capabilities::ALL));
+    let session = session_over(Arc::clone(&shell));
+
+    // 134 pt of chrome on the 360 pt window the player allows at its smallest
+    // — the number NEN-066 measured, not an invented one.
+    session
+        .set_subtitle_bottom_inset(134.0 / 360.0)
+        .expect("an inset inside the range is accepted");
+    assert_eq!(shell.subtitle_bottom_inset(), 134.0 / 360.0);
+
+    // And it goes back to nothing when the chrome hides, which is where the
+    // subtitle spends most of a session.
+    session
+        .set_subtitle_bottom_inset(0.0)
+        .expect("zero is an inset like any other");
+    assert_eq!(shell.subtitle_bottom_inset(), 0.0);
+}
+
+#[test]
+fn an_impossible_inset_is_refused_and_the_engine_never_hears_it() {
+    // ADR-0037 Karar 2's negative control. A clamped inset is worse than a
+    // refused one: it looks exactly like an honoured one, so a shell whose
+    // layout is wrong keeps believing its subtitle is clear of its chrome.
+    let shell = Arc::new(FakeShell::new(Capabilities::ALL));
+    let session = session_over(Arc::clone(&shell));
+
+    let error = session
+        .set_subtitle_bottom_inset(0.9)
+        .expect_err("more than half the surface is a mistake, not a layout");
+    assert!(
+        matches!(
+            error,
+            nen_ports::playback::PlaybackError::InsetOutOfRange { .. }
+        ),
+        "{error:?}"
+    );
+    assert_eq!(
+        shell.subtitle_bottom_inset(),
+        0.0,
+        "the refusal has to happen before the engine is touched"
+    );
+
+    assert!(session.set_subtitle_bottom_inset(-0.1).is_err());
+    assert!(session.set_subtitle_bottom_inset(f32::NAN).is_err());
+    assert_eq!(shell.subtitle_bottom_inset(), 0.0);
 }
 
 #[test]
