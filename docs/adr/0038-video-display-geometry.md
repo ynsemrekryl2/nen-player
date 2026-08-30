@@ -1,7 +1,7 @@
 ---
 adr: 0038
 title: Video display geometry playback portundan geçer
-status: proposed
+status: accepted
 milestone: M3
 tasks: [NEN-068]
 date: 2026-08-30
@@ -11,7 +11,7 @@ date: 2026-08-30
 
 ## Durum
 
-`proposed`
+`accepted`
 
 ## Bağlam
 
