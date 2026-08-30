@@ -3,9 +3,9 @@ id: NEN-065
 title: Stabilize the pinned-controls timing test
 milestone: M3
 size: S
-state: backlog
+state: active
 depends_on: [NEN-061]
-blocks: []
+blocks: [NEN-067]
 adr: []
 ---
 

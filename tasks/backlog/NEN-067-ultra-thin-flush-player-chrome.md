@@ -3,8 +3,8 @@ id: NEN-067
 title: Ultra-thin flush player chrome
 milestone: M3
 size: L
-state: active
-depends_on: [NEN-061, NEN-062, NEN-066]
+state: blocked
+depends_on: [NEN-061, NEN-062, NEN-065, NEN-066]
 blocks: []
 adr: [31, 37]
 ---
@@ -53,14 +53,14 @@ altyapısını kullanır.
 
 ## Kanıt (DoD)
 
-- [ ] Beş hız seçeneği; başarı, reddedilme, hata mesajı ve shutdown sıfırlaması
+- [x] Beş hız seçeneği; başarı, reddedilme, hata mesajı ve shutdown sıfırlaması
       model testleriyle yeşil.
-- [ ] Geçen/kalan/toplam ve bir saatten uzun süre biçimleri sunum testlerinde.
-- [ ] ADR-0037 testi gerçek 57 pt yerleşimi ölçüyor ve altyazı bandı barın
+- [x] Geçen/kalan/toplam ve bir saatten uzun süre biçimleri sunum testlerinde.
+- [x] ADR-0037 testi gerçek 57 pt yerleşimi ölçüyor ve altyazı bandı barın
       üstünde kalıyor.
-- [ ] 1280×720 ve 720×450, parlak/koyu fixture ekranlarında tek sıra,
+- [x] 1280×720 ve 720×450, parlak/koyu fixture ekranlarında tek sıra,
       kenara bitişiklik, okunabilirlik ve taşmama doğrulandı.
-- [ ] Panel hizası/dışlanması/pin; buffering; ses pointer/klavye/VoiceOver;
+- [x] Panel hizası/dışlanması/pin; buffering; ses pointer/klavye/VoiceOver;
       tam ekran düğmesi ve `F`/`Esc` elle doğrulandı.
 - [ ] `bash scripts/test-macos.sh`, uygulama build'i, strict codesign ve
       doküman kapıları geçti.
@@ -68,3 +68,29 @@ altyapısını kullanır.
 ## Kanıt kaydı
 
 <!-- done olurken doldurulacak -->
+
+Ara kabul kaydı: `evidence/M3/NEN-067-checklist.md`.
+
+## Engel
+
+**Engelleyen task: `NEN-065`.** Son DoD maddesi (`bash scripts/test-macos.sh`)
+NEN-065 düzelmeden yeşile dönemez ve bu artık ara sıra kırılan bir test değil,
+paralel koşumda deterministik kırmızı — kayıtlı üç koşum ve 2026-08-30'daki
+doğrulama, dördü de aynı yerde.
+
+Ölçüm (2026-08-30):
+
+| Koşum | Sonuç |
+|---|---|
+| `bash scripts/test-macos.sh` (paralel) | 107 test, 1 kırmızı, 12,5 s |
+| `swift test --package-path platforms/macos --no-parallel` | 107/107 yeşil, 33,2 s |
+
+Kırmızı olan tek test `pinned controls stay visible and unpin restores the hide
+timer`; NEN-067'nin dokunduğu hiçbir test kırmızı değil. Kusur ölçümde:
+`PlayerModel.scheduleControlsHide()` gizleme zamanlayıcısını gerçek saatte
+kuruyor, test 2 ms'lik gecikmeye karşı gerçek saatte 10 ms bekliyor, ve paralel
+koşumdaki gerçek libmpv testleri (`ContractTests` tek başına 12,5 s) o 5×'lik
+payı yiyor.
+
+NEN-065 kapandığında bu task yeniden `active` olur ve yalnız son DoD maddesi
+doğrulanır; kalan beş madde kanıtlanmış durumda.
