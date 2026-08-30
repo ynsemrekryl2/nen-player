@@ -246,19 +246,31 @@ struct PlayerModelTests {
         model.openMedia(at: URL(fileURLWithPath: "/fixtures/media/contract-clip.mkv"))
         model.consume([.stateChanged(state: .playing)])
 
+        // Fired directly rather than slept past. A pin has to survive the hide
+        // timer going off, and sleeping only samples: on a loaded machine the
+        // old 10 ms window could pass because the timer had not run *yet*,
+        // which proves nothing about the pin. `hideControlsNow()` is exactly
+        // what the timer calls, so this asserts the guard itself.
         model.setControlsPinned(true)
-        try await Task.sleep(nanoseconds: 10_000_000)
+        model.hideControlsNow()
         #expect(model.controlsVisible)
         #expect(model.controlsPinned)
 
+        // Waited for rather than slept through: releasing the pin has to re-arm
+        // the timer, and what matters is that it fires at all — not that it
+        // fires inside any particular slice of a busy machine. Generous on
+        // purpose; the loop exits the moment the condition holds.
         model.setControlsPinned(false)
-        try await Task.sleep(nanoseconds: 10_000_000)
+        let deadline = Date().addingTimeInterval(5)
+        while model.controlsVisible, Date() < deadline {
+            try await Task.sleep(nanoseconds: 1_000_000)
+        }
         #expect(!model.controlsVisible)
         #expect(!model.controlsPinned)
     }
 
     @Test("releasing a pin while paused leaves the controls visible")
-    func pausedControlsRemainVisibleAfterUnpinning() async throws {
+    func pausedControlsRemainVisibleAfterUnpinning() {
         let model = makeModel(
             session: FakeSession(),
             controlsHideDelayNanoseconds: 2_000_000
@@ -268,7 +280,9 @@ struct PlayerModelTests {
 
         model.setControlsPinned(true)
         model.setControlsPinned(false)
-        try await Task.sleep(nanoseconds: 10_000_000)
+        // Same reasoning as the pinned case: paused controls must survive the
+        // timer firing, so fire it instead of sleeping and sampling.
+        model.hideControlsNow()
 
         #expect(model.controlsVisible)
         #expect(!model.controlsPinned)

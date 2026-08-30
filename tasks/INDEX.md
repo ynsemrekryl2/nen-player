@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **68** task · ✅ done 44 · 🔵 active 1 · ⛔ blocked 1 · 🚫 canceled 2 · ⚪ backlog 20
+Toplam **68** task · ✅ done 45 · 🔵 active 0 · ⛔ blocked 1 · 🚫 canceled 2 · ⚪ backlog 20
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -84,7 +84,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-061](done/NEN-061-frameless-chrome-and-glass-bar.md) | Frameless chrome and glass transport bar | M | ✅ done | NEN-024 |
 | [NEN-062](done/NEN-062-subtitle-menu-panel.md) | Subtitle menu panel above the transport bar | M | ✅ done | NEN-026 NEN-061 |
 | [NEN-063](canceled/NEN-063-video-quality-badge.md) | Video presentation metadata and quality badge | L | 🚫 canceled | NEN-045 NEN-061 |
-| [NEN-065](active/NEN-065-flaky-controls-timing-test.md) | Stabilize the pinned-controls timing test | S | 🔵 active | NEN-061 |
+| [NEN-065](done/NEN-065-flaky-controls-timing-test.md) | Stabilize the pinned-controls timing test | S | ✅ done | NEN-061 |
 | [NEN-066](done/NEN-066-subtitle-not-composited-on-surface.md) | A subtitle mpv reports drawing is missing from the video surface | M | ✅ done | NEN-024 |
 | [NEN-067](backlog/NEN-067-ultra-thin-flush-player-chrome.md) | Ultra-thin flush player chrome | L | ⛔ blocked | NEN-061 NEN-062 NEN-065 NEN-066 |
 | [NEN-068](backlog/NEN-068-media-sized-aspect-locked-window.md) | Media-sized, aspect-locked player window | L | ⚪ backlog | NEN-067 |

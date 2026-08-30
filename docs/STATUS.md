@@ -3,20 +3,30 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-30** (`NEN-065` active — NEN-067'nin son test
-> kapısını deterministik kırmızıda tutan zamanlama kırılganlığı. `NEN-067`
-> blocked, engelleyen `NEN-065`. Önceki: ADR-0038 accepted — video display
-> geometry playback portundan geçer)
+> Son güncelleme: **2026-08-31** (`NEN-065` done — NEN-067'nin son test
+> kapısını kırmızıda tutan zamanlama kırılganlığı kapandı; `NEN-067` yeniden
+> açılabilir. Önceki: ADR-0038 accepted — video display geometry playback
+> portundan geçer)
 
 ## Nerede duruyoruz
 
 | | |
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
-| **Aktif task** | `NEN-065` — stabilize the pinned-controls timing test |
-| **Son tamamlanan** | `NEN-066` — subtitle safe area above player chrome |
+| **Aktif task** | — (`NEN-067` engeli kalktı, yeniden açılmayı bekliyor) |
+| **Son tamamlanan** | `NEN-065` — stabilize the pinned-controls timing test |
 | **Sıradaki READY** | `NEN-027`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-057` |
-| **Task sayısı** | 68 · done 44 · active 1 · blocked 1 · canceled 2 · backlog 20 |
+| **Task sayısı** | 68 · done 45 · active 0 · blocked 1 · canceled 2 · backlog 20 |
+
+**`NEN-065` kapandı — kontrol gizleme testi artık makine yüküne bakmıyor.**
+Kusur davranışta değil ölçümdeydi: model gizleme zamanlayıcısını gerçek saatte
+kuruyor, test 2 ms'lik gecikmeye karşı gerçek saatte 10 ms bekliyordu ve paralel
+koşumdaki gerçek libmpv testleri o 5×'lik payı yiyordu. Testin iki iddiası
+olumsuz olduğu için — "pin'liyken gizlenmiyor", "duraklıyken gizlenmiyor" —
+uykuyla zaten kanıtlanamıyordu; ikisi `hideControlsNow()` doğrudan çağrılarak
+yapısal hale getirildi, kalan olumlu iddia koşula beklemeye çevrildi. Ürün
+kodu değişmedi. Paralel paket 10 ardışık koşumda yeşil, biri altı meşgul-döngü
+süreci altında; `NEN-067`'nin engeli kalktı.
 
 **`NEN-066` kapandı — motorun çizdiği altyazı gerçek video yüzeyinde ve
 transport katmanının üstünde görünür.** A/B ölçümü render bileştirme
