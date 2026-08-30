@@ -419,6 +419,81 @@ struct PlayerModelTests {
             PlaybackPresentation.duration(position: 5_000, total: 65_000, showsRemaining: true)
                 == "−01:00 / 01:05"
         )
+        #expect(PlaybackPresentation.elapsed(position: 5_000) == "00:05")
+        #expect(
+            PlaybackPresentation.trailingDuration(
+                position: 5_000, total: 65_000, showsRemaining: false
+            ) == "01:05"
+        )
+        #expect(
+            PlaybackPresentation.trailingDuration(
+                position: 5_000, total: 65_000, showsRemaining: true
+            ) == "−01:00"
+        )
+        #expect(
+            PlaybackPresentation.trailingDuration(
+                position: 3_665_000, total: 7_330_000, showsRemaining: false
+            ) == "02:02:10"
+        )
+        #expect(
+            PlaybackPresentation.trailingDuration(
+                position: 3_665_000, total: nil, showsRemaining: false
+            ) == "--:--"
+        )
+    }
+
+    @Test("the player exposes exactly five playback rates")
+    func playbackRateOptions() {
+        #expect(PlayerModel.playbackRateOptions == [0.5, 0.75, 1, 1.5, 2])
+    }
+
+    @Test("subtitle and playback-rate panels are mutually exclusive")
+    func presentedPanelsToggleExclusively() {
+        var panel: PresentedPanel?
+        panel = PresentedPanel.toggling(.subtitles, from: panel)
+        #expect(panel == .subtitles)
+        panel = PresentedPanel.toggling(.playbackRate, from: panel)
+        #expect(panel == .playbackRate)
+        panel = PresentedPanel.toggling(.playbackRate, from: panel)
+        #expect(panel == nil)
+    }
+
+    @Test("a successful playback rate call updates the selection")
+    func playbackRateSuccess() {
+        let fixture = FakeSession()
+        let model = makePlayingModel(session: fixture)
+
+        model.setPlaybackRate(1.5)
+
+        #expect(fixture.rates == [1.5])
+        #expect(model.playbackRate == 1.5)
+        #expect(model.transientMessage == nil)
+    }
+
+    @Test("a refused playback rate keeps the previous selection")
+    func playbackRateRefusal() {
+        let fixture = FakeSession()
+        let model = makePlayingModel(session: fixture)
+        model.setPlaybackRate(0.75)
+        fixture.errors[.rate] = .RateOutOfRange(requested: 2, min: 0.25, max: 4)
+
+        model.setPlaybackRate(2)
+
+        #expect(fixture.rates == [0.75])
+        #expect(model.playbackRate == 0.75)
+        #expect(model.transientMessage == "Bu oynatma hızı kullanılamıyor.")
+        #expect(model.fatalMessage == nil)
+    }
+
+    @Test("shutdown resets playback rate to one")
+    func playbackRateResetsOnShutdown() {
+        let fixture = FakeSession()
+        let model = makePlayingModel(session: fixture)
+        model.setPlaybackRate(2)
+
+        model.shutdown()
+
+        #expect(model.playbackRate == 1)
     }
 
     // MARK: - Transient error class (ADR-0031 Karar 1)

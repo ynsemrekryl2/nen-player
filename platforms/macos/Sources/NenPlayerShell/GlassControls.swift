@@ -1,39 +1,75 @@
 import AppKit
 import SwiftUI
 
-/// The shared dark glass used by controls drawn directly over video.
-///
-/// CSS's explicit 42 px backdrop blur has no one-to-one SwiftUI parameter.
-/// `.hudWindow` supplies the platform blur; the measured dark tint supplies
-/// the contrast that `.ultraThinMaterial` lost on NEN-024's colour bars.
-struct GlassSurface: View {
-    let cornerRadius: CGFloat
+enum GlassSurfaceStyle: Equatable {
+    case transport
+    case attachedPanel(cornerRadius: CGFloat = 18)
+    case floating(cornerRadius: CGFloat = 16)
+}
 
-    init(cornerRadius: CGFloat = 24) {
-        self.cornerRadius = cornerRadius
+/// NEN-067's ultra-thin glass, with explicit edge rules for each placement.
+///
+/// CSS's `blur(10px)` has no one-to-one SwiftUI parameter. `.hudWindow`
+/// supplies the platform blur and the reference's 10% white tint is applied
+/// above it. Contrast belongs to the controls, not to a heavy dark card.
+struct GlassSurface: View {
+    let style: GlassSurfaceStyle
+
+    init(style: GlassSurfaceStyle = .floating()) {
+        self.style = style
     }
 
+    @ViewBuilder
     var body: some View {
+        switch style {
+        case .transport:
+            glass
+                .overlay(alignment: .top) {
+                    Rectangle()
+                        .fill(Color.white.opacity(0.30))
+                        .frame(height: 0.5)
+                }
+        case let .attachedPanel(cornerRadius):
+            glass
+                .clipShape(
+                    UnevenRoundedRectangle(
+                        topLeadingRadius: cornerRadius,
+                        bottomLeadingRadius: 0,
+                        bottomTrailingRadius: 0,
+                        topTrailingRadius: cornerRadius,
+                        style: .continuous
+                    )
+                )
+                .overlay(alignment: .top) {
+                    Rectangle()
+                        .fill(Color.white.opacity(0.30))
+                        .frame(height: 0.5)
+                }
+                .overlay(alignment: .leading) {
+                    Rectangle()
+                        .fill(Color.white.opacity(0.16))
+                        .frame(width: 0.5)
+                }
+                .overlay(alignment: .trailing) {
+                    Rectangle()
+                        .fill(Color.white.opacity(0.16))
+                        .frame(width: 0.5)
+                }
+        case let .floating(cornerRadius):
+            glass
+                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .stroke(Color.white.opacity(0.22), lineWidth: 0.5)
+                }
+        }
+    }
+
+    private var glass: some View {
         ZStack {
             HUDVisualEffectView()
-            Color(red: 18 / 255, green: 20 / 255, blue: 24 / 255)
-                .opacity(0.50)
+            Color.white.opacity(0.10)
         }
-        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .stroke(Color.white.opacity(0.14), lineWidth: 1)
-        }
-        .overlay(alignment: .top) {
-            LinearGradient(
-                colors: [.clear, .white.opacity(0.50), .clear],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
-            .frame(height: 1)
-            .padding(.horizontal, 28)
-        }
-        .shadow(color: .black.opacity(0.48), radius: 27, y: 20)
     }
 }
 

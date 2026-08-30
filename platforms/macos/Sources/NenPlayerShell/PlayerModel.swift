@@ -16,6 +16,7 @@ public final class PlayerModel: ObservableObject {
     @Published public private(set) var positionMilliseconds: UInt64 = 0
     @Published public private(set) var durationMilliseconds: UInt64?
     @Published public private(set) var volume: Float = 1
+    @Published public private(set) var playbackRate: Float = 1
     @Published public private(set) var fatalMessage: String?
     @Published public private(set) var transientMessage: String?
     @Published public private(set) var controlsVisible = true
@@ -60,6 +61,19 @@ public final class PlayerModel: ObservableObject {
             showsRemaining: showsRemainingTime
         )
     }
+    public var elapsedTimeText: String {
+        PlaybackPresentation.elapsed(position: displayedPositionMilliseconds)
+    }
+    public var trailingTimeText: String {
+        PlaybackPresentation.trailingDuration(
+            position: displayedPositionMilliseconds,
+            total: durationMilliseconds,
+            showsRemaining: showsRemainingTime
+        )
+    }
+
+    /// The closed set exposed by NEN-067's in-player rate panel.
+    public static let playbackRateOptions: [Float] = [0.5, 0.75, 1, 1.5, 2]
 
     private static let logger = Logger(subsystem: "player.nen.macos", category: "playback")
 
@@ -501,6 +515,20 @@ public final class PlayerModel: ObservableObject {
         }
     }
 
+    public func setPlaybackRate(_ rate: Float) {
+        guard Self.playbackRateOptions.contains(rate) else {
+            presentTransient("Bu oynatma hızı kullanılamıyor.")
+            return
+        }
+        guard let session else { return }
+        do {
+            try session.setRate(rate: rate)
+            playbackRate = rate
+        } catch {
+            presentTransient(PlaybackPresentation.errorMessage(for: error))
+        }
+    }
+
     public func adjustVolume(by delta: Float) {
         setVolume(volume + delta)
     }
@@ -589,6 +617,7 @@ public final class PlayerModel: ObservableObject {
         transientMessage = nil
         playWhenReady = false
         controlsVisible = true
+        playbackRate = 1
         subtitles.clear()
         subtitleMenu = []
         subtitleSourceCount = 0

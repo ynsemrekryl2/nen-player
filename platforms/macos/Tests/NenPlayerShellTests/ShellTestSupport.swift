@@ -118,7 +118,7 @@ final class MemoryRecentStore: RecentMediaStoring {
 /// The session calls a test can make fail, so the shell's refusal paths run.
 enum FakeSessionCall: Hashable {
     case load, play, pause, stop, seek, position, duration, state, tracks, showSubtitle,
-        hideSubtitle, volume
+        hideSubtitle, rate, volume
 }
 
 /// What ended up on screen, as the fake session saw it.
@@ -139,6 +139,7 @@ final class FakeSession: PlaybackSessionClient {
     var playCount = 0
     var pauseCount = 0
     var seekTargets: [UInt64] = []
+    var rates: [Float] = []
     var volumes: [Float] = []
     /// Every bottom inset the shell declared, in order (ADR-0037).
     var subtitleBottomInsets: [Float] = []
@@ -224,6 +225,10 @@ final class FakeSession: PlaybackSessionClient {
     }
     func setSubtitleBottomInset(fraction: Float) throws {
         subtitleBottomInsets.append(fraction)
+    }
+    func setRate(rate: Float) throws {
+        try refuse(.rate)
+        rates.append(rate)
     }
     func setVolume(volume: Float) throws {
         try refuse(.volume)

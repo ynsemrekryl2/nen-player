@@ -28,6 +28,25 @@ public enum PlaybackPresentation {
         return "\(time(milliseconds: position)) / \(time(milliseconds: total))"
     }
 
+    /// The left side of the single-row transport: always the current moment.
+    public static func elapsed(position: UInt64) -> String {
+        time(milliseconds: position)
+    }
+
+    /// The right side of the single-row transport: remaining or total time.
+    public static func trailingDuration(
+        position: UInt64,
+        total: UInt64?,
+        showsRemaining: Bool
+    ) -> String {
+        guard let total else { return "--:--" }
+        if showsRemaining {
+            let remaining = total > position ? total - position : 0
+            return "−\(time(milliseconds: remaining))"
+        }
+        return time(milliseconds: total)
+    }
+
     /// Closed Turkish copy: payloads, paths, engine names, and opaque codes
     /// never enter user-facing text (ADR-0031 Karar 1–2).
     public static func errorMessage(for error: Error) -> String {

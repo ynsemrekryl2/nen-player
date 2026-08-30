@@ -3,7 +3,7 @@ id: NEN-067
 title: Ultra-thin flush player chrome
 milestone: M3
 size: L
-state: blocked
+state: done
 depends_on: [NEN-061, NEN-062, NEN-065, NEN-066]
 blocks: []
 adr: [31, 37]
@@ -62,35 +62,35 @@ altyapısını kullanır.
       kenara bitişiklik, okunabilirlik ve taşmama doğrulandı.
 - [x] Panel hizası/dışlanması/pin; buffering; ses pointer/klavye/VoiceOver;
       tam ekran düğmesi ve `F`/`Esc` elle doğrulandı.
-- [ ] `bash scripts/test-macos.sh`, uygulama build'i, strict codesign ve
+- [x] `bash scripts/test-macos.sh`, uygulama build'i, strict codesign ve
       doküman kapıları geçti.
 
 ## Kanıt kaydı
 
 <!-- done olurken doldurulacak -->
 
-Ara kabul kaydı: `evidence/M3/NEN-067-checklist.md`.
+Manuel kabul, ölçüm ve görsel fixture'lar: `evidence/M3/NEN-067-checklist.md`
+ile `evidence/M3/NEN-067-{bright,dark}-{1280x720,720x450}.png`.
 
-## Engel
+### Otomatik kapılar (2026-08-31)
 
-**Engelleyen task: `NEN-065`.** Son DoD maddesi (`bash scripts/test-macos.sh`)
-NEN-065 düzelmeden yeşile dönemez ve bu artık ara sıra kırılan bir test değil,
-paralel koşumda deterministik kırmızı — kayıtlı üç koşum ve 2026-08-30'daki
-doğrulama, dördü de aynı yerde.
-
-Ölçüm (2026-08-30):
-
-| Koşum | Sonuç |
+| Kapı | Sonuç |
 |---|---|
-| `bash scripts/test-macos.sh` (paralel) | 107 test, 1 kırmızı, 12,5 s |
-| `swift test --package-path platforms/macos --no-parallel` | 107/107 yeşil, 33,2 s |
+| `bash scripts/test-macos.sh` (paralel) | **107/107 yeşil**, 16,5 s |
+| `bash scripts/build-macos-app.sh` | exit 0 |
+| `codesign --verify --deep --strict .build/NenPlayer.app` | exit 0 |
+| `bash scripts/check-docs.sh` | exit 0 |
+| `bash scripts/test.sh` | exit 0 |
 
-Kırmızı olan tek test `pinned controls stay visible and unpin restores the hide
-timer`; NEN-067'nin dokunduğu hiçbir test kırmızı değil. Kusur ölçümde:
-`PlayerModel.scheduleControlsHide()` gizleme zamanlayıcısını gerçek saatte
-kuruyor, test 2 ms'lik gecikmeye karşı gerçek saatte 10 ms bekliyor, ve paralel
-koşumdaki gerçek libmpv testleri (`ContractTests` tek başına 12,5 s) o 5×'lik
-payı yiyor.
+107 testin içinde beş hız seçeneği, başarılı ve reddedilmiş hız çağrısı, kapalı
+Türkçe hata, shutdown'da `1×` sıfırlaması, geçen/kalan/toplam ve bir saati aşan
+süre biçimleri, panel dışlanması ve ADR-0037'nin gerçek 57 pt yerleşimi ölçen
+libmpv piksel testi var.
 
-NEN-065 kapandığında bu task yeniden `active` olur ve yalnız son DoD maddesi
-doğrulanır; kalan beş madde kanıtlanmış durumda.
+### Engel ve kalkışı
+
+Son kapı bir süre `NEN-065` nedeniyle kapalı kaldı: paralel koşum `pinned
+controls stay visible and unpin restores the hide timer` testinde deterministik
+kırmızıydı, aynı 107 test `--no-parallel` ile yeşildi. Kusur bu task'ın kodunda
+değil, o testin iki gerçek-saat uykusunu yarıştıran ölçümündeydi. `NEN-065`
+kapandı, ürün kodu değişmeden, ve kapı yukarıdaki hâliyle yeniden koşuldu.

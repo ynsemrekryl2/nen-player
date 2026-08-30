@@ -12,10 +12,8 @@ struct SubtitleMenuView: View {
     @ObservedObject var model: PlayerModel
 
     /// Fixed, so a source arriving while the menu is open cannot resize the
-    /// panel under the pointer (ADR-0031 Karar 4.2). 260 rather than the
-    /// mockup's 326: M3 fills six rows, and the mockup's height was sized for
-    /// M6's candidate lists.
-    private static let panelHeight: CGFloat = 260
+    /// panel under the pointer (ADR-0031 Karar 4.2).
+    private static let panelHeight: CGFloat = 326
     private static let groupColumnWidth: CGFloat = 190
     private static let entryColumnWidth: CGFloat = 250
 
@@ -36,9 +34,10 @@ struct SubtitleMenuView: View {
                 .frame(width: 1)
                 .offset(x: Self.groupColumnWidth)
         }
-        .background { GlassSurface() }
         .environment(\.colorScheme, .dark)
         .foregroundStyle(.white)
+        .shadow(color: .black.opacity(0.72), radius: 1.5, y: 1)
+        .background { GlassSurface(style: .attachedPanel()) }
     }
 
     // MARK: - Column one

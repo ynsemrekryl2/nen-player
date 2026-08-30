@@ -3,20 +3,31 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-31** (`NEN-065` done — NEN-067'nin son test
-> kapısını kırmızıda tutan zamanlama kırılganlığı kapandı; `NEN-067` yeniden
-> açılabilir. Önceki: ADR-0038 accepted — video display geometry playback
-> portundan geçer)
+> Son güncelleme: **2026-08-31** (`NEN-067` done — ultra-ince, zemine-bitişik
+> oynatıcı kromu; son kapı `NEN-065` ile açıldı. `NEN-068` artık READY.
+> Önceki: ADR-0038 accepted — video display geometry playback portundan geçer)
 
 ## Nerede duruyoruz
 
 | | |
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
-| **Aktif task** | — (`NEN-067` engeli kalktı, yeniden açılmayı bekliyor) |
-| **Son tamamlanan** | `NEN-065` — stabilize the pinned-controls timing test |
-| **Sıradaki READY** | `NEN-027`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-057` |
-| **Task sayısı** | 68 · done 45 · active 0 · blocked 1 · canceled 2 · backlog 20 |
+| **Aktif task** | — |
+| **Son tamamlanan** | `NEN-067` — ultra-thin flush player chrome |
+| **Sıradaki READY** | `NEN-027`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-068` |
+| **Task sayısı** | 68 · done 46 · active 0 · blocked 0 · canceled 2 · backlog 20 |
+
+**`NEN-067` kapandı — oynatıcı kromu tek satırlık, 57 pt'lik, pencerenin alt
+ve yan kenarlarına sıfır boşlukla oturan cam bir transport.** Tek sırada
+oynat/duraklat, ±5 sn, geçen süre, esnek seek, kalan/toplam, ses, CC, hız ve
+tam ekran var; birbirini dışlayan altyazı ve hız panelleri barın üstüne
+bitişik açılıyor ve panel açıkken krom pinleniyor. ADR-0037'nin güvenli alanı
+artık barın gerçek SwiftUI yüksekliğinden ölçülüyor. Paralel Swift paketi
+**107/107**, uygulama build'i, strict codesign ve doküman kapıları yeşil;
+manuel kabul `evidence/M3/NEN-067-checklist.md`'de.
+
+Bu kapanış `NEN-068`'i READY yaptı — medya boyutunda açılan, orana kilitli
+pencere; mimari kararı ADR-0038 ile alınmış durumda.
 
 **`NEN-065` kapandı — kontrol gizleme testi artık makine yüküne bakmıyor.**
 Kusur davranışta değil ölçümdeydi: model gizleme zamanlayıcısını gerçek saatte

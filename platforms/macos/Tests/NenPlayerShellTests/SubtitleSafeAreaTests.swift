@@ -52,11 +52,12 @@ struct SubtitleSafeAreaTests {
     /// the bar gains a row.
     static func chromeHeight() -> CGFloat {
         let model = PlayerModel(startsPolling: false, managesCursor: false)
-        var presented = false
+        var presented: PresentedPanel?
         let bar = TransportControls(
             model: model,
-            showsSubtitlePanel: Binding(get: { presented }, set: { presented = $0 }),
-            onInteractionOutsideSubtitlePanel: {}
+            presentedPanel: Binding(get: { presented }, set: { presented = $0 }),
+            onInteractionOutsidePanel: {},
+            onToggleFullScreen: {}
         )
         let host = NSHostingView(rootView: bar.frame(width: surfacePoints.width))
         host.layoutSubtreeIfNeeded()
@@ -208,7 +209,7 @@ struct SubtitleSafeAreaTests {
     @Test("the line the engine draws is not left under the transport bar")
     func theSubtitleClearsTheChrome() throws {
         let chrome = Self.chromeHeight()
-        #expect(chrome > 0)
+        #expect(abs(chrome - TransportControls.height) < 0.5)
 
         let view = MPVVideoView.makePlaybackSurface()
         view.frame = NSRect(origin: .zero, size: Self.surfacePoints)

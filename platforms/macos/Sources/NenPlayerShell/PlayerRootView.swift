@@ -8,7 +8,7 @@ public extension Notification.Name {
 
 public struct PlayerRootView: View {
     @ObservedObject private var model: PlayerModel
-    @State private var showsSubtitlePanel = false
+    @State private var presentedPanel: PresentedPanel?
     /// The surface's own height, and the top edge of the transport bar in the
     /// same space. Together they are the share of the surface the chrome
     /// covers — the number ADR-0037 sends to the core.
@@ -26,6 +26,10 @@ public struct PlayerRootView: View {
 
             VideoSurface(model: model)
                 .opacity(model.hasMedia ? 1 : 0)
+
+            if model.hasMedia, model.playbackState == .buffering {
+                BufferingOverlay()
+            }
 
             if let fatalMessage = model.fatalMessage {
                 FatalState(
@@ -49,7 +53,7 @@ public struct PlayerRootView: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 9)
                     .background(.ultraThinMaterial, in: Capsule())
-                    .padding(.bottom, 150)
+                    .padding(.bottom, TransportControls.height + 18)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                     .transition(.opacity)
             }
@@ -76,14 +80,14 @@ public struct PlayerRootView: View {
             )
         )
         .animation(.easeOut(duration: 0.24), value: model.controlsVisible)
-        .animation(.easeOut(duration: 0.24), value: showsSubtitlePanel)
+        .animation(.easeOut(duration: 0.24), value: presentedPanel)
         .animation(.easeOut(duration: 0.16), value: model.transientMessage)
         .onChange(of: model.mediaPresentationRevision) { _, _ in
-            setSubtitlePanelPresented(false)
+            setPresentedPanel(nil)
         }
         .onChange(of: model.fatalMessage) { _, fatalMessage in
             if fatalMessage != nil {
-                setSubtitlePanelPresented(false)
+                setPresentedPanel(nil)
             }
         }
         .onContinuousHover { phase in
@@ -100,7 +104,7 @@ public struct PlayerRootView: View {
             return true
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in
-            setSubtitlePanelPresented(false)
+            setPresentedPanel(nil)
             model.applicationResignedActive()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
@@ -110,7 +114,7 @@ public struct PlayerRootView: View {
             model.resume()
         }
         .onDisappear {
-            setSubtitlePanelPresented(false)
+            setPresentedPanel(nil)
             model.shutdown()
         }
     }
@@ -143,27 +147,23 @@ public struct PlayerRootView: View {
                     .allowsHitTesting(false)
             }
 
-            if showsSubtitlePanel {
+            if presentedPanel != nil {
                 Color.clear
                     .contentShape(Rectangle())
                     .onTapGesture {
-                        setSubtitlePanelPresented(false)
+                        setPresentedPanel(nil)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
 
-            VStack(alignment: .trailing, spacing: 12) {
-                if showsSubtitlePanel {
-                    SubtitleMenuView(model: model)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-
+            ZStack(alignment: .bottomTrailing) {
                 TransportControls(
                     model: model,
-                    showsSubtitlePanel: subtitlePanelBinding,
-                    onInteractionOutsideSubtitlePanel: {
-                        setSubtitlePanelPresented(false)
-                    }
+                    presentedPanel: presentedPanelBinding,
+                    onInteractionOutsidePanel: {
+                        setPresentedPanel(nil)
+                    },
+                    onToggleFullScreen: toggleFullScreen
                 )
                 .frame(maxWidth: .infinity)
                 .background(
@@ -177,20 +177,32 @@ public struct PlayerRootView: View {
                             }
                     }
                 )
+
+                Group {
+                    switch presentedPanel {
+                    case .some(.subtitles):
+                        SubtitleMenuView(model: model)
+                    case .some(.playbackRate):
+                        PlaybackRatePanel(model: model)
+                    case .none:
+                        EmptyView()
+                    }
+                }
+                .padding(.trailing, 26)
+                .padding(.bottom, TransportControls.height)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
-                .padding(.horizontal, 22)
-                .padding(.bottom, Self.chromeBottomPadding)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                .opacity(model.controlsVisible ? 1 : 0)
-                .offset(y: model.controlsVisible ? 0 : 14)
-                .allowsHitTesting(model.controlsVisible)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+            .opacity(model.controlsVisible ? 1 : 0)
+            .offset(y: model.controlsVisible ? 0 : 14)
+            .allowsHitTesting(model.controlsVisible)
         }
     }
 
-    private var subtitlePanelBinding: Binding<Bool> {
+    private var presentedPanelBinding: Binding<PresentedPanel?> {
         Binding(
-            get: { showsSubtitlePanel },
-            set: { setSubtitlePanelPresented($0) }
+            get: { presentedPanel },
+            set: { setPresentedPanel($0) }
         )
     }
 
@@ -199,16 +211,16 @@ public struct PlayerRootView: View {
 
     /// How far the transport bar sits above the bottom of the surface.
     ///
-    /// Named rather than inline because it is half of what the chrome covers,
-    /// and NEN-066's test measures the other half from the bar itself.
-    static let chromeBottomPadding: CGFloat = 20
+    /// Kept named because ADR-0037's layout test combines it with the measured
+    /// bar. The flush NEN-067 chrome intentionally contributes no extra gap.
+    static let chromeBottomPadding: CGFloat = 0
 
     /// Tells the model how much of the surface the transport bar covers.
     ///
-    /// Measured rather than hard-coded: the bar's height is a layout result
-    /// (114 pt today) and a constant here would go stale the first time the
-    /// bar gains a row. What is sent is the share of the **height**, because
-    /// that is the unit the renderer port takes (ADR-0037 Karar 2).
+    /// Measured rather than inferred from a legacy constant: the current bar
+    /// lays out at 57 pt and this measurement remains the source sent to the
+    /// renderer. What is sent is the share of the **height**, because that is
+    /// the unit the renderer port takes (ADR-0037 Karar 2).
     ///
     /// Only the transport bar, not the subtitle panel above it: the panel is
     /// right-aligned and open only while the user is picking a row, and
@@ -246,9 +258,37 @@ public struct PlayerRootView: View {
     /// surface — from producing a value the core is right to reject.
     private static let maximumInset: CGFloat = 0.5
 
-    private func setSubtitlePanelPresented(_ presented: Bool) {
-        showsSubtitlePanel = presented
-        model.setControlsPinned(presented)
+    private func setPresentedPanel(_ panel: PresentedPanel?) {
+        presentedPanel = panel
+        model.setControlsPinned(panel != nil)
+    }
+
+    private func toggleFullScreen() {
+        NSApp.keyWindow?.toggleFullScreen(nil)
+    }
+}
+
+private struct BufferingOverlay: View {
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.16)
+                .ignoresSafeArea()
+
+            HStack(spacing: 10) {
+                ProgressView()
+                    .controlSize(.small)
+                Text("Yükleniyor")
+                    .font(.system(size: 12, weight: .medium))
+            }
+            .padding(.horizontal, 16)
+            .frame(height: 42)
+            .foregroundStyle(.white)
+            .shadow(color: .black.opacity(0.72), radius: 1.5, y: 1)
+            .background { GlassSurface(style: .floating(cornerRadius: 13)) }
+        }
+        .allowsHitTesting(false)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Video yükleniyor")
     }
 }
 
