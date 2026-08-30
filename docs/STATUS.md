@@ -3,20 +3,19 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-29** (`NEN-066` done — altyazı çizim bandını
-> örten transport kök nedeni ölçülüp ADR-0037 güvenli alanıyla kapatıldı;
-> `NEN-027` yeniden READY. Önceki: `NEN-063` canceled — teknik kalite rozeti
-> kapsamdan çıkarıldı; doğrulanmış medya kimliği `NEN-064` ile M6'ya taşındı)
+> Son güncelleme: **2026-08-29** (`NEN-067` active — ultra-ince,
+> zemine-bitişik oynatıcı kromu. Önceki: `NEN-066` done — altyazı çizim
+> bandını örten transport kök nedeni ADR-0037 güvenli alanıyla kapatıldı)
 
 ## Nerede duruyoruz
 
 | | |
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
-| **Aktif task** | — |
+| **Aktif task** | `NEN-067` — ultra-thin flush player chrome |
 | **Son tamamlanan** | `NEN-066` — subtitle safe area above player chrome |
 | **Sıradaki READY** | `NEN-027`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-065` |
-| **Task sayısı** | 66 · done 44 · active 0 · blocked 0 · canceled 2 · backlog 20 |
+| **Task sayısı** | 68 · done 44 · active 1 · blocked 0 · canceled 2 · backlog 21 |
 
 **`NEN-066` kapandı — motorun çizdiği altyazı gerçek video yüzeyinde ve
 transport katmanının üstünde görünür.** A/B ölçümü render bileştirme
