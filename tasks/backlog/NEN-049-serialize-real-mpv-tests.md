@@ -92,6 +92,26 @@ tabanlı, gerçek libmpv adapter'ıyla ilgisi olmayan bir shell testi ve yine
 Aynı ağaçta **seri** paket art arda **2/2** yeşil (62 test). Oran ölçümü yine
 yapılmadı; bu satır yalnız gözlemi kaydediyor, bu task'a iş eklemiyor (Kural 5).
 
+## Üçüncü gözlem (2026-09-05, NEN-028 sırasında)
+
+Sınıf üçüncü kez, ilk kez de **gerçek libmpv** testinde görüldü.
+`NEN-028`'in ilk kapanış koşusunda paralel tam paket **1 kırmızı** verdi:
+`ContractTests.successiveMediaReportTheirOwnDisplaySize` — döngüdeki
+medyalardan biri için `waitForGeometry` beklenen boyutu zamanında görmedi.
+
+Aynı ağaçta, hiçbir şey değiştirilmeden:
+
+| Mod | Sonuç |
+|---|---|
+| yalnız o test, seri | 3/3 yeşil |
+| paralel, tam paket | 1/1 yeşil (151 test) |
+| seri, tam paket | 2/2 yeşil (151 test) |
+
+Bu, bu task'ın özgün gerekçesine en yakın gözlem: kırmızı gelen test gerçek
+motoru sürüyor ve beklemesi bir olayın zamanında gelmesine dayanıyor. Oran
+ölçümü yine yapılmadı; bu satır yalnız gözlemi kaydediyor, task'a iş eklemiyor
+(Kural 5).
+
 ## Kanıt (DoD)
 
 - [ ] `bash scripts/test-macos.sh` art arda en az 3 kez çıkış 0

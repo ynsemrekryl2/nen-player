@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **70** task · ✅ done 49 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 19
+Toplam **71** task · ✅ done 50 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 19
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -57,7 +57,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-025](done/NEN-025-user-subtitle-loading.md) | User subtitle loading and sidecar discovery | M | ✅ done | NEN-013 NEN-015 NEN-024 |
 | [NEN-026](done/NEN-026-subtitle-menu-ui.md) | Subtitle menu UI | M | ✅ done | NEN-019 NEN-025 NEN-056 |
 | [NEN-027](done/NEN-027-subtitle-renderer.md) | SubtitleRenderer port and libmpv injection adapter | M | ✅ done | NEN-017 NEN-026 NEN-066 |
-| [NEN-028](backlog/NEN-028-slice-acceptance.md) | macOS vertical slice acceptance | S | ⚪ backlog | NEN-027 |
+| [NEN-028](done/NEN-028-slice-acceptance.md) | macOS vertical slice acceptance | S | ✅ done | NEN-027 |
 | [NEN-036](backlog/NEN-036-remote-evidence-port.md) | Remote media evidence port (HEAD, Content-Disposition, Range) | M | ⚪ backlog | NEN-018 |
 | [NEN-037](backlog/NEN-037-subtitle-language-preferences.md) | Subtitle language preference setting (primary and secondary) | S | ⚪ backlog | NEN-019 NEN-024 NEN-047 |
 | [NEN-039](done/NEN-039-language-group-granularity.md) | Subtitle menu language grouping and matching use the primary subtag | S | ✅ done | NEN-019 |
@@ -90,6 +90,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-068](done/NEN-068-media-sized-aspect-locked-window.md) | Media-sized, aspect-locked player window | L | ✅ done | NEN-067 |
 | [NEN-069](backlog/NEN-069-clear-surface-without-video.md) | Clear the video surface when the medium has no video | S | ⚪ backlog | — |
 | [NEN-070](done/NEN-070-wide-transport-layout-overflow.md) | Keep transport controls inside wide windows | S | ✅ done | NEN-067 NEN-068 |
+| [NEN-071](backlog/NEN-071-open-panel-resolves-links.md) | Decide what the subtitle file picker does with a link | S | ⚪ backlog | NEN-025 |
 
 ## M5 — Translation Core
 
@@ -111,7 +112,6 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 
 Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 
-- **NEN-028** — macOS vertical slice acceptance
 - **NEN-033** — OpenSubtitles hash-based identity lookup
 - **NEN-034** — AI-assisted release name normalization
 - **NEN-035** — Identity confidence scoring and candidate ranking
@@ -127,3 +127,4 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-052** — Decide and pin what a seek during loading does
 - **NEN-057** — Read the language a subtitle filename declares
 - **NEN-069** — Clear the video surface when the medium has no video
+- **NEN-071** — Decide what the subtitle file picker does with a link

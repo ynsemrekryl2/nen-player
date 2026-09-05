@@ -3,9 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-05** (`NEN-027` done — altyazı seçim anında
-> ekranda, seek sonrası doğru replik anında. Önceki: `NEN-070` done — ekran
-> genişliğindeki pencerede transport taşması kapatıldı)
+> Son güncelleme: **2026-09-05** (`NEN-028` done — M3'ün beş çıkış kriteri
+> gerçek `.app`te kanıtlandı. Önceki: `NEN-027` done — altyazı seçim anında
+> ekranda, seek sonrası doğru replik anında)
 
 ## Nerede duruyoruz
 
@@ -13,9 +13,38 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-027` — SubtitleRenderer port and libmpv injection adapter |
-| **Sıradaki READY** | `NEN-028`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-069` |
-| **Task sayısı** | 70 · done 49 · active 0 · blocked 0 · canceled 2 · backlog 19 |
+| **Son tamamlanan** | `NEN-028` — macOS vertical slice acceptance |
+| **Sıradaki READY** | `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-069`, `NEN-071` |
+| **Task sayısı** | 71 · done 50 · active 0 · blocked 0 · canceled 2 · backlog 19 |
+
+**`NEN-028` kapandı — M3'ün beş çıkış kriteri üründe kanıtlandı.** Kabul
+senaryosu `docs/milestones/M3-macos-slice.md`'ye yazıldı ve gerçek `.app`te
+baştan sona koşuldu: medya `Aç`'tan 0,7 s sonra oynuyor ve menü taramayı
+beklemiyor; oynatma sürerken yüklenen bozuk `.srt` oynatmayı kesmiyor, satırı
+menüde `biçim hatalı` diye işaretleniyor; menüde `Kapalı` her zaman var,
+gruplar tekrarsız ve dilsiz gömülü track `Dil Belirsiz` içinde; geçerli bir
+SRT'ye işaret eden **kısayol sidecar sessizce reddediliyor**; seçim anında ve
+her seek sonrası doğru replik anında ekranda, cue'suz anda ekran boş. Rust
+workspace **560 passed / 1 ignored** (72 hedef), macOS paketi **154/154**,
+`scripts/test.sh`, `.app` build'i ve strict codesign yeşil. Kanıt:
+`evidence/M3/NEN-028-checklist.md`, sekiz kare ve yerel ekran kaydı.
+
+**Koşu bir kusur buldu ve düzeltildi:** `PlayerModel.loadSubtitleFile(at:)`
+menüyü yenilemediği için `⇧⌘O` ile yüklenen altyazı dosyası menüye hiç
+girmiyordu — sidecar yolu taramanın yenilemesi sayesinde çalıştığından kusur
+bugüne kadar görünmemişti. Üç test önce kırmızı görüldü, düzeltme tek satır.
+
+**M3 biçimsel olarak kapanmadı.** Çıkış kriterleri işaretlendi ama retro ve
+roadmap'in milestone durumu bilinçli olarak `NEN-028` kapsamı dışında bırakıldı
+(kullanıcı kararı, 2026-09-05). `docs/roadmap.md` hâlâ M3'ü "sıradaki —
+toolchain blocker" gösteriyor; bu satır bayat ve kapanış kararıyla birlikte
+düzeltilecek.
+
+Koşudan iki iş çıktı: `NEN-071` — `⇧⌘O` panelinin kısayolu kendisi çözmesi,
+davranış kararı ve ürün yüzeyinde testi. Ve `NEN-049`'a üçüncü gözlem: paralel
+tam paket bu kez **gerçek libmpv** testinde bir kez kırmızı verdi
+(`successiveMediaReportTheirOwnDisplaySize`); aynı ağaçta test tek başına 3/3,
+paralel paket 1/1, seri paket 2/2 yeşil.
 
 **`NEN-027` kapandı — seçilen altyazı ekranda ve seek sonrası doğru replik
 anında görünüyor.** Kod 2026-08-29'da bitmişti; karşılanamayan tek DoD maddesi
@@ -29,9 +58,6 @@ track'e geçildiğinde **tek** replik kaldı; `Kapalı` aynı anda ekranı boşa
 Rust workspace **72 hedef / 560 passed**, macOS paketi temiz koşuda
 **151/151**, `.app` build'i, strict codesign, shell ve doküman kapıları yeşil.
 Kanıt: `evidence/M3/NEN-027-checklist.md` ve dört kare.
-
-Bu kapanış `NEN-028`'i — macOS vertical slice acceptance — READY yaptı; M3'ün
-çıkış kriterleri artık tek task'ın arkasında.
 
 Yol üstünde bir gözlem kaydedildi ve kapsama alınmadı: ilk tam Swift koşusu
 `ContractTests` içinde bir kez kırmızı verdi, temiz ikinci koşu yeşil. Aynı
@@ -1389,9 +1415,10 @@ Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
 
-2026-09-05'te NEN-027 kapanışı için bu makinede Rust workspace **560/560**
-(1 ignored benchmark, 72 hedef), macOS Swift paketi temiz koşuda **151/151**
-geçti. `.app` build'i, strict codesign, shell testleri, task index ve doküman
+2026-09-05'te NEN-028 kapanışı için bu makinede Rust workspace **560/560**
+(1 ignored benchmark, 72 hedef) ve macOS Swift paketi **154/154** (paralel ve
+seri) geçti; üç yeni test elle yüklenen altyazının menüye ulaşmasını koruyor.
+Aynı gün NEN-027 kapanışında paket **151/151**'di. `.app` build'i, strict codesign, shell testleri, task index ve doküman
 kapıları da yeşil. Ayrıntılı ürün kabulü `evidence/M3/NEN-027-checklist.md`
 içinde; aynı gün NEN-068 kapanışında `cargo fmt --check`,
 `cargo clippy --all-targets --all-features -- -D warnings` ve
