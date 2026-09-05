@@ -270,6 +270,71 @@ struct SubtitleMenuTests {
         #expect(model.transientMessage == nil, "a scan says nothing, whatever it finds")
     }
 
+    // MARK: - A file the user picks himself (NEN-028)
+
+    @Test("a file the user loads is in the menu as soon as it is loaded")
+    func aLoadedFileIsInTheMenuAtOnce() {
+        // The menu is the only surface a user file has (ADR-0031 Karar 5), so
+        // a counter moving is not the same thing as the list the user opens
+        // having the row in it. Nothing is awaited here on purpose: the row
+        // has to be there on the load's own turn, not on the scan's.
+        let dir = TempFixture("menu-loaded")
+        defer { dir.remove() }
+        let media = dir.write("Film.mkv", "not really a video")
+        let subtitle = dir.write("Chosen.srt", TempFixture.validSrt)
+
+        let model = makeModel(session: FakeSession())
+        model.openMedia(at: media)
+        model.consume([.stateChanged(state: .ready)])
+        model.loadSubtitleFile(at: subtitle)
+
+        #expect(model.subtitleSourceCount == 1)
+        let user = model.subtitleMenu.first { SubtitleMenuGroupID($0.group) == .userSubtitles }
+        #expect(user?.entries.map(\.label) == ["Chosen.srt"])
+    }
+
+    @Test("a broken file the user loads is in the menu, marked and out of reach")
+    func aBrokenLoadedFileIsMarkedInTheMenu() {
+        // The M3 exit criterion "bozuk bir .srt playback'i durdurmuyor" has a
+        // second half: the source is *marked*, and the mark is only visible if
+        // the row reaches the menu.
+        let dir = TempFixture("menu-loaded-broken")
+        defer { dir.remove() }
+        let media = dir.write("Film.mkv", "not really a video")
+        let broken = dir.write("Broken.srt", "this is not a timecode")
+
+        let model = makeModel(session: FakeSession())
+        model.openMedia(at: media)
+        model.consume([.stateChanged(state: .ready)])
+        model.loadSubtitleFile(at: broken)
+
+        let user = model.subtitleMenu.first { SubtitleMenuGroupID($0.group) == .userSubtitles }
+        let row = user?.entries.first
+        #expect(row?.label == "Broken.srt")
+        #expect(row?.defect == .malformed)
+        #expect(row.map(SubtitleMenuPresentation.entrySubtitle) == "biçim hatalı")
+        #expect(model.transientMessage == nil, "the menu carries it, not the transport")
+    }
+
+    @Test("a file the user loads and has refused leaves no row behind")
+    func aRefusedLoadedFileIsNotInTheMenu() {
+        // The control for the two tests above: if the menu were refreshed on
+        // any load whatsoever, this heading would appear empty-handed.
+        let dir = TempFixture("menu-loaded-refused")
+        defer { dir.remove() }
+        let media = dir.write("Film.mkv", "not really a video")
+        let real = dir.write("real.srt", TempFixture.validSrt)
+        let link = dir.symlink("Chosen.srt", to: real)
+
+        let model = makeModel(session: FakeSession())
+        model.openMedia(at: media)
+        model.consume([.stateChanged(state: .ready)])
+        model.loadSubtitleFile(at: link)
+
+        #expect(model.subtitleMenu.map { SubtitleMenuGroupID($0.group) } == [.closed])
+        #expect(model.transientMessage == "Bu bir kısayol; altyazı olarak açılamıyor.")
+    }
+
     // MARK: - The list grows while the menu is open (ADR-0031 Karar 4)
 
     @Test("the menu is usable before the scan finishes")

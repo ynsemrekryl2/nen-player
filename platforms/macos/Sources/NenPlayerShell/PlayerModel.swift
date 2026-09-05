@@ -293,7 +293,10 @@ public final class PlayerModel: ObservableObject {
     /// spine — "altyazı sorunu playback'i durdurmaz".
     public func loadSubtitleFile(at url: URL) {
         let outcome = subtitles.addFile(path: url.path)
-        subtitleSourceCount = subtitles.sourceCount()
+        // The catalog changed, so the menu is re-derived: a counter moving on
+        // its own would leave the row the user just picked off the list they
+        // are about to open (NEN-028).
+        refreshSubtitleMenu()
         if case let .rejected(reason) = outcome {
             presentTransient(PlaybackPresentation.subtitleRejectionMessage(for: reason))
         }
