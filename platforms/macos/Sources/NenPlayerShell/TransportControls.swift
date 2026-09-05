@@ -11,6 +11,25 @@ enum PresentedPanel: Equatable, Sendable {
     }
 }
 
+enum TransportLayoutElement: Hashable {
+    case playPause
+    case seek
+    case fullScreen
+}
+
+private struct TransportLayoutPreferenceKey: PreferenceKey {
+    static let defaultValue: [TransportLayoutElement: CGRect] = [:]
+
+    static func reduce(
+        value: inout [TransportLayoutElement: CGRect],
+        nextValue: () -> [TransportLayoutElement: CGRect]
+    ) {
+        value.merge(nextValue(), uniquingKeysWith: { _, latest in latest })
+    }
+}
+
+private let transportLayoutSpace = "nen.transport.layout"
+
 struct TransportControls: View {
     static let height: CGFloat = 57
     static let horizontalPadding: CGFloat = 22
@@ -19,17 +38,20 @@ struct TransportControls: View {
     @Binding private var presentedPanel: PresentedPanel?
     private let onInteractionOutsidePanel: () -> Void
     private let onToggleFullScreen: () -> Void
+    private let onLayout: (([TransportLayoutElement: CGRect]) -> Void)?
 
     init(
         model: PlayerModel,
         presentedPanel: Binding<PresentedPanel?>,
         onInteractionOutsidePanel: @escaping () -> Void,
-        onToggleFullScreen: @escaping () -> Void
+        onToggleFullScreen: @escaping () -> Void,
+        onLayout: (([TransportLayoutElement: CGRect]) -> Void)? = nil
     ) {
         self.model = model
         _presentedPanel = presentedPanel
         self.onInteractionOutsidePanel = onInteractionOutsidePanel
         self.onToggleFullScreen = onToggleFullScreen
+        self.onLayout = onLayout
     }
 
     var body: some View {
@@ -42,6 +64,7 @@ struct TransportControls: View {
                 closePanel()
                 model.togglePlayback()
             }
+            .reportTransportFrame(.playPause, enabled: onLayout != nil)
 
             transportButton(symbol: "gobackward.5", help: "5 saniye geri") {
                 closePanel()
@@ -77,8 +100,8 @@ struct TransportControls: View {
             )
             .frame(minWidth: 76, maxWidth: .infinity)
             .frame(height: 28)
-            .layoutPriority(1)
             .disabled(model.durationMilliseconds == nil)
+            .reportTransportFrame(.seek, enabled: onLayout != nil)
 
             Button(model.trailingTimeText) {
                 closePanel()
@@ -175,6 +198,7 @@ struct TransportControls: View {
                 closePanel()
                 onToggleFullScreen()
             }
+            .reportTransportFrame(.fullScreen, enabled: onLayout != nil)
         }
         .padding(.horizontal, Self.horizontalPadding)
         .frame(maxWidth: .infinity)
@@ -187,6 +211,10 @@ struct TransportControls: View {
             GlassSurface(style: .transport)
                 .contentShape(Rectangle())
                 .onTapGesture(perform: closePanel)
+        }
+        .coordinateSpace(name: transportLayoutSpace)
+        .onPreferenceChange(TransportLayoutPreferenceKey.self) { frames in
+            onLayout?(frames)
         }
     }
 
@@ -220,5 +248,23 @@ struct TransportControls: View {
         }
         .buttonStyle(.plain)
         .help(help)
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func reportTransportFrame(_ element: TransportLayoutElement, enabled: Bool) -> some View {
+        if enabled {
+            background {
+                GeometryReader { geometry in
+                    Color.clear.preference(
+                        key: TransportLayoutPreferenceKey.self,
+                        value: [element: geometry.frame(in: .named(transportLayoutSpace))]
+                    )
+                }
+            }
+        } else {
+            self
+        }
     }
 }

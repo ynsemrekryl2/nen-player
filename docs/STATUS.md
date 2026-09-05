@@ -3,9 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-05** (`NEN-068` done — medya boyutunda açılan,
-> orana kilitli pencere; tam ekran ve ardışık medya kusurları kapatıldı.
-> Önceki: `NEN-067` done — ultra-ince, zemine-bitişik oynatıcı kromu)
+> Son güncelleme: **2026-09-05** (`NEN-070` done — ekran genişliğindeki
+> pencerede transport taşması kapatıldı. Önceki: `NEN-068` done — medya
+> boyutunda açılan, orana kilitli pencere)
 
 ## Nerede duruyoruz
 
@@ -13,9 +13,18 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-068` — media-sized, aspect-locked player window |
+| **Son tamamlanan** | `NEN-070` — keep transport controls inside wide windows |
 | **Sıradaki READY** | `NEN-027`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-069` |
-| **Task sayısı** | 69 · done 47 · active 0 · blocked 0 · canceled 2 · backlog 20 |
+| **Task sayısı** | 70 · done 48 · active 0 · blocked 0 · canceled 2 · backlog 20 |
+
+**`NEN-070` kapandı — ekran genişliğine açılan videoda play/pause ve tam ekran
+düğmeleri artık kırpılmıyor.** Seek slider'ın yüksek layout priority'si 1470 pt
+pencerede satırı iki kenardan taşırıyordu. Önce play `−6…28`, tam ekran
+`1470…1500` ölçüldü; düzeltmeden sonra sırasıyla `22…56` ve `1418…1448`, seek
+880 pt. 693/1470 pt, kısa/95 dakika/bir saat sonrası ve geniş altyazı etiketi
+matrisi gerçek SwiftUI frame testiyle korunuyor. Tam macOS paketi **151/151**,
+uygulama build'i, strict codesign, shell ve doküman kapıları yeşil. Kanıt:
+`evidence/M3/NEN-070-checklist.md`.
 
 **`NEN-068` kapandı — pencere medyanın gerçek display boyutunda açılıyor ve
 canlı resize boyunca oranı koruyor.**

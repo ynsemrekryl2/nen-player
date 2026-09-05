@@ -54,6 +54,9 @@ geçmelidir.
 `NEN-021` · `NEN-022` · `NEN-023` · `NEN-024` · `NEN-025` · `NEN-026` ·
 `NEN-027` · `NEN-028` · `NEN-061` · `NEN-062`
 
+Yerleşim regresyonları: `NEN-070` — ekran genişliğindeki pencerede transport
+kontrollerinin yatay sınırları.
+
 İptal edilen kapsam: `NEN-063` — teknik video kalitesi rozeti
 (ADR-0036 `rejected`).
 

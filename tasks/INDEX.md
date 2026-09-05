@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **69** task · ✅ done 47 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 20
+Toplam **70** task · ✅ done 48 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 20
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -89,6 +89,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-067](done/NEN-067-ultra-thin-flush-player-chrome.md) | Ultra-thin flush player chrome | L | ✅ done | NEN-061 NEN-062 NEN-065 NEN-066 |
 | [NEN-068](done/NEN-068-media-sized-aspect-locked-window.md) | Media-sized, aspect-locked player window | L | ✅ done | NEN-067 |
 | [NEN-069](backlog/NEN-069-clear-surface-without-video.md) | Clear the video surface when the medium has no video | S | ⚪ backlog | — |
+| [NEN-070](done/NEN-070-wide-transport-layout-overflow.md) | Keep transport controls inside wide windows | S | ✅ done | NEN-067 NEN-068 |
 
 ## M5 — Translation Core
 
