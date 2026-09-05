@@ -1,13 +1,15 @@
 # NEN-027 — altyazının ekrana çıkışı, kanıt kaydı
 
-Koşum: **2026-08-29** · macOS 27.0 · libmpv 2.5.0 (Homebrew, dinamik) ·
-Swift paketi ve `.app` ad-hoc imzalı.
+Koşum: **2026-08-29** (ölçüm ve otomatik kanıt) · **2026-09-05** (görsel
+kabul koşusu) · macOS 27.0 · libmpv 2.5.0 (Homebrew, dinamik) · Swift paketi ve
+`.app` ad-hoc imzalı.
 
 Kanıt medyası yalnız depodaki sentetik fixture'lardır:
 
 - otomatik testler: `fixtures/media/contract-clip.mkv`
-- çizilen kare kanıtı: `fixtures/media/menu-clip.mkv`'nin geçici bir kopyası,
-  yanında elle yazılmış üç cue'luk bir `.srt` (depoya girmedi)
+- çizilen kare kanıtı ve görsel kabul: `fixtures/media/menu-clip.mkv`'nin
+  geçici bir kopyası (`Nen Demo.mkv`), yanında elle yazılmış üç cue'luk bir
+  `.srt` (depoya girmedi)
 
 Aşağıdaki hiçbir kayıtta tam dosya yolu, query, motor adı veya özel medya
 metadata'sı yok. Kare görüntülerindeki replikler uydurmadır.
@@ -16,9 +18,9 @@ metadata'sı yok. Kare görüntülerindeki replikler uydurmadır.
 
 | DoD maddesi | Durum | Kanıt |
 |---|---|---|
-| Seçim anında altyazı görünüyor | ❌ **karşılanmadı** | Gerçek `.app`te çizilmiyor — ölçülen kusur aşağıda |
-| Seek sonrası cue = `CueIndex` sonucu | ✅ | Rust: 4 000 moment · Swift: gerçek libmpv, 28 moment |
-| Cue'suz ana seek → altyazı yok | ✅ | Aynı iki sweep'in boş yarısı + `NEN-027-frame-10s-gap.jpg` |
+| Seçim anında altyazı görünüyor | ✅ | 2026-09-05 koşusu, `NEN-027-selection.png` |
+| Seek sonrası cue = `CueIndex` sonucu | ✅ | Rust: 4 000 moment · Swift: gerçek libmpv, 28 moment · görsel: `NEN-027-after-seek.png` |
+| Cue'suz ana seek → altyazı yok | ✅ | Aynı iki sweep'in boş yarısı · `NEN-027-frame-10s-gap.jpg` · `NEN-027-gap.png` |
 | UI'da renderer implementasyon adı yok | ✅ | grep, aşağıda |
 
 ## Otomatik kanıt
@@ -101,10 +103,10 @@ teması `MPVPlaybackEngine(videoView:)` kurulumu ve `MPVVideoView` yüzeyi —
 ikisi de NEN-022/NEN-024'ten geliyor, bu task'ta değişmedi ve hiçbiri
 **çizim** implementasyonunu adlandırmıyor.
 
-## Gerçek `.app` koşusu — bir kusur ölçüldü
+## 2026-08-29 — kusur ölçümü (tarihsel kayıt)
 
 Uygulama derlendi, `Nen Demo.mkv` menüden açıldı ve altyazı yolu ekranda
-izlendi. Menü, seçim ve etiket doğru çalışıyor; **çizim çalışmıyor.**
+izlendi. Menü, seçim ve etiket doğru çalışıyordu; **çizim çalışmıyordu.**
 
 | Gözlem | Sonuç |
 |---|---|
@@ -116,29 +118,73 @@ izlendi. Menü, seçim ve etiket doğru çalışıyor; **çizim çalışmıyor.*
 | Dosya seçiliyken 1–3. cue'ların üzerinden **oynatılarak** geçildi | ❌ Hiçbiri çizilmedi |
 | Aynı oturumda gömülü Türkçe track'e dönüldü, **duraklatılmış** 16 s | ❌ O da çizilmedi — oysa aynı track koşunun başında oynarken çizilmişti |
 
-**Ölçümün söylediği:** belge motora ulaşıyor, seçiliyor ve motor onu o an
-çizdiğini söylüyor (`sub-text` dolu). Kusur enjeksiyonda değil, **video
-yüzeyinin kare bileşiminde**. `vo=image` ile alınan kareler aynı belgeyi
-sorunsuz çiziyor, yani mpv'nin altyazı boru hattı sağlam; sorun libmpv render
-API'siyle sürülen OpenGL yüzeyinde.
+O gün ölçümün söylediği şuydu: belge motora ulaşıyor, seçiliyor ve motor onu o
+an çizdiğini söylüyor (`sub-text` dolu); kusur enjeksiyonda değil, **video
+yüzeyinin kare bileşiminde**. Ölçüm için üründe kullanılan geçici satır
+kaldırıldı ve `.app` temiz kaynaktan yeniden derlendi.
 
-İki açıklama ayakta kaldı ve bunları ayırmak için ölçülü bir koşu daha gerekiyor:
+**Kök neden `NEN-066` içinde bulundu ve kapandı:** çizim zaten yapılıyordu,
+134 pt'lik cam transport o piksel bandını örtüyordu. ADR-0037 ile kabuk görünür
+kromun alt inset'ini playback session'a taşıyor, adapter bunu `sub-pos`'a
+mapliyor ve krom gizlenince sıfırlıyor. `NEN-060` aynı kök nedene katlanıp
+`canceled` oldu. Bu yüzden aşağıdaki görsel koşu `NEN-066` kapandıktan sonra
+yürütüldü.
 
-- **A —** render yolu duraklatılmışken OSD'yi kareye bileştirmiyor (o zaman
-  oynarken görülen tek başarısızlığın ayrı bir nedeni var).
-- **B —** dışarıdan eklenen altyazı bu yolda hiç bileştirilmiyor.
+## 2026-09-05 — görsel kabul koşusu
 
-Ölçüm için üründe geçici bir satır kullanıldı; **kaldırıldı** ve `.app` temiz
-kaynaktan yeniden derlendi. Kalan görsel adımlar bu kusur kapanmadan
-koşulamaz:
+`bash scripts/build-macos-app.sh` ile derlenen, `codesign --verify --deep
+--strict` geçen ad-hoc imzalı `.app`. Medya `Nen Demo.mkv` (20 s, 160×90, dört
+gömülü track), yanında elle yazılmış üç cue'luk `Nen Demo.srt`:
 
-| # | Adım | Beklenen |
-|---|---|---|
-| 1 | `⌘O` ile yanında `.srt` olan bir medya aç | Medya oynuyor |
-| 2 | CC panelinden kullanıcı altyazısı satırını seç | Replik **anında** ekranda |
-| 3 | İleri sar | Yeni andaki doğru replik anında görünüyor |
-| 4 | Cue'suz bir ana sar | Ekran boş |
-| 5 | Gömülü bir track'e geç | Tek altyazı görünüyor, iki değil |
-| 6 | `Kapalı` | Altyazı gidiyor |
+| Cue | Aralık | Kullanıcı dosyası | Gömülü Türkçe track |
+|---|---|---|---|
+| 1 | 2 → 6 s | dolu | 1 → 4 s dolu |
+| — | 6 → 9 s | boş | boş |
+| 2 | 9 → 12 s | dolu | 10 → 13 s dolu |
+| — | 12 → 16 s | **boş** | boş |
+| 3 | 16 → 19 s | dolu | boş |
 
-<!-- Koşum sonucu buraya yazılacak -->
+Konum belirsizliği bırakmamak için seek, slider sürüklenerek değil **±5 sn
+transport düğmeleriyle** yapıldı ve her karede geçen süre etiketi okundu.
+Adımların çoğu **duraklatılmış** durumda koşuldu: 2026-08-29'da başarısız olan
+tam olarak buydu.
+
+| # | Adım | Beklenen | Sonuç |
+|---|---|---|---|
+| 1 | `⌘O` ile yanında `.srt` olan medyayı aç | Medya oynuyor | **Geçti.** Otomatik seçim gömülü Türkçe track'i açtı, replik oynarken ekranda. |
+| 2 | 00:05'e git (gömülü track'in boşluğu), duraklat, CC → `Kullanıcı Altyazıları` → `Nen Demo.srt` | Replik **anında** ekranda | **Geçti.** Ekran seçimden önce boştu; seçimle birlikte 1. replik çizildi — oynatma gerekmedi. `NEN-027-selection.png` |
+| 3 | +5 sn → 00:10 | Yeni andaki doğru replik anında | **Geçti.** 2. replik çizildi, 1. replik değil. `NEN-027-after-seek.png` |
+| 4 | +5 sn → 00:15 | Ekran boş | **Geçti.** Cue'suz anda hiçbir replik kalmadı. `NEN-027-gap.png` |
+| 5 | 00:11'e dön (iki kaynağın da cue'su var), CC → gömülü `Türkçe` | Tek altyazı görünüyor, iki değil | **Geçti.** Yalnız gömülü replik çizildi; kullanıcı dosyasının repliği ekrandan kalktı, üst üste binmedi. `NEN-027-embedded.png` |
+| 6 | CC → `Kapalı` | Altyazı gidiyor | **Geçti.** Panel `Altyazılar kapalı.`, CC etiketi `Kapalı`; aynı an (00:11) boşaldı. |
+
+Ek koşu — **oynarken**: kullanıcı dosyası yeniden seçildi (00:11'de 2. replik
+yine anında çizildi), 00:02'ye sarılıp oynatıldı. 1. replik oynarken görünür
+kaldı, 6–9 s boşluğunda ekran boşaldı, 9. saniyede 2. replik geldi ve 12–16 s
+boşluğunda yine boşaldı. Krom gizlenince replik alt banda indi (ADR-0037).
+
+Dört kare pencerenin kendi dikdörtgeninden alındı; hiçbirinde tam dosya yolu,
+dosya seçim diyaloğu, query veya özel medya metadata'sı yok — yalnız basename
+şeridi (`Nen Demo.mkv`) görünüyor. Replikler uydurmadır.
+
+## Kapılar (2026-09-05)
+
+- `cargo test --manifest-path core/Cargo.toml`: **72 hedef · 560 passed ·
+  0 failed · 1 ignored** (benchmark).
+- `bash scripts/test-macos.sh`: temiz koşuda **151 test / 16 suite / 0 failure**.
+  İlk tam koşu `ContractTests` içinde bir kez kırmızı verdi; `NEN-070`
+  koşusunda da kaydedilen, gerçek libmpv suite'lerinin paralel koşumundaki
+  aynı kararsızlık. `NEN-049` bu gözlemi bekleyen açık task'tır — o koşunun
+  hata metni saklanmadı, ikinci tam koşu baştan sona yeşil.
+- `bash scripts/test.sh`: iki shell test dosyası yeşil.
+- `bash scripts/build-macos-app.sh`: exit 0 ·
+  `codesign --verify --deep --strict`: exit 0.
+- `bash scripts/check-docs.sh`: exit 0.
+- Yukarıdaki iki grep bugünün ağacında yeniden koşuldu: ikisi de eşleşmesiz.
+
+## Koşum sonucu
+
+**GEÇTİ.** DoD'nin dört maddesinin dördü de karşılandı. 2026-08-29'da
+karşılanamayan tek madde — "seçim anında altyazı görünüyor" — `NEN-066`'nın
+kapattığı kök nedenin ardından 2026-09-05'te duraklatılmış durumda, oynarken,
+seek sonrasında ve gömülü ↔ kullanıcı geçişinde ayrı ayrı doğrulandı.

@@ -3,9 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-05** (`NEN-070` done — ekran genişliğindeki
-> pencerede transport taşması kapatıldı. Önceki: `NEN-068` done — medya
-> boyutunda açılan, orana kilitli pencere)
+> Son güncelleme: **2026-09-05** (`NEN-027` done — altyazı seçim anında
+> ekranda, seek sonrası doğru replik anında. Önceki: `NEN-070` done — ekran
+> genişliğindeki pencerede transport taşması kapatıldı)
 
 ## Nerede duruyoruz
 
@@ -13,9 +13,30 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-070` — keep transport controls inside wide windows |
-| **Sıradaki READY** | `NEN-027`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-069` |
-| **Task sayısı** | 70 · done 48 · active 0 · blocked 0 · canceled 2 · backlog 20 |
+| **Son tamamlanan** | `NEN-027` — SubtitleRenderer port and libmpv injection adapter |
+| **Sıradaki READY** | `NEN-028`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-069` |
+| **Task sayısı** | 70 · done 49 · active 0 · blocked 0 · canceled 2 · backlog 19 |
+
+**`NEN-027` kapandı — seçilen altyazı ekranda ve seek sonrası doğru replik
+anında görünüyor.** Kod 2026-08-29'da bitmişti; karşılanamayan tek DoD maddesi
+"seçim anında altyazı görünüyor" idi ve o kusur bu task'ın enjeksiyon yolunda
+değil, cam transportun altyazı bandını örtmesindeydi — `NEN-066` ADR-0037'nin
+güvenli alanıyla kapattı. Görsel kabul 2026-09-05'te gerçek `.app`te koşuldu:
+gömülü track'in cue'suz anında (00:05) ekran boşken kullanıcı dosyası seçildi
+ve replik **oynatma gerekmeden** çizildi; +5 sn ile 00:10'da 2. replik anında
+geldi; 00:15'te ekran boşaldı; iki kaynağın da cue'su olan 00:11'de gömülü
+track'e geçildiğinde **tek** replik kaldı; `Kapalı` aynı anda ekranı boşalttı.
+Rust workspace **72 hedef / 560 passed**, macOS paketi temiz koşuda
+**151/151**, `.app` build'i, strict codesign, shell ve doküman kapıları yeşil.
+Kanıt: `evidence/M3/NEN-027-checklist.md` ve dört kare.
+
+Bu kapanış `NEN-028`'i — macOS vertical slice acceptance — READY yaptı; M3'ün
+çıkış kriterleri artık tek task'ın arkasında.
+
+Yol üstünde bir gözlem kaydedildi ve kapsama alınmadı: ilk tam Swift koşusu
+`ContractTests` içinde bir kez kırmızı verdi, temiz ikinci koşu yeşil. Aynı
+kararsızlık `NEN-070` koşusunda da görülmüştü; `NEN-049` tam olarak bu gözlemi
+bekleyen açık task.
 
 **`NEN-070` kapandı — ekran genişliğine açılan videoda play/pause ve tam ekran
 düğmeleri artık kırpılmıyor.** Seek slider'ın yüksek layout priority'si 1470 pt
@@ -1368,12 +1389,13 @@ Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
 
-2026-09-05'te NEN-068 kapanışı için bu makinede Rust workspace **560/560**
-(1 ignored benchmark), Swift paketi **150/150** geçti. `cargo fmt --check`,
-`cargo clippy --all-targets --all-features -- -D warnings`, `cargo deny check`,
-shell testleri, `.app` build'i, strict codesign, task index ve doküman kapıları
-da yeşil. Ayrıntılı ürün kabulü `evidence/M3/NEN-068-checklist.md` ve
-`evidence/M3/NEN-068-fullscreen.md` içinde.
+2026-09-05'te NEN-027 kapanışı için bu makinede Rust workspace **560/560**
+(1 ignored benchmark, 72 hedef), macOS Swift paketi temiz koşuda **151/151**
+geçti. `.app` build'i, strict codesign, shell testleri, task index ve doküman
+kapıları da yeşil. Ayrıntılı ürün kabulü `evidence/M3/NEN-027-checklist.md`
+içinde; aynı gün NEN-068 kapanışında `cargo fmt --check`,
+`cargo clippy --all-targets --all-features -- -D warnings` ve
+`cargo deny check` de yeşildi.
 
 ### Toolchain kapısı geçmiş kaydı
 
