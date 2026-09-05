@@ -1,0 +1,23 @@
+# fixtures/media/audio-only-clip.mka — NEN-068 videosuz fixture'ı
+#
+# Telif-temiz, tamamen sentetik (docs/testing-strategy.md → "fixtures/ düzeni").
+# Aşağıdaki blok depo kökünden çalıştırıldığında dosyayı yeniden üretir.
+#
+# İçerik: 10 s · yalnız 1 audio track (eng). Video track yok.
+#
+# Neden var: ADR-0038 Karar 1, `None`'ın bir hata değil bir durum olduğunu
+# söyler — "ortada gösterilecek video yok". Fake engine bu dalı
+# `FakeEngine::without_video()` ile üretir; gerçek adapter'ın da aynı yanıtı
+# verdiği yalnız videosuz bir medyayla gösterilebilir. Pencere tarafında bu,
+# oran kilidinin hiç kurulmadığı ve serbest resize'ın korunduğu durumdur.
+#
+# libmpv'nin bu dosyada gördüğü (ölçüldü, 2026-08-31, libmpv 2.5.0):
+#   video-out-params/dw = (yok) · video-params/dw = (yok)
+
+cd "$(git rev-parse --show-toplevel)"
+
+ffmpeg -y -loglevel error \
+  -f lavfi -i "sine=frequency=440:duration=10" \
+  -c:a libopus -b:a 6k -ac 1 \
+  -metadata:s:a:0 language=eng \
+  fixtures/media/audio-only-clip.mka

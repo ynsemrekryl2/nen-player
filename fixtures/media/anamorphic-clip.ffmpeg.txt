@@ -1,0 +1,28 @@
+# fixtures/media/anamorphic-clip.mkv — NEN-068 anamorphic fixture'ı
+#
+# Telif-temiz, tamamen sentetik (docs/testing-strategy.md → "fixtures/ düzeni").
+# Aşağıdaki blok depo kökünden çalıştırıldığında dosyayı yeniden üretir.
+#
+# İçerik: 10 s · 720x576 saklanan, SAR 64:45 ile 1024x576 gösterilen @ 5 fps ·
+# 1 audio track (eng). PAL DVD'nin 16:9 anamorphic biçimi.
+#
+# Neden var: ADR-0038 Karar 3, portun taşıdığı sayının pixel aspect ratio ve
+# rotation **uygulanmış** display boyutu olduğunu söyler ve bunu üretmeyi
+# adapter'ın yükümlülüğü sayar. Saklanan boyutla gösterilen boyutun farklı
+# olduğu bir klip olmadan bu iddia sınanamaz: 720x576 döndüren bir adapter,
+# 16:9 bir kaynağı 5:4 bir pencerede açardı.
+#
+# libmpv'nin bu dosyada gördüğü (ölçüldü, 2026-08-31, libmpv 2.5.0):
+#   video-out-params/dw = 1024 · dh = 576   ← saklanan 720x576 değil
+
+cd "$(git rev-parse --show-toplevel)"
+
+ffmpeg -y -loglevel error \
+  -f lavfi -i "testsrc=size=720x576:rate=5:duration=10" \
+  -f lavfi -i "sine=frequency=440:duration=10" \
+  -map 0:v -map 1:a \
+  -vf "setsar=64/45" \
+  -c:v libx264 -preset veryfast -crf 45 -g 25 -pix_fmt yuv420p \
+  -c:a libopus -b:a 6k -ac 1 \
+  -metadata:s:a:0 language=eng \
+  fixtures/media/anamorphic-clip.mkv

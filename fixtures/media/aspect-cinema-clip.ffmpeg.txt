@@ -1,0 +1,25 @@
+# fixtures/media/aspect-cinema-clip.mkv — NEN-068 geniş oran fixture'ı
+#
+# Telif-temiz, tamamen sentetik (docs/testing-strategy.md → "fixtures/ düzeni").
+# Aşağıdaki blok depo kökünden çalıştırıldığında dosyayı yeniden üretir.
+#
+# İçerik: 10 s · 382x160 @ 5 fps (≈2.39:1) · 1 audio track (eng).
+#
+# Neden var: 2.39:1 sinemaskop, `minimumContentSize`'ın genişlik dalının en uç
+# noktasıdır — 390 pt yüksekliğe karşılık ≈931 pt genişlik. NEN-067'nin
+# transport sırası bu genişlikte rahat sığar; kanıt, dar bir 4:3 pencerede
+# sıkışan aynı sıranın buradaki hâliyle karşılaştırılabilir olmasıdır.
+#
+# libmpv'nin bu dosyada gördüğü (ölçüldü, 2026-08-31, libmpv 2.5.0):
+#   video-out-params/dw = 382 · dh = 160
+
+cd "$(git rev-parse --show-toplevel)"
+
+ffmpeg -y -loglevel error \
+  -f lavfi -i "testsrc=size=382x160:rate=5:duration=10" \
+  -f lavfi -i "sine=frequency=440:duration=10" \
+  -map 0:v -map 1:a \
+  -c:v libx264 -preset veryfast -crf 45 -g 25 -pix_fmt yuv420p \
+  -c:a libopus -b:a 6k -ac 1 \
+  -metadata:s:a:0 language=eng \
+  fixtures/media/aspect-cinema-clip.mkv

@@ -20,7 +20,7 @@ use nen_domain::source::{LanguageTag, SubtitlePreferences};
 use nen_domain::subtitle::SubtitleDocument;
 use nen_ports::playback::{
     Capabilities, Capability, EventQueue, MediaSource, PlaybackEngine, PlaybackError,
-    PlaybackState, TrackDescriptor, TrackId, TrackKind,
+    PlaybackState, TrackDescriptor, TrackId, TrackKind, VideoGeometry,
 };
 use std::cell::Cell;
 use std::time::Duration;
@@ -82,6 +82,14 @@ impl PlaybackEngine for TripwireEngine {
 
     fn state(&self) -> PlaybackState {
         PlaybackState::Playing
+    }
+
+    fn video_geometry(&self) -> Result<Option<VideoGeometry>, PlaybackError> {
+        VideoGeometry::new(160, 90)
+            .map(Some)
+            .ok_or(PlaybackError::NotLoaded {
+                operation: nen_ports::playback::Operation::VideoGeometry,
+            })
     }
 
     fn tracks(&self, kind: TrackKind) -> Result<Vec<TrackDescriptor>, PlaybackError> {

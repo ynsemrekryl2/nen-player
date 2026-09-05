@@ -13,7 +13,7 @@
 use nen_app::session::PlaybackSession;
 use nen_ports::playback::{
     Capability, EventQueue, Operation, PlaybackError, PlaybackEvent, PlaybackState,
-    TrackDescriptor, TrackId, TrackKind,
+    TrackDescriptor, TrackId, TrackKind, VideoGeometry,
 };
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -89,6 +89,10 @@ impl nen_app::playback::ShellEngine for ScriptedEngine {
 
     fn state(&self) -> PlaybackState {
         PlaybackState::Ready
+    }
+
+    fn video_geometry(&self) -> Result<Option<VideoGeometry>, PlaybackError> {
+        Ok(VideoGeometry::new(160, 90))
     }
 
     fn tracks(&self, _kind: TrackKind) -> Result<Vec<TrackDescriptor>, PlaybackError> {
@@ -309,6 +313,10 @@ fn every_command_is_refused_after_shutdown() {
         ),
         (Operation::SetRate, session.set_rate(1.5).unwrap_err()),
         (Operation::SetVolume, session.set_volume(0.5).unwrap_err()),
+        (
+            Operation::VideoGeometry,
+            session.video_geometry().unwrap_err(),
+        ),
     ];
 
     for (operation, error) in refusals {
@@ -318,6 +326,20 @@ fn every_command_is_refused_after_shutdown() {
             "{operation} was not refused as shut down"
         );
     }
+}
+
+#[test]
+fn the_display_size_reaches_the_shell_through_the_session() {
+    // ADR-0026 keeps the session in the core, so the shell has exactly one
+    // place to ask. This is that place: the size the engine holds comes back
+    // through the session and not around it.
+    let engine = engine();
+    let session = PlaybackSession::without_pump(Arc::clone(&engine) as Arc<_>);
+
+    assert_eq!(
+        session.video_geometry().expect("the engine answers"),
+        VideoGeometry::new(160, 90)
+    );
 }
 
 #[test]

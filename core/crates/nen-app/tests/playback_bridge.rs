@@ -23,11 +23,13 @@ use nen_domain::subtitle::SubtitleDocument;
 use nen_ports::playback::contract::{applicable_count, run_all};
 use nen_ports::playback::fake::{
     fake_inputs, FakeEngine, FAKE_AUDIO_TRACK, FAKE_AUDIO_TRACKS, FAKE_DURATION_MS,
-    FAKE_SUBTITLE_TRACK, FAKE_SUBTITLE_TRACKS, FAKE_UNKNOWN_TRACK,
+    FAKE_SUBTITLE_TRACK, FAKE_SUBTITLE_TRACKS, FAKE_UNKNOWN_TRACK, FAKE_VIDEO_HEIGHT,
+    FAKE_VIDEO_WIDTH,
 };
 use nen_ports::playback::{
     CallbackScope, Capabilities, Capability, EventQueue, MediaSource, PlaybackEngine,
     PlaybackError, PlaybackEvent, PlaybackState, TrackDescriptor, TrackId, TrackKind,
+    VideoGeometry,
 };
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -106,6 +108,10 @@ impl ShellEngine for FakeShellEngine {
 
     fn state(&self) -> PlaybackState {
         self.with(|engine| engine.state())
+    }
+
+    fn video_geometry(&self) -> Result<Option<VideoGeometry>, PlaybackError> {
+        self.with(|engine| engine.video_geometry())
     }
 
     fn tracks(&self, kind: TrackKind) -> Result<Vec<TrackDescriptor>, PlaybackError> {
@@ -189,6 +195,7 @@ fn fixture() -> ContractFixture {
         // hide a bridge that rounded.
         seek_tolerance_ms: 0,
         settle_timeout_ms: 1_000,
+        video_geometry: VideoGeometry::new(FAKE_VIDEO_WIDTH, FAKE_VIDEO_HEIGHT),
     }
 }
 
@@ -323,6 +330,9 @@ impl ShellEngine for NeverCalled {
     fn state(&self) -> PlaybackState {
         PlaybackState::Ready
     }
+    fn video_geometry(&self) -> Result<Option<VideoGeometry>, PlaybackError> {
+        never!()
+    }
     fn tracks(&self, _kind: TrackKind) -> Result<Vec<TrackDescriptor>, PlaybackError> {
         never!()
     }
@@ -391,6 +401,7 @@ fn the_bridge_refuses_a_reentrant_call_before_reaching_the_engine() {
     refuses!("seek_relative", bridge.seek_relative(1));
     refuses!("position", bridge.position());
     refuses!("duration", bridge.duration());
+    refuses!("video_geometry", bridge.video_geometry());
     refuses!("tracks", bridge.tracks(TrackKind::Subtitle));
     refuses!(
         "select_track",

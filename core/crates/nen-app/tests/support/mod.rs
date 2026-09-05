@@ -13,7 +13,7 @@ use nen_domain::subtitle::SubtitleDocument;
 use nen_ports::playback::fake::FakeEngine;
 use nen_ports::playback::{
     Capabilities, Capability, MediaSource, PlaybackEngine, PlaybackError, PlaybackEvent,
-    PlaybackState, TrackDescriptor, TrackId, TrackKind,
+    PlaybackState, TrackDescriptor, TrackId, TrackKind, VideoGeometry,
 };
 use std::sync::Mutex;
 use std::time::Duration;
@@ -80,6 +80,13 @@ impl FakeShell {
         }
     }
 
+    /// A shell over a medium with no picture, for the ADR-0038 `None` branch.
+    pub fn without_video() -> Self {
+        Self {
+            inner: Mutex::new(FakeEngine::without_video()),
+        }
+    }
+
     fn with<T>(&self, body: impl FnOnce(&mut FakeEngine) -> T) -> T {
         body(&mut self.inner.lock().expect("the fake never panics"))
     }
@@ -133,6 +140,10 @@ impl ShellEngine for FakeShell {
 
     fn state(&self) -> PlaybackState {
         self.with(|engine| engine.state())
+    }
+
+    fn video_geometry(&self) -> Result<Option<VideoGeometry>, PlaybackError> {
+        self.with(|engine| engine.video_geometry())
     }
 
     fn tracks(&self, kind: TrackKind) -> Result<Vec<TrackDescriptor>, PlaybackError> {

@@ -146,6 +146,14 @@ final class FakeSession: PlaybackSessionClient {
     var currentPosition: UInt64 = 0
     var currentDuration: UInt64? = 30_008
     var currentState: FfiPlaybackState = .ready
+    /// What the engine is showing. 160x90 by default — the shape every media
+    /// fixture in this repository has, so a test that does not care about
+    /// geometry still sees a plausible one.
+    var currentVideoGeometry: FfiVideoGeometry? = FfiVideoGeometry(width: 160, height: 90)
+    /// How many times the shell asked. The event carries no value, so the
+    /// number of reads is the only way to tell "was told to look" from
+    /// "happened to already know" (ADR-0038 Karar 2).
+    var videoGeometryReads = 0
     var requestedTrackKinds: [FfiTrackKind] = []
     /// What `tracks(kind: .subtitle)` reports. Empty by default so every test
     /// written before NEN-026 keeps meaning what it meant.
@@ -203,6 +211,10 @@ final class FakeSession: PlaybackSessionClient {
     func state() throws -> FfiPlaybackState {
         try refuse(.state)
         return currentState
+    }
+    func videoGeometry() throws -> FfiVideoGeometry? {
+        videoGeometryReads += 1
+        return currentVideoGeometry
     }
     func tracks(kind: FfiTrackKind) throws -> [FfiTrackDescriptor] {
         try refuse(.tracks)

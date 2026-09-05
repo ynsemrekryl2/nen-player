@@ -37,6 +37,23 @@ extension MPVPlaybackEngine {
             pending.append(.stateChanged(state: .ready))
             pending.append(.tracksChanged)
 
+        case MPV_EVENT_VIDEO_RECONFIG:
+            // mpv reconfigured its video output, which is the moment the
+            // display size can have changed (ADR-0038 Karar 2). The event
+            // carries no value: the core re-reads, so there is no size here to
+            // go stale, and nothing has to be read on this thread.
+            //
+            // Measured: one load produces **two** of these, and the size is
+            // still unreadable at the first
+            // (`evidence/M3/NEN-068-measurement.md`). Both are reported and the
+            // shared queue coalesces them — which is precisely why the event
+            // was made coalescing rather than why the adapter should filter.
+            //
+            // Reported headless too: the contract kit builds engines with
+            // `vo=null` and mpv emits these there as well, so the kit judges
+            // the same behaviour the shell gets.
+            pending.append(.videoGeometryChanged)
+
         case MPV_EVENT_SEEK:
             // mpv has *begun* a seek. Everything counted in `pendingSeeks` up to
             // now is being served, so the next restart is genuinely an answer.

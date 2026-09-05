@@ -22,6 +22,7 @@
 use super::capability::{Capabilities, Capability};
 use super::error::{Operation, PlaybackError};
 use super::event::{guard_reentrancy, EventQueue, PlaybackState};
+use super::geometry::VideoGeometry;
 use super::media::MediaSource;
 use super::track::{TrackDescriptor, TrackId, TrackKind};
 use nen_domain::subtitle::SubtitleDocument;
@@ -69,6 +70,28 @@ pub trait PlaybackEngine {
     fn duration(&self) -> Result<Option<Duration>, PlaybackError>;
 
     fn state(&self) -> PlaybackState;
+
+    /// The display size of the video being shown, if there is one
+    /// (ADR-0038 Karar 1).
+    ///
+    /// **Base, not a capability**, and it has no default — the same shape
+    /// [`PlaybackEngine::set_subtitle_bottom_inset`] has, for a related reason:
+    /// every adapter can answer this, and one that silently answered `None`
+    /// would leave the window unlocked at exactly the ratio the product exists
+    /// to hold. A default would let an adapter forget without anything going
+    /// red.
+    ///
+    /// `None` is **not an error**: it means there is no video to show or none
+    /// resolved yet — audio-only media, the first moment of a live stream,
+    /// before decode. A capability would be wrong here for the same reason
+    /// ([`capability`](super::capability)'s own rule): every adapter can return
+    /// `None`, so the branch would always be correct and would name nothing
+    /// that differs.
+    ///
+    /// The size carries pixel aspect ratio and rotation **already applied**
+    /// (Karar 3). Producing it is the adapter's job; the core does not
+    /// interpret it.
+    fn video_geometry(&self) -> Result<Option<VideoGeometry>, PlaybackError>;
 
     /// The embedded tracks of one kind, as metadata only.
     ///

@@ -46,6 +46,7 @@ use nen_ports::playback::contract::{self, ContractInputs};
 use nen_ports::playback::{
     guard_reentrancy, Capabilities, Capability, EventQueue, MediaSource, Operation, PlaybackEngine,
     PlaybackError, PlaybackEvent, PlaybackState, TrackDescriptor, TrackId, TrackKind,
+    VideoGeometry,
 };
 use std::sync::Arc;
 use std::time::Duration;
@@ -67,6 +68,10 @@ pub trait ShellEngine: Send + Sync {
     /// `None` means the medium reports no duration — a live stream.
     fn duration_ms(&self) -> Result<Option<u64>, PlaybackError>;
     fn state(&self) -> PlaybackState;
+    /// The display size of the video, or `None` when there is no video
+    /// (ADR-0038). Not an error: audio-only media and a stream that has not
+    /// decoded yet both answer `None`.
+    fn video_geometry(&self) -> Result<Option<VideoGeometry>, PlaybackError>;
 
     fn tracks(&self, kind: TrackKind) -> Result<Vec<TrackDescriptor>, PlaybackError>;
     fn select_track(&self, kind: TrackKind, track: Option<TrackId>) -> Result<(), PlaybackError>;
@@ -190,6 +195,11 @@ impl PlaybackEngine for ShellEngineBridge {
         self.inner.state()
     }
 
+    fn video_geometry(&self) -> Result<Option<VideoGeometry>, PlaybackError> {
+        guard_reentrancy(Operation::VideoGeometry)?;
+        self.inner.video_geometry()
+    }
+
     fn tracks(&self, kind: TrackKind) -> Result<Vec<TrackDescriptor>, PlaybackError> {
         guard_reentrancy(Operation::Tracks)?;
         self.inner.tracks(kind)
@@ -271,6 +281,8 @@ pub struct ContractFixture {
     pub unknown_track: u32,
     pub seek_tolerance_ms: u64,
     pub settle_timeout_ms: u64,
+    /// The medium's display size, or `None` when it has no video (ADR-0038).
+    pub video_geometry: Option<VideoGeometry>,
 }
 
 impl ContractFixture {
@@ -288,6 +300,7 @@ impl ContractFixture {
             )
             .with_seek_tolerance_ms(self.seek_tolerance_ms)
             .with_settle_timeout_ms(self.settle_timeout_ms)
+            .with_video_geometry(self.video_geometry)
     }
 }
 

@@ -9,7 +9,7 @@
 
 use nen_ports::playback::event::{deliver_all, EventQueue, EventSink};
 use nen_ports::playback::fake::{fake_inputs, FakeEngine};
-use nen_ports::playback::{PlaybackEngine, PlaybackEvent, PlaybackState};
+use nen_ports::playback::{PlaybackEngine, PlaybackEvent, PlaybackState, VideoGeometry};
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -143,6 +143,65 @@ fn after_a_loss_the_engine_can_still_be_resynced() {
         engine.duration().expect("duration"),
         Some(Duration::from_millis(120_000))
     );
+    // And the display size with them (ADR-0038 Karar 2): the event carries no
+    // payload precisely so that this re-read is the only way to learn it, which
+    // makes the answer after a loss the same as the answer before one.
+    assert_eq!(
+        engine.video_geometry().expect("geometry"),
+        VideoGeometry::new(160, 90)
+    );
+}
+
+#[test]
+fn the_display_size_is_announced_on_load_and_survives_a_suspended_consumer() {
+    // The producer keeps reconfiguring while nobody drains. Only the newest
+    // announcement matters — there is no value in the event to go stale — so
+    // the consumer that finally looks must find exactly one, and the engine
+    // must still answer.
+    let mut engine = FakeEngine::full();
+    engine.load(&fake_inputs().media).expect("load");
+
+    let announced = engine
+        .events()
+        .pending()
+        .iter()
+        .filter(|event| **event == PlaybackEvent::VideoGeometryChanged)
+        .count();
+    assert_eq!(announced, 1, "the load must announce the size exactly once");
+
+    // A second and third reconfiguration, as a real engine produces on one
+    // load (`evidence/M3/NEN-068-measurement.md`).
+    engine.events().push(PlaybackEvent::VideoGeometryChanged);
+    engine.events().push(PlaybackEvent::VideoGeometryChanged);
+
+    let sink = RecordingSink::default();
+    deliver_all(engine.events(), &sink);
+    let delivered = sink.taken();
+    assert_eq!(
+        delivered
+            .iter()
+            .filter(|event| **event == PlaybackEvent::VideoGeometryChanged)
+            .count(),
+        1,
+        "three reconfigurations must reach the consumer as one: {delivered:?}"
+    );
+}
+
+#[test]
+fn a_medium_with_no_video_announces_nothing_and_answers_none() {
+    // The `None` branch end to end: no announcement to coalesce, and an
+    // answer that is a state rather than a failure (ADR-0038 Karar 1).
+    let mut engine = FakeEngine::without_video();
+    engine.load(&fake_inputs().media).expect("load");
+
+    assert!(
+        !engine
+            .events()
+            .pending()
+            .contains(&PlaybackEvent::VideoGeometryChanged),
+        "a medium with no picture announced a display size"
+    );
+    assert_eq!(engine.video_geometry().expect("geometry"), None);
 }
 
 #[test]

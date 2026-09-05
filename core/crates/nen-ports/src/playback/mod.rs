@@ -20,6 +20,7 @@ pub mod engine;
 pub mod error;
 pub mod event;
 pub mod fake;
+pub mod geometry;
 pub mod media;
 pub mod track;
 
@@ -30,5 +31,6 @@ pub use event::{
     deliver_all, guard_reentrancy, CallbackScope, DeliveryClass, EventQueue, EventSink,
     PlaybackEvent, PlaybackState,
 };
+pub use geometry::VideoGeometry;
 pub use media::MediaSource;
 pub use track::{subtitle_carries_text, TrackDescriptor, TrackId, TrackKind};

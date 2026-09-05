@@ -25,6 +25,22 @@ public struct PlayerRootView: View {
                 .ignoresSafeArea()
 
             VideoSurface(model: model)
+                // **The picture fills the window, not the safe area.**
+                //
+                // `Color.black` above already ignores it, so anything the video
+                // surface leaves uncovered shows through as black — which is
+                // exactly the letterbox NEN-068 exists to remove, produced by
+                // the shell rather than by the renderer.
+                //
+                // Measured on the real app: a 1920x1080 medium in a window
+                // locked to 16:9 still had a ~28 pt black margin left and
+                // right and ~32 pt at the top, at every size and every
+                // resolution. The window was the right shape; the surface
+                // inside it was not.
+                //
+                // The chrome deliberately does **not** ignore the safe area:
+                // the transport row and the traffic lights belong inside it.
+                .ignoresSafeArea()
                 .opacity(model.hasMedia ? 1 : 0)
 
             if model.hasMedia, model.playbackState == .buffering {
@@ -58,7 +74,20 @@ public struct PlayerRootView: View {
                     .transition(.opacity)
             }
         }
-        .frame(minWidth: 720, minHeight: 450)
+        // **The root imposes no minimum of its own** (ADR-0038 Karar 4).
+        //
+        // Deleting the old `.frame(minWidth: 720, minHeight: 450)` was not
+        // enough: SwiftUI still propagates whatever minimum its *content* needs
+        // to the window, and the transport row's intrinsic width is ≈590 pt.
+        // Measured on the real app — a 16:9 medium opened correctly at 693x390
+        // and was then pulled down to 594x327 by SwiftUI's own sizing, which is
+        // neither the derived minimum nor the medium's ratio.
+        //
+        // Letting the root compress to zero puts the floor back in one place,
+        // `WindowGeometry` via `contentMinSize`. The row can never actually be
+        // squeezed, because AppKit refuses to resize past that floor — the
+        // compression is permission SwiftUI needs, not a size the user reaches.
+        .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
         .coordinateSpace(name: Self.surfaceSpace)
         .background(
             GeometryReader { surface in
@@ -77,6 +106,18 @@ public struct PlayerRootView: View {
                 title: model.windowTitle,
                 controlsVisible: model.controlsVisible,
                 hasMedia: model.hasMedia
+            )
+        )
+        // The window's minimum comes from here and nowhere else (ADR-0038
+        // Karar 4). A `.frame(minWidth:minHeight:)` alongside it would be a
+        // second minimum: SwiftUI propagates its own to the window, AppKit
+        // cannot honour two that disagree, and the one that wins at the
+        // smallest size brings the black bars back — which is the defect this
+        // whole task removes.
+        .background(
+            WindowGeometryWriter(
+                geometry: model.videoGeometry,
+                mediaRevision: model.mediaPresentationRevision
             )
         )
         .animation(.easeOut(duration: 0.24), value: model.controlsVisible)

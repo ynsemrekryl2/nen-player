@@ -5,7 +5,7 @@
 //! `docs/milestones/M3-macos-slice.md` requires both to pass *the same* kit.
 
 use nen_ports::playback::contract::{applicable_count, run_all, scenarios, Applicability};
-use nen_ports::playback::fake::{fake_inputs, FakeEngine};
+use nen_ports::playback::fake::{fake_inputs, fake_inputs_without_video, FakeEngine};
 use nen_ports::playback::{Capabilities, Capability, PlaybackEngine};
 
 #[test]
@@ -22,6 +22,35 @@ fn a_base_only_engine_passes_every_applicable_scenario() {
     let inputs = fake_inputs();
     let failures = run_all(FakeEngine::minimal, &inputs);
     assert!(failures.is_empty(), "{}", report(&failures));
+}
+
+#[test]
+fn a_medium_with_no_video_passes_every_applicable_scenario() {
+    // ADR-0038 Karar 1's other half. `None` is a state and not a failure, so
+    // the whole kit must be green against a medium that has no picture — and
+    // the geometry scenario must exercise the `None` branch rather than being
+    // skipped. An audio file is a medium the product plays.
+    let inputs = fake_inputs_without_video();
+    let failures = run_all(FakeEngine::without_video, &inputs);
+    assert!(failures.is_empty(), "{}", report(&failures));
+}
+
+#[test]
+fn the_geometry_scenario_really_distinguishes_the_two_media() {
+    // The pairing that makes the run above worth anything: each engine is
+    // judged against the *other* medium's fixture and must go red. Without
+    // this, a kit that ignored geometry entirely would pass both runs.
+    let with_video = run_all(FakeEngine::full, &fake_inputs_without_video());
+    assert!(
+        !with_video.is_empty(),
+        "an engine with a picture passed a fixture that declares none"
+    );
+
+    let without_video = run_all(FakeEngine::without_video, &fake_inputs());
+    assert!(
+        !without_video.is_empty(),
+        "an engine with no picture passed a fixture that declares one"
+    );
 }
 
 #[test]

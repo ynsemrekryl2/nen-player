@@ -22,7 +22,7 @@ use nen_ports::playback::contract::{run_all, ContractInputs, Failure};
 use nen_ports::playback::fake::{fake_inputs, FakeEngine};
 use nen_ports::playback::{
     Capabilities, EventQueue, MediaSource, PlaybackEngine, PlaybackError, PlaybackEvent,
-    PlaybackState, TrackDescriptor, TrackId, TrackKind,
+    PlaybackState, TrackDescriptor, TrackId, TrackKind, VideoGeometry,
 };
 use std::time::Duration;
 
@@ -48,6 +48,21 @@ enum Defect {
     ReportsAnUnaskedFailure,
     /// Accepts a track id that belongs to no track.
     AcceptsAnyTrackId,
+    /// Answers the display size correctly, but never announces that it changed.
+    ///
+    /// The ADR-0038 shape of the NEN-051 defect: the value is right, so any
+    /// check that merely reads it passes. What is missing is the *reason to
+    /// read* — with no `VideoGeometryChanged` the shell never asks again and
+    /// the window keeps the previous medium's aspect ratio.
+    SwallowsVideoGeometryChanged,
+    /// Announces the change and then reports the **stored** size instead of the
+    /// display size.
+    ///
+    /// ADR-0038 Karar 3's failure mode: an adapter that hands over the raw
+    /// frame size would open a 720x576 window for a 16:9 anamorphic stream.
+    /// Modelled here by transposing the size, which is wrong in exactly the
+    /// way an un-corrected aspect is: plausible numbers, wrong picture.
+    ReportsTheWrongVideoGeometry,
 }
 
 /// A [`FakeEngine`] with exactly one thing wrong.
@@ -95,6 +110,9 @@ impl BrokenEngine {
                         *position = Duration::ZERO;
                     }
                 }
+            }
+            Defect::SwallowsVideoGeometryChanged => {
+                pending.retain(|event| !matches!(event, PlaybackEvent::VideoGeometryChanged));
             }
             Defect::ReportsAnUnaskedFailure => {
                 pending.push(PlaybackEvent::Failed {
@@ -157,6 +175,14 @@ impl PlaybackEngine for BrokenEngine {
 
     fn duration(&self) -> Result<Option<Duration>, PlaybackError> {
         self.inner.duration()
+    }
+
+    fn video_geometry(&self) -> Result<Option<VideoGeometry>, PlaybackError> {
+        let geometry = self.inner.video_geometry()?;
+        if self.defect == Defect::ReportsTheWrongVideoGeometry {
+            return Ok(geometry.and_then(|size| VideoGeometry::new(size.height(), size.width())));
+        }
+        Ok(geometry)
     }
 
     fn state(&self) -> PlaybackState {
@@ -326,6 +352,26 @@ fn an_unasked_failure_event_is_caught() {
         "it failed, but not on the unasked event:\n{}",
         report(&failures)
     );
+}
+
+#[test]
+fn a_display_size_that_is_never_announced_is_caught() {
+    // The value is right and every read of it succeeds. What the kit has to
+    // catch is the missing announcement — without it the shell is never told
+    // to look, which is the whole reason ADR-0038 Karar 2 has an event at all.
+    let failures = failures_for(Defect::SwallowsVideoGeometryChanged);
+    assert!(
+        !failures.is_empty(),
+        "an engine that answers the right size but never announces it passed"
+    );
+}
+
+#[test]
+fn a_display_size_that_is_the_wrong_size_is_caught() {
+    // Announced correctly, read back wrong: the ADR-0038 Karar 3 defect, where
+    // an adapter hands over the stored frame size instead of the display size.
+    let failures = failures_for(Defect::ReportsTheWrongVideoGeometry);
+    assert!(!failures.is_empty(), "a transposed display size passed");
 }
 
 #[test]

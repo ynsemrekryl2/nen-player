@@ -1,0 +1,25 @@
+# fixtures/media/aspect-4x3-clip.mkv — NEN-068 pencere oranı fixture'ı
+#
+# Telif-temiz, tamamen sentetik (docs/testing-strategy.md → "fixtures/ düzeni").
+# Aşağıdaki blok depo kökünden çalıştırıldığında dosyayı yeniden üretir.
+#
+# İçerik: 10 s · 160x120 @ 5 fps (4:3) · 1 audio track (eng).
+#
+# Neden var: depodaki her medya fixture'ı 160x90'dı, yani 16:9. NEN-068'in
+# pencere oranı kilidi 1,60'tan dar bir oranda farklı bir dalı çalıştırır —
+# `minimumContentSize` genişliği krom tabanına (600 pt) sabitler ve yüksekliği
+# ondan türetir (600x450). 16:9 bir klip o dalı hiç görmez.
+#
+# libmpv'nin bu dosyada gördüğü (ölçüldü, 2026-08-31, libmpv 2.5.0):
+#   video-out-params/dw = 160 · dh = 120
+
+cd "$(git rev-parse --show-toplevel)"
+
+ffmpeg -y -loglevel error \
+  -f lavfi -i "testsrc=size=160x120:rate=5:duration=10" \
+  -f lavfi -i "sine=frequency=440:duration=10" \
+  -map 0:v -map 1:a \
+  -c:v libx264 -preset veryfast -crf 45 -g 25 -pix_fmt yuv420p \
+  -c:a libopus -b:a 6k -ac 1 \
+  -metadata:s:a:0 language=eng \
+  fixtures/media/aspect-4x3-clip.mkv

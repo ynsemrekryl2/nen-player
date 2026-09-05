@@ -13,6 +13,10 @@ public protocol PlaybackSessionClient: AnyObject {
     func positionMs() throws -> UInt64
     func durationMs() throws -> UInt64?
     func state() throws -> FfiPlaybackState
+    /// The display size of the video being played, or `nil` when there is no
+    /// video (ADR-0038). Re-read after every `videoGeometryChanged` and after
+    /// an `eventsLost` resync — the event carries no value.
+    func videoGeometry() throws -> FfiVideoGeometry?
     func tracks(kind: FfiTrackKind) throws -> [FfiTrackDescriptor]
     /// Puts the subtitle a menu row names on screen.
     ///

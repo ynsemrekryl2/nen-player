@@ -28,9 +28,10 @@ struct SubtitleSafeAreaTests {
 
     /// The surface the measurement renders into, in points and in pixels.
     ///
-    /// 640x360 pt is below the 720x450 pt the window allows at its smallest,
-    /// on purpose: it is the harshest ratio of chrome to surface the product
-    /// can produce, so a subtitle that clears the bar here clears it anywhere.
+    /// 640x360 pt is below anything the window allows at its smallest — the
+    /// 16:9 minimum NEN-068 derives is 693x390 — on purpose: it is a harsher
+    /// ratio of chrome to surface than the product can produce, so a subtitle
+    /// that clears the bar here clears it anywhere.
     static let surfacePoints = CGSize(width: 640, height: 360)
     static let backingScale: CGFloat = 2
 
@@ -308,8 +309,12 @@ struct SubtitleSafeAreaTests {
         model.attach(to: MPVVideoView.makePlaybackSurface())
         model.openMedia(at: URL(fileURLWithPath: Self.fixturePath("contract-clip.mkv")))
 
-        // The window's own minimum, because the view enforces it: asking for
-        // less would measure a surface the player never shows.
+        // A surface the player really shows: comfortably above the 693x390 a
+        // 16:9 medium derives (NEN-068), so this measures the wiring and not a
+        // size the window would refuse. The minimum now comes from
+        // `WindowGeometry` and the window, not from a frame on this view, so
+        // the host takes whatever size it is given — which is why the expected
+        // inset below is computed from `host.bounds` rather than written down.
         let host = NSHostingView(rootView: PlayerRootView(model: model))
         host.frame = NSRect(x: 0, y: 0, width: 720, height: 450)
         host.layoutSubtreeIfNeeded()

@@ -43,6 +43,7 @@ use super::capability::{Capabilities, Capability};
 use super::engine::PlaybackEngine;
 use super::error::PlaybackError;
 use super::event::{CallbackScope, PlaybackEvent, PlaybackState};
+use super::geometry::VideoGeometry;
 use super::media::MediaSource;
 use super::track::{TrackId, TrackKind};
 use nen_domain::subtitle::SubtitleDocument;
@@ -88,6 +89,28 @@ pub enum Action {
     Position,
     Duration,
     State,
+    /// Asks the engine for the video's display size, and requires it to have
+    /// been announced first.
+    ///
+    /// **Both halves are one step on purpose** (ADR-0038 Karar 1 and 2). Split
+    /// in two, an adapter that returns the right size but never emits
+    /// [`PlaybackEvent::VideoGeometryChanged`] passes the value assertion,
+    /// and the ordering assertion has to guess when to look. Together, the step
+    /// says what the contract actually requires: *the size is announced, and
+    /// then it is readable.*
+    ///
+    /// Which of the two branches runs is the **fixture's** answer, not a
+    /// scenario's, exactly as with [`Outcome::FixtureDuration`]:
+    ///
+    /// - [`ContractInputs::video_geometry`] is `Some` — a
+    ///   `VideoGeometryChanged` must arrive, and the value read afterwards must
+    ///   be the declared one.
+    /// - it is `None` — the medium has no picture, so the value must be `None`
+    ///   and **no** `VideoGeometryChanged` may have been reported at all.
+    ///   Measured on libmpv: an audio-only medium emits no video
+    ///   reconfiguration (`evidence/M3/NEN-068-measurement.md`), so this is the
+    ///   engine's real behaviour rather than a rule invented here.
+    VideoGeometry,
     Tracks {
         kind: TrackKind,
     },
@@ -201,6 +224,7 @@ pub enum EventShape {
     StateChanged(PlaybackState),
     SeekCompleted,
     TracksChanged,
+    VideoGeometryChanged,
     EndReached,
     Failed,
     EventsLost,
@@ -213,6 +237,7 @@ impl EventShape {
             PlaybackEvent::StateChanged { state } => Self::StateChanged(*state),
             PlaybackEvent::SeekCompleted { .. } => Self::SeekCompleted,
             PlaybackEvent::TracksChanged => Self::TracksChanged,
+            PlaybackEvent::VideoGeometryChanged => Self::VideoGeometryChanged,
             PlaybackEvent::EndReached => Self::EndReached,
             PlaybackEvent::Failed { .. } => Self::Failed,
             PlaybackEvent::EventsLost { .. } => Self::EventsLost,
@@ -239,6 +264,16 @@ pub enum Outcome {
     FixtureDuration,
     /// As many tracks of this kind as the fixture declares.
     FixtureTrackCount(TrackKind),
+    /// The display size the fixture declares
+    /// ([`ContractInputs::video_geometry`]); `None` there means "this medium
+    /// has no video" — audio-only.
+    ///
+    /// **Waited for, not sampled**, on [`Outcome::Drawing`]'s reasoning: a real
+    /// engine resolves the size after the file opens, and measured on libmpv
+    /// the size is still unreadable at the first reconfiguration
+    /// (`evidence/M3/NEN-068-measurement.md`). Asking once, the instant the
+    /// event lands, would ask before the answer exists.
+    FixtureVideoGeometry,
     SelectedTrack(Option<TrackRef>),
     /// These event shapes, in this order, **as a subsequence**, arriving
     /// within the fixture's settle timeout.
@@ -397,6 +432,9 @@ pub fn scenarios() -> Vec<Scenario> {
                 ),
                 Step::new(Action::Position, Outcome::Error(ErrorKind::NotLoaded)),
                 Step::new(Action::Duration, Outcome::Error(ErrorKind::NotLoaded)),
+                // `None` means "no video in this medium", so an engine holding
+                // no medium at all must not be able to say it.
+                Step::new(Action::VideoGeometry, Outcome::Error(ErrorKind::NotLoaded)),
                 Step::new(
                     Action::Tracks {
                         kind: TrackKind::Subtitle,
@@ -635,6 +673,19 @@ pub fn scenarios() -> Vec<Scenario> {
                 Step::new(Action::Load, Outcome::Ok),
                 Step::settle(PlaybackState::Ready),
                 Step::new(Action::Duration, Outcome::FixtureDuration),
+            ],
+        },
+        Scenario {
+            // ADR-0038: the window's aspect lock is fed by this one number, so
+            // an engine that keeps it to itself makes the product impossible.
+            // The step demands both halves — announced, then readable — and
+            // the fixture decides whether the medium has a picture at all.
+            name: "the video's display size is announced and then readable",
+            applies: Applicability::Always,
+            steps: vec![
+                Step::new(Action::Load, Outcome::Ok),
+                Step::settle(PlaybackState::Ready),
+                Step::new(Action::VideoGeometry, Outcome::FixtureVideoGeometry),
             ],
         },
         Scenario {
@@ -893,6 +944,13 @@ pub struct ContractInputs {
     pub seek_tolerance_ms: u64,
     /// How long [`Action::Settle`] waits before calling it a failure.
     pub settle_timeout_ms: u64,
+    /// The medium's display size, or `None` when it has no video at all.
+    ///
+    /// A property of the fixture's **medium** and not of the engine, which is
+    /// why it lives here: the same adapter answers `Some` for a film and `None`
+    /// for an audio file, and neither answer is the adapter being right or
+    /// wrong on its own.
+    pub video_geometry: Option<VideoGeometry>,
 }
 
 impl ContractInputs {
@@ -912,6 +970,9 @@ impl ContractInputs {
             unknown_track: TrackId(u32::MAX),
             seek_tolerance_ms: 0,
             settle_timeout_ms: 5_000,
+            // No video until a fixture says otherwise: the stricter default,
+            // because it also forbids the event.
+            video_geometry: None,
         }
     }
 
@@ -940,6 +1001,12 @@ impl ContractInputs {
 
     pub fn with_settle_timeout_ms(mut self, timeout_ms: u64) -> Self {
         self.settle_timeout_ms = timeout_ms;
+        self
+    }
+
+    /// Declares the medium's display size, or `None` for one with no video.
+    pub fn with_video_geometry(mut self, geometry: Option<VideoGeometry>) -> Self {
+        self.video_geometry = geometry;
         self
     }
 
@@ -1049,6 +1116,10 @@ fn run_step<E: PlaybackEngine>(
             check_unit(engine.seek(Duration::from_millis(moment_ms)), expect)
         }
         Action::RenderedText => await_drawing(engine, expect, inputs),
+        Action::VideoGeometry => match expect {
+            Outcome::FixtureVideoGeometry => await_video_geometry(engine, inputs, seen),
+            other => check_unit(engine.video_geometry(), other),
+        },
         Action::SelectTrack { kind, track } => check_unit(
             engine.select_track(kind, track.map(|reference| reference.resolve(inputs))),
             expect,
@@ -1316,6 +1387,74 @@ fn await_drawing<E: PlaybackEngine>(
                 if wanted { "blank" } else { "drawing" },
                 inputs.settle_timeout_ms
             ));
+        }
+        std::thread::sleep(Duration::from_millis(POLL_INTERVAL_MS));
+    }
+}
+
+/// Judges the fixture's display size, and the announcement that must precede it.
+///
+/// Two branches, chosen by the fixture rather than by a scenario:
+///
+/// - **The medium has a picture.** A [`EventShape::VideoGeometryChanged`] must
+///   arrive first — an adapter that answers correctly but never announces
+///   leaves the shell with no reason to ask again, and the window keeps the
+///   previous medium's ratio. Then the value is polled until it matches, for
+///   [`Outcome::Drawing`]'s reason: measured on libmpv the size is still
+///   unreadable at the first of the two reconfigurations a load produces.
+/// - **The medium has none.** The answer must be `None` *and* nothing may have
+///   been announced. An adapter that emitted the event anyway would send the
+///   shell asking after a size that does not exist, once per reconfiguration.
+fn await_video_geometry<E: PlaybackEngine>(
+    engine: &mut E,
+    inputs: &ContractInputs,
+    seen: &mut Seen,
+) -> Result<(), String> {
+    let Some(expected) = inputs.video_geometry else {
+        collect(engine, seen);
+        if seen.shapes.contains(&EventShape::VideoGeometryChanged) {
+            return Err(
+                "a VideoGeometryChanged was reported for a medium with no video".to_string(),
+            );
+        }
+        return match engine.video_geometry() {
+            Ok(None) => Ok(()),
+            Ok(Some(actual)) => Err(format!(
+                "the engine reported {}x{}, but this medium has no video",
+                actual.width(),
+                actual.height()
+            )),
+            Err(error) => Err(format!("failed with {error:?}, expected no geometry")),
+        };
+    };
+
+    await_events(engine, &[EventShape::VideoGeometryChanged], inputs, seen)?;
+
+    let deadline = Instant::now() + Duration::from_millis(inputs.settle_timeout_ms);
+    loop {
+        match engine.video_geometry() {
+            Ok(Some(actual)) if actual == expected => return Ok(()),
+            Ok(actual) => {
+                if Instant::now() >= deadline {
+                    let seen_as = match actual {
+                        Some(size) => format!("{}x{}", size.width(), size.height()),
+                        None => "none".to_string(),
+                    };
+                    return Err(format!(
+                        "the display size was {seen_as} after {} ms, expected {}x{}",
+                        inputs.settle_timeout_ms,
+                        expected.width(),
+                        expected.height()
+                    ));
+                }
+            }
+            Err(error) => {
+                return Err(format!(
+                    "failed with {error:?}, expected {}x{}",
+                    expected.width(),
+                    expected.height()
+                ))
+            }
         }
         std::thread::sleep(Duration::from_millis(POLL_INTERVAL_MS));
     }

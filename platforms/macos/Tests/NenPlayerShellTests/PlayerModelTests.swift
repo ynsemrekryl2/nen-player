@@ -750,6 +750,102 @@ struct PlayerModelTests {
         #expect(model.subtitleSourceCount == 0)
     }
 
+    // MARK: - Display geometry (ADR-0038)
+
+    @Test("the announced display size is read from the session, not assumed")
+    func theGeometryEventCausesARead() {
+        // The event carries no value on purpose (ADR-0038 Karar 2), so the
+        // only thing that can make this test pass is the shell actually
+        // asking. Counting the reads is what tells "was told to look" from
+        // "happened to already know".
+        let fixture = FakeSession()
+        fixture.currentVideoGeometry = FfiVideoGeometry(width: 1_024, height: 576)
+        let model = makeModel(session: fixture)
+        model.openMedia(at: URL(fileURLWithPath: "/fixtures/media/anamorphic-clip.mkv"))
+        let before = fixture.videoGeometryReads
+
+        model.consume([.videoGeometryChanged])
+
+        #expect(fixture.videoGeometryReads == before + 1)
+        #expect(model.videoGeometry == FfiVideoGeometry(width: 1_024, height: 576))
+    }
+
+    @Test("a medium with no video leaves the shell with no geometry")
+    func anAudioOnlyMediumHasNoGeometry() {
+        // Not a failure: `nil` is what leaves the window free to resize, which
+        // is the product behaviour for audio-only media.
+        let fixture = FakeSession()
+        fixture.currentVideoGeometry = nil
+        let model = makeModel(session: fixture)
+
+        model.openMedia(at: URL(fileURLWithPath: "/fixtures/media/audio-only-clip.mka"))
+        model.consume([.stateChanged(state: .ready)])
+
+        #expect(model.videoGeometry == nil)
+        #expect(model.fatalMessage == nil, "a medium with no picture is not an error")
+    }
+
+    @Test("opening another medium drops the previous picture's shape")
+    func openingAnotherMediumClearsTheGeometry() {
+        // The window must not hold the outgoing film's aspect ratio while the
+        // incoming one loads: the lock would shape the window for a picture
+        // that is no longer there, and the incoming size arrives with its own
+        // announcement.
+        let fixture = FakeSession()
+        let model = makeModel(session: fixture)
+        model.openMedia(at: URL(fileURLWithPath: "/fixtures/media/contract-clip.mkv"))
+        model.consume([.videoGeometryChanged])
+        #expect(model.videoGeometry != nil)
+
+        model.openMedia(at: URL(fileURLWithPath: "/fixtures/media/aspect-4x3-clip.mkv"))
+        #expect(model.videoGeometry == nil)
+    }
+
+    @Test("a failed medium leaves nothing constraining the window")
+    func aFatalMediumClearsTheGeometry() {
+        let fixture = FakeSession()
+        let model = makeModel(session: fixture)
+        model.openMedia(at: URL(fileURLWithPath: "/fixtures/media/broken-clip.mkv"))
+        model.consume([.videoGeometryChanged])
+        #expect(model.videoGeometry != nil)
+
+        model.consume([.failed(error: .LoadFailed(reason: .unreadable))])
+
+        #expect(model.fatalMessage != nil)
+        #expect(model.videoGeometry == nil)
+    }
+
+    @Test("shutdown forgets the picture's shape")
+    func shutdownClearsTheGeometry() {
+        let fixture = FakeSession()
+        let model = makeModel(session: fixture)
+        model.openMedia(at: URL(fileURLWithPath: "/fixtures/media/contract-clip.mkv"))
+        model.consume([.videoGeometryChanged])
+
+        model.shutdown()
+
+        #expect(model.videoGeometry == nil)
+    }
+
+    @Test("a lost event stream re-reads the display size")
+    func aLostStreamResynchronizesTheGeometry() {
+        // The announcement is the only thing that would ever have told the
+        // shell to look, so it is exactly the event whose loss the resync has
+        // to cover (ADR-0011 Karar 1). Without this the window's lock stays at
+        // whatever size happened to get through before the overflow.
+        let fixture = FakeSession()
+        let model = makeModel(session: fixture)
+        model.openMedia(at: URL(fileURLWithPath: "/fixtures/media/contract-clip.mkv"))
+        model.consume([.stateChanged(state: .ready)])
+
+        // The medium reconfigured while the queue was overflowing: the shell
+        // never saw the announcement, only the loss.
+        fixture.currentVideoGeometry = FfiVideoGeometry(width: 1_024, height: 576)
+        model.consume([.eventsLost(dropped: 12)])
+
+        #expect(model.videoGeometry == FfiVideoGeometry(width: 1_024, height: 576))
+    }
+
     private func makeModel(
         session: FakeSession,
         store: MemoryRecentStore = MemoryRecentStore(),

@@ -10,9 +10,10 @@
 //! The answer here is a **bounded queue with per-class coalescing**:
 //!
 //! - [`DeliveryClass::Coalescing`] — at most one instance waits.
-//!   [`PlaybackEvent::PositionChanged`] is the only one, and dropping its
-//!   intermediate values loses nothing: a position is absolute, so the newest
-//!   value is the true one.
+//!   [`PlaybackEvent::PositionChanged`] and
+//!   [`PlaybackEvent::VideoGeometryChanged`] are the two, and dropping their
+//!   intermediate instances loses nothing: both describe an absolute current
+//!   value, so the newest one is the true one.
 //! - [`DeliveryClass::Critical`] — order preserved, never silently dropped.
 //!   `buffering → ready` is a sequence; dropping the first leaves the consumer
 //!   in a state that never existed.
@@ -106,6 +107,19 @@ pub enum PlaybackEvent {
     },
     /// The track list changed and must be re-read.
     TracksChanged,
+    /// The video's display size changed and must be re-read.
+    ///
+    /// **Carries no payload, on purpose** (ADR-0038 Karar 2). The consumer has
+    /// to re-read after `EventsLost` anyway, so a value in the event would be a
+    /// second source for the same truth — and the one that can go stale. What
+    /// the event says is "ask again", and asking is the only way to learn the
+    /// answer.
+    ///
+    /// Coalescing for the reason a position is: only the newest size matters.
+    /// Measured on libmpv, one load produces two `MPV_EVENT_VIDEO_RECONFIG`
+    /// (`evidence/M3/NEN-068-measurement.md`), and the intermediate one says
+    /// nothing the final one does not.
+    VideoGeometryChanged,
     EndReached,
     Failed {
         error: PlaybackError,
@@ -122,7 +136,7 @@ pub enum PlaybackEvent {
 impl PlaybackEvent {
     pub const fn delivery_class(&self) -> DeliveryClass {
         match self {
-            Self::PositionChanged { .. } => DeliveryClass::Coalescing,
+            Self::PositionChanged { .. } | Self::VideoGeometryChanged => DeliveryClass::Coalescing,
             Self::StateChanged { .. }
             | Self::SeekCompleted { .. }
             | Self::TracksChanged
@@ -372,6 +386,33 @@ mod tests {
             queue.drain(),
             vec![state(PlaybackState::Paused), position(2)]
         );
+    }
+
+    #[test]
+    fn geometry_events_coalesce_among_themselves_only() {
+        // One load produces two reconfigurations on the real engine, and the
+        // first says nothing the second does not. What must not happen is the
+        // two coalescing classes collapsing into each other: a position is not
+        // a geometry.
+        let mut queue = EventQueue::default();
+        queue.push(PlaybackEvent::VideoGeometryChanged);
+        queue.push(position(4));
+        queue.push(PlaybackEvent::VideoGeometryChanged);
+        assert_eq!(
+            queue.drain(),
+            vec![position(4), PlaybackEvent::VideoGeometryChanged]
+        );
+    }
+
+    #[test]
+    fn a_dropped_geometry_event_is_not_counted_as_a_loss() {
+        // Losing an intermediate geometry is by design, exactly as with a
+        // position: counting it would send the consumer resyncing over nothing.
+        let mut queue = EventQueue::new(2);
+        queue.push(PlaybackEvent::VideoGeometryChanged);
+        queue.push(PlaybackEvent::TracksChanged);
+        queue.push(PlaybackEvent::EndReached);
+        assert_eq!(queue.drain()[0], PlaybackEvent::EventsLost { dropped: 1 });
     }
 
     #[test]

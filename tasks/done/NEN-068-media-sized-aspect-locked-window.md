@@ -3,7 +3,7 @@ id: NEN-068
 title: Media-sized, aspect-locked player window
 milestone: M3
 size: L
-state: backlog
+state: done
 depends_on: [NEN-067]
 blocks: []
 adr: [26, 31, 38]
@@ -88,21 +88,40 @@ oranla çelişir.
 
 ## Kanıt (DoD)
 
-- [ ] Contract kit `None` ve pozitif geometry senaryolarını,
+- [x] Contract kit `None` ve pozitif geometry senaryolarını,
       `VideoGeometryChanged` sıralamasını ve `EventsLost` sonrası yeniden
       okumayı zorluyor; fake engine yeşil.
-- [ ] `guard_playback_debug` ve redaction kapıları yeni tiple yeşil.
-- [ ] `WindowGeometry` saf fonksiyon testleri: 16:9, 4:3, 2.39:1, dikey 9:16,
+- [x] `guard_playback_debug` ve redaction kapıları yeni tiple yeşil.
+- [x] `WindowGeometry` saf fonksiyon testleri: 16:9, 4:3, 2.39:1, dikey 9:16,
       anamorphic 720×576 → 1024×576, ekrandan büyük 3840×2160 ve minimum
       türetmesi.
-- [ ] Model testi: geometry olayında `videoGeometry` güncelleniyor, medya
+- [x] Model testi: geometry olayında `videoGeometry` güncelleniyor, medya
       kapanınca sıfırlanıyor, audio-only'de `nil`.
-- [ ] Elle doğrulama: 16:9, 4:3 ve 2.39:1 dosyalarda açılış boyutu; canlı
+- [x] Elle doğrulama: 16:9, 4:3 ve 2.39:1 dosyalarda açılış boyutu; canlı
       resize boyunca siyah bar yok; tam ekran giriş/çıkış; audio-only serbest
       resize → `evidence/M3/NEN-068-checklist.md` ve ekran görüntüleri.
-- [ ] `cargo test`, `bash scripts/test.sh`, `bash scripts/test-macos.sh`,
+- [x] `cargo test`, `bash scripts/test.sh`, `bash scripts/test-macos.sh`,
       uygulama build'i, strict codesign ve doküman kapıları geçti.
 
 ## Kanıt kaydı
 
-<!-- done olurken doldurulacak -->
+2026-09-05 kapanışında Rust workspace **560/560** geçti (1 ignored benchmark);
+fmt, clippy, cargo-deny, shell testleri ve doküman kapıları yeşil. macOS paketi
+**150 test / 15 suite / 0 failure** verdi; debug `.app` build'i ve strict
+codesign geçti.
+
+Gerçek ad-hoc imzalı uygulamada 16:9 **693×390**, 4:3 **600×450**, 2.39:1
+**931×390** ve anamorphic 720×576 kaynak **1024×576** açıldı. Tam ekran `F`,
+düğme ve `Esc` yolları; oynarken/duraklatılmışken play/pause ve seek; çıkış
+sonrası oran kilidi ve canlı kenar sürüklemesi doğrulandı. Audio-only ve boş
+durumda oran kilidi kurulmadı, serbest resize ölçüldü.
+
+Elle kabul iki gerçek kusur buldu ve kapattı: video yüzeyi safe area nedeniyle
+kendi siyah çerçevesini çiziyordu; ayrıca sıfır oran ataması native tam ekran
+çıkışını yarıda bırakıyordu. Ardışık medya kabulü de yükleme sırasında eski VO
+boyutunun sızdığını gösterdi. Üçü regresyon ve negatif kontrollerle zorlandı.
+
+Tam kayıt ve ekran kanıtları:
+`evidence/M3/NEN-068-checklist.md` ·
+`evidence/M3/NEN-068-measurement.md` ·
+`evidence/M3/NEN-068-fullscreen.md`.

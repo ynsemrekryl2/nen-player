@@ -38,6 +38,14 @@ public final class PlayerModel: ObservableObject {
     @Published public private(set) var selectedSubtitleToken: UInt32?
     /// Whether the sidecar scan is still running (ADR-0031 Karar 4).
     @Published public private(set) var isScanningSubtitles = false
+    /// The display size of the picture being played, or `nil` when there is no
+    /// picture (ADR-0038).
+    ///
+    /// Read from the session rather than kept from an event: the event carries
+    /// no value on purpose, so this is the only copy and it cannot disagree
+    /// with the engine. `nil` is a state — audio-only media, a medium that
+    /// failed, nothing open — and it is what leaves the window free to resize.
+    @Published public private(set) var videoGeometry: FfiVideoGeometry?
 
     public var hasMedia: Bool { mediaName != nil && fatalMessage == nil }
     public var isPlaying: Bool { playbackState == .playing }
@@ -229,6 +237,11 @@ public final class PlayerModel: ObservableObject {
         playbackState = .buffering
         positionMilliseconds = 0
         durationMilliseconds = nil
+        // The outgoing medium's size says nothing about the incoming one's, and
+        // an aspect lock left over from it would shape the window for a picture
+        // that is no longer there. Cleared before the load, not after: the
+        // incoming size arrives with its own announcement.
+        videoGeometry = nil
         seekPreviewMilliseconds = nil
         releaseSeekGuard()
         controlsVisible = true
@@ -611,6 +624,7 @@ public final class PlayerModel: ObservableObject {
         playbackState = .idle
         positionMilliseconds = 0
         durationMilliseconds = nil
+        videoGeometry = nil
         seekPreviewMilliseconds = nil
         releaseSeekGuard()
         fatalMessage = nil
@@ -655,6 +669,8 @@ public final class PlayerModel: ObservableObject {
                 apply(state)
             case .tracksChanged:
                 catalogEmbeddedTracks()
+            case .videoGeometryChanged:
+                refreshVideoGeometry()
             case .endReached:
                 apply(.ended)
             case let .failed(error):
@@ -726,6 +742,21 @@ public final class PlayerModel: ObservableObject {
         }
     }
 
+    /// Asks the session for the size the engine is actually showing.
+    ///
+    /// Swallows a refusal rather than reporting it: a session that cannot
+    /// answer is one that is shutting down or holds no medium, and the honest
+    /// consequence is the same either way — no size, so no aspect lock. The
+    /// user has nothing to do about it and ADR-0031 Karar 1 has no class for
+    /// it.
+    private func refreshVideoGeometry() {
+        guard let session else {
+            videoGeometry = nil
+            return
+        }
+        videoGeometry = (try? session.videoGeometry()) ?? nil
+    }
+
     private func refreshPositionAndDuration() {
         guard let session else { return }
         // Asking the engine is not automatically fresher than the queue:
@@ -748,6 +779,12 @@ public final class PlayerModel: ObservableObject {
             apply(try session.state())
             positionMilliseconds = try session.positionMs()
             durationMilliseconds = try session.durationMs()
+            // The announcement may be among the events that were dropped, and
+            // it is the only thing that would ever have told the shell to look
+            // (ADR-0038 Karar 2). Re-reading here is what keeps the window's
+            // aspect lock true after a loss instead of frozen at the last size
+            // that happened to get through.
+            videoGeometry = try session.videoGeometry()
             _ = try session.tracks(kind: .audio)
             catalogEmbeddedTracks()
         } catch {
@@ -815,6 +852,9 @@ public final class PlayerModel: ObservableObject {
     private func presentFatal(_ error: Error) {
         playbackState = .failed
         fatalMessage = PlaybackPresentation.errorMessage(for: error)
+        // Nothing is being shown, so nothing constrains the window: the fatal
+        // state is one of the three ADR-0038 leaves free to resize.
+        videoGeometry = nil
         controlsPinned = false
         showControls()
     }

@@ -49,7 +49,11 @@ struct ContractTests {
             // this clip. The margin is for media this adapter has not met — a
             // sparse-keyframe or VFR source — not for slack it needs here.
             seekToleranceMs: 100,
-            settleTimeoutMs: 5_000
+            settleTimeoutMs: 5_000,
+            // The clip's real display size. Declaring it is what makes the
+            // kit's geometry step demand the positive branch — announced, then
+            // readable — instead of the audio-only one.
+            videoGeometry: FfiVideoGeometry(width: 160, height: 90)
         )
     }
 
@@ -112,6 +116,139 @@ struct ContractTests {
         // `keep-open` is why the medium is still there to answer: the `Ended`
         // state has media loaded, so duration and tracks still work.
         #expect(try engine.durationMs() == 30_008)
+    }
+
+    // MARK: - Display geometry (ADR-0038)
+
+    @Test func theDisplaySizeIsAnnouncedAndThenReadable() throws {
+        // Both halves of ADR-0038 Karar 1 and 2 against the real engine. The
+        // announcement matters as much as the value: without it the shell is
+        // never told to look, and the window keeps the previous medium's shape.
+        let engine = try MPVPlaybackEngine()
+        defer { try? engine.shutdown() }
+
+        // Idle, `None` would mean "this medium has no video" — and there is no
+        // medium at all, so the honest answer is a refusal.
+        #expect(throws: FfiPlaybackError.self) { try engine.videoGeometry() }
+
+        try engine.load(locator: Self.fixturePath("contract-clip.mkv"))
+        try settle(engine, until: .ready)
+
+        #expect(
+            try drainedShapes(engine, contain: .videoGeometryChanged),
+            "the engine never announced the display size"
+        )
+        #expect(try waitForGeometry(engine) == FfiVideoGeometry(width: 160, height: 90))
+    }
+
+    @Test func anAnamorphicMediumReportsItsDisplaySizeNotItsStoredSize() throws {
+        // ADR-0038 Karar 3, against the one fixture where the two differ:
+        // `anamorphic-clip.mkv` stores 720x576 and displays 1024x576. An
+        // adapter that handed over the stored frame would open a 5:4 window
+        // for a 16:9 picture, and every other fixture in this repository is
+        // square-pixel, so nothing else in the suite could tell.
+        let engine = try MPVPlaybackEngine()
+        defer { try? engine.shutdown() }
+
+        try engine.load(locator: Self.fixturePath("anamorphic-clip.mkv"))
+        try settle(engine, until: .ready)
+
+        let geometry = try waitForGeometry(engine)
+        #expect(geometry == FfiVideoGeometry(width: 1_024, height: 576))
+        #expect(geometry != FfiVideoGeometry(width: 720, height: 576))
+    }
+
+    @Test func aLoadingMediumDoesNotExposeTheOutgoingDisplaySize() throws {
+        let engine = try MPVPlaybackEngine()
+        defer { try? engine.shutdown() }
+        try engine.load(locator: Self.fixturePath("contract-clip.mkv"))
+        try settle(engine, until: .ready)
+        let outgoing = try waitForGeometry(engine)
+        #expect(outgoing == FfiVideoGeometry(width: 160, height: 90))
+
+        // Hold the adapter at load's first step while the real VO still has
+        // the old picture. Racing an actual load would miss this short window.
+        try engine.mutate { engine.phase = .loading }
+        #expect(try engine.videoGeometry() == nil)
+        try engine.mutate { engine.phase = .loaded }
+        #expect(try engine.videoGeometry() == outgoing, "the old VO size must really exist")
+    }
+
+    @Test func successiveMediaReportTheirOwnDisplaySize() throws {
+        let engine = try MPVPlaybackEngine()
+        defer { try? engine.shutdown() }
+        for (name, geometry) in [
+            ("contract-clip.mkv", FfiVideoGeometry(width: 160, height: 90)),
+            ("aspect-4x3-clip.mkv", FfiVideoGeometry(width: 160, height: 120)),
+            ("anamorphic-clip.mkv", FfiVideoGeometry(width: 1_024, height: 576))
+        ] {
+            try engine.load(locator: Self.fixturePath(name))
+            try settle(engine, until: .ready)
+            #expect(try waitForGeometry(engine) == geometry)
+        }
+        try engine.load(locator: Self.fixturePath("audio-only-clip.mka"))
+        try settle(engine, until: .ready)
+        #expect(try engine.videoGeometry() == nil)
+    }
+
+    @Test func aMediumWithNoVideoAnswersNothingAndAnnouncesNothing() throws {
+        // `None` is a state, not a failure. Measured: libmpv emits no video
+        // reconfiguration at all for an audio-only medium
+        // (`evidence/M3/NEN-068-measurement.md`), so an announcement here would
+        // send the shell asking after a size that does not exist.
+        let engine = try MPVPlaybackEngine()
+        defer { try? engine.shutdown() }
+
+        try engine.load(locator: Self.fixturePath("audio-only-clip.mka"))
+        try settle(engine, until: .ready)
+        // Long enough for a reconfiguration to have arrived if one were coming;
+        // the positive test above sees its own within the settle.
+        Thread.sleep(forTimeInterval: 0.3)
+
+        #expect(try engine.videoGeometry() == nil)
+        #expect(
+            // A short window: the wait above already gave a reconfiguration
+            // every chance to arrive, and a negative assertion must not spend
+            // the positive path's patience proving nothing happened.
+            try !drainedShapes(engine, contain: .videoGeometryChanged, timeout: 0.2),
+            "a medium with no picture announced a display size"
+        )
+    }
+
+    /// Waits for the size to resolve, the way the shared kit's own step does.
+    ///
+    /// Measured: the size is still unreadable at the first of the two
+    /// reconfigurations a load produces, so a single read the instant after the
+    /// event reads before the answer exists.
+    private func waitForGeometry(
+        _ engine: MPVPlaybackEngine,
+        timeout: TimeInterval = 5
+    ) throws -> FfiVideoGeometry? {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if let geometry = try engine.videoGeometry() { return geometry }
+            Thread.sleep(forTimeInterval: 0.01)
+        }
+        return try engine.videoGeometry()
+    }
+
+    /// Whether the engine has reported an event of this shape by now.
+    ///
+    /// Drains rather than samples once: the adapter reports on its own thread,
+    /// so what is pending at any single instant is a race.
+    private func drainedShapes(
+        _ engine: MPVPlaybackEngine,
+        contain wanted: FfiPlaybackEvent,
+        timeout: TimeInterval = 3
+    ) throws -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        var seen: [FfiPlaybackEvent] = []
+        repeat {
+            seen.append(contentsOf: engine.drainEvents())
+            if seen.contains(wanted) { return true }
+            Thread.sleep(forTimeInterval: 0.01)
+        } while Date() < deadline
+        return false
     }
 
     @Test func aFileThatIsNotMediaFailsWithoutCrashing() throws {

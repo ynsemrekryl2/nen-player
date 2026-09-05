@@ -17,6 +17,7 @@
 use nen_ports::playback::error::LoadFailure;
 use nen_ports::playback::{
     Capability, MediaSource, Operation, PlaybackError, TrackDescriptor, TrackId, TrackKind,
+    VideoGeometry,
 };
 
 /// A media URL with a token (K23 #1, #2).
@@ -89,6 +90,22 @@ fn track_descriptor_still_prints_what_is_safe() {
 }
 
 #[test]
+fn video_geometry_prints_its_numbers_and_nothing_else() {
+    // ADR-0038 Karar 5 places the display size **outside** K23: it is not a
+    // URL, a path, a filename or dialogue, and it is loggable.
+    //
+    // So this guard runs in both directions. The size must stay clean — a
+    // future field able to hold a string would be caught by the first half —
+    // and it must still *print*, because a type redacted "to be safe" would
+    // take the one fact it exists to report out of every diagnostic.
+    let geometry = VideoGeometry::new(1_024, 576).expect("a valid size");
+    let printed = format!("{geometry:?}");
+    assert_clean("VideoGeometry", &printed);
+    assert!(printed.contains("1024"), "width missing: {printed}");
+    assert!(printed.contains("576"), "height missing: {printed}");
+}
+
+#[test]
 fn no_playback_error_variant_carries_private_data() {
     // Every variant, constructed and printed. The variants hold only bounded
     // enums and numbers by design (see the module note in error.rs); this test
@@ -117,6 +134,9 @@ fn no_playback_error_variant_carries_private_data() {
         },
         PlaybackError::LoadFailed {
             reason: LoadFailure::NotFound,
+        },
+        PlaybackError::InsetOutOfRange {
+            operation: Operation::SetSubtitleBottomInset,
         },
         PlaybackError::EngineFailure { code: -22 },
     ];

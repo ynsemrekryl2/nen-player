@@ -3,9 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-08-31** (`NEN-067` done — ultra-ince, zemine-bitişik
-> oynatıcı kromu; son kapı `NEN-065` ile açıldı. `NEN-068` artık READY.
-> Önceki: ADR-0038 accepted — video display geometry playback portundan geçer)
+> Son güncelleme: **2026-09-05** (`NEN-068` done — medya boyutunda açılan,
+> orana kilitli pencere; tam ekran ve ardışık medya kusurları kapatıldı.
+> Önceki: `NEN-067` done — ultra-ince, zemine-bitişik oynatıcı kromu)
 
 ## Nerede duruyoruz
 
@@ -13,9 +13,29 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-067` — ultra-thin flush player chrome |
-| **Sıradaki READY** | `NEN-027`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-068` |
-| **Task sayısı** | 68 · done 46 · active 0 · blocked 0 · canceled 2 · backlog 20 |
+| **Son tamamlanan** | `NEN-068` — media-sized, aspect-locked player window |
+| **Sıradaki READY** | `NEN-027`, `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-069` |
+| **Task sayısı** | 69 · done 47 · active 0 · blocked 0 · canceled 2 · backlog 20 |
+
+**`NEN-068` kapandı — pencere medyanın gerçek display boyutunda açılıyor ve
+canlı resize boyunca oranı koruyor.**
+ADR-0038'in taşıdığı tek sayı porttan, FFI'den ve kabuktan geçip
+`WindowGeometry`'ye ulaşıyor: pencere medyanın oranına kilitleniyor, minimum
+boyut krom tabanından (600×390 pt) o orana göre türetiliyor ve video yokken
+kilit kurulmuyor. Ölçüm `evidence/M3/NEN-068-measurement.md`'de: libmpv
+headless de `MPV_EVENT_VIDEO_RECONFIG` üretiyor ve anamorphic klipte
+720×576 yerine **1024×576** veriyor.
+
+Elle kabul üç kusuru kapattı: video yüzeyi safe area içinde kalıp siyah çerçeve
+çiziyordu; sıfır oran ataması macOS 27'de native tam ekran çıkışını yarıda
+bırakıyordu; yükleme sırasında eski VO boyutu yeni medyanın ilk pencere
+boyutlandırmasını tüketebiliyordu. Gerçek uygulamada 16:9, 4:3, 2.39:1,
+anamorphic ve audio-only koşuları; tam ekran `F`/düğme/`Esc`; play/pause, seek
+ve canlı resize ölçüldü. Swift paketi **150/150**, Rust workspace **560/560**
+(1 ignored benchmark); fmt, clippy, cargo-deny, shell testleri, `.app` build'i,
+strict codesign ve doküman kapıları yeşil. Tam kayıt:
+`tasks/done/NEN-068-*.md` · `evidence/M3/NEN-068-checklist.md` ·
+`evidence/M3/NEN-068-fullscreen.md`.
 
 **`NEN-067` kapandı — oynatıcı kromu tek satırlık, 57 pt'lik, pencerenin alt
 ve yan kenarlarına sıfır boşlukla oturan cam bir transport.** Tek sırada
@@ -1338,6 +1358,15 @@ kurmaz** — bu, `scripts/tests/doctor.test.sh` S7 ile mekanik olarak kanıtlan�
 Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
+
+2026-09-05'te NEN-068 kapanışı için bu makinede Rust workspace **560/560**
+(1 ignored benchmark), Swift paketi **150/150** geçti. `cargo fmt --check`,
+`cargo clippy --all-targets --all-features -- -D warnings`, `cargo deny check`,
+shell testleri, `.app` build'i, strict codesign, task index ve doküman kapıları
+da yeşil. Ayrıntılı ürün kabulü `evidence/M3/NEN-068-checklist.md` ve
+`evidence/M3/NEN-068-fullscreen.md` içinde.
+
+### Toolchain kapısı geçmiş kaydı
 
 2026-08-25, tümü bu makinede çalıştırıldı (Apple M5 · arm64 · macOS 27.0
 26A5416b · rustc/cargo 1.98.0 · **Swift 6.3.3 — Xcode 26.6 bundled** ·

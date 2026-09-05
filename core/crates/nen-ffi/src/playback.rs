@@ -38,7 +38,7 @@
 use nen_app::playback::{run_contract, ContractFixture, ShellEngine, ShellEngineFactory};
 use nen_app::ports::playback::{
     Capability, LoadFailure, Operation, PlaybackError, PlaybackEvent, PlaybackState,
-    TrackDescriptor, TrackId, TrackKind,
+    TrackDescriptor, TrackId, TrackKind, VideoGeometry,
 };
 use std::fmt;
 use std::sync::Arc;
@@ -367,15 +367,64 @@ impl fmt::Debug for FfiTrackDescriptor {
     }
 }
 
+/// The display size of the video being played (ADR-0038 Karar 1).
+///
+/// Two numbers and nothing else. Unlike every other outbound record here it
+/// needs no hand-written `Debug`: ADR-0038 Karar 5 places a width and a height
+/// outside every K23 class, so there is nothing for the host language's
+/// reflection to leak — which is the standard this module holds everything to,
+/// and this type meets it by construction rather than by redaction.
+///
+/// Both dimensions are greater than zero. The core refuses a degenerate size
+/// before building one ([`VideoGeometry::new`]), and an adapter that sends one
+/// gets `None` rather than a window one pixel wide.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Record)]
+pub struct FfiVideoGeometry {
+    pub width: u32,
+    pub height: u32,
+}
+
+impl From<VideoGeometry> for FfiVideoGeometry {
+    fn from(value: VideoGeometry) -> Self {
+        Self {
+            width: value.width(),
+            height: value.height(),
+        }
+    }
+}
+
+impl From<FfiVideoGeometry> for Option<VideoGeometry> {
+    /// A size the adapter sent, validated on the way in.
+    ///
+    /// `Option`, because the boundary cannot enforce "greater than zero" the
+    /// way the constructor does: an adapter that answered `0x0` would otherwise
+    /// build a value the core's own type refuses to exist. It becomes `None` —
+    /// which is exactly what "the engine does not know yet" means.
+    fn from(value: FfiVideoGeometry) -> Self {
+        VideoGeometry::new(value.width, value.height)
+    }
+}
+
 /// Something the engine reports.
 #[derive(Debug, Clone, Copy, PartialEq, uniffi::Enum)]
 pub enum FfiPlaybackEvent {
-    PositionChanged { position_ms: u64 },
-    StateChanged { state: FfiPlaybackState },
-    SeekCompleted { position_ms: u64 },
+    PositionChanged {
+        position_ms: u64,
+    },
+    StateChanged {
+        state: FfiPlaybackState,
+    },
+    SeekCompleted {
+        position_ms: u64,
+    },
     TracksChanged,
+    /// The video's display size changed and must be re-read. Carries no value
+    /// on purpose (ADR-0038 Karar 2).
+    VideoGeometryChanged,
     EndReached,
-    Failed { error: FfiPlaybackError },
+    Failed {
+        error: FfiPlaybackError,
+    },
 }
 
 impl From<FfiPlaybackEvent> for PlaybackEvent {
@@ -391,6 +440,7 @@ impl From<FfiPlaybackEvent> for PlaybackEvent {
                 position: Duration::from_millis(position_ms),
             },
             FfiPlaybackEvent::TracksChanged => Self::TracksChanged,
+            FfiPlaybackEvent::VideoGeometryChanged => Self::VideoGeometryChanged,
             FfiPlaybackEvent::EndReached => Self::EndReached,
             FfiPlaybackEvent::Failed { error } => Self::Failed {
                 // A `Failed` event is not the answer to any one call, so there
@@ -424,6 +474,13 @@ pub trait ForeignPlaybackEngine: Send + Sync {
     fn position_ms(&self) -> Result<u64, FfiPlaybackError>;
     fn duration_ms(&self) -> Result<Option<u64>, FfiPlaybackError>;
     fn state(&self) -> FfiPlaybackState;
+    /// The display size of the video, with pixel aspect ratio and rotation
+    /// **already applied** (ADR-0038 Karar 3).
+    ///
+    /// `None` is the ordinary answer for audio-only media and for a stream that
+    /// has not resolved its size yet — not an error. Producing the corrected
+    /// size is this side's obligation; the core does not interpret it.
+    fn video_geometry(&self) -> Result<Option<FfiVideoGeometry>, FfiPlaybackError>;
 
     fn tracks(&self, kind: FfiTrackKind) -> Result<Vec<FfiTrackDescriptor>, FfiPlaybackError>;
     fn select_track(&self, kind: FfiTrackKind, track: Option<u32>) -> Result<(), FfiPlaybackError>;
@@ -522,6 +579,13 @@ impl ShellEngine for ForeignEngineAdapter {
 
     fn state(&self) -> PlaybackState {
         self.inner.state().into()
+    }
+
+    fn video_geometry(&self) -> Result<Option<VideoGeometry>, PlaybackError> {
+        self.inner
+            .video_geometry()
+            .map(|geometry| geometry.and_then(Into::into))
+            .map_err(|error| error.into_port(Operation::VideoGeometry))
     }
 
     fn tracks(&self, kind: TrackKind) -> Result<Vec<TrackDescriptor>, PlaybackError> {
@@ -625,6 +689,8 @@ pub struct FfiContractFixture {
     pub seek_tolerance_ms: u64,
     /// How long to wait for a state before calling it a failure.
     pub settle_timeout_ms: u64,
+    /// The medium's display size, or `None` when it has no video at all.
+    pub video_geometry: Option<FfiVideoGeometry>,
 }
 
 /// The result of one contract run.
@@ -659,6 +725,7 @@ pub fn run_playback_contract(
             unknown_track: fixture.unknown_track,
             seek_tolerance_ms: fixture.seek_tolerance_ms,
             settle_timeout_ms: fixture.settle_timeout_ms,
+            video_geometry: fixture.video_geometry.and_then(Into::into),
         },
     );
     FfiContractReport {

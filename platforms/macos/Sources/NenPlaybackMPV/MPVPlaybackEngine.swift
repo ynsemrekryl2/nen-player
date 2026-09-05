@@ -291,6 +291,48 @@ public final class MPVPlaybackEngine: ForeignPlaybackEngine, @unchecked Sendable
         }
     }
 
+    /// The display size of the picture, or `nil` when there is none
+    /// (ADR-0038 Karar 1 and 3).
+    ///
+    /// `video-out-params/dw` and `/dh` are what mpv hands out **after** VO
+    /// filters and rotation, which is exactly the number ADR-0038 Karar 3 asks
+    /// for: the adapter reports the engine's own answer rather than deriving
+    /// one. `video-params/dw`/`dh` is the fallback for the moment before a
+    /// video output exists; measured on this engine the two agree once the
+    /// file is open (`evidence/M3/NEN-068-measurement.md`).
+    ///
+    /// **The correction is real, not theoretical.** Measured on
+    /// `fixtures/media/anamorphic-clip.mkv` — 720x576 stored, SAR 64:45 — both
+    /// properties answer `1024x576`. An adapter that reported the stored frame
+    /// size would open a 5:4 window for a 16:9 picture.
+    ///
+    /// `nil` for audio-only media: neither property is readable there, and the
+    /// port says that is a state and not a failure. A zero from either is
+    /// treated the same way — an engine that does not know yet must not be
+    /// taken for one that knows the answer is zero.
+    public func videoGeometry() throws -> FfiVideoGeometry? {
+        try requireMedia()
+        // During loadfile, video-out-params can still describe the outgoing
+        // picture. Do not consume the new medium's initial window sizing with
+        // that stale size; FILE_LOADED and VIDEO_RECONFIG will make it readable.
+        lock.lock()
+        let loaded = phase == .loaded
+        lock.unlock()
+        guard loaded else { return nil }
+        guard let size = displaySize("video-out-params") ?? displaySize("video-params") else {
+            return nil
+        }
+        return size
+    }
+
+    private func displaySize(_ prefix: String) -> FfiVideoGeometry? {
+        guard let width = try? int("\(prefix)/dw"),
+              let height = try? int("\(prefix)/dh"),
+              width > 0, height > 0
+        else { return nil }
+        return FfiVideoGeometry(width: UInt32(width), height: UInt32(height))
+    }
+
     public func tracks(kind: FfiTrackKind) throws -> [FfiTrackDescriptor] {
         try requireMedia()
         lock.lock()
@@ -502,6 +544,7 @@ final class DeadEngine: ForeignPlaybackEngine, @unchecked Sendable {
     func positionMs() throws -> UInt64 { throw FfiPlaybackError.NotLoaded }
     func durationMs() throws -> UInt64? { throw FfiPlaybackError.NotLoaded }
     func state() -> FfiPlaybackState { .failed }
+    func videoGeometry() throws -> FfiVideoGeometry? { throw FfiPlaybackError.NotLoaded }
     func tracks(kind _: FfiTrackKind) throws -> [FfiTrackDescriptor] {
         throw FfiPlaybackError.NotLoaded
     }

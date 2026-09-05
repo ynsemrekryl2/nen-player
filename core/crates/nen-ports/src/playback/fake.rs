@@ -17,6 +17,7 @@ use super::contract::ContractInputs;
 use super::engine::PlaybackEngine;
 use super::error::{Operation, PlaybackError};
 use super::event::{guard_reentrancy, EventQueue, PlaybackEvent, PlaybackState};
+use super::geometry::VideoGeometry;
 use super::media::MediaSource;
 use super::track::{TrackDescriptor, TrackId, TrackKind};
 use nen_domain::source::LanguageTag;
@@ -45,6 +46,16 @@ pub const FAKE_SUBTITLE_TRACK: TrackId = TrackId(1);
 /// An id no fake track of any kind has.
 pub const FAKE_UNKNOWN_TRACK: TrackId = TrackId(9_999);
 
+/// The display size the fake medium has.
+///
+/// The same size `fixtures/media/contract-clip.mkv` really is, so the reference
+/// engine and the real adapter are judged against a medium of the same shape
+/// rather than against two different pictures.
+pub const FAKE_VIDEO_WIDTH: u32 = 160;
+
+/// The display height of the fake medium. See [`FAKE_VIDEO_WIDTH`].
+pub const FAKE_VIDEO_HEIGHT: u32 = 90;
+
 /// A fake engine whose capability set is chosen by the caller.
 #[derive(Debug)]
 pub struct FakeEngine {
@@ -68,6 +79,13 @@ pub struct FakeEngine {
     /// The share of the surface the shell says its own chrome covers
     /// (ADR-0037). A real engine keeps this too, as a rendering option.
     subtitle_bottom_inset: f32,
+    /// The display size this fake medium has, or `None` for one with no video
+    /// at all (ADR-0038 Karar 1).
+    ///
+    /// A property of the **medium**, not of the engine, which is why it is set
+    /// at construction and not by a capability: an engine does not choose
+    /// whether the file it was handed has a picture in it.
+    video_geometry: Option<VideoGeometry>,
     shut_down: bool,
     events: EventQueue,
 }
@@ -76,6 +94,19 @@ impl FakeEngine {
     /// An engine declaring every optional capability.
     pub fn full() -> Self {
         Self::new(Capabilities::ALL)
+    }
+
+    /// An engine whose medium has no video at all.
+    ///
+    /// The other half of ADR-0038 Karar 1: `None` is a state, not a failure,
+    /// and the only honest way to run the contract's `None` branch is against
+    /// an engine that really has nothing to show. Fully capable otherwise —
+    /// audio-only media still has tracks, a duration and subtitles.
+    pub fn without_video() -> Self {
+        Self {
+            video_geometry: None,
+            ..Self::full()
+        }
     }
 
     /// An engine providing only the mandatory base.
@@ -98,6 +129,7 @@ impl FakeEngine {
             injected: None,
             showing_injected: false,
             subtitle_bottom_inset: 0.0,
+            video_geometry: VideoGeometry::new(FAKE_VIDEO_WIDTH, FAKE_VIDEO_HEIGHT),
             shut_down: false,
             events: EventQueue::default(),
         }
@@ -237,6 +269,13 @@ impl PlaybackEngine for FakeEngine {
         self.set_state(PlaybackState::Buffering);
         self.set_state(PlaybackState::Ready);
         self.events.push(PlaybackEvent::TracksChanged);
+        // Announced only when there is something to announce. A medium with no
+        // picture produces no reconfiguration on a real engine either —
+        // measured on libmpv, `audio-only-clip.mka` emits none at all
+        // (`evidence/M3/NEN-068-measurement.md`).
+        if self.video_geometry.is_some() {
+            self.events.push(PlaybackEvent::VideoGeometryChanged);
+        }
         Ok(())
     }
 
@@ -292,6 +331,15 @@ impl PlaybackEngine for FakeEngine {
 
     fn state(&self) -> PlaybackState {
         self.state
+    }
+
+    fn video_geometry(&self) -> Result<Option<VideoGeometry>, PlaybackError> {
+        // Loaded media is required for the same reason `duration` requires it:
+        // an idle engine is not holding a picture whose size it could report,
+        // and answering `None` there would make "no video" and "no medium"
+        // the same answer.
+        self.ensure_loaded(Operation::VideoGeometry)?;
+        Ok(self.video_geometry)
     }
 
     fn tracks(&self, kind: TrackKind) -> Result<Vec<TrackDescriptor>, PlaybackError> {
@@ -415,7 +463,17 @@ pub fn fake_inputs() -> ContractInputs {
         .with_duration_ms(Some(FAKE_DURATION_MS))
         .with_track_counts(FAKE_AUDIO_TRACKS, FAKE_SUBTITLE_TRACKS)
         .with_tracks(FAKE_AUDIO_TRACK, FAKE_SUBTITLE_TRACK, FAKE_UNKNOWN_TRACK)
+        .with_video_geometry(VideoGeometry::new(FAKE_VIDEO_WIDTH, FAKE_VIDEO_HEIGHT))
     // No `with_seek_tolerance_ms`: the fake is exact, and leaving the default
     // at zero is what keeps the loosened kit strict here. A real adapter
     // declares the tolerance it measured; the fake is not allowed one.
+}
+
+/// The inputs for a medium with no picture, to drive [`FakeEngine::without_video`].
+///
+/// The same fixture in every other respect: what is being varied is the medium,
+/// not the engine, so a difference the kit reports is about the `None` branch
+/// and not about some other number having moved with it.
+pub fn fake_inputs_without_video() -> ContractInputs {
+    fake_inputs().with_video_geometry(None)
 }

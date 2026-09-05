@@ -15,7 +15,7 @@
 
 use crate::playback::{
     shell_engine, FfiPlaybackError, FfiPlaybackState, FfiTrackDescriptor, FfiTrackKind,
-    ForeignPlaybackEngine,
+    FfiVideoGeometry, ForeignPlaybackEngine,
 };
 use crate::subtitles::FfiSubtitleLibrary;
 use nen_app::ports::playback::{PlaybackEvent, TrackId};
@@ -44,6 +44,9 @@ pub enum FfiSessionEvent {
         position_ms: u64,
     },
     TracksChanged,
+    /// The video's display size changed; the shell re-reads it with
+    /// [`FfiPlaybackSession::video_geometry`] (ADR-0038 Karar 2).
+    VideoGeometryChanged,
     EndReached,
     Failed {
         error: FfiPlaybackError,
@@ -68,6 +71,7 @@ impl From<PlaybackEvent> for FfiSessionEvent {
                 position_ms: millis(position),
             },
             PlaybackEvent::TracksChanged => Self::TracksChanged,
+            PlaybackEvent::VideoGeometryChanged => Self::VideoGeometryChanged,
             PlaybackEvent::EndReached => Self::EndReached,
             PlaybackEvent::Failed { error } => Self::Failed {
                 error: error.into(),
@@ -161,6 +165,23 @@ impl FfiPlaybackSession {
 
     pub fn state(&self) -> Result<FfiPlaybackState, FfiPlaybackError> {
         self.inner.state().map(Into::into).map_err(Into::into)
+    }
+
+    /// The display size of the video being played, or `None` when there is
+    /// none (ADR-0038 Karar 1).
+    ///
+    /// Read after every `VideoGeometryChanged` and after an `EventsLost`
+    /// resync: the event carries no value, so asking is the only way to learn
+    /// the answer and there is never a stale copy to disagree with it.
+    ///
+    /// `None` is a state, not a failure — audio-only media, a live stream's
+    /// first moment, anything not decoded yet. What the shell does with the
+    /// number is its own decision (Karar 4).
+    pub fn video_geometry(&self) -> Result<Option<FfiVideoGeometry>, FfiPlaybackError> {
+        self.inner
+            .video_geometry()
+            .map(|geometry| geometry.map(Into::into))
+            .map_err(Into::into)
     }
 
     pub fn tracks(&self, kind: FfiTrackKind) -> Result<Vec<FfiTrackDescriptor>, FfiPlaybackError> {
@@ -305,6 +326,7 @@ mod tests {
                 position: Duration::from_millis(12_000),
             },
             PlaybackEvent::TracksChanged,
+            PlaybackEvent::VideoGeometryChanged,
             PlaybackEvent::EndReached,
             PlaybackEvent::Failed {
                 error: PlaybackError::LoadFailed {
@@ -327,6 +349,7 @@ mod tests {
                     position_ms: 12_000
                 },
                 FfiSessionEvent::TracksChanged,
+                FfiSessionEvent::VideoGeometryChanged,
                 FfiSessionEvent::EndReached,
                 FfiSessionEvent::Failed {
                     error: FfiPlaybackError::LoadFailed {
@@ -366,6 +389,33 @@ mod tests {
                 max: 2.0
             }
         );
+    }
+
+    #[test]
+    fn a_display_size_crosses_as_two_numbers_and_a_degenerate_one_does_not() {
+        use crate::playback::FfiVideoGeometry;
+        use nen_app::ports::playback::VideoGeometry;
+
+        let anamorphic = VideoGeometry::new(1_024, 576).expect("a valid size");
+        let crossed = FfiVideoGeometry::from(anamorphic);
+        assert_eq!((crossed.width, crossed.height), (1_024, 576));
+        assert_eq!(Option::<VideoGeometry>::from(crossed), Some(anamorphic));
+
+        // Inbound, the boundary cannot rely on the constructor having run on
+        // the other side. A zero becomes "the engine does not know yet"
+        // rather than a size the core's own type refuses to hold.
+        for degenerate in [
+            FfiVideoGeometry {
+                width: 0,
+                height: 576,
+            },
+            FfiVideoGeometry {
+                width: 1_024,
+                height: 0,
+            },
+        ] {
+            assert_eq!(Option::<VideoGeometry>::from(degenerate), None);
+        }
     }
 
     /// The descriptor comes back with the tag the core canonicalised, not the

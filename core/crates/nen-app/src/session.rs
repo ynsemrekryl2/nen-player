@@ -40,7 +40,7 @@ use crate::renderer::{playback_error, EngineNativeRenderer, RendererState};
 use crate::subtitles::SubtitleLibrary;
 use nen_ports::playback::{
     MediaSource, Operation, PlaybackEngine, PlaybackError, PlaybackEvent, PlaybackState,
-    TrackDescriptor, TrackId, TrackKind,
+    TrackDescriptor, TrackId, TrackKind, VideoGeometry,
 };
 use nen_ports::renderer::{RenderError, SubtitleRenderer};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -189,6 +189,22 @@ impl PlaybackSession {
     /// something.
     pub fn state(&self) -> Result<PlaybackState, PlaybackError> {
         self.command(Operation::State, |engine| Ok(engine.state()))
+    }
+
+    /// The display size of the video being played, or `None` when there is
+    /// none (ADR-0038 Karar 1).
+    ///
+    /// The shell asks after every
+    /// [`PlaybackEvent::VideoGeometryChanged`](nen_ports::playback::PlaybackEvent::VideoGeometryChanged)
+    /// and after an `EventsLost` resync, because the event carries no value —
+    /// asking is the only way to learn the answer, so there is never a stale
+    /// copy of it anywhere.
+    ///
+    /// What the shell does with it is not decided here (Karar 4): the aspect
+    /// lock, the opening size and the screen clamp belong to the platform
+    /// presentation layer.
+    pub fn video_geometry(&self) -> Result<Option<VideoGeometry>, PlaybackError> {
+        self.command(Operation::VideoGeometry, |engine| engine.video_geometry())
     }
 
     pub fn tracks(&self, kind: TrackKind) -> Result<Vec<TrackDescriptor>, PlaybackError> {
