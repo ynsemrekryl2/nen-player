@@ -239,9 +239,12 @@ fn path_digest(canonical: &Path) -> [u8; 32] {
 
 /// Runs the gates, then reads, decodes and parses.
 ///
-/// `root` is as in [`admit`]. The language is resolved from the parsed document
-/// (NEN-020) so a sidecar lands in a real language group rather than always in
-/// `Dil Belirsiz`; nothing here looks at the filename for a language hint.
+/// `root` is as in [`admit`]. When the filename declares a language as a
+/// trailing sub-extension (`Film.tr.srt`, NEN-057) that is the metadata
+/// `resolve_language` treats as authoritative (ADR-0029 Karar 5); the parsed
+/// document is still examined so a reliable disagreement can be reported. A
+/// sidecar with no filename hint falls back to text detection alone
+/// (NEN-020), and one with neither lands in `Dil Belirsiz`.
 pub fn load(path: &Path, root: &Path) -> LoadedFile {
     let admitted = match admit(path, root) {
         Ok(admitted) => admitted,
@@ -265,9 +268,11 @@ pub fn load(path: &Path, root: &Path) -> LoadedFile {
         return defective(SourceDefect::Malformed);
     };
 
-    // A detector that cannot name the language leaves it unset, which is the
-    // `Dil Belirsiz` group (ADR-0010 Karar 6) — not an error.
-    let language = nen_subtitle::language::resolve_language(&document, None)
+    // A filename hint or a confident text detector that cannot name the
+    // language leaves it unset, which is the `Dil Belirsiz` group
+    // (ADR-0010 Karar 6) — not an error.
+    let hint = nen_subtitle::language::from_file_name(&admitted.file_name);
+    let language = nen_subtitle::language::resolve_language(&document, hint.as_ref())
         .ok()
         .and_then(|resolution| resolution.language().cloned());
 

@@ -3,8 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-06** (`NEN-042` done — boş durum artık son N
-> medyayı listeliyor. Önceki: `NEN-050`)
+> Son güncelleme: **2026-09-06** (`NEN-057` done — dosya adının söylediği dil
+> artık okunuyor. Önceki: `NEN-042`)
 
 ## Nerede duruyoruz
 
@@ -12,20 +12,58 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-042` — boş durumdaki son açılanlar listesi 5 kayda çıktı, `NEN-050`'nin ertelediği bookmark tazeleme kusuru kapandı |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-043`, `NEN-044`, `NEN-052`, `NEN-057`, `NEN-064`, `NEN-071`, `NEN-072` |
-| **Task sayısı** | 74 · done 62 · active 0 · blocked 0 · canceled 2 · backlog 10 |
+| **Son tamamlanan** | `NEN-057` — kullanıcı altyazısının dili artık dosya adındaki alt-uzantıdan da okunuyor, metadata olarak içerik tespitine önceliklenir |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-043`, `NEN-044`, `NEN-052`, `NEN-064`, `NEN-071`, `NEN-072`, `NEN-075` |
+| **Task sayısı** | 75 · done 63 · active 0 · blocked 0 · canceled 2 · backlog 10 |
 
-**M3 kapanmıyor: `milestone: M3` etiketli 15 task'ın hepsi bitecek**
+**M3 kapanmıyor: `milestone: M3` etiketli 16 task'ın hepsi bitecek**
 (kullanıcı kararı, 2026-09-06). Beş çıkış kriteri `NEN-028`'de kanıtlandı ve
 milestone dokümanının kanonik task listesi (`NEN-021`…`028`, `061`, `062`)
 tamamlandı, ama kriterlerle erken kapanış yapılmıyor. Kalan 4: `043` ·
-`052` · `057` · `071` — hepsi READY.
+`052` · `071` · `075` — hepsi READY (`075`, `057`'nin bıraktığı sidecar
+boşluğuyla bugün açıldı).
 `docs/roadmap.md`'nin M3 satırı ve milestone dokümanının bayat task listesi
 kapanışta düzeltilecek. `NEN-073`, kullanıcının gerçek `.app`te minimum pencere
 sınırının uygulanmadığını göstermesiyle yeniden açıldı ve düzeltici kapanışta
 gerçek köşe sürüklemesiyle kanıtlandı; canlı resize regresyonu `NEN-074`
 ile kapandı.
+
+**`NEN-057` kapandı — `Film.tr.srt` gibi bir dosya adı artık dilini
+söylüyor.** Bugüne kadar kullanıcı altyazısının dili yalnız içerikten tespit
+ediliyordu (`resolve_language` her zaman `metadata: None` ile çağrılıyordu),
+oysa imza metadata'yı zaten bekliyordu (ADR-0029 Karar 5). Yeni
+`nen_subtitle::language::from_file_name` dosya adının son alt-uzantısını okur
+ve `LanguageTag::parse`'a verir; ikinci bir ISO tablosu açılmadı, ADR-0032'nin
+kanonikleştirmesi (`Film.eng.srt` → `en`) ve ADR-0030'un primary-subtag
+gruplaması (`Film.pt-BR.srt` → grup `pt`, region korunur) bedava geldi.
+
+**İki kullanıcı kararı alındı.** Birincisi: küçük, belgeli bir işaretçi kümesi
+(`sdh`, `cc`, `forced`) dil sayılmıyor — `LanguageTag::parse` bunları da
+geçerli iki/üç harfli kod olarak kabul ederdi ve `Film.sdh.srt` sahte bir
+`SDH` menü grubu açardı; bu bir regresyon olurdu, çünkü o dosyanın dili bugün
+içerikten doğru bulunuyor. Sondaki işaretçi atlanıp bir önceki alt-uzantıya
+bakılıyor (`Film.en.sdh.srt` → `en`). İkincisi: `hi` işaretçi kümesine
+**girmedi** — gerçek bir ISO 639-1 kodu (Hintçe) ve iki harfli bir kodu
+tümüyle erişilemez kılmak tutarsız olurdu.
+
+**Aday, önünde gerçek bir segment olmadan kabul edilmiyor.** `tr.srt` ve
+`.tr.srt` ipucu üretmiyor — orada "dil" adın kendisi, bir başlığın niteleyicisi
+değil. Bu üç mekanizma (metadata besleme, işaretçi atlama, gerçek-önek
+koşulu) ayrı ayrı geri alınıp yalnız kendi testinin kırmızıya döndüğü
+ölçüldü: sırasıyla 1/25, 2/11, 1/11.
+
+**Bir kapsam sınırı ölçüldü ve ayrı task'a dosyalandı.** Sidecar taraması
+yalnız medyanın tam basename'ini arıyor (`Film.mkv` → `Film.srt`), yani
+`Film.tr.srt` bugün sidecar olarak hiç bulunmuyor — bu task'ın etkisi yalnız
+`⇧⌘O` ile elle seçilen dosyalar. Genişletmek dizin listelemesi gerektirir ve
+kendi kararını istiyor (`NEN-075`).
+
+Rust workspace **586 → 594** (bu task ile +8; `568` STATUS'ta `NEN-042`
+girişinin tarihsel sayısıydı, temiz `HEAD` zaten 586 veriyordu — `NEN-033`'ün
+OpenSubtitles testleri aradaki fark). fmt, clippy, cargo-deny (yeni dış
+bağımlılık yok), shell ve doküman kapıları yeşil. Değişiklik yalnız Rust
+çekirdeğinde; FFI ve macOS kabuğu dokunulmadı. Kanıt:
+`tasks/done/NEN-057-*.md`.
 
 **`NEN-042` kapandı — boş durum artık tek "son açılan" satırı yerine 5
 kayıtlık, sıralı bir liste gösteriyor.** `RecentMediaStore` yeniden yazıldı:
@@ -1646,13 +1684,14 @@ Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
 
-2026-09-06'da NEN-042 kapanışı için macOS Swift paketi paralel ve seri
-**195/195** geçti; `.app` build'i, strict codesign, shell testleri, task
-index ve doküman kapıları da yeşildi. Aynı gün Rust workspace **568 passed / 1
-ignored** ile birlikte `cargo fmt --check` ve
-`cargo clippy --workspace --all-targets -- -D warnings` de geçti (bu task
-Rust'a dokunmadı). Ayrıntılı kayıt `evidence/M3/NEN-042-checklist.md`
-içinde.
+2026-09-06'da `NEN-057` kapanışı için Rust workspace **594 passed / 1
+ignored** (bu task ile 586 → 594) geçti, `cargo fmt --check`,
+`cargo clippy --workspace --all-targets -- -D warnings` ve `cargo deny check`
+temiz. Bu task Swift'e dokunmadı; aynı gün daha erken `NEN-042` kapanışı için
+macOS Swift paketi paralel ve seri **195/195** geçmişti, `.app` build'i,
+strict codesign, shell testleri, task index ve doküman kapıları da yeşildi.
+Ayrıntılı kayıt `tasks/done/NEN-057-*.md` ve
+`evidence/M3/NEN-042-checklist.md` içinde.
 
 ### Toolchain kapısı geçmiş kaydı
 

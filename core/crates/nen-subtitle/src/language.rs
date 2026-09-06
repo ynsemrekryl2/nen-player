@@ -106,6 +106,62 @@ impl fmt::Display for LanguageDetectionError {
 
 impl std::error::Error for LanguageDetectionError {}
 
+/// Filename suffixes that mark a subtitle's accessibility flavor rather than
+/// its language, matched case-insensitively (NEN-057).
+///
+/// `LanguageTag::parse` accepts any two-or-three-letter alphabetic code, and
+/// each of these happens to parse as one — `sdh` and `cc` are real ISO 639-2
+/// codes in their own right, `forced` merely has the right shape. Treating
+/// them as a language would open a spurious `SDH`/`CC`/`FORCED` menu group for
+/// a source whose language is (and was already, correctly) found from its
+/// text. `hi` is deliberately absent: it collides with "hearing impaired" in
+/// some libraries, but it is also Hindi's real ISO 639-1 code, and a two-letter
+/// code that names an actual language is kept rather than swallowed.
+const NON_LANGUAGE_FILENAME_MARKERS: [&str; 3] = ["sdh", "cc", "forced"];
+
+/// Reads the language a subtitle filename declares as a trailing
+/// sub-extension, if any (NEN-057).
+///
+/// `Film.tr.srt` and `Film.pt-BR.srt` name their language explicitly;
+/// `Film.forced.srt` and `Film.2019.srt` do not, and that is not an error —
+/// an unrecognized or non-language trailing segment is silently ignored, the
+/// same way absent metadata is ignored elsewhere in this module. Trailing
+/// accessibility markers (see [`NON_LANGUAGE_FILENAME_MARKERS`]) are skipped
+/// so `Film.en.sdh.srt` still yields `en`.
+///
+/// The candidate must be a genuine *sub*-extension — something must remain in
+/// front of it — so `tr.srt` and `.tr.srt` produce no hint: there the
+/// candidate is the filename itself, not a qualifier on one.
+///
+/// Takes the bare filename the user already sees (no directory component) and
+/// returns a value that carries no filename of its own, so a caller cannot
+/// forward this into a log and violate K23 #8 by accident.
+pub fn from_file_name(file_name: &str) -> Option<LanguageTag> {
+    let stem = file_name.strip_suffix(".srt").unwrap_or(file_name);
+    let mut segments: Vec<&str> = stem.split('.').collect();
+
+    while segments.last().is_some_and(|segment| {
+        NON_LANGUAGE_FILENAME_MARKERS
+            .iter()
+            .any(|marker| marker.eq_ignore_ascii_case(segment))
+    }) {
+        segments.pop();
+    }
+
+    // `split_last` gives the candidate and everything in front of it without
+    // an index that clippy (rightly) can't prove is in bounds. A single
+    // remaining segment (empty `prefix`) or a prefix made only of empty
+    // strings (`.tr` before the dropped `.srt`) means the candidate is the
+    // filename itself, not a qualifier on one — `tr.srt` and `.tr.srt` both
+    // land here.
+    let (candidate, prefix) = segments.split_last()?;
+    if !prefix.iter().any(|segment| !segment.is_empty()) {
+        return None;
+    }
+
+    LanguageTag::parse(candidate).ok()
+}
+
 /// Resolves a subtitle's language without network or other side effects.
 ///
 /// Metadata always determines the final language when supplied. Text is still
@@ -317,5 +373,79 @@ mod tests {
             LanguageTag::parse(code).unwrap_or_else(|err| panic!("{language:?}: {code}: {err}"));
             assert!(tags.insert(code), "duplicate canonical tag: {code}");
         }
+    }
+
+    // --- from_file_name (NEN-057) -------------------------------------
+
+    #[test]
+    fn a_declared_language_suffix_is_read() {
+        assert_eq!(from_file_name("Film.tr.srt"), Some(tag("tr")));
+        assert_eq!(from_file_name("Film.EN.srt"), Some(tag("en")));
+        assert_eq!(
+            from_file_name("Film.eng.srt"),
+            Some(tag("en")),
+            "639-2 canonicalizes"
+        );
+        assert_eq!(
+            from_file_name("Film.hi.srt"),
+            Some(tag("hi")),
+            "a real ISO code, not the marker"
+        );
+    }
+
+    #[test]
+    fn a_region_subtag_is_kept_and_normalized() {
+        assert_eq!(from_file_name("Film.pt-BR.srt"), Some(tag("pt-br")));
+        assert_eq!(
+            tag("pt-br").primary(),
+            "pt",
+            "grouping stays primary-only (ADR-0030)"
+        );
+    }
+
+    #[test]
+    fn a_trailing_accessibility_marker_is_skipped_for_the_language_beneath_it() {
+        assert_eq!(from_file_name("Film.en.sdh.srt"), Some(tag("en")));
+        assert_eq!(
+            from_file_name("Film.tr.CC.srt"),
+            Some(tag("tr")),
+            "markers match case-insensitively"
+        );
+    }
+
+    #[test]
+    fn a_bare_marker_or_unparseable_suffix_produces_no_hint() {
+        for name in [
+            "Film.sdh.srt",
+            "Film.cc.srt",
+            "Film.forced.srt",
+            "Film.2019.srt",
+            "Film.srt",
+            "Film.zh-hant-cn.srt",
+        ] {
+            assert_eq!(from_file_name(name), None, "{name}");
+        }
+    }
+
+    #[test]
+    fn a_language_shaped_filename_with_no_real_prefix_produces_no_hint() {
+        // Here the candidate segment is the whole name, not a qualifier on
+        // one — there is nothing for it to be a language *of*.
+        assert_eq!(from_file_name("tr.srt"), None);
+        assert_eq!(from_file_name(".tr.srt"), None);
+    }
+
+    #[test]
+    fn a_filename_hint_becomes_authoritative_metadata_and_text_still_conflicts() {
+        let hint = from_file_name("Film.tr.srt").expect("a hint");
+        let text = Some(candidate("en", 0.99));
+
+        let resolution = resolve_candidate(Some(hint), text);
+
+        assert_eq!(resolution.language(), Some(&tag("tr")));
+        let conflict = resolution
+            .metadata_conflict()
+            .expect("a reliable disagreement");
+        assert_eq!(conflict.detected().language(), &tag("en"));
     }
 }

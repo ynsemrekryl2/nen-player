@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **74** task · ✅ done 62 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 10
+Toplam **75** task · ✅ done 63 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 10
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -77,7 +77,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-054](done/NEN-054-volume-change-latency.md) | A volume change is heard when it is made | M | ✅ done | NEN-024 |
 | [NEN-055](done/NEN-055-transport-feedback-latency.md) | A transport command is shown without waiting for the next poll tick | S | ✅ done | NEN-053 |
 | [NEN-056](done/NEN-056-too-large-label-is-unreachable.md) | Resolve the unreachable "çok büyük" reason label | S | ✅ done | NEN-025 |
-| [NEN-057](backlog/NEN-057-filename-language-hint.md) | Read the language a subtitle filename declares | S | ⚪ backlog | NEN-025 |
+| [NEN-057](done/NEN-057-filename-language-hint.md) | Read the language a subtitle filename declares | S | ✅ done | NEN-025 |
 | [NEN-058](done/NEN-058-media-fails-beside-symlinked-sidecar.md) | A medium fails to load when a symlinked sidecar sits beside it | S | ✅ done | NEN-022 NEN-025 |
 | [NEN-059](done/NEN-059-restore-rust-ci-gates.md) | Restore the Rust CI gates | S | ✅ done | NEN-025 NEN-051 |
 | [NEN-060](canceled/NEN-060-selected-track-not-drawn-fullscreen.md) | A selected embedded track is not drawn while the window is full screen | S | 🚫 canceled | NEN-022 NEN-026 |
@@ -93,6 +93,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-071](backlog/NEN-071-open-panel-resolves-links.md) | Decide what the subtitle file picker does with a link | S | ⚪ backlog | NEN-025 |
 | [NEN-073](done/NEN-073-player-chrome-boundaries.md) | Player chrome boundary behaviour | M | ✅ done | — |
 | [NEN-074](done/NEN-074-smooth-live-resize.md) | Smooth live video resize | M | ✅ done | NEN-073 |
+| [NEN-075](backlog/NEN-075-sidecar-language-suffix.md) | Sidecar discovery does not see a language-suffixed subtitle | S | ⚪ backlog | NEN-025 NEN-057 |
 
 ## M5 — Translation Core
 
@@ -120,7 +121,7 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-043** — Bundle libmpv into the .app and notarize
 - **NEN-044** — Embedded subtitle text extraction
 - **NEN-052** — Decide and pin what a seek during loading does
-- **NEN-057** — Read the language a subtitle filename declares
 - **NEN-064** — Verified media identity in player chrome
 - **NEN-071** — Decide what the subtitle file picker does with a link
 - **NEN-072** — Parse container metadata from remote byte windows
+- **NEN-075** — Sidecar discovery does not see a language-suffixed subtitle

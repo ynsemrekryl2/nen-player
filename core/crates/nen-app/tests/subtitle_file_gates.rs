@@ -109,6 +109,63 @@ fn a_sidecar_lands_in_the_language_group_its_text_belongs_to() {
     assert_eq!(source.language().map(|tag| tag.as_str()), Some("tr"));
 }
 
+#[test]
+fn a_language_declared_in_the_filename_wins_over_the_text_it_names() {
+    // NEN-057: the file is named as Turkish but its dialogue is English —
+    // if content detection still decided, this test could not tell the two
+    // mechanisms apart. The filename must be what lands the source in `tr`.
+    let dir = TempDir::new("filename-language");
+    let path = dir.write(
+        "Film.tr.srt",
+        "1
+00:00:01,000 --> 00:00:04,000
+         Good evening, and welcome to the show tonight.
+
+         2
+00:00:05,000 --> 00:00:09,000
+         We have a wonderful lineup of guests for you this hour.
+",
+    );
+
+    let mut library = SubtitleLibrary::new();
+    assert_eq!(library.add_file(&path, dir.path()), AddOutcome::Added);
+
+    let source = library
+        .catalog()
+        .of_kind(SubtitleSourceKind::User)
+        .next()
+        .expect("one user source");
+    assert_eq!(source.language().map(|tag| tag.as_str()), Some("tr"));
+}
+
+#[test]
+fn a_filename_language_hint_is_ignored_when_it_is_not_a_real_sub_extension() {
+    // "Film.2019.srt" and "Film.forced.srt" must fall back to content
+    // detection exactly as if there were no hint at all.
+    let dir = TempDir::new("filename-no-hint");
+    let path = dir.write(
+        "Film.2019.srt",
+        "1
+00:00:01,000 --> 00:00:04,000
+         Bugün hava çok güzel ve biz sahilde uzun bir yürüyüş yaptık.
+
+         2
+00:00:05,000 --> 00:00:09,000
+         Akşam olduğunda eve dönüp birlikte yemek hazırlamaya karar verdik.
+",
+    );
+
+    let mut library = SubtitleLibrary::new();
+    assert_eq!(library.add_file(&path, dir.path()), AddOutcome::Added);
+
+    let source = library
+        .catalog()
+        .of_kind(SubtitleSourceKind::User)
+        .next()
+        .expect("one user source");
+    assert_eq!(source.language().map(|tag| tag.as_str()), Some("tr"));
+}
+
 // --- §4 #2: symlink ---------------------------------------------------------
 
 #[test]
