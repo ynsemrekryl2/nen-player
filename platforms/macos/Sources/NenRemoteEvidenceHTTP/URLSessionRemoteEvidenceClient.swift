@@ -39,6 +39,10 @@ public final class URLSessionRemoteEvidenceClient: NSObject, ForeignHttpClient, 
             urlRequest.httpMethod = "GET"
         }
 
+        for header in request.headers {
+            urlRequest.setValue(header.value, forHTTPHeaderField: header.name)
+        }
+
         if let range = request.range {
             switch range {
             case let .inclusive(start, end):

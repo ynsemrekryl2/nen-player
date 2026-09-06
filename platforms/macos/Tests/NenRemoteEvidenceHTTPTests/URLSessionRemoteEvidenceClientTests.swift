@@ -110,9 +110,34 @@ struct URLSessionRemoteEvidenceClientTests {
             method: .head,
             url: "https://media.invalid/opaque",
             range: nil,
+            headers: [],
             maxBodyBytes: 0
         ))
         #expect(response.statusCode == 302)
         #expect(response.headers.contains { $0.name == "Location" })
+    }
+
+    @Test func theAdapterForwardsRequestHeaders() throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [StubURLProtocol.self]
+        let client = URLSessionRemoteEvidenceClient(configuration: configuration)
+        StubURLProtocol.reply = { request in
+            #expect(request.value(forHTTPHeaderField: "Api-Key") == "fixture-secret")
+            #expect(request.value(forHTTPHeaderField: "User-Agent") == "Nen Player/0.1")
+            return StubURLProtocol.Reply(statusCode: 204, headers: [:], body: Data())
+        }
+        defer { StubURLProtocol.reply = nil }
+
+        let response = try client.send(request: FfiHttpRequest(
+            method: .get,
+            url: "https://api.opensubtitles.com/api/v1/subtitles",
+            range: nil,
+            headers: [
+                FfiHttpHeader(name: "Api-Key", value: "fixture-secret"),
+                FfiHttpHeader(name: "User-Agent", value: "Nen Player/0.1")
+            ],
+            maxBodyBytes: 1024
+        ))
+        #expect(response.statusCode == 204)
     }
 }

@@ -3,6 +3,7 @@
 //! Crate sınırları ve izinli bağımlılıklar: ADR-0006.
 
 pub mod embedded;
+pub mod identity;
 pub mod playback;
 pub mod remote_evidence;
 pub mod renderer;

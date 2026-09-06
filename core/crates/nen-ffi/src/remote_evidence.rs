@@ -28,6 +28,7 @@ pub struct FfiHttpRequest {
     pub method: FfiHttpMethod,
     pub url: String,
     pub range: Option<FfiByteRange>,
+    pub headers: Vec<FfiHttpHeader>,
     pub max_body_bytes: u64,
 }
 
@@ -37,6 +38,14 @@ impl From<HttpRequest> for FfiHttpRequest {
             method: value.method.into(),
             url: value.url,
             range: value.range.map(Into::into),
+            headers: value
+                .headers
+                .into_iter()
+                .map(|header| FfiHttpHeader {
+                    name: header.name,
+                    value: header.value,
+                })
+                .collect(),
             max_body_bytes: value.max_body_bytes as u64,
         }
     }
@@ -214,6 +223,7 @@ impl fmt::Debug for FfiHttpRequest {
             .field("method", &self.method)
             .field("url", &"<redacted>")
             .field("range", &self.range)
+            .field("header_count", &self.headers.len())
             .field("max_body_bytes", &self.max_body_bytes)
             .finish()
     }
@@ -248,6 +258,10 @@ mod tests {
             method: FfiHttpMethod::Head,
             url: "https://private.example/opaque?token=secret".into(),
             range: None,
+            headers: vec![FfiHttpHeader {
+                name: "Api-Key".into(),
+                value: "secret-key".into(),
+            }],
             max_body_bytes: 0,
         };
         let response = FfiHttpResponse {

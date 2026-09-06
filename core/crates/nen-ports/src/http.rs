@@ -18,6 +18,21 @@ pub enum HttpMethod {
     Get,
 }
 
+#[derive(Clone, PartialEq, Eq)]
+pub struct HttpHeader {
+    pub name: String,
+    pub value: String,
+}
+
+impl fmt::Debug for HttpHeader {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("HttpHeader")
+            .field("name", &self.name)
+            .field("value", &"<redacted>")
+            .finish()
+    }
+}
+
 impl fmt::Debug for HttpMethod {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(match self {
@@ -53,6 +68,7 @@ pub struct HttpRequest {
     pub method: HttpMethod,
     pub url: String,
     pub range: Option<ByteRange>,
+    pub headers: Vec<HttpHeader>,
     pub max_body_bytes: usize,
 }
 
@@ -62,6 +78,7 @@ impl HttpRequest {
             method: HttpMethod::Head,
             url: url.to_owned(),
             range: None,
+            headers: Vec::new(),
             max_body_bytes: 0,
         }
     }
@@ -71,7 +88,18 @@ impl HttpRequest {
             method: HttpMethod::Get,
             url: url.to_owned(),
             range: Some(range),
+            headers: Vec::new(),
             max_body_bytes: MAX_RESPONSE_BYTES,
+        }
+    }
+
+    pub fn get(url: &str, headers: Vec<HttpHeader>, max_body_bytes: usize) -> Self {
+        Self {
+            method: HttpMethod::Get,
+            url: url.to_owned(),
+            range: None,
+            headers,
+            max_body_bytes,
         }
     }
 }
@@ -82,22 +110,8 @@ impl fmt::Debug for HttpRequest {
             .field("method", &self.method)
             .field("url", &"<redacted>")
             .field("range", &self.range)
+            .field("header_count", &self.headers.len())
             .field("max_body_bytes", &self.max_body_bytes)
-            .finish()
-    }
-}
-
-#[derive(Clone, PartialEq, Eq)]
-pub struct HttpHeader {
-    pub name: String,
-    pub value: String,
-}
-
-impl fmt::Debug for HttpHeader {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("HttpHeader")
-            .field("name", &self.name)
-            .field("value", &"<redacted>")
             .finish()
     }
 }
@@ -153,12 +167,10 @@ pub trait HttpClient: Send + Sync {
 }
 
 /// A deterministic in-memory response source used by core contract tests.
-#[cfg(test)]
 pub struct FakeHttpClient {
     responses: std::sync::Mutex<Vec<(HttpRequest, Result<HttpResponse, HttpError>)>>,
 }
 
-#[cfg(test)]
 impl FakeHttpClient {
     pub fn new(responses: Vec<(HttpRequest, Result<HttpResponse, HttpError>)>) -> Self {
         Self {
@@ -167,7 +179,6 @@ impl FakeHttpClient {
     }
 }
 
-#[cfg(test)]
 impl HttpClient for FakeHttpClient {
     fn send(&self, request: HttpRequest) -> Result<HttpResponse, HttpError> {
         let mut responses = self

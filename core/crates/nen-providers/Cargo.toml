@@ -9,3 +9,4 @@ publish.workspace = true
 [dependencies]
 nen-domain.workspace = true
 nen-ports.workspace = true
+serde_json.workspace = true

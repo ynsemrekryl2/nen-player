@@ -3,9 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-06** (`NEN-041` done — doctor artık PATH'te
-> bulunan ama çalışmayan veya sürümü okunamayan aracı hazır saymıyor. Önceki:
-> `NEN-040`)
+> Son güncelleme: **2026-09-06** (`NEN-033` done — OpenSubtitles hash tabanlı
+> kesin kimlik sorgusu, redakte provider portu ve güvenli HTTP header taşıması
+> tamamlandı. Önceki: `NEN-041`)
 
 ## Nerede duruyoruz
 
@@ -13,9 +13,9 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-041` — çalıştırılamayan araç doctor kapısını kapatıyor |
-| **Sıradaki READY** | `NEN-033`, `NEN-034`, `NEN-035`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-071`, `NEN-072` |
-| **Task sayısı** | 74 · done 59 · active 0 · blocked 0 · canceled 2 · backlog 13 |
+| **Son tamamlanan** | `NEN-033` — OpenSubtitles hash tabanlı kesin kimlik sorgusu |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-064`, `NEN-071`, `NEN-072` |
+| **Task sayısı** | 74 · done 60 · active 0 · blocked 0 · canceled 2 · backlog 12 |
 
 **M3 kapanmıyor: `milestone: M3` etiketli 15 task'ın hepsi bitecek**
 (kullanıcı kararı, 2026-09-06). Beş çıkış kriteri `NEN-028`'de kanıtlandı ve

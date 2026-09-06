@@ -10,13 +10,14 @@
 //!
 //! | # | Layer | Kind |
 //! |---|---|---|
-//! | 1 | Stremio handoff metadata | declaration |
-//! | 2 | `.nfo` sidecar | declaration |
-//! | 3 | Container tags | declaration |
-//! | 4 | Declared name — local filename, or the server's `Content-Disposition` | declaration |
-//! | 5 | Parent directory names | inference |
-//! | 6 | Sibling agreement | corroboration |
-//! | 7 | Remote URL path segments | inference |
+//! | 1 | Exact provider hash match | verified declaration |
+//! | 2 | Stremio handoff metadata | declaration |
+//! | 3 | `.nfo` sidecar | declaration |
+//! | 4 | Container tags | declaration |
+//! | 5 | Declared name — local filename, or the server's `Content-Disposition` | declaration |
+//! | 6 | Parent directory names | inference |
+//! | 7 | Sibling agreement | corroboration |
+//! | 8 | Remote URL path segments | inference |
 //!
 //! Declarations come first because somebody stated them; inferences are us
 //! guessing from a name. Within the declarations the order runs from most
@@ -99,6 +100,7 @@ impl fmt::Debug for HandoffMetadata {
 /// assembling one field by field is deliberately not possible.
 #[derive(Clone, PartialEq, Eq, Default)]
 pub struct MediaEvidence {
+    verified_identity: Option<ParsedName>,
     file_name: Option<String>,
     declared_name: Option<String>,
     size_bytes: Option<u64>,
@@ -209,6 +211,32 @@ impl MediaEvidence {
         self.nfo.as_ref()?.imdb_id.as_deref()
     }
 
+    /// Adds an identity confirmed by an exact provider hash match.
+    ///
+    /// The provider result is kept as a parsed value so the existing resolver
+    /// and fallback candidates remain unchanged for all other outcomes.
+    pub fn with_verified_identity(
+        mut self,
+        title: String,
+        year: Option<u16>,
+        season: Option<u16>,
+        episode: Option<u16>,
+    ) -> Self {
+        let kind = if season.is_some() || episode.is_some() {
+            MediaKind::Series
+        } else {
+            MediaKind::Movie
+        };
+        self.verified_identity = Some(ParsedName {
+            title: Some(title),
+            year,
+            season,
+            episode,
+            kind,
+        });
+        self
+    }
+
     /// Walks the evidence layers in ADR-0009 Karar 6 order.
     ///
     /// Always returns a value; when nothing is recognizable that value is
@@ -311,6 +339,9 @@ impl MediaEvidence {
     fn layers(&self) -> Vec<ParsedName> {
         let mut layers = Vec::with_capacity(8);
 
+        if let Some(identity) = &self.verified_identity {
+            layers.push(identity.clone());
+        }
         if let Some(handoff) = &self.handoff {
             layers.push(handoff.to_parsed());
         }
@@ -372,6 +403,10 @@ impl fmt::Debug for MediaEvidence {
                 &self.size_bytes.map_or("<none>", |bytes| size_class(bytes)),
             )
             .field("file_name", &presence(self.file_name.is_some()))
+            .field(
+                "verified_identity",
+                &presence(self.verified_identity.is_some()),
+            )
             .field("declared_name", &presence(self.declared_name.is_some()))
             .field("os_hash", &presence(self.os_hash.is_some()))
             .field("container", &presence(self.container.is_some()))

@@ -44,6 +44,9 @@ blake3 = "1"
 # offline dil tespiti ve güven skoru. Saf Rust; model dosyası veya ağ yok.
 whatlang = "0.18"
 
+# Bounded parsing of untrusted provider responses (NEN-033, ADR-0040).
+serde_json = "1"
+
 [profile.release]
 lto = true
 codegen-units = 1
