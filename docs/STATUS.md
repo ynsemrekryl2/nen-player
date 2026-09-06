@@ -3,9 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-06** (`NEN-074` done — canlı resize sırasında
-> libmpv hedef kare beklemesi ana thread'den kaldırıldı ve gerçek `.app`
-> önce/sonra ölçümüyle kanıtlandı. Önceki: `NEN-073` düzeltici kapanış)
+> Son güncelleme: **2026-09-06** (`NEN-040` done — STATUS son doğrulama tarihi
+> artık en yeni done task'ın Git committer tarihinden eski kalamıyor. Önceki:
+> `NEN-074`)
 
 ## Nerede duruyoruz
 
@@ -13,9 +13,9 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-074` — Canlı video resize ana thread hedef kare zamanını beklemiyor |
-| **Sıradaki READY** | `NEN-033`, `NEN-034`, `NEN-035`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-071`, `NEN-072` |
-| **Task sayısı** | 74 · done 57 · active 0 · blocked 0 · canceled 2 · backlog 15 |
+| **Son tamamlanan** | `NEN-040` — STATUS.md son doğrulama tarihi tazelik denetimi |
+| **Sıradaki READY** | `NEN-033`, `NEN-034`, `NEN-035`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-071`, `NEN-072` |
+| **Task sayısı** | 74 · done 58 · active 0 · blocked 0 · canceled 2 · backlog 14 |
 
 **M3 kapanmıyor: `milestone: M3` etiketli 15 task'ın hepsi bitecek**
 (kullanıcı kararı, 2026-09-06). Beş çıkış kriteri `NEN-028`'de kanıtlandı ve
@@ -1593,14 +1593,13 @@ Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
 
-2026-09-05'te NEN-028 kapanışı için bu makinede Rust workspace **560/560**
-(1 ignored benchmark, 72 hedef) ve macOS Swift paketi **154/154** (paralel ve
-seri) geçti; üç yeni test elle yüklenen altyazının menüye ulaşmasını koruyor.
-Aynı gün NEN-027 kapanışında paket **151/151**'di. `.app` build'i, strict codesign, shell testleri, task index ve doküman
-kapıları da yeşil. Ayrıntılı ürün kabulü `evidence/M3/NEN-027-checklist.md`
-içinde; aynı gün NEN-068 kapanışında `cargo fmt --check`,
+2026-09-06'da NEN-074 kapanışı için macOS Swift paketi **181/181** geçti;
+`.app` build'i, strict codesign, shell testleri, task index ve doküman kapıları
+da yeşildi. Aynı gün NEN-037 kapanışında Rust workspace **568 passed / 1
+ignored** ile birlikte `cargo fmt --check`,
 `cargo clippy --all-targets --all-features -- -D warnings` ve
-`cargo deny check` de yeşildi.
+`cargo deny check` de geçti. Ayrıntılı son ölçüm
+`evidence/M3/NEN-074-measurement.md` içinde.
 
 ### Toolchain kapısı geçmiş kaydı
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# scripts/check-docs.sh denetim 3b/6/8 — canceled kaydı, ADR kapısı ve
-# STATUS.md ↔ INDEX ready listesi.
+# scripts/check-docs.sh denetim 3b/6/8/9 — canceled kaydı, ADR kapısı,
+# STATUS.md ↔ INDEX ready listesi ve Son doğrulama tarihi.
 #
 # Test kendi task fixture'ını kurar: canlı tasks/ ve INDEX.md OKUNMAZ. Sonuç
 # bu yüzden repo'nun o anki durumundan — aktif task var mı, ready listesi boş
@@ -111,6 +111,10 @@ write_status() {
 |---|---|
 | **Mevcut milestone** | M0 |
 | **Sıradaki READY** | henüz belirlenmedi |
+
+## Son doğrulama
+
+2026-09-05 tarihinde fixture doğrulandı.
 EOF
 }
 
@@ -141,6 +145,15 @@ make_fixture() {
   bash "$REPO/scripts/task-index.sh" >/dev/null
 
   write_status
+
+  # Denetim 9 dosya mtime'ına değil Git committer tarihine bakar. Fixture'ın
+  # geçmişi sabittir; checkout zamanı sonucu değiştirmez.
+  git -C "$REPO" init -q
+  git -C "$REPO" add .
+  env GIT_AUTHOR_DATE='2026-09-05T12:00:00+0300' \
+      GIT_COMMITTER_DATE='2026-09-05T12:00:00+0300' \
+    git -C "$REPO" -c user.name='Nen Fixture' -c user.email='fixture@invalid' \
+      commit -q -m 'fixture state'
 }
 
 # Fixture'ın gerçekten kurulmak istenen dalda olduğunu doğrular. Bu olmadan
@@ -175,6 +188,17 @@ import re, sys
 p = sys.argv[1]
 s = open(p, encoding='utf-8').read()
 s = re.sub(r'^\| \*\*Sıradaki READY\*\* \|.*\|\n', '', s, count=1, flags=re.M)
+open(p, 'w', encoding='utf-8').write(s)
+PY
+}
+
+set_verification_date() { # <YYYY-MM-DD>
+  python3 - "$STATUS" "$1" <<'PY'
+import re, sys
+p, date = sys.argv[1], sys.argv[2]
+s = open(p, encoding='utf-8').read()
+s = re.sub(r'(^## Son doğrulama\n\n)[0-9]{4}-[0-9]{2}-[0-9]{2}',
+           rf'\g<1>{date}', s, count=1, flags=re.M)
 open(p, 'w', encoding='utf-8').write(s)
 PY
 }
@@ -270,7 +294,22 @@ mv "$REPO/tasks/canceled/NEN-902-fixture.tmp" "$REPO/tasks/canceled/NEN-902-fixt
 run_check
 expect 1 "canceled ama 'İptal kaydı' bölümü boş" "T11 eksik iptal kaydı → hata"
 
-# =============================================================== D. yan etkisizlik
+# ============================================== D. Son doğrulama tarihi
+
+echo "  Fixture: done task ve STATUS aynı tarihte"
+make_fixture ready
+set_status_row '`NEN-902`'
+
+echo "  T12: güncel Son doğrulama tarihi geçiyor"
+run_check
+expect 0 "Son doğrulama tarihi güncel" "T12 güncel tarih → geçiyor"
+
+echo "  T13: bayat Son doğrulama tarihi yeni task'ı söylüyor"
+set_verification_date '2026-09-04'
+run_check
+expect 1 "NEN-901 (2026-09-05) daha yeni" "T13 bayat tarih → task ile hata"
+
+# =============================================================== E. yan etkisizlik
 
 echo "  T7: gerçek repo dosyaları değişmedi"
 if [ "$(real_fingerprint)" = "$FINGERPRINT_BEFORE" ]; then

@@ -212,6 +212,50 @@ else
   fi
 fi
 
+echo "== 9. STATUS.md son doğrulama tarihi =="
+if [ -f "$STATUS" ]; then
+  verification_date="$(awk '
+    /^## Son doğrulama[[:space:]]*$/ { inside = 1; next }
+    inside && /^## / { exit }
+    inside && match($0, /[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/) {
+      print substr($0, RSTART, RLENGTH)
+      exit
+    }
+  ' "$STATUS")"
+
+  if [ -z "$verification_date" ]; then
+    err "docs/STATUS.md 'Son doğrulama' bölümünde YYYY-MM-DD tarihi yok."
+    echo "      Yapılacak: son doğrulama tarihini gerçek kapanış kanıtıyla güncelleyin." >&2
+  elif ! git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    err "done task tarihleri okunamadı: depo Git çalışma ağacı değil."
+    echo "      Yapılacak: check-docs.sh'ı Git geçmişi bulunan depo içinde çalıştırın." >&2
+  else
+    latest_done_date=""
+    latest_done_id=""
+    for f in "$TASKS"/done/NEN-*.md; do
+      [ -e "$f" ] || continue
+      commit_date="$(git -C "$ROOT" log -1 --format=%cs -- "$f" 2>/dev/null)"
+      [ -n "$commit_date" ] || continue
+      id="$(fm_get "$f" id)"
+      if [ -z "$latest_done_date" ] ||
+         [ "$(printf '%s\n' "$latest_done_date" "$commit_date" | sort | tail -1)" = "$commit_date" ]; then
+        latest_done_date="$commit_date"
+        latest_done_id="$id"
+      fi
+    done
+
+    if [ -z "$latest_done_date" ]; then
+      err "Git geçmişinde tarih taşıyan bir done task bulunamadı."
+      echo "      Yapılacak: done task'ların kapanış commit'lerini Git geçmişinde doğrulayın." >&2
+    elif [ "$verification_date" \< "$latest_done_date" ]; then
+      err "docs/STATUS.md Son doğrulama tarihi $verification_date; $latest_done_id ($latest_done_date) daha yeni."
+      echo "      Yapılacak: Son doğrulama bölümünü $latest_done_id kapanış kanıtıyla güncelleyin." >&2
+    else
+      ok "Son doğrulama tarihi güncel ($verification_date; en yeni done: $latest_done_id $latest_done_date)"
+    fi
+  fi
+fi
+
 echo
 if [ "$ERRORS" -gt 0 ]; then
   echo "SONUÇ: $ERRORS hata." >&2
