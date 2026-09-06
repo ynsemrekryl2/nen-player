@@ -3,7 +3,7 @@ id: NEN-041
 title: doctor.sh reports an installed-but-unrunnable tool as missing
 milestone: M3
 size: S
-state: backlog
+state: done
 depends_on: [NEN-032]
 blocks: []
 adr: []
@@ -54,11 +54,52 @@ komutuna (NEN-022 / NEN-024) erteleniyor.
 
 ## Kanıt (DoD)
 
-- [ ] Negatif: hata dönen `swift` stub'ıyla `doctor.sh M1` ve `doctor.sh M3`
+- [x] Negatif: hata dönen `swift` stub'ıyla `doctor.sh M1` ve `doctor.sh M3`
       çıkış 1 veriyor, `swift` blocker listesinde görünüyor
-- [ ] Sağlam kurulumda yanlış pozitif yok — bu makinede `doctor.sh M3` çıkış 0
-- [ ] `bash scripts/test.sh` yeşil
+- [x] Sağlam kurulumda yanlış pozitif yok — bu makinede `doctor.sh M3` çıkış 0
+- [x] `bash scripts/test.sh` yeşil
 
 ## Kanıt kaydı
 
-<!-- done olurken doldurulacak -->
+`detect_swift`, `swift --version` çıktısını filtrelemeden önce komutun çıkış
+kodunu koruyor; komut sıfırdan farklı dönerse veya başarılı dönmesine rağmen
+`Apple Swift version …` satırı üretmezse artık `return 1` veriyor. Böylece
+PATH'te bulunmak tek başına hazır sayılmaya yetmiyor.
+
+Aynı boru hattı yanlış pozitifi için bütün `detect_*` fonksiyonları gözden
+geçirildi. `cargo`, `rustc`, `cargo-deny`, JDK, Gradle ve Xcode sürüm
+komutları da önce gerçek çıkış kodunu, sonra boş/okunamayan çıktıyı denetliyor.
+Başarısız olup yine de metin basan `pkg-config` çıktısı libmpv sürümü olarak
+kabul edilmiyor; varsa dylib fallback'i kullanılmaya devam ediyor. Android SDK
+tespiti komut çalıştırmadığı için değişmedi.
+
+Deterministik shadow-PATH kanıtı (`scripts/tests/doctor.test.sh`):
+
+```
+S8: swift PATH'te ama çalışmıyor
+  ok   S8 M1 blocker (swift exit 69) → exit 1
+  ok   S8 M1 Swift'i blocker listesinde gösteriyor
+  ok   S8 M3 blocker (kümülatif) → exit 1
+S9: swift çalışıyor ama sürümü okunamıyor
+  ok   S9 M1 blocker (sürüm okunamadı) → exit 1
+  ok   S9 M1 Swift'i blocker listesinde gösteriyor
+S10: diğer sürüm komutlarının hataları başarı sayılmıyor
+  cargo · rustc · Xcode · cargo-deny · JDK · Gradle → hazır gösterilmiyor
+  hatalı pkg-config → dylib fallback
+```
+
+Test dosyası toplam **49 doğrulamayla** çıkış 0 verdi; parametresiz doctor
+bilgilendirici olarak çıkış 0 kalıyor ve hiçbir kurulum komutu çalıştırılmıyor.
+
+Gerçek makine kanıtı:
+
+```
+$ bash scripts/doctor.sh M3
+✓ cargo 1.98.0 · ✓ rustc 1.98.0 · ✓ Xcode 26.6
+✓ Apple Swift version 6.3.3 · ✓ libmpv 2.5.0
+SONUÇ: M3 için tüm blocker'lar hazır. → exit 0
+
+$ bash scripts/test.sh
+check-docs.test.sh ✓ · doctor.test.sh ✓
+SONUÇ: 2 test dosyasının hepsi geçti. → exit 0
+```

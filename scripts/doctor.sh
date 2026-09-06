@@ -21,7 +21,7 @@ MILESTONES="M1 M3 M10"
 : "${NEN_DOCTOR_MPV_PATHS:=/opt/homebrew/lib/libmpv.dylib:/usr/local/lib/libmpv.dylib:/opt/homebrew/lib/libmpv.2.dylib:/usr/local/lib/libmpv.2.dylib}"
 
 # Takılabilen komutlar için zaman sınırlı çalıştırma (macOS'ta GNU timeout yok).
-run_timeout() { s="$1"; shift; perl -e 'alarm shift; exec @ARGV' "$s" "$@" 2>/dev/null; }
+run_timeout() { s="$1"; shift; perl -e 'alarm shift; exec @ARGV' "$s" "$@"; }
 
 # ---------------------------------------------------------------- araç kayıtları
 
@@ -95,28 +95,42 @@ need_note() {
 
 detect_cargo() {
   command -v cargo >/dev/null 2>&1 || return 1
-  run_timeout 10 cargo --version | head -1
+  v="$(run_timeout 10 cargo --version 2>&1)" || return 1
+  v="$(printf '%s\n' "$v" | head -1)"
+  [ -n "$v" ] || return 1
+  printf '%s\n' "$v"
 }
 
 detect_rustc() {
   command -v rustc >/dev/null 2>&1 || return 1
-  run_timeout 10 rustc --version | head -1
+  v="$(run_timeout 10 rustc --version 2>&1)" || return 1
+  v="$(printf '%s\n' "$v" | head -1)"
+  [ -n "$v" ] || return 1
+  printf '%s\n' "$v"
 }
 
 detect_cargo_deny() {
   command -v cargo-deny >/dev/null 2>&1 || return 1
-  run_timeout 10 cargo-deny --version | head -1
+  v="$(run_timeout 10 cargo-deny --version 2>&1)" || return 1
+  v="$(printf '%s\n' "$v" | head -1)"
+  [ -n "$v" ] || return 1
+  printf '%s\n' "$v"
 }
 
 detect_jdk() {
   command -v java >/dev/null 2>&1 || return 1
-  run_timeout 15 java -version >/dev/null 2>&1 || return 1
-  run_timeout 15 java -version 2>&1 | head -1
+  v="$(run_timeout 15 java -version 2>&1)" || return 1
+  v="$(printf '%s\n' "$v" | head -1)"
+  [ -n "$v" ] || return 1
+  printf '%s\n' "$v"
 }
 
 detect_gradle() {
   command -v gradle >/dev/null 2>&1 || return 1
-  run_timeout 20 gradle --version 2>/dev/null | grep -i '^Gradle' | head -1
+  output="$(run_timeout 20 gradle --version 2>&1)" || return 1
+  v="$(printf '%s\n' "$output" | grep -i '^Gradle' | head -1)"
+  [ -n "$v" ] || return 1
+  printf '%s\n' "$v"
 }
 
 # Tam Xcode mu, yoksa yalnız Command Line Tools mu?
@@ -130,20 +144,27 @@ detect_xcode() {
       return 2 ;;
   esac
   command -v xcodebuild >/dev/null 2>&1 || return 1
-  run_timeout 20 xcodebuild -version | head -1
+  v="$(run_timeout 20 xcodebuild -version 2>&1)" || return 1
+  v="$(printf '%s\n' "$v" | head -1)"
+  [ -n "$v" ] || return 1
+  printf '%s\n' "$v"
 }
 
 detect_swift() {
   command -v swift >/dev/null 2>&1 || return 1
-  v="$(run_timeout 20 swift --version 2>&1 | grep -o 'Apple Swift version [0-9.]*' | head -1)"
-  [ -n "$v" ] && echo "$v" || echo "swift (sürüm okunamadı)"
+  output="$(run_timeout 20 swift --version 2>&1)" || return 1
+  v="$(printf '%s\n' "$output" | grep -o 'Apple Swift version [0-9.]*' | head -1)"
+  [ -n "$v" ] || return 1
+  printf '%s\n' "$v"
 }
 
 # mpv CLI'ı çalıştırmak takılabildiği için ÖNCE kütüphaneyi arıyoruz.
 detect_libmpv() {
   if command -v pkg-config >/dev/null 2>&1; then
-    v="$(run_timeout 10 pkg-config --modversion mpv)"
-    [ -n "$v" ] && { echo "libmpv $v (pkg-config)"; return 0; }
+    if v="$(run_timeout 10 pkg-config --modversion mpv 2>&1)" && [ -n "$v" ]; then
+      echo "libmpv $v (pkg-config)"
+      return 0
+    fi
   fi
   old_ifs="$IFS"; IFS=':'
   for p in $NEN_DOCTOR_MPV_PATHS; do

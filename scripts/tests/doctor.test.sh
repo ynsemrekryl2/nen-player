@@ -170,7 +170,57 @@ run_doctor M1; expect_exit 1 "S7 M1 blocker (swift yok)"
 expect_contains "BLOCKER" "S7 M1 çıktısı BLOCKER bölümü içeriyor"
 run_doctor M3; expect_exit 1 "S7 M3 blocker (kümülatif)"
 
-echo "  S8: hiçbir kurulum komutu çalıştırılmadı"
+echo "  S8: swift PATH'te ama çalışmıyor"
+setup_scenario rust fullxcode jdk mpv
+mkshim swift 'echo "Xcode license not accepted" >&2; exit 69'
+run_doctor; expect_exit 0 "S8 parametresiz (bilgilendirici)"
+expect_not_contains "✓ swift" "S8 parametresiz Swift'i hazır göstermiyor"
+run_doctor M1; expect_exit 1 "S8 M1 blocker (swift exit 69)"
+expect_contains "✗ swift" "S8 M1 Swift'i blocker listesinde gösteriyor"
+run_doctor M3; expect_exit 1 "S8 M3 blocker (kümülatif)"
+
+echo "  S9: swift çalışıyor ama sürümü okunamıyor"
+setup_scenario rust fullxcode jdk mpv
+mkshim swift 'echo "unknown swift build"; exit 0'
+run_doctor M1; expect_exit 1 "S9 M1 blocker (sürüm okunamadı)"
+expect_contains "✗ swift" "S9 M1 Swift'i blocker listesinde gösteriyor"
+
+echo "  S10: diğer sürüm komutlarının hataları başarı sayılmıyor"
+for tool in cargo rustc; do
+  setup_scenario rust fullxcode jdk mpv
+  mkshim "$tool" 'echo "broken tool"; exit 69'
+  run_doctor M1; expect_exit 1 "S10 $tool M1 blocker"
+  expect_not_contains "✓ $tool " "S10 $tool hazır gösterilmiyor"
+done
+
+setup_scenario rust fullxcode jdk mpv
+mkshim xcodebuild 'echo "broken Xcode"; exit 69'
+run_doctor M3; expect_exit 1 "S10 xcodebuild M3 blocker"
+expect_not_contains "✓ Xcode" "S10 Xcode hazır gösterilmiyor"
+
+setup_scenario rust fullxcode jdk mpv
+mkshim cargo-deny 'echo "broken cargo-deny"; exit 69'
+run_doctor M1; expect_exit 0 "S10 cargo-deny M1 soon, blocker değil"
+expect_contains "YAKINDA GEREKLİ" "S10 cargo-deny yakında gerekli gösteriliyor"
+expect_not_contains "✓ cargo-deny" "S10 cargo-deny hazır gösterilmiyor"
+
+setup_scenario rust fullxcode jdk mpv
+mkshim java 'echo "broken JDK" >&2; exit 69'
+run_doctor M10; expect_exit 1 "S10 JDK M10 blocker"
+expect_not_contains "✓ JDK" "S10 JDK hazır gösterilmiyor"
+
+setup_scenario rust fullxcode jdk mpv
+mkshim gradle 'echo "broken Gradle"; exit 69'
+run_doctor; expect_exit 0 "S10 Gradle parametresiz (bilgilendirici)"
+expect_not_contains "✓ Gradle" "S10 Gradle hazır gösterilmiyor"
+
+setup_scenario rust fullxcode jdk mpv
+mkshim pkg-config 'echo "bogus-version"; exit 69'
+run_doctor; expect_exit 0 "S10 pkg-config hatasında libmpv fallback"
+expect_contains "$TMP/libmpv.dylib" "S10 libmpv dylib fallback kullanılıyor"
+expect_not_contains "libmpv bogus-version (pkg-config)" "S10 hatalı pkg-config çıktısı kabul edilmiyor"
+
+echo "  S11: hiçbir kurulum komutu çalıştırılmadı"
 if [ -e "$SENTINEL" ]; then
   fail "KURULUM DENEMESİ TESPİT EDİLDİ:"; cat "$SENTINEL" >&2
 else

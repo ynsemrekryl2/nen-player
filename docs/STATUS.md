@@ -3,9 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-06** (`NEN-040` done — STATUS son doğrulama tarihi
-> artık en yeni done task'ın Git committer tarihinden eski kalamıyor. Önceki:
-> `NEN-074`)
+> Son güncelleme: **2026-09-06** (`NEN-041` done — doctor artık PATH'te
+> bulunan ama çalışmayan veya sürümü okunamayan aracı hazır saymıyor. Önceki:
+> `NEN-040`)
 
 ## Nerede duruyoruz
 
@@ -13,20 +13,27 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-040` — STATUS.md son doğrulama tarihi tazelik denetimi |
-| **Sıradaki READY** | `NEN-033`, `NEN-034`, `NEN-035`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-071`, `NEN-072` |
-| **Task sayısı** | 74 · done 58 · active 0 · blocked 0 · canceled 2 · backlog 14 |
+| **Son tamamlanan** | `NEN-041` — çalıştırılamayan araç doctor kapısını kapatıyor |
+| **Sıradaki READY** | `NEN-033`, `NEN-034`, `NEN-035`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-071`, `NEN-072` |
+| **Task sayısı** | 74 · done 59 · active 0 · blocked 0 · canceled 2 · backlog 13 |
 
 **M3 kapanmıyor: `milestone: M3` etiketli 15 task'ın hepsi bitecek**
 (kullanıcı kararı, 2026-09-06). Beş çıkış kriteri `NEN-028`'de kanıtlandı ve
 milestone dokümanının kanonik task listesi (`NEN-021`…`028`, `061`, `062`)
-tamamlandı, ama kriterlerle erken kapanış yapılmıyor. Kalan 8: `040` ·
-`041` · `042` · `043` · `050` · `052` · `057` · `071` — hepsi READY.
+tamamlandı, ama kriterlerle erken kapanış yapılmıyor. Kalan 6: `042` · `043` ·
+`050` · `052` · `057` · `071` — hepsi READY.
 `docs/roadmap.md`'nin M3 satırı ve milestone dokümanının bayat task listesi
 kapanışta düzeltilecek. `NEN-073`, kullanıcının gerçek `.app`te minimum pencere
 sınırının uygulanmadığını göstermesiyle yeniden açıldı ve düzeltici kapanışta
 gerçek köşe sürüklemesiyle kanıtlandı; canlı resize regresyonu `NEN-074`
 ile kapandı.
+
+**`NEN-041` kapandı — doctor PATH'te bulunan ama çalıştırılamayan aracı artık
+hazır saymıyor.** `swift --version` sıfırdan farklı döndüğünde veya sürüm satırı
+okunamadığında M1/M3 kapıları kapanıyor; aynı boru hattı kusuru cargo, rustc,
+cargo-deny, JDK, Gradle, Xcode ve libmpv'nin pkg-config kolunda da giderildi.
+Shadow-PATH paketi **49 doğrulama**, tüm shell paketi **2/2** yeşil. Gerçek
+makinede M3 kapısı Swift 6.3.3 ve Xcode 26.6 ile çıkış 0 verdi.
 
 **`NEN-074` kapandı — canlı resize artık hedef kare zamanını ana thread'de
 beklemiyor.** `MPVVideoView`, normal çizimde libmpv'nin A/V zamanlamasını açık
