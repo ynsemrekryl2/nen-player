@@ -41,6 +41,8 @@ public struct PlayerRootView: View {
     }
 
     public var body: some View {
+        let minimum = WindowGeometry.minimumContentSize(for: displaySize)
+
         ZStack {
             Color.black
                 .ignoresSafeArea()
@@ -95,20 +97,18 @@ public struct PlayerRootView: View {
                     .transition(.opacity)
             }
         }
-        // **The root imposes no minimum of its own** (ADR-0038 Karar 4).
-        //
-        // Deleting the old `.frame(minWidth: 720, minHeight: 450)` was not
-        // enough: SwiftUI still propagates whatever minimum its *content* needs
-        // to the window, and the transport row's intrinsic width is ≈590 pt.
-        // Measured on the real app — a 16:9 medium opened correctly at 693x390
-        // and was then pulled down to 594x327 by SwiftUI's own sizing, which is
-        // neither the derived minimum nor the medium's ratio.
-        //
-        // Letting the root compress to zero puts the floor back in one place,
-        // `WindowGeometry` via `contentMinSize`. The row can never actually be
-        // squeezed, because AppKit refuses to resize past that floor — the
-        // compression is permission SwiftUI needs, not a size the user reaches.
-        .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
+        // The Window scene derives its user-resize floor from the root view.
+        // Advertising zero here let SwiftUI overwrite the `contentMinSize`
+        // written through AppKit and made the window draggable below the size
+        // the transport needs. This minimum is the same aspect-correct answer
+        // that sizes the opening window, so the content and aspect constraints
+        // cannot disagree at the floor (ADR-0038 Karar 4).
+        .frame(
+            minWidth: minimum.width,
+            maxWidth: .infinity,
+            minHeight: minimum.height,
+            maxHeight: .infinity
+        )
         .coordinateSpace(name: Self.surfaceSpace)
         .background(
             GeometryReader { surface in
@@ -129,12 +129,9 @@ public struct PlayerRootView: View {
                 hasMedia: model.hasMedia
             )
         )
-        // The window's minimum comes from here and nowhere else (ADR-0038
-        // Karar 4). A `.frame(minWidth:minHeight:)` alongside it would be a
-        // second minimum: SwiftUI propagates its own to the window, AppKit
-        // cannot honour two that disagree, and the one that wins at the
-        // smallest size brings the black bars back — which is the defect this
-        // whole task removes.
+        // AppKit still owns the aspect lock and one-time opening size. The
+        // root above owns the minimum so SwiftUI's scene sizing and AppKit do
+        // not race to write `contentMinSize`.
         .background(
             WindowGeometryWriter(
                 geometry: model.videoGeometry,
@@ -197,6 +194,11 @@ public struct PlayerRootView: View {
         // scene: present only while the player window is key, `nil` the
         // instant Settings (or any other scene) takes focus (NEN-047).
         .focusedSceneValue(\.playerModel, model)
+    }
+
+    private var displaySize: CGSize? {
+        guard let geometry = model.videoGeometry else { return nil }
+        return CGSize(width: CGFloat(geometry.width), height: CGFloat(geometry.height))
     }
 
     private func isPlayerWindow(_ object: Any?) -> Bool {

@@ -3,8 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-06** (`NEN-073` done — player kromu üst safe-area,
-> fare çıkışı ve 693 pt güvenli minimum davranışını kazandı.
+> Son güncelleme: **2026-09-06** (`NEN-073` düzeltici kapanış — pencere minimumu
+> SwiftUI root'a taşındı ve gerçek köşe sürüklemesinde 693 pt sınırı kanıtlandı.
 > Önceki: `NEN-037` done — Settings sahnesi iki dil tercihi kazandı)
 
 ## Nerede duruyoruz
@@ -13,7 +13,7 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-073` — Player kromu üst safe-area, fare çıkışı ve 693 pt güvenli minimum davranışını taşıyor |
+| **Son tamamlanan** | `NEN-073` — Player kromu minimumu gerçek SwiftUI pencere yolunda uygulanıyor |
 | **Sıradaki READY** | `NEN-033`, `NEN-034`, `NEN-035`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-071`, `NEN-072`, `NEN-074` |
 | **Task sayısı** | 74 · done 56 · active 0 · blocked 0 · canceled 2 · backlog 16 |
 
@@ -23,8 +23,22 @@ milestone dokümanının kanonik task listesi (`NEN-021`…`028`, `061`, `062`)
 tamamlandı, ama kriterlerle erken kapanış yapılmıyor. Kalan 8: `040` ·
 `041` · `042` · `043` · `050` · `052` · `057` · `071` — hepsi READY.
 `docs/roadmap.md`'nin M3 satırı ve milestone dokümanının bayat task listesi
-kapanışta düzeltilecek. Yeni player kromu `NEN-073` ile tamamlandı; canlı resize
-regresyonu `NEN-074` olarak kaydedildi ve artık READY.
+kapanışta düzeltilecek. `NEN-073`, kullanıcının gerçek `.app`te minimum pencere
+sınırının uygulanmadığını göstermesiyle yeniden açıldı ve düzeltici kapanışta
+gerçek köşe sürüklemesiyle kanıtlandı; canlı resize regresyonu `NEN-074` yeniden
+READY.
+
+**`NEN-073` düzeltici kapanışla tamamlandı — önceki minimum sınırı kanıtı
+geçersizdi.** `WindowGeometryWriter` AppKit `contentMinSize` değerini yazarken
+`PlayerRootView` SwiftUI'a `0×0` minimum bildiriyor, normal `Window` sahnesi de
+bu içerik minimumunu uyguluyordu. Minimum artık aspect-correct değerle root
+view'dan yayımlanıyor, sahne açıkça `.windowResizability(.contentMinSize)`
+kullanıyor ve AppKit writer yalnız aspect lock/açılış boyutunu yönetiyor.
+Negatif kontrolde eski `0×0` davranışı yeni testte **10 expectation failure**;
+düzeltmeyle **1/1 yeşil**. Gerçek `.app` köşe sürüklemesinde 16:9 pencere
+**693×390**, 4:3 pencere **693×520** frame'de durdu. Tam macOS paketi
+**179/179**, app build, strict codesign, shell ve doküman kapıları yeşil.
+Kanıt: `evidence/M3/NEN-073-checklist.md`.
 
 **`NEN-037` kapandı — Settings'in tek sahnesi artık birinci ve ikinci tercih
 edilen altyazı dilini taşıyor, ADR-0010 Karar 4/10'un menü sırası ilk kez

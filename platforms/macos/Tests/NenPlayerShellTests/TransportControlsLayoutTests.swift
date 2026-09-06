@@ -9,6 +9,44 @@ import Testing
 @Suite("Transport controls layout")
 @MainActor
 struct TransportControlsLayoutTests {
+    @Test("the player root advertises the aspect-correct chrome minimum")
+    func playerRootAdvertisesTheWindowMinimum() {
+        let cases: [(geometry: FfiVideoGeometry?, expected: CGSize)] = [
+            (nil, CGSize(width: 693, height: 390)),
+            (FfiVideoGeometry(width: 1_920, height: 1_080), CGSize(width: 693, height: 390)),
+            (FfiVideoGeometry(width: 640, height: 480), CGSize(width: 693, height: 520)),
+            (FfiVideoGeometry(width: 2_390, height: 1_000), CGSize(width: 932, height: 390)),
+            (FfiVideoGeometry(width: 900, height: 1_600), CGSize(width: 693, height: 1_232)),
+        ]
+
+        for testCase in cases {
+            let session = FakeSession()
+            session.currentVideoGeometry = testCase.geometry
+            let model = PlayerModel(
+                recentStore: MemoryRecentStore(),
+                startsPolling: false,
+                managesCursor: false,
+                preferenceStore: MemoryPreferenceStore(),
+                sessionFactory: { _ in session }
+            )
+            model.attach(to: MPVVideoView.makePlaybackSurface())
+            if testCase.geometry != nil {
+                model.openMedia(at: URL(fileURLWithPath: "/fixtures/media/layout.mkv"))
+                model.consume([.videoGeometryChanged])
+            }
+
+            let host = NSHostingView(rootView: PlayerRootView(model: model))
+            host.frame = CGRect(x: 0, y: 0, width: 320, height: 180)
+            host.layoutSubtreeIfNeeded()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+
+            let fitting = host.fittingSize
+            #expect(abs(fitting.width - testCase.expected.width) < 1)
+            #expect(abs(fitting.height - testCase.expected.height) < 1)
+            model.shutdown()
+        }
+    }
+
     @Test("edge controls stay inside short and screen-wide transports")
     func edgeControlsStayInsideTheTransport() throws {
         let cases: [(width: CGFloat, position: UInt64, duration: UInt64, remaining: Bool, title: String)] = [

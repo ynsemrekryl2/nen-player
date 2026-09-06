@@ -54,6 +54,17 @@ public enum WindowGeometry {
         return CGSize(width: width, height: (width / ratio).rounded())
     }
 
+    /// The content minimum SwiftUI should advertise for the current picture.
+    ///
+    /// `nil` and degenerate sizes have no aspect to preserve, but the chrome
+    /// still needs its base footprint. Keeping this conversion beside the
+    /// ratio arithmetic prevents the root view and the AppKit writer from
+    /// inventing different fallbacks for the same window.
+    public static func minimumContentSize(for media: CGSize?) -> CGSize {
+        guard let media, media.width > 0, media.height > 0 else { return chromeBase }
+        return minimumContentSize(for: media.width / media.height)
+    }
+
     /// The content size a window should open at for a picture of `media`.
     ///
     /// Nominally one point per pixel — the product's promise is that a medium

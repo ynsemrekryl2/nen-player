@@ -60,6 +60,33 @@ adr: [37, 38]
 
 ## Kanıt kaydı
 
+### Düzeltici kapanış
+
+- SwiftUI root artık videosuz, 16:9, 4:3, 2.39:1 ve 9:16 için sırasıyla
+  `693×390`, `693×390`, `693×520`, `932×390`, `693×1232` minimumunu yayıyor;
+  AppKit writer minimuma dokunmuyor.
+- Negatif kontrolde root minimumu yeniden `0×0` yapıldığında yeni test **1 test
+  / 10 expectation failure** verdi; düzeltmeyle aynı test **1/1 yeşil**.
+- Gerçek `.app` köşe sürüklemesinde 16:9 pencere **693×390**, 4:3 pencere
+  **693×520** frame'de durdu. Videosuz 300×200 resize isteği **693×422**,
+  cinema fixture isteği **931×422** frame'de kaldı.
+- `bash scripts/test-macos.sh`: **179 test / 21 suite / 0 failure**.
+- `bash scripts/build-macos-app.sh`, strict codesign, `bash scripts/test.sh` ve
+  doküman kapıları exit 0.
+- Ayrıntılı yeniden doğrulama: `evidence/M3/NEN-073-checklist.md`.
+
+### 2026-09-06 yeniden açılma
+
+Kullanıcı, tam kapanış ve güncel `.app` build'inden sonra pencerenin 693 pt
+altına sürüklenebildiğini ve transport kontrollerinin yeniden taştığını
+bildirdi. Önceki `NEN-073-gradient.png` görüntüsü kontrollerin **tam 693 pt'de**
+sığdığını gösteriyor; pencerenin bu değerin altına indirilemediğini göstermiyor.
+DoD'un minimum pencere sınırı maddesi bu nedenle kanıtlanmamış kabul edildi ve
+task yeniden açıldı. Aşağıdaki ilk kapanış kaydı tarihsel kayıttır; yeni negatif
+kontrol ve gerçek pencere sürükleme kanıtı üretilmeden kullanılmayacaktır.
+
+### İlk kapanış kaydı (geçersiz minimum sınırı kanıtı)
+
 - `evidence/M3/NEN-073-checklist.md`: gerçek `.app` üzerinde gradient, safe-area
   başlık, pointer çıkışı, paused/panel görünürlüğü ve dış imleç checklist'i;
   `NEN-073-{gradient,mouse-exit,paused,panel}.png` görsel kanıtları.

@@ -2,6 +2,44 @@
 
 Tarih: **2026-09-06** · Apple Silicon · macOS 27.0 · Xcode 26.6 · Swift 6.3.3
 
+## Düzeltici yeniden doğrulama
+
+İlk kapanışın minimum pencere kanıtı geçersizdi: `NEN-073-gradient.png`
+kontrollerin 693×390'da sığdığını gösteriyor, fakat pencerenin bu değerin altına
+indirilemediğini göstermiyordu. Kullanıcı güncel build'i `⌘Q` sonrasında
+başlatıp pencereyi 693 pt altına sürükleyebildi; task yeniden açıldı.
+
+Kök neden iki ayrı minimum sahibiydi. `WindowGeometryWriter` AppKit
+`contentMinSize` değerini yazarken `PlayerRootView` SwiftUI'a `0×0` minimum
+bildiriyordu. Normal `Window` sahnesinin içerikten türettiği minimum, AppKit
+yazısını etkisiz bırakıyordu. Düzeltmede root view aspect-correct minimumu
+bildiriyor, sahne açıkça `.windowResizability(.contentMinSize)` kullanıyor ve
+AppKit writer yalnız aspect lock ile açılış boyutunu yönetiyor.
+
+### Negatif kontrol
+
+Yeni `playerRootAdvertisesTheWindowMinimum` testi düzeltmesiz `0×0` root ile
+ayrı koşuldu: **1 test / 10 expectation failure**. Beş senaryonun tamamı
+beklenen minimumdan küçük fitting size üretti. Aynı test düzeltme geri
+konduğunda **1/1 yeşil** oldu; yani test yalnız hesaplanan sayıyı değil,
+SwiftUI root'un pencereye bildirdiği gerçek minimumu ölçüyor.
+
+### Gerçek `.app` pencere sürüklemesi
+
+Ad-hoc imzalı uygulama tam kapatılıp yeniden build edildi. Pencere kontrollü
+bir konuma alındı; CoreGraphics fare olaylarıyla sağ alt köşe 300×200 hedefinin
+ötesine sürüklendi ve Accessibility üzerinden sonuç ölçüldü.
+
+| Medya | Sürükleme öncesi frame | Sürükleme sonrası frame | Sonuç |
+|---|---:|---:|---|
+| 16:9 `contract-clip.mkv` | 693×422 | **693×390** | Genişlik 693 pt altında değil; oran korunuyor |
+| 4:3 `aspect-4x3-clip.mkv` | 693×552 | **693×520** | Genişlik 693 pt altında değil; oran korunuyor |
+
+Videosuz pencerede ayrıca 300×200 Accessibility resize isteği verildi; pencere
+**693×422** frame'de kaldı. Cinema fixture aynı istekten sonra **931×422**
+frame'de kaldı; fixture'ın gerçek display oranındaki bir puanlık fark saf
+2.39:1 hesabının test edilen **932×390** sonucunu değiştirmiyor.
+
 ## Görsel kanıt
 
 Gerçek ad-hoc imzalı `.app`, depodaki telif-temiz `contract-clip.mkv` fixture'ı
@@ -27,6 +65,9 @@ penceresini içerir; özel dosya yolu veya medya URL'si kaydedilmedi.
 
 ## Otomatik kanıt
 
+- `playerRootAdvertisesTheWindowMinimum`: videosuz, 16:9, 4:3, 2.39:1 ve 9:16
+  senaryolarında SwiftUI root fitting size'ı sırasıyla `693×390`, `693×390`,
+  `693×520`, `932×390`, `693×1232`.
 - `PlayerModelTests`: oynama/duraklatma/pin görünürlüğü ve pointer çıkışında
   bekleyen timer iptali yeşil.
 - `TransportControlsLayoutTests`: 693 pt kısa süre, iki saatlik süre,
@@ -38,10 +79,10 @@ penceresini içerir; özel dosya yolu veya medya URL'si kaydedilmedi.
 
 ## Kapılar
 
-- `bash scripts/test-macos.sh`: **178 test / 21 suite / 0 failure**.
+- Düzeltici koşu `bash scripts/test-macos.sh`: **179 test / 21 suite / 0 failure**.
 - `swift test --package-path platforms/macos --filter
-  'PlayerModelTests|TransportControlsLayoutTests|WindowGeometryTests|WindowGeometryWriterTests'`:
-  **82 test / 4 suite / 0 failure**.
+  'TransportControlsLayoutTests|WindowGeometryTests|WindowGeometryWriterTests'`:
+  **32 test / 3 suite / 0 failure**.
 - `bash scripts/build-macos-app.sh`: exit 0; debug ad-hoc imzalı `.app` üretildi.
 - `codesign --verify --deep --strict platforms/macos/.build/NenPlayer.app`:
   exit 0.

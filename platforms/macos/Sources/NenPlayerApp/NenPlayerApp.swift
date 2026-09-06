@@ -12,6 +12,10 @@ struct NenPlayerApp: App {
             PlayerRootView(model: model)
         }
         .windowStyle(.hiddenTitleBar)
+        // The player root publishes an aspect-correct minimum for its current
+        // medium. Make that the scene's explicit resize policy so SwiftUI —
+        // the window owner — enforces the same floor during user dragging.
+        .windowResizability(.contentMinSize)
         .defaultSize(width: 1_080, height: 680)
         .commands {
             PlayerCommands(model: model)

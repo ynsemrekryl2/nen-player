@@ -35,6 +35,8 @@ struct WindowGeometryWriterTests {
     @Test("a picture locks the window to its ratio and to the chrome's floor")
     func aPictureLocksTheWindow() {
         let window = window()
+        let contentMinimum = CGSize(width: 333, height: 222)
+        window.contentMinSize = contentMinimum
         let coordinator = WindowGeometryWriter.Coordinator()
 
         coordinator.apply(
@@ -44,7 +46,7 @@ struct WindowGeometryWriterTests {
         )
 
         #expect(window.contentAspectRatio == NSSize(width: 1_920, height: 1_080))
-        #expect(window.contentMinSize == CGSize(width: 693, height: 390))
+        #expect(window.contentMinSize == contentMinimum, "the writer competed with SwiftUI's minimum")
     }
 
     @Test("a 4:3 picture locks to 4:3, not to the 16:9 the last one had")
@@ -52,6 +54,8 @@ struct WindowGeometryWriterTests {
         // Two media in a row, which is the ordinary way a player is used. The
         // second must not inherit the first's shape.
         let window = window()
+        let contentMinimum = CGSize(width: 333, height: 222)
+        window.contentMinSize = contentMinimum
         let coordinator = WindowGeometryWriter.Coordinator()
 
         coordinator.apply(
@@ -66,7 +70,7 @@ struct WindowGeometryWriterTests {
         )
 
         #expect(window.contentAspectRatio == NSSize(width: 640, height: 480))
-        #expect(window.contentMinSize == CGSize(width: 693, height: 520))
+        #expect(window.contentMinSize == contentMinimum, "the writer competed with SwiftUI's minimum")
     }
 
     @Test("an anamorphic picture locks to what is displayed, not what is stored")
@@ -92,6 +96,8 @@ struct WindowGeometryWriterTests {
         // Audio-only, a failed medium, the empty state. ADR-0038 accepts this
         // as the cost of the design: nothing to hold a ratio to.
         let window = window()
+        let contentMinimum = CGSize(width: 333, height: 222)
+        window.contentMinSize = contentMinimum
         let coordinator = WindowGeometryWriter.Coordinator()
 
         coordinator.apply(
@@ -102,7 +108,7 @@ struct WindowGeometryWriterTests {
         coordinator.apply(geometry: nil, mediaRevision: 2, to: window)
 
         #expect(window.contentAspectRatio == .zero, "the lock outlived the picture")
-        #expect(window.contentMinSize == WindowGeometry.chromeBase)
+        #expect(window.contentMinSize == contentMinimum, "the writer competed with SwiftUI's minimum")
         #expect(window.resizeIncrements == NSSize(width: 1, height: 1))
     }
 
@@ -179,7 +185,6 @@ struct WindowGeometryWriterTests {
         )
         #expect(window.frame == placed, "a reconfiguration moved the user's window")
         #expect(window.contentAspectRatio == NSSize(width: 640, height: 480))
-        #expect(window.contentMinSize == CGSize(width: 693, height: 520))
     }
 
     @Test("the next medium does size the window, even at the same ratio")
@@ -319,7 +324,7 @@ struct WindowGeometryWriterTests {
 
         NotificationCenter.default.post(name: NSWindow.didExitFullScreenNotification, object: window)
         #expect(window.contentAspectRatio == NSSize(width: 640, height: 480))
-        #expect(window.contentMinSize == CGSize(width: 693, height: 520))
+        #expect(window.contentMinSize == minimum, "the writer competed with SwiftUI's minimum")
         let expected = WindowGeometry.contentSize(
             for: CGSize(width: 640, height: 480), visibleFrame: visibleFrame(window)
         )
@@ -331,6 +336,8 @@ struct WindowGeometryWriterTests {
     @Test("losing the video in full screen does not restore the outgoing ratio")
     func noPictureOnExitLeavesTheWindowFree() {
         let window = window()
+        let contentMinimum = CGSize(width: 333, height: 222)
+        window.contentMinSize = contentMinimum
         let coordinator = WindowGeometryWriter.Coordinator()
         defer { coordinator.stopObserving() }
         coordinator.apply(
@@ -342,7 +349,7 @@ struct WindowGeometryWriterTests {
         NotificationCenter.default.post(name: NSWindow.didExitFullScreenNotification, object: window)
         #expect(window.contentAspectRatio == .zero)
         #expect(window.resizeIncrements == NSSize(width: 1, height: 1))
-        #expect(window.contentMinSize == WindowGeometry.chromeBase)
+        #expect(window.contentMinSize == contentMinimum, "the writer competed with SwiftUI's minimum")
     }
 
     @Test("a degenerate size is treated as no picture rather than divided by")
@@ -351,6 +358,8 @@ struct WindowGeometryWriterTests {
         // boundary keeping its own promise: dividing by a zero height would put
         // a `nan` into a window frame.
         let window = window()
+        let contentMinimum = CGSize(width: 333, height: 222)
+        window.contentMinSize = contentMinimum
         let coordinator = WindowGeometryWriter.Coordinator()
 
         coordinator.apply(
@@ -360,7 +369,7 @@ struct WindowGeometryWriterTests {
         )
 
         #expect(window.contentAspectRatio == .zero)
-        #expect(window.contentMinSize == WindowGeometry.chromeBase)
+        #expect(window.contentMinSize == contentMinimum, "the writer competed with SwiftUI's minimum")
         #expect(window.frame.width.isFinite)
         #expect(window.frame.height.isFinite)
     }

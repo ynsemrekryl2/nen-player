@@ -74,10 +74,9 @@ struct WindowGeometryWriter: NSViewRepresentable {
             guard let geometry,
                   let size = Self.displaySize(geometry) else {
                 // Audio-only, a failed medium, or nothing open: there is no
-                // picture, so there is no shape to hold. Free resize, floored
-                // only by what the chrome needs (ADR-0038's accepted cost).
+                // picture, so there is no shape to hold. The SwiftUI root owns
+                // the chrome floor; this writer only releases the aspect lock.
                 Self.releaseAspectLock(in: window)
-                window.contentMinSize = WindowGeometry.chromeBase
                 // **The revision is deliberately not claimed here.** Opening a
                 // medium clears the size and bumps the revision in the same
                 // turn — the shell cannot know the new picture's shape until
@@ -90,8 +89,6 @@ struct WindowGeometryWriter: NSViewRepresentable {
                 return
             }
 
-            let ratio = size.width / size.height
-            window.contentMinSize = WindowGeometry.minimumContentSize(for: ratio)
             window.contentAspectRatio = size
 
             // **Only on a new medium.** A later reconfiguration of the same
