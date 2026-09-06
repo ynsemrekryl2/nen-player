@@ -177,6 +177,7 @@ struct ContractTests {
     @Test func successiveMediaReportTheirOwnDisplaySize() throws {
         let engine = try MPVPlaybackEngine()
         defer { try? engine.shutdown() }
+        var outgoing: FfiVideoGeometry?
         for (name, geometry) in [
             ("contract-clip.mkv", FfiVideoGeometry(width: 160, height: 90)),
             ("aspect-4x3-clip.mkv", FfiVideoGeometry(width: 160, height: 120)),
@@ -184,7 +185,12 @@ struct ContractTests {
         ] {
             try engine.load(locator: Self.fixturePath(name))
             try settle(engine, until: .ready)
-            #expect(try waitForGeometry(engine) == geometry)
+            // What the previous medium reported, not what this one should:
+            // handing the wanted size to the wait would make the expectation
+            // below assert its own premise.
+            let seen = try waitForGeometry(engine, after: outgoing)
+            #expect(seen == geometry, "loaded \(name), saw \(String(describing: seen))")
+            outgoing = seen
         }
         try engine.load(locator: Self.fixturePath("audio-only-clip.mka"))
         try settle(engine, until: .ready)
@@ -220,13 +226,34 @@ struct ContractTests {
     /// Measured: the size is still unreadable at the first of the two
     /// reconfigurations a load produces, so a single read the instant after the
     /// event reads before the answer exists.
+    ///
+    /// `outgoing` is the size the **previous** medium reported on this engine,
+    /// and passing it is what makes a second load safe to wait for. Between
+    /// `loadfile` and the new picture's reconfiguration, `video-out-params`
+    /// still describes the medium that is leaving —
+    /// `aLoadingMediumDoesNotExposeTheOutgoingDisplaySize` pins that on
+    /// purpose — so a wait that takes the first non-nil answer can take the old
+    /// one. Under a loaded machine that window is wide enough to lose: measured
+    /// at 2/5 green in the parallel package, failing in ~0,2 s rather than at
+    /// the timeout, with the wait returning exactly the outgoing size
+    /// (NEN-049).
+    ///
+    /// Only the outgoing value is excluded, never the wanted one: a wait told
+    /// what to expect would answer the caller's own question. A third size
+    /// still resolves, and still fails the caller's expectation.
+    ///
+    /// Two successive media that genuinely share a display size would spend the
+    /// whole timeout here before answering correctly. No fixture pair does
+    /// today; one that did would need the load's own reconfiguration to
+    /// separate them, not a value comparison.
     private func waitForGeometry(
         _ engine: MPVPlaybackEngine,
+        after outgoing: FfiVideoGeometry? = nil,
         timeout: TimeInterval = 5
     ) throws -> FfiVideoGeometry? {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
-            if let geometry = try engine.videoGeometry() { return geometry }
+            if let geometry = try engine.videoGeometry(), geometry != outgoing { return geometry }
             Thread.sleep(forTimeInterval: 0.01)
         }
         return try engine.videoGeometry()

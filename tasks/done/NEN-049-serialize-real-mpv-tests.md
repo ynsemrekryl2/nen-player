@@ -3,7 +3,7 @@ id: NEN-049
 title: Serialize real libmpv platform tests
 milestone: M3
 size: S
-state: backlog
+state: done
 depends_on: [NEN-022, NEN-045, NEN-051]
 blocks: []
 adr: [12, 33]
@@ -163,12 +163,74 @@ değiştirdi** — bu task'a iş eklemeden, ama burada kayda değer:
 
 ## Kanıt (DoD)
 
-- [ ] `bash scripts/test-macos.sh` art arda en az 3 kez çıkış 0
-- [ ] `aSeekIsAnsweredThroughTheSession` hâlâ `12_000 ± 100 ms` bekliyor
-- [ ] Değişiklik öncesi paralel kırmızı ve sonrası tekrarlı yeşil sayıları
-      bağlamıyla kaydedilmiş
-- [ ] Ürün kaynak kodunda değişiklik yok
+- [x] `bash scripts/test-macos.sh` art arda en az 3 kez çıkış 0 — **9 ardışık
+      yeşil** (5/5 ve 4/4, iki turda)
+- [x] `aSeekIsAnsweredThroughTheSession` hâlâ `12_000 ± 100 ms` bekliyor —
+      `SessionTests.swift:75`, dosyaya dokunulmadı
+- [x] Değişiklik öncesi paralel kırmızı ve sonrası tekrarlı yeşil sayıları
+      bağlamıyla kaydedilmiş — dönüşümlü ölçüm, öncesi **3/9**, sonrası **9/9**
+- [x] Ürün kaynak kodunda değişiklik yok — tek dosya
+      `platforms/macos/Tests/NenPlaybackMPVTests/ContractTests.swift`
 
 ## Kanıt kaydı
 
-<!-- done olurken doldurulacak -->
+**Kapanış tarihi:** 2026-09-06 · Tam ölçüm:
+`evidence/M3/NEN-049-measurement.md`
+
+**Kırmızı üretilebildi ve ilk kez sebebi doğrudan okundu.** Dokunulmamış
+`HEAD` üzerinde paralel tam paket **2/5 yeşil**; kırmızı olan her koşuda
+`ContractTests.successiveMediaReportTheirOwnDisplaySize` ve her koşuda
+`~0,2 s`'de düşüyor — helper'ın 5 s'lik timeout'una hiç ulaşmadan. Geçici bir
+tanı satırı (commit edilmedi) beklemenin **ne gördüğünü** yazdırdı:
+
+```
+DIAG loaded aspect-4x3-clip.mkv, saw FfiVideoGeometry(width: 160, height: 90)
+DIAG loaded anamorphic-clip.mkv, saw FfiVideoGeometry(width: 160, height: 120)
+```
+
+İkisinde de görülen değer **giden medyanın** boyutu. Yani bekleme aç kalmıyor,
+yanlış cevabı zamanında alıyor: `loadfile` sonrası `MPV_EVENT_FILE_LOADED`
+geldiğinde `video-out-params` hâlâ giden medyayı tarif edebiliyor —
+`aLoadingMediumDoesNotExposeTheOutgoingDisplaySize` bunu zaten bilerek
+sabitliyor — ve `waitForGeometry` **ilk non-nil** değeri kabul ediyordu.
+
+**Ölçüm çareyi değiştirdi: izolasyon uygulanmadı.** Bu task "gerçek libmpv
+suite'lerini birbirine karşı seri kılmak" diye açılmıştı ve başlığı hâlâ öyle
+diyor. Seri kılmak kırmızıyı **gizlerdi** — kusur paralellikte değil, testin
+kendi beklemesindeydi. `waitForGeometry` artık **giden** medyanın boyutunu
+dışlıyor (`waitForGeometry(_:after:)`), **beklenen** boyutu değil: beklenen
+boyutu vermek iddiayı kendi öncülüne sordurmak olurdu. Kapsamın üç
+basamağından (suite trait'i · ortak seri ebeveyn · script'te `--no-parallel`)
+**hiçbiri gerekmedi**; paket paralel kalıyor.
+
+**Oran bu kez ayırt edici çıktı** — `NEN-051`'de çıkmamıştı. Makine durumu
+oturum içinde kaydığı için ölçüm dönüşümlü tekrarlandı:
+
+| Ağaç | Paralel tam paket |
+|---|---|
+| Düzeltme yok (A turu) | **2/5 yeşil** |
+| Düzeltme var (A turu) | **5/5 yeşil** |
+| Düzeltme geri alındı (B turu) | **1/4 yeşil** |
+| Düzeltme geri kondu (B turu) | **4/4 yeşil** |
+| **Toplam** | öncesi **3/9** · sonrası **9/9** |
+
+Seri mod, düzeltmeli ağaçta 2/2 yeşil (159/159).
+
+**Negatif kontrol üç yönde.** (1) Düzeltme geri alınınca semptom geri geliyor —
+B turunun ilk yarısı tam olarak bu; kusur yüke bağlı olduğu için tek koşu
+kanıt sayılmadı, oranla raporlandı. (2) Beklenen boyutlardan biri bilinçli
+yanlış yazılınca (`160×120` → `161×121`) test kırmızı ve gerçek değeri
+söylüyor — yani bekleme çağıranın sorusunu cevaplamıyor. (3) Düzeltme "daha
+uzun bekleyerek" geçmiyor: dokuz yeşil koşuda testin süresi **0,117–0,186 s**,
+5 s'lik timeout'a yaklaşan koşu yok.
+
+**Kapılar.** macOS paketi 159/159 (paralel 9 koşu, seri 2 koşu), Rust workspace
+**568 passed / 1 ignored**, `cargo fmt --check`, `cargo clippy --workspace
+--all-targets -D warnings`, `bash scripts/test.sh` ve `bash
+scripts/check-docs.sh` yeşil.
+
+**Kalan sınır, açıkça.** Dışlama bir **değer** karşılaştırmasıdır: art arda
+gelen iki medya gerçekten aynı display boyutunu paylaşırsa bekleme timeout'u
+harcayıp doğru cevabı en sonda verir. Bugünkü fixture'ların üçü de farklı
+boyutta; böyle bir çift eklenirse ayırıcı değer değil, yüklemenin kendi
+reconfiguration'ı olmalı. Helper'ın doküman yorumuna yazıldı.

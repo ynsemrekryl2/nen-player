@@ -3,9 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-06** (`NEN-036` done — uzak medya evidence portu,
-> redirect/header/range politikası ve macOS URLSession adapter'ı. Önceki:
-> `NEN-069` done — videosuz medyada yüzeyde önceki medyanın karesi kalmıyor)
+> Son güncelleme: **2026-09-06** (`NEN-049` done — paralel macOS paketindeki
+> kırmızı kaldırıldı: bekleme giden medyanın boyutunu kabul ediyordu. Önceki:
+> `NEN-036` done — uzak medya evidence portu)
 
 ## Nerede duruyoruz
 
@@ -13,17 +13,54 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-036` — uzak medya evidence portu |
-| **Sıradaki READY** | `NEN-033`, `NEN-034`, `NEN-035`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-071`, `NEN-072` |
-| **Task sayısı** | 72 · done 52 · active 0 · blocked 0 · canceled 2 · backlog 18 |
+| **Son tamamlanan** | `NEN-049` — paralel macOS paketi deterministik |
+| **Sıradaki READY** | `NEN-033`, `NEN-034`, `NEN-035`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-071`, `NEN-072` |
+| **Task sayısı** | 72 · done 53 · active 0 · blocked 0 · canceled 2 · backlog 17 |
 
 **M3 kapanmıyor: `milestone: M3` etiketli 13 task'ın hepsi bitecek**
 (kullanıcı kararı, 2026-09-06). Beş çıkış kriteri `NEN-028`'de kanıtlandı ve
 milestone dokümanının kanonik task listesi (`NEN-021`…`028`, `061`, `062`)
-tamamlandı, ama kriterlerle erken kapanış yapılmıyor. Kalan 11: `037` · `040` ·
-`041` · `042` · `043` · `047` · `049` · `050` · `052` · `057` · `071`
+tamamlandı, ama kriterlerle erken kapanış yapılmıyor. Kalan 10: `037` · `040` ·
+`041` · `042` · `043` · `047` · `050` · `052` · `057` · `071`
 (`037`, `047` bitene kadar READY değil). `docs/roadmap.md`'nin M3 satırı ve
 milestone dokümanının bayat task listesi kapanışta düzeltilecek.
+
+**`NEN-049` kapandı — paralel macOS paketi artık deterministik ve kusur
+gizlenmeden kaldırıldı.** Dört kapanışta gözlenen kırmızı
+(`ContractTests.successiveMediaReportTheirOwnDisplaySize`) dokunulmamış `HEAD`
+üzerinde yeniden üretildi — **2/5 yeşil** — ve ilk kez sebebi doğrudan okundu.
+Test her koşuda `~0,2 s`'de düşüyordu, yani 5 s'lik timeout'a hiç ulaşmıyordu.
+Geçici bir tanı satırı beklemenin **ne gördüğünü** yazdırdı: 4:3 klip
+yüklenirken `160×90`, anamorphic klip yüklenirken `160×120` — ikisi de **giden
+medyanın** boyutu. Bekleme aç kalmıyor, yanlış cevabı zamanında alıyordu:
+`loadfile` sonrası `FILE_LOADED` geldiğinde `video-out-params` hâlâ giden
+medyayı tarif edebiliyor ve `waitForGeometry` **ilk non-nil** değeri kabul
+ediyordu.
+
+**Ölçüm çareyi değiştirdi — izolasyon uygulanmadı.** Task "gerçek libmpv
+suite'lerini birbirine karşı seri kılmak" diye açılmıştı; seri kılmak kırmızıyı
+**gizlerdi**, çünkü kusur paralellikte değil testin kendi beklemesindeydi.
+Bekleme artık **giden** medyanın boyutunu dışlıyor, **beklenen** boyutu değil —
+beklenen boyutu vermek iddiayı kendi öncülüne sordurmak olurdu. Kapsamın üç
+basamağından hiçbiri gerekmedi; paket paralel kalıyor ve ürün kaynak kodu
+değişmedi (DoD #4): tek dosya `ContractTests.swift`.
+
+**Oran bu kez ayırt edici çıktı** — `NEN-051`'de çıkmamıştı. Makine durumu
+oturum içinde kaydığı için dönüşümlü ölçüldü: düzeltmesiz **2/5** ve **1/4**,
+düzeltmeli **5/5** ve **4/4** — öncesi **3/9**, sonrası **9/9**. Seri mod
+düzeltmeli ağaçta 2/2 (159/159). Negatif kontrol üç yönde: düzeltme geri
+alınınca semptom oranla geri geliyor; beklenen boyut bilinçli yanlış yazılınca
+test kırmızı ve gerçek değeri söylüyor (yani bekleme çağıranın sorusunu
+cevaplamıyor); dokuz yeşil koşuda testin süresi **0,117–0,186 s**, yani
+düzeltme "daha uzun bekleyerek" geçmiyor. Rust workspace **568 passed / 1
+ignored**, fmt/clippy, shell ve doküman kapıları yeşil. Kanıt:
+`evidence/M3/NEN-049-measurement.md`.
+
+**Kalan sınır açıkça kaydedildi:** dışlama bir **değer** karşılaştırmasıdır.
+Art arda gelen iki medya gerçekten aynı display boyutunu paylaşırsa bekleme
+timeout'u harcayıp doğru cevabı en sonda verir. Bugünkü üç fixture'ın boyutları
+farklı; böyle bir çift eklenirse ayırıcı değer değil, yüklemenin kendi
+reconfiguration'ı olmalı.
 
 **`NEN-036` kapandı — uzak medya evidence portu ve macOS URLSession adapter'ı
 kanıtlandı.** Provider API'leri HTTPS + approved-host olarak kaldı; kullanıcı ve
