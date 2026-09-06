@@ -102,31 +102,60 @@ final class TestClock {
 enum RecentStoreCall: Hashable { case save, resolve }
 
 final class MemoryRecentStore: RecentMediaStoring {
-    var url: URL?
-    var displayName: String? { url?.lastPathComponent }
+    private(set) var entries: [RecentMediaEntry] = []
+    private var urls: [RecentMediaEntry.ID: URL] = [:]
     /// Errors keyed by call: every listed call throws instead of succeeding.
     var errors: [RecentStoreCall: Error] = [:]
     /// How many times `clear()` actually ran — the only way to tell "the
-    /// store was cleared" from "the store was already empty" (NEN-050).
+    /// store was cleared" from "an entry was individually removed" (NEN-050,
+    /// carried into NEN-042's per-entry `remove`).
     var clearCount = 0
+    /// Every id ever passed to `remove(_:)`, in order.
+    var removedIds: [RecentMediaEntry.ID] = []
 
     private func refuse(_ call: RecentStoreCall) throws {
         if let error = errors[call] { throw error }
     }
 
-    func save(_ url: URL) throws {
-        try refuse(.save)
-        self.url = url
+    /// Test convenience: seeds a single entry directly, as if `save` had
+    /// already run, and returns its id for `resolve`/`remove` calls.
+    @discardableResult
+    func seed(_ url: URL) -> RecentMediaEntry.ID {
+        let entry = RecentMediaEntry(id: UUID(), displayName: url.lastPathComponent)
+        entries.insert(entry, at: 0)
+        urls[entry.id] = url
+        return entry.id
     }
 
-    func resolve() throws -> URL? {
+    /// An entry the list shows but whose bookmark resolves to nothing —
+    /// the "resolved-to-nothing" half of NEN-050's transient-path coverage.
+    @discardableResult
+    func seedUnresolvable(displayName: String = "gone.mkv") -> RecentMediaEntry.ID {
+        let entry = RecentMediaEntry(id: UUID(), displayName: displayName)
+        entries.insert(entry, at: 0)
+        return entry.id
+    }
+
+    func save(_ url: URL) throws {
+        try refuse(.save)
+        seed(url)
+    }
+
+    func resolve(_ id: RecentMediaEntry.ID) throws -> URL? {
         try refuse(.resolve)
-        return url
+        return urls[id]
+    }
+
+    func remove(_ id: RecentMediaEntry.ID) {
+        removedIds.append(id)
+        entries.removeAll { $0.id == id }
+        urls[id] = nil
     }
 
     func clear() {
         clearCount += 1
-        url = nil
+        entries.removeAll()
+        urls.removeAll()
     }
 }
 

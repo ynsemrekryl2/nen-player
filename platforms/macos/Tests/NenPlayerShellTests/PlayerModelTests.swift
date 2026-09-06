@@ -404,18 +404,18 @@ struct PlayerModelTests {
         #expect(model.mediaName == "shared.mkv")
     }
 
-    @Test("the one stored bookmark reopens in the same model")
+    @Test("a stored bookmark reopens in the same model")
     func recentMediaReopens() {
         let fixture = FakeSession()
         let store = MemoryRecentStore()
         let url = URL(fileURLWithPath: "/fixtures/media/contract-clip.mkv")
-        store.url = url
+        let id = store.seed(url)
         let model = makeModel(session: fixture, store: store)
 
-        model.openRecentMedia()
+        model.openRecentMedia(id)
 
         #expect(fixture.loadedLocators == [url.path])
-        #expect(model.recentMediaName == "contract-clip.mkv")
+        #expect(model.recentMedia.first?.displayName == "contract-clip.mkv")
     }
 
     // MARK: - Recent-media store transient paths (NEN-050)
@@ -436,36 +436,40 @@ struct PlayerModelTests {
 
         #expect(model.transientMessage == PlaybackPresentation.recentMediaSaveFailedMessage)
         #expect(fixture.loadedLocators == [url.path])
-        #expect(model.recentMediaName == nil)
+        #expect(model.recentMedia.isEmpty)
     }
 
-    @Test("a resolved-to-nothing bookmark clears the store and tells the user")
-    func recentMediaResolveNilClearsStoreAndPresentsTransient() {
+    @Test("a resolved-to-nothing bookmark removes only that entry and tells the user")
+    func recentMediaResolveNilRemovesEntryAndPresentsTransient() {
         let fixture = FakeSession()
         let store = MemoryRecentStore()
-        store.url = nil
+        let staying = store.seed(URL(fileURLWithPath: "/fixtures/media/menu-clip.mkv"))
+        let gone = store.seedUnresolvable(displayName: "gone.mkv")
         let model = makeModel(session: fixture, store: store)
 
-        model.openRecentMedia()
+        model.openRecentMedia(gone)
 
-        #expect(store.clearCount == 1)
-        #expect(model.recentMediaName == nil)
+        #expect(store.clearCount == 0)
+        #expect(store.removedIds == [gone])
+        #expect(model.recentMedia.map(\.id) == [staying])
         #expect(model.transientMessage == PlaybackPresentation.recentMediaUnavailableMessage)
         #expect(fixture.loadedLocators.isEmpty)
     }
 
-    @Test("a throwing resolve clears the store and tells the user, even with a stored entry")
-    func recentMediaResolveThrowsClearsStoreAndPresentsTransient() {
+    @Test("a throwing resolve removes only that entry and tells the user")
+    func recentMediaResolveThrowsRemovesEntryAndPresentsTransient() {
         let fixture = FakeSession()
         let store = MemoryRecentStore()
-        store.url = URL(fileURLWithPath: "/fixtures/media/contract-clip.mkv")
+        let staying = store.seed(URL(fileURLWithPath: "/fixtures/media/menu-clip.mkv"))
+        let broken = store.seed(URL(fileURLWithPath: "/fixtures/media/contract-clip.mkv"))
         store.errors[.resolve] = CocoaError(.fileReadNoSuchFile)
         let model = makeModel(session: fixture, store: store)
 
-        model.openRecentMedia()
+        model.openRecentMedia(broken)
 
-        #expect(store.clearCount == 1)
-        #expect(model.recentMediaName == nil)
+        #expect(store.clearCount == 0)
+        #expect(store.removedIds == [broken])
+        #expect(model.recentMedia.map(\.id) == [staying])
         #expect(model.transientMessage == PlaybackPresentation.recentMediaUnavailableMessage)
         #expect(fixture.loadedLocators.isEmpty)
     }

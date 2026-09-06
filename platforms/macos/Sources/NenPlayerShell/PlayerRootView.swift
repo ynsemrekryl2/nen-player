@@ -78,7 +78,7 @@ public struct PlayerRootView: View {
                 )
             } else if model.mediaName == nil {
                 EmptyState(
-                    recentMediaName: model.recentMediaName,
+                    recentMedia: model.recentMedia,
                     openAction: model.chooseMedia,
                     openRecentAction: model.openRecentMedia
                 )
@@ -430,9 +430,9 @@ private struct VideoSurface: NSViewRepresentable {
 }
 
 private struct EmptyState: View {
-    let recentMediaName: String?
+    let recentMedia: [RecentMediaEntry]
     let openAction: () -> Void
-    let openRecentAction: () -> Void
+    let openRecentAction: (RecentMediaEntry.ID) -> Void
 
     var body: some View {
         VStack(spacing: 18) {
@@ -444,14 +444,20 @@ private struct EmptyState: View {
             Button("Aç…", action: openAction)
                 .keyboardShortcut("o", modifiers: .command)
                 .controlSize(.large)
-            if let recentMediaName {
-                Button(action: openRecentAction) {
-                    Label(recentMediaName, systemImage: "clock.arrow.circlepath")
-                        .lineLimit(1)
+            if !recentMedia.isEmpty {
+                VStack(spacing: 6) {
+                    ForEach(recentMedia) { entry in
+                        Button {
+                            openRecentAction(entry.id)
+                        } label: {
+                            Label(entry.displayName, systemImage: "clock.arrow.circlepath")
+                                .lineLimit(1)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                        .help("Son açılan medyayı yeniden aç")
+                    }
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .help("Son açılan medyayı yeniden aç")
             }
         }
         .padding(36)

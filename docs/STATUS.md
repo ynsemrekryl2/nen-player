@@ -3,8 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-06** (`NEN-050` done — son açılan medya deposunun
-> üç geçici bildirim yolu testle kapatıldı. Önceki: `NEN-033`)
+> Son güncelleme: **2026-09-06** (`NEN-042` done — boş durum artık son N
+> medyayı listeliyor. Önceki: `NEN-050`)
 
 ## Nerede duruyoruz
 
@@ -12,20 +12,48 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-050` — son açılan medya deposunun geçici bildirim yolları testle kapatıldı |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-052`, `NEN-057`, `NEN-064`, `NEN-071`, `NEN-072` |
-| **Task sayısı** | 74 · done 61 · active 0 · blocked 0 · canceled 2 · backlog 11 |
+| **Son tamamlanan** | `NEN-042` — boş durumdaki son açılanlar listesi 5 kayda çıktı, `NEN-050`'nin ertelediği bookmark tazeleme kusuru kapandı |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-043`, `NEN-044`, `NEN-052`, `NEN-057`, `NEN-064`, `NEN-071`, `NEN-072` |
+| **Task sayısı** | 74 · done 62 · active 0 · blocked 0 · canceled 2 · backlog 10 |
 
 **M3 kapanmıyor: `milestone: M3` etiketli 15 task'ın hepsi bitecek**
 (kullanıcı kararı, 2026-09-06). Beş çıkış kriteri `NEN-028`'de kanıtlandı ve
 milestone dokümanının kanonik task listesi (`NEN-021`…`028`, `061`, `062`)
-tamamlandı, ama kriterlerle erken kapanış yapılmıyor. Kalan 5: `042` · `043` ·
+tamamlandı, ama kriterlerle erken kapanış yapılmıyor. Kalan 4: `043` ·
 `052` · `057` · `071` — hepsi READY.
 `docs/roadmap.md`'nin M3 satırı ve milestone dokümanının bayat task listesi
 kapanışta düzeltilecek. `NEN-073`, kullanıcının gerçek `.app`te minimum pencere
 sınırının uygulanmadığını göstermesiyle yeniden açıldı ve düzeltici kapanışta
 gerçek köşe sürüklemesiyle kanıtlandı; canlı resize regresyonu `NEN-074`
 ile kapandı.
+
+**`NEN-042` kapandı — boş durum artık tek "son açılan" satırı yerine 5
+kayıtlık, sıralı bir liste gösteriyor.** `RecentMediaStore` yeniden yazıldı:
+`RecentMediaEntry` (yalnız `id` + `displayName`, yol taşımıyor — ADR-0031
+Karar 2), `UserDefaultsRecentMediaStore` dedup'lı ve kapasiteye kırpılan bir
+liste, uzak (http/https) URL'leri sessizce reddediyor. `NEN-050`'de bilinçli
+olarak ertelenen kusur bu geçişte kapandı: bayat bookmark artık security
+scope **açıkken** tazeleniyor, tazeleme başarısız olsa bile zaten çözülmüş
+URL kayıptan düşmüyor. `PlayerModel.openRecentMedia(_:)` çözülemeyen kaydı
+artık yalnız **kendisi** olarak düşürüyor — önceki tek-slot tasarımın
+`clear()`'ı tüm depoyu siliyordu. `PlayerCommands`'e `Son Açılanları Temizle`
+maddesi eklendi (liste boşken devre dışı). Kullanıcı kararları: N=5, temizleme
+komutu Dosya menüsünde, bugünkü tek kayıt bir kez göç ediyor.
+
+Beş ayrı negatif kontrol (tazeleme-hatası yutma, dedup, kapasite kırpması,
+`isFileURL` kapısı, `PlayerModel`'de per-entry `remove`) her biri kendi
+başına geri alınıp yalnız kendi testini kırmızıya çevirdi. Swift paketi
+paralel ve seri **195/195** (önceki 184), Rust workspace **568 passed / 1
+ignored** (bu task Rust'a dokunmadı), fmt/clippy, `.app` build, strict
+codesign, shell ve doküman kapıları yeşil. Gerçek `.app`te ad-hoc imzalı
+build, yalnız `fixtures/media/*.mkv` ile: altı fixture açılıp tam kapatılıp
+yeniden açıldığında 5 satır doğru sırada; gerçekten silinen bir dosyanın
+satırı tek başına düştü, kalan dört satır ve uygulama sağlam kaldı; temizleme
+komutu listeyi anında ve kalıcı olarak boşalttı. Yol üstünde bir OS gözlemi:
+aynı birim içinde yeniden adlandırılan dosya security-scoped bookmark
+tarafından hâlâ çözülüyor (Apple'ın kasıtlı dayanıklılığı) — "taşınan" DoD
+maddesi bu yüzden dosyanın gerçekten kaldırılmasıyla sınandı. Kanıt:
+`evidence/M3/NEN-042-checklist.md`.
 
 **`NEN-050` kapandı — son açılan medya deposundan türeyen üç geçici bildirim
 yolunun artık testi var.** `NEN-048` motor hatasından türeyen sınıfı
@@ -1618,13 +1646,13 @@ Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
 
-2026-09-06'da NEN-074 kapanışı için macOS Swift paketi **181/181** geçti;
-`.app` build'i, strict codesign, shell testleri, task index ve doküman kapıları
-da yeşildi. Aynı gün NEN-037 kapanışında Rust workspace **568 passed / 1
-ignored** ile birlikte `cargo fmt --check`,
-`cargo clippy --all-targets --all-features -- -D warnings` ve
-`cargo deny check` de geçti. Ayrıntılı son ölçüm
-`evidence/M3/NEN-074-measurement.md` içinde.
+2026-09-06'da NEN-042 kapanışı için macOS Swift paketi paralel ve seri
+**195/195** geçti; `.app` build'i, strict codesign, shell testleri, task
+index ve doküman kapıları da yeşildi. Aynı gün Rust workspace **568 passed / 1
+ignored** ile birlikte `cargo fmt --check` ve
+`cargo clippy --workspace --all-targets -- -D warnings` de geçti (bu task
+Rust'a dokunmadı). Ayrıntılı kayıt `evidence/M3/NEN-042-checklist.md`
+içinde.
 
 ### Toolchain kapısı geçmiş kaydı
 

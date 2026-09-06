@@ -8,7 +8,7 @@ public struct PlayerCommands: Commands {
     // bound to the app's own model regardless of focus: NEN-046 already
     // proved it must bring the player window back and open the picker while
     // that window is fully closed, i.e. before any scene could hold focus.
-    private let model: PlayerModel
+    @ObservedObject private var model: PlayerModel
     @FocusedValue(\.playerModel) private var focusedModel: PlayerModel?
 
     public init(model: PlayerModel) {
@@ -21,6 +21,12 @@ public struct PlayerCommands: Commands {
                 .keyboardShortcut("o", modifiers: .command)
             Button("Altyazı Dosyası Yükle…", action: model.chooseSubtitleFile)
                 .keyboardShortcut("o", modifiers: [.command, .shift])
+            Divider()
+            // Empty is a harmless no-op in `clearRecentMedia()`, but disabling
+            // here keeps the item from ever looking actionable on a fresh
+            // install (NEN-042).
+            Button("Son Açılanları Temizle", action: model.clearRecentMedia)
+                .disabled(model.recentMedia.isEmpty)
         }
 
         CommandMenu("Oynatma") {

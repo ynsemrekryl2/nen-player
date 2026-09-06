@@ -11,7 +11,7 @@ public final class PlayerModel: ObservableObject {
     public typealias SessionFactory = @MainActor (MPVVideoView) throws -> any PlaybackSessionClient
 
     @Published public private(set) var mediaName: String?
-    @Published public private(set) var recentMediaName: String?
+    @Published public private(set) var recentMedia: [RecentMediaEntry] = []
     @Published public private(set) var playbackState: FfiPlaybackState = .idle
     @Published public private(set) var positionMilliseconds: UInt64 = 0
     @Published public private(set) var durationMilliseconds: UInt64?
@@ -170,7 +170,7 @@ public final class PlayerModel: ObservableObject {
         }
     ) {
         self.recentStore = recentStore
-        self.recentMediaName = recentStore.displayName
+        self.recentMedia = recentStore.entries
         self.sessionFactory = sessionFactory
         self.shouldPoll = startsPolling
         self.pollIntervalNanoseconds = pollIntervalNanoseconds
@@ -262,7 +262,7 @@ public final class PlayerModel: ObservableObject {
 
         do {
             try recentStore.save(url)
-            recentMediaName = url.lastPathComponent
+            recentMedia = recentStore.entries
         } catch {
             presentTransient(PlaybackPresentation.recentMediaSaveFailedMessage)
         }
@@ -481,20 +481,27 @@ public final class PlayerModel: ObservableObject {
         }
     }
 
-    public func openRecentMedia() {
+    public func openRecentMedia(_ id: RecentMediaEntry.ID) {
         do {
-            guard let url = try recentStore.resolve() else {
-                recentStore.clear()
-                recentMediaName = nil
+            guard let url = try recentStore.resolve(id) else {
+                recentStore.remove(id)
+                recentMedia = recentStore.entries
                 presentTransient(PlaybackPresentation.recentMediaUnavailableMessage)
                 return
             }
             openMedia(at: url)
         } catch {
-            recentStore.clear()
-            recentMediaName = nil
+            recentStore.remove(id)
+            recentMedia = recentStore.entries
             presentTransient(PlaybackPresentation.recentMediaUnavailableMessage)
         }
+    }
+
+    /// The command behind the File menu's "Son Açılanları Temizle" — a no-op
+    /// on an already-empty list.
+    public func clearRecentMedia() {
+        recentStore.clear()
+        recentMedia = recentStore.entries
     }
 
     public func togglePlayback() {
