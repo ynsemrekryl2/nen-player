@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **72** task · ✅ done 55 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 15
+Toplam **74** task · ✅ done 55 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 17
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -91,6 +91,8 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-069](done/NEN-069-clear-surface-without-video.md) | Clear the video surface when the medium has no video | S | ✅ done | — |
 | [NEN-070](done/NEN-070-wide-transport-layout-overflow.md) | Keep transport controls inside wide windows | S | ✅ done | NEN-067 NEN-068 |
 | [NEN-071](backlog/NEN-071-open-panel-resolves-links.md) | Decide what the subtitle file picker does with a link | S | ⚪ backlog | NEN-025 |
+| [NEN-073](backlog/NEN-073-player-chrome-boundaries.md) | Player chrome boundary behaviour | M | ⚪ backlog | — |
+| [NEN-074](backlog/NEN-074-smooth-live-resize.md) | Smooth live video resize | M | ⚪ backlog | NEN-073 |
 
 ## M5 — Translation Core
 
@@ -126,3 +128,4 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-057** — Read the language a subtitle filename declares
 - **NEN-071** — Decide what the subtitle file picker does with a link
 - **NEN-072** — Parse container metadata from remote byte windows
+- **NEN-073** — Player chrome boundary behaviour

@@ -14,16 +14,17 @@
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
 | **Son tamamlanan** | `NEN-037` — Settings'te birinci/ikinci tercih edilen dil, menü sırası ve otomatik seçim buna uyuyor |
-| **Sıradaki READY** | `NEN-033`, `NEN-034`, `NEN-035`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-071`, `NEN-072` |
-| **Task sayısı** | 72 · done 55 · active 0 · blocked 0 · canceled 2 · backlog 15 |
+| **Sıradaki READY** | `NEN-033`, `NEN-034`, `NEN-035`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-071`, `NEN-072`, `NEN-073` |
+| **Task sayısı** | 74 · done 55 · active 0 · blocked 0 · canceled 2 · backlog 17 |
 
-**M3 kapanmıyor: `milestone: M3` etiketli 13 task'ın hepsi bitecek**
+**M3 kapanmıyor: `milestone: M3` etiketli 15 task'ın hepsi bitecek**
 (kullanıcı kararı, 2026-09-06). Beş çıkış kriteri `NEN-028`'de kanıtlandı ve
 milestone dokümanının kanonik task listesi (`NEN-021`…`028`, `061`, `062`)
 tamamlandı, ama kriterlerle erken kapanış yapılmıyor. Kalan 8: `040` ·
 `041` · `042` · `043` · `050` · `052` · `057` · `071` — hepsi READY.
 `docs/roadmap.md`'nin M3 satırı ve milestone dokümanının bayat task listesi
-kapanışta düzeltilecek.
+kapanışta düzeltilecek. Yeni player kromu ve resize regresyonları `NEN-073`
+ile `NEN-074` olarak kaydedildi; `NEN-074`, `NEN-073`'ü bekliyor.
 
 **`NEN-037` kapandı — Settings'in tek sahnesi artık birinci ve ikinci tercih
 edilen altyazı dilini taşıyor, ADR-0010 Karar 4/10'un menü sırası ilk kez
