@@ -3,9 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-06** (`NEN-037` done — Settings sahnesi iki dil
-> tercihi kazandı, altyazı menüsü ve otomatik seçim buna uyuyor.
-> Önceki: `NEN-047` done — yedi oynatma kısayolu oynatma yüzeyine bağlandı)
+> Son güncelleme: **2026-09-06** (`NEN-073` done — player kromu üst safe-area,
+> fare çıkışı ve 693 pt güvenli minimum davranışını kazandı.
+> Önceki: `NEN-037` done — Settings sahnesi iki dil tercihi kazandı)
 
 ## Nerede duruyoruz
 
@@ -13,9 +13,9 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-037` — Settings'te birinci/ikinci tercih edilen dil, menü sırası ve otomatik seçim buna uyuyor |
-| **Sıradaki READY** | `NEN-033`, `NEN-034`, `NEN-035`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-071`, `NEN-072`, `NEN-073` |
-| **Task sayısı** | 74 · done 55 · active 0 · blocked 0 · canceled 2 · backlog 17 |
+| **Son tamamlanan** | `NEN-073` — Player kromu üst safe-area, fare çıkışı ve 693 pt güvenli minimum davranışını taşıyor |
+| **Sıradaki READY** | `NEN-033`, `NEN-034`, `NEN-035`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-071`, `NEN-072`, `NEN-074` |
+| **Task sayısı** | 74 · done 56 · active 0 · blocked 0 · canceled 2 · backlog 16 |
 
 **M3 kapanmıyor: `milestone: M3` etiketli 15 task'ın hepsi bitecek**
 (kullanıcı kararı, 2026-09-06). Beş çıkış kriteri `NEN-028`'de kanıtlandı ve
@@ -23,8 +23,8 @@ milestone dokümanının kanonik task listesi (`NEN-021`…`028`, `061`, `062`)
 tamamlandı, ama kriterlerle erken kapanış yapılmıyor. Kalan 8: `040` ·
 `041` · `042` · `043` · `050` · `052` · `057` · `071` — hepsi READY.
 `docs/roadmap.md`'nin M3 satırı ve milestone dokümanının bayat task listesi
-kapanışta düzeltilecek. Yeni player kromu ve resize regresyonları `NEN-073`
-ile `NEN-074` olarak kaydedildi; `NEN-074`, `NEN-073`'ü bekliyor.
+kapanışta düzeltilecek. Yeni player kromu `NEN-073` ile tamamlandı; canlı resize
+regresyonu `NEN-074` olarak kaydedildi ve artık READY.
 
 **`NEN-037` kapandı — Settings'in tek sahnesi artık birinci ve ikinci tercih
 edilen altyazı dilini taşıyor, ADR-0010 Karar 4/10'un menü sırası ilk kez

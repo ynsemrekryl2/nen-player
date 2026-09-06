@@ -601,7 +601,19 @@ public final class PlayerModel: ObservableObject {
     }
 
     public func pointerLeft() {
-        showControls()
+        guard isPlaying, !controlsPinned else {
+            showControls()
+            return
+        }
+
+        // Leaving the player is an immediate boundary: do not leave the
+        // delayed hide task alive to race a later pointer event, and do not
+        // hide the system cursor once it has left our surface. The view's
+        // animation on `controlsVisible` keeps the existing 0.24 s fade.
+        controlsTask?.cancel()
+        controlsTask = nil
+        controlsVisible = false
+        showCursorIfNeeded()
     }
 
     public func applicationResignedActive() {

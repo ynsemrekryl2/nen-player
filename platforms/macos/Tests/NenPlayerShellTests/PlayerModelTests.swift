@@ -221,18 +221,40 @@ struct PlayerModelTests {
         #expect(model.fatalMessage == nil)
     }
 
-    @Test("controls hide only while playing")
+    @Test("leaving the player hides controls only while playing")
     func controlsVisibilityFollowsPlayback() {
         let fixture = FakeSession()
         let model = makeModel(session: fixture)
         model.openMedia(at: URL(fileURLWithPath: "/fixtures/media/contract-clip.mkv"))
 
         model.consume([.stateChanged(state: .playing)])
-        model.hideControlsNow()
+        model.pointerLeft()
         #expect(model.controlsVisible == false)
 
         model.consume([.stateChanged(state: .paused)])
-        model.hideControlsNow()
+        model.pointerLeft()
+        #expect(model.controlsVisible)
+    }
+
+    @Test("leaving cancels the old hide timer before pointer re-entry")
+    func pointerLeftCancelsPendingHideBeforeReentry() async throws {
+        let fixture = FakeSession()
+        let model = makeModel(
+            session: fixture,
+            controlsHideDelayNanoseconds: 50_000_000
+        )
+        model.openMedia(at: URL(fileURLWithPath: "/fixtures/media/contract-clip.mkv"))
+        model.consume([.stateChanged(state: .playing)])
+
+        model.pointerMoved()
+        try await Task.sleep(nanoseconds: 40_000_000)
+        model.pointerLeft()
+        model.pointerMoved()
+
+        // The timer armed before leaving would fire now if pointerLeft had
+        // merely hidden the controls without cancelling it. The timer armed
+        // on re-entry still has another 40 ms to run.
+        try await Task.sleep(nanoseconds: 20_000_000)
         #expect(model.controlsVisible)
     }
 
@@ -310,10 +332,10 @@ struct PlayerModelTests {
         // Fired directly rather than slept past. A pin has to survive the hide
         // timer going off, and sleeping only samples: on a loaded machine the
         // old 10 ms window could pass because the timer had not run *yet*,
-        // which proves nothing about the pin. `hideControlsNow()` is exactly
-        // what the timer calls, so this asserts the guard itself.
+        // which proves nothing about the pin. Leaving the player exercises the
+        // same visibility boundary while the pin is active.
         model.setControlsPinned(true)
-        model.hideControlsNow()
+        model.pointerLeft()
         #expect(model.controlsVisible)
         #expect(model.controlsPinned)
 

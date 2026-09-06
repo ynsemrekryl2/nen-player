@@ -212,6 +212,10 @@ public struct PlayerRootView: View {
             )
             .frame(height: 116)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            // The top shade belongs to the window, including the traffic-light
+            // safe area. The title below remains in the safe area so it never
+            // competes with the system buttons.
+            .ignoresSafeArea(.container, edges: .top)
             .opacity(model.controlsVisible ? 1 : 0)
             .allowsHitTesting(false)
 

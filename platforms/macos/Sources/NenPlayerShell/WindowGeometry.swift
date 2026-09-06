@@ -15,11 +15,12 @@ import Foundation
 /// test can state the whole input, and `WindowGeometryWriter` is left with
 /// nothing but the applying.
 public enum WindowGeometry {
-    /// The smallest content area NEN-067's chrome fits in, in points.
+    /// The smallest content area NEN-073's chrome fits in, in points.
     ///
     /// Measured rather than chosen:
     ///
-    /// - **600 pt wide** — the transport row's intrinsic width is ≈590 pt
+    /// - **693 pt wide** — the transport row's intrinsic width is ≈590 pt,
+    ///   with room for long time labels and the subtitle selection label
     ///   (2×22 pt padding, 11×6 pt spacing, the 34+30+30 pt buttons, ≈30 pt
     ///   elapsed time, the 76 pt seek minimum, 43 pt trailing time, 22 pt
     ///   speaker, the 72 pt volume minimum, 4.5 pt divider, 69 pt CC, 40 pt
@@ -31,7 +32,7 @@ public enum WindowGeometry {
     /// exactly what made it wrong: as a *fixed* pair it contradicts every
     /// aspect ratio wider than 1.60, so the window could not both honour it and
     /// stay letterbox-free.
-    public static let chromeBase = CGSize(width: 600, height: 390)
+    public static let chromeBase = CGSize(width: 693, height: 390)
 
     /// The smallest content size a window locked to `ratio` may have.
     ///
@@ -42,8 +43,8 @@ public enum WindowGeometry {
     ///
     /// Width leads: the chrome's height budget is the softer of the two, so the
     /// derived size is the base height scaled out to the ratio, floored at the
-    /// base width. 16:9 → 693×390 · 2.39:1 → 932×390 · 4:3 → 600×450 ·
-    /// 9:16 → 600×1067.
+    /// base width. 16:9 → 693×390 · 2.39:1 → 932×390 · 4:3 → 693×520 ·
+    /// 9:16 → 693×1232.
     ///
     /// A non-finite or non-positive ratio has no shape to honour, so the base
     /// is returned unchanged.

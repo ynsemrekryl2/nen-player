@@ -66,7 +66,7 @@ struct WindowGeometryWriterTests {
         )
 
         #expect(window.contentAspectRatio == NSSize(width: 640, height: 480))
-        #expect(window.contentMinSize == CGSize(width: 600, height: 450))
+        #expect(window.contentMinSize == CGSize(width: 693, height: 520))
     }
 
     @Test("an anamorphic picture locks to what is displayed, not what is stored")
@@ -179,7 +179,7 @@ struct WindowGeometryWriterTests {
         )
         #expect(window.frame == placed, "a reconfiguration moved the user's window")
         #expect(window.contentAspectRatio == NSSize(width: 640, height: 480))
-        #expect(window.contentMinSize == CGSize(width: 600, height: 450))
+        #expect(window.contentMinSize == CGSize(width: 693, height: 520))
     }
 
     @Test("the next medium does size the window, even at the same ratio")
@@ -319,7 +319,7 @@ struct WindowGeometryWriterTests {
 
         NotificationCenter.default.post(name: NSWindow.didExitFullScreenNotification, object: window)
         #expect(window.contentAspectRatio == NSSize(width: 640, height: 480))
-        #expect(window.contentMinSize == CGSize(width: 600, height: 450))
+        #expect(window.contentMinSize == CGSize(width: 693, height: 520))
         let expected = WindowGeometry.contentSize(
             for: CGSize(width: 640, height: 480), visibleFrame: visibleFrame(window)
         )

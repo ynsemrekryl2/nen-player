@@ -11,17 +11,21 @@ import Testing
 struct TransportControlsLayoutTests {
     @Test("edge controls stay inside short and screen-wide transports")
     func edgeControlsStayInsideTheTransport() throws {
-        let cases: [(width: CGFloat, position: UInt64, duration: UInt64)] = [
-            (693, 38_000, 90_000),
-            (1_470, 38_000, 5_717_931),
-            (1_470, 3_600_000, 7_200_000),
+        let cases: [(width: CGFloat, position: UInt64, duration: UInt64, remaining: Bool, title: String)] = [
+            (693, 38_000, 90_000, false, "Türkçe"),
+            (693, 3_600_000, 7_200_000, false, "Türkçe — Yönetmenin Uzun Altyazı Seçimi"),
+            (693, 3_600_000, 7_200_000, true, "Türkçe — Yönetmenin Uzun Altyazı Seçimi"),
+            (1_470, 38_000, 5_717_931, false, "Türkçe"),
+            (1_470, 3_600_000, 7_200_000, true, "Türkçe — Yönetmenin Uzun Altyazı Seçimi"),
         ]
 
         for testCase in cases {
             let measurement = try measure(
                 width: testCase.width,
                 position: testCase.position,
-                duration: testCase.duration
+                duration: testCase.duration,
+                showsRemaining: testCase.remaining,
+                subtitleTitle: testCase.title
             )
 
             #expect(
@@ -39,7 +43,9 @@ struct TransportControlsLayoutTests {
     private func measure(
         width: CGFloat,
         position: UInt64,
-        duration: UInt64
+        duration: UInt64,
+        showsRemaining: Bool,
+        subtitleTitle: String
     ) throws -> Measurement {
         let session = FakeSession()
         session.currentPosition = position
@@ -52,7 +58,7 @@ struct TransportControlsLayoutTests {
                 language: "tr",
                 codec: "subrip",
                 isDefault: false,
-                title: "Türkçe (Zorunlu)"
+                title: subtitleTitle
             )
         ]
 
@@ -66,6 +72,9 @@ struct TransportControlsLayoutTests {
         model.attach(to: MPVVideoView.makePlaybackSurface())
         model.openMedia(at: URL(fileURLWithPath: "/fixtures/media/layout.mkv"))
         model.consume([.stateChanged(state: .ready)])
+        if showsRemaining {
+            model.toggleDurationMode()
+        }
         let subtitle = try #require(model.subtitleMenu.dropFirst().first?.entries.first?.token)
         model.selectSubtitle(token: subtitle)
 

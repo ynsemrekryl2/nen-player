@@ -51,8 +51,8 @@ struct WindowGeometryTests {
     func theDerivedMinimums() {
         #expect(WindowGeometry.minimumContentSize(for: 16.0 / 9) == CGSize(width: 693, height: 390))
         #expect(WindowGeometry.minimumContentSize(for: 2.39) == CGSize(width: 932, height: 390))
-        #expect(WindowGeometry.minimumContentSize(for: 4.0 / 3) == CGSize(width: 600, height: 450))
-        #expect(WindowGeometry.minimumContentSize(for: 9.0 / 16) == CGSize(width: 600, height: 1_067))
+        #expect(WindowGeometry.minimumContentSize(for: 4.0 / 3) == CGSize(width: 693, height: 520))
+        #expect(WindowGeometry.minimumContentSize(for: 9.0 / 16) == CGSize(width: 693, height: 1_232))
     }
 
     @Test("a ratio that is not a ratio falls back to the chrome base")
@@ -121,22 +121,22 @@ struct WindowGeometryTests {
 
     @Test("a tall medium is scaled down but still keeps its ratio")
     func aVerticalMediumKeepsItsRatio() {
-        // 3:4 on a laptop: taller than the screen, so the scaling path runs,
-        // and the result still clears the 600x800 its ratio needs. Ratio
-        // preserved, and it fits.
+        // 3:4 on a laptop: scaling to the screen would produce 687x916, just
+        // below the 693x924 floor this chrome needs. The floor wins, even
+        // though that leaves the bottom of the window below this screen.
         let size = WindowGeometry.contentSize(
             for: CGSize(width: 1_080, height: 1_440),
             visibleFrame: Self.laptopScreen
         )
-        #expect(size.height <= Self.laptopScreen.height)
-        #expect(size.width <= Self.laptopScreen.width)
+        #expect(size == WindowGeometry.minimumContentSize(for: 0.75))
+        #expect(size.height > Self.laptopScreen.height)
         #expect(abs(size.width / size.height - 0.75) < 0.01)
     }
 
     @Test("the chrome's floor outranks the screen when the two disagree")
     func theMinimumWinsOverTheScreen() {
         // A phone recording, 9:16, on a laptop. Scaled to fit the height it
-        // would be 515x916, under the 600x1067 the chrome needs — so the floor
+        // would be 515x916, under the 693x1232 the chrome needs — so the floor
         // raises it back past the screen's height, on purpose.
         //
         // The alternative is worse in a way the user cannot work around: a
@@ -215,20 +215,20 @@ struct WindowGeometryTests {
 
     @Test("a window taller than the screen keeps its title bar reachable")
     func anOversizedWindowKeepsItsControlsReachable() {
-        // The 9:16 minimum is 600x1067, taller than a laptop's usable height,
+        // The 9:16 minimum is 693x1232, taller than a laptop's usable height,
         // so this frame is reached through the ordinary path — see
         // `theMinimumWinsOverTheScreen`. On the y axis the two bounds
         // contradict each other, and which one survives decides whether the
         // traffic lights are on screen: the top must win.
         let placed = WindowGeometry.recentredFrame(
-            size: CGSize(width: 600, height: 1_067),
-            around: CGRect(x: 100, y: 100, width: 600, height: 400),
+            size: CGSize(width: 693, height: 1_232),
+            around: CGRect(x: 100, y: 100, width: 693, height: 400),
             visibleFrame: Self.laptopScreen
         )
         #expect(placed.maxY == Self.laptopScreen.maxY, "the title bar ran off the top")
         // The x axis is not in conflict — the window fits across — so nothing
         // moves it and the centre is kept, as everywhere else.
-        #expect(placed.midX == 400)
+        #expect(abs(placed.midX - 446.5) < 0.5)
     }
 
     @Test("a window wider than the screen keeps its left edge on screen")
