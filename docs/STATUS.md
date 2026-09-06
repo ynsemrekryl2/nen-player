@@ -3,9 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-06** (`NEN-033` done — OpenSubtitles hash tabanlı
-> kesin kimlik sorgusu, redakte provider portu ve güvenli HTTP header taşıması
-> tamamlandı. Önceki: `NEN-041`)
+> Son güncelleme: **2026-09-06** (`NEN-050` done — son açılan medya deposunun
+> üç geçici bildirim yolu testle kapatıldı. Önceki: `NEN-033`)
 
 ## Nerede duruyoruz
 
@@ -13,20 +12,39 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-033` — OpenSubtitles hash tabanlı kesin kimlik sorgusu |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-064`, `NEN-071`, `NEN-072` |
-| **Task sayısı** | 74 · done 60 · active 0 · blocked 0 · canceled 2 · backlog 12 |
+| **Son tamamlanan** | `NEN-050` — son açılan medya deposunun geçici bildirim yolları testle kapatıldı |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-052`, `NEN-057`, `NEN-064`, `NEN-071`, `NEN-072` |
+| **Task sayısı** | 74 · done 61 · active 0 · blocked 0 · canceled 2 · backlog 11 |
 
 **M3 kapanmıyor: `milestone: M3` etiketli 15 task'ın hepsi bitecek**
 (kullanıcı kararı, 2026-09-06). Beş çıkış kriteri `NEN-028`'de kanıtlandı ve
 milestone dokümanının kanonik task listesi (`NEN-021`…`028`, `061`, `062`)
-tamamlandı, ama kriterlerle erken kapanış yapılmıyor. Kalan 6: `042` · `043` ·
-`050` · `052` · `057` · `071` — hepsi READY.
+tamamlandı, ama kriterlerle erken kapanış yapılmıyor. Kalan 5: `042` · `043` ·
+`052` · `057` · `071` — hepsi READY.
 `docs/roadmap.md`'nin M3 satırı ve milestone dokümanının bayat task listesi
 kapanışta düzeltilecek. `NEN-073`, kullanıcının gerçek `.app`te minimum pencere
 sınırının uygulanmadığını göstermesiyle yeniden açıldı ve düzeltici kapanışta
 gerçek köşe sürüklemesiyle kanıtlandı; canlı resize regresyonu `NEN-074`
 ile kapandı.
+
+**`NEN-050` kapandı — son açılan medya deposundan türeyen üç geçici bildirim
+yolunun artık testi var.** `NEN-048` motor hatasından türeyen sınıfı
+kapatmıştı ama aynı `presentTransient` yüzeyini kullanan, kaynağı
+`recentStore` olan üç yol testsiz kalmıştı (`evidence/M3/NEN-048-checklist.md`
+bunu kaydediyordu). `MemoryRecentStore` `FakeSession`'ın deseninde hata
+enjeksiyonu ve `clearCount` kazandı — sayaç olmadan "depo temizlendi" ile
+"zaten boştu" ayrışmazdı. Üç metin `PlayerModel`'den `PlaybackPresentation`'a
+taşındı (metin değişmedi) ve kapalı küme testi bu ikisini de artık kapsıyor.
+
+Negatif kontrol dört yönde ve ayrık: bildirim çağrısı kaldırılınca yalnız o
+yolun testi kırmızı, `clear()` kaldırılınca yalnız throw yolunun testi
+kırmızı (sayaç gerçekten ayırt edici), save hatası yükü de bloklayınca yalnız
+"medya yine de yükleniyor" iddiası kırmızı, ve metne rakam eklenince yalnız
+kapalı küme testi kırmızı (kontrol sağır değil). macOS Swift paketi
+**182 → 186**, Rust workspace **568 passed / 1 ignored** (bu task Rust'a
+dokunmadı), fmt/clippy, `scripts/test.sh` ve doküman kapıları yeşil.
+`UserDefaultsRecentMediaStore.resolve()`'daki bilinen store kusuruna
+dokunulmadı — DoD'u `NEN-042`'de. Kanıt: `tasks/done/NEN-050-*.md`.
 
 **`NEN-041` kapandı — doctor PATH'te bulunan ama çalıştırılamayan aracı artık
 hazır saymıyor.** `swift --version` sıfırdan farklı döndüğünde veya sürüm satırı

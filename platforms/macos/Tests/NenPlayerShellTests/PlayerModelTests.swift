@@ -418,6 +418,58 @@ struct PlayerModelTests {
         #expect(model.recentMediaName == "contract-clip.mkv")
     }
 
+    // MARK: - Recent-media store transient paths (NEN-050)
+    //
+    // `NEN-048` covered the transient class rooted in `FfiPlaybackError`;
+    // these three paths share the same `presentTransient` surface but
+    // originate from `recentStore` instead and were left untested.
+
+    @Test("a failed bookmark save still loads the medium and tells the user")
+    func recentMediaSaveFailurePresentsTransientAndStillLoads() {
+        let fixture = FakeSession()
+        let store = MemoryRecentStore()
+        store.errors[.save] = CocoaError(.fileWriteNoPermission)
+        let model = makeModel(session: fixture, store: store)
+        let url = URL(fileURLWithPath: "/fixtures/media/contract-clip.mkv")
+
+        model.openMedia(at: url)
+
+        #expect(model.transientMessage == PlaybackPresentation.recentMediaSaveFailedMessage)
+        #expect(fixture.loadedLocators == [url.path])
+        #expect(model.recentMediaName == nil)
+    }
+
+    @Test("a resolved-to-nothing bookmark clears the store and tells the user")
+    func recentMediaResolveNilClearsStoreAndPresentsTransient() {
+        let fixture = FakeSession()
+        let store = MemoryRecentStore()
+        store.url = nil
+        let model = makeModel(session: fixture, store: store)
+
+        model.openRecentMedia()
+
+        #expect(store.clearCount == 1)
+        #expect(model.recentMediaName == nil)
+        #expect(model.transientMessage == PlaybackPresentation.recentMediaUnavailableMessage)
+        #expect(fixture.loadedLocators.isEmpty)
+    }
+
+    @Test("a throwing resolve clears the store and tells the user, even with a stored entry")
+    func recentMediaResolveThrowsClearsStoreAndPresentsTransient() {
+        let fixture = FakeSession()
+        let store = MemoryRecentStore()
+        store.url = URL(fileURLWithPath: "/fixtures/media/contract-clip.mkv")
+        store.errors[.resolve] = CocoaError(.fileReadNoSuchFile)
+        let model = makeModel(session: fixture, store: store)
+
+        model.openRecentMedia()
+
+        #expect(store.clearCount == 1)
+        #expect(model.recentMediaName == nil)
+        #expect(model.transientMessage == PlaybackPresentation.recentMediaUnavailableMessage)
+        #expect(fixture.loadedLocators.isEmpty)
+    }
+
     @Test("shutdown clears stale state and window resume opens pending media")
     func shutdownThenResumeOpensPendingMedia() {
         let first = FakeSession()
@@ -650,19 +702,31 @@ struct PlayerModelTests {
 
     @Test("transient copy carries no path, engine name, or numeric code")
     func transientCopyIsClosed() {
-        let engineNames = ["mpv", "libmpv", "MPV", "AVFoundation", "ffmpeg"]
         for error in Self.everyPlaybackError {
             let message = PlaybackPresentation.errorMessage(for: error)
-            #expect(!message.contains("/"), "path separator in: \(message)")
-            let carriesDigits = message.rangeOfCharacter(from: .decimalDigits) != nil
-            #expect(!carriesDigits, "numeric code in: \(message)")
-            for name in engineNames {
-                #expect(!message.contains(name), "engine name in: \(message)")
-            }
+            expectClosedCopy(message)
             // `FfiPlaybackError` reflects itself in `errorDescription`; the
             // shell must never fall through to that.
             #expect(message != String(reflecting: error))
             #expect(message != error.localizedDescription)
+        }
+    }
+
+    @Test("recent-media copy carries no path, engine name, or numeric code")
+    func recentMediaCopyIsClosed() {
+        expectClosedCopy(PlaybackPresentation.recentMediaSaveFailedMessage)
+        expectClosedCopy(PlaybackPresentation.recentMediaUnavailableMessage)
+    }
+
+    /// Shared body for the closed-set assertions above (ADR-0031 Karar 1–2):
+    /// no path separator, no digit, no engine name.
+    private func expectClosedCopy(_ message: String) {
+        let engineNames = ["mpv", "libmpv", "MPV", "AVFoundation", "ffmpeg"]
+        #expect(!message.contains("/"), "path separator in: \(message)")
+        let carriesDigits = message.rangeOfCharacter(from: .decimalDigits) != nil
+        #expect(!carriesDigits, "numeric code in: \(message)")
+        for name in engineNames {
+            #expect(!message.contains(name), "engine name in: \(message)")
         }
     }
 

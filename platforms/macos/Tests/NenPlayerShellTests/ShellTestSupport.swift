@@ -98,19 +98,34 @@ final class TestClock {
     var nanoseconds: UInt64 = 0
 }
 
+/// The calls a test can make `MemoryRecentStore` fail.
+enum RecentStoreCall: Hashable { case save, resolve }
+
 final class MemoryRecentStore: RecentMediaStoring {
     var url: URL?
     var displayName: String? { url?.lastPathComponent }
+    /// Errors keyed by call: every listed call throws instead of succeeding.
+    var errors: [RecentStoreCall: Error] = [:]
+    /// How many times `clear()` actually ran — the only way to tell "the
+    /// store was cleared" from "the store was already empty" (NEN-050).
+    var clearCount = 0
+
+    private func refuse(_ call: RecentStoreCall) throws {
+        if let error = errors[call] { throw error }
+    }
 
     func save(_ url: URL) throws {
+        try refuse(.save)
         self.url = url
     }
 
     func resolve() throws -> URL? {
-        url
+        try refuse(.resolve)
+        return url
     }
 
     func clear() {
+        clearCount += 1
         url = nil
     }
 }

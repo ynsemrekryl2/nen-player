@@ -264,7 +264,7 @@ public final class PlayerModel: ObservableObject {
             try recentStore.save(url)
             recentMediaName = url.lastPathComponent
         } catch {
-            presentTransient("Son açılan medya kaydedilemedi.")
+            presentTransient(PlaybackPresentation.recentMediaSaveFailedMessage)
         }
 
         do {
@@ -486,14 +486,14 @@ public final class PlayerModel: ObservableObject {
             guard let url = try recentStore.resolve() else {
                 recentStore.clear()
                 recentMediaName = nil
-                presentTransient("Son açılan medya artık kullanılamıyor.")
+                presentTransient(PlaybackPresentation.recentMediaUnavailableMessage)
                 return
             }
             openMedia(at: url)
         } catch {
             recentStore.clear()
             recentMediaName = nil
-            presentTransient("Son açılan medya artık kullanılamıyor.")
+            presentTransient(PlaybackPresentation.recentMediaUnavailableMessage)
         }
     }
 

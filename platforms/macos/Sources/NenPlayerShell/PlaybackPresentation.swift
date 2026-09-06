@@ -102,4 +102,14 @@ public enum PlaybackPresentation {
         case .tooLarge: return "Bu altyazı dosyası çok büyük."
         }
     }
+
+    /// What the user is told when the recent-media store's bookmark could not
+    /// be saved. Playback continues regardless — this is informational, not a
+    /// refusal (NEN-050).
+    public static let recentMediaSaveFailedMessage = "Son açılan medya kaydedilemedi."
+
+    /// What the user is told when the recent-media entry can no longer be
+    /// resolved, whether because it resolved to nothing or because resolving
+    /// it threw (NEN-050). Both cases clear the stored entry.
+    public static let recentMediaUnavailableMessage = "Son açılan medya artık kullanılamıyor."
 }
