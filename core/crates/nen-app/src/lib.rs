@@ -4,6 +4,7 @@
 
 pub mod embedded;
 pub mod playback;
+pub mod remote_evidence;
 pub mod renderer;
 pub mod session;
 pub mod subtitle_files;

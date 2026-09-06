@@ -12,7 +12,7 @@
 > |---|---|---|
 > | UniFFI | Swift/Kotlin binding | ADR-0003 |
 > | SwiftUI | macOS UI | ADR-0011 dönemi |
-> | Rust HTTP / rustls | paylaşılan HTTP adapter | ADR-0019 dönemi |
+> | Rust HTTP / rustls | gelecekteki paylaşılan HTTP adapter | ADR-0019 dönemi |
 > | SQLite + content-addressed files | persistence adapter | ADR-0017 |
 > | C ABI | Windows/Linux binding | ADR-0003 |
 >
@@ -79,6 +79,10 @@ Core'un sahibi olduğu politikalar:
 Rust HTTP/rustls adapter ve SQLite + content-addressed artifact store. Platform
 zorunluluğu ortaya çıkarsa (ör. bir iOS/Android ağ veya depolama kısıtı) aynı
 portlara platform-native adapter bağlanabilir — **politika değişmeden**.
+
+ADR-0039 ile ilk uzak medya evidence adapter'ı macOS'ta Foundation
+`URLSession` olarak kabul edilmiştir. Bu, Rust HTTP/rustls adayını silmez;
+yalnız ilk platform tesliminin adapter'ını sabitler.
 
 Bu esnekliğin bedeli, platform başına ayrışan güvenlik politikası riskidir. İki
 kural bunu kapatır:

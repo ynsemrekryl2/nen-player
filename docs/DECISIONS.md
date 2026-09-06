@@ -95,6 +95,7 @@ ADR metnini tekrarlamaz, onlara işaret eder.
 | Rust | shared core dili | [ADR-0002](adr/0002-core-language.md) |
 | Whatlang 0.18 | offline subtitle dili tespiti | [ADR-0029](adr/0029-subtitle-language-detection.md) |
 | libmpv | macOS playback motoru | [ADR-0012](adr/0012-macos-playback-engine.md) |
+| URLSession | macOS uzak medya evidence HTTP adapter'ı | [ADR-0039](adr/0039-remote-media-http-boundary.md) |
 | GPL-3.0-or-later | proje lisansı | [ADR-0012](adr/0012-macos-playback-engine.md) → [`licensing.md`](licensing.md) |
 
 **Aday** — ilgili ADR kabul edilene kadar karar sayılmaz:

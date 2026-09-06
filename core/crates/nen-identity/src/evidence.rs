@@ -189,6 +189,12 @@ impl MediaEvidence {
         self.size_bytes
     }
 
+    /// Whether a server declaration or final URL basename supplied a name.
+    /// The name itself stays private to identity consumers (K23 #8).
+    pub fn has_declared_name(&self) -> bool {
+        self.declared_name.is_some()
+    }
+
     pub fn container(&self) -> Option<&ContainerMetadata> {
         self.container.as_ref()
     }

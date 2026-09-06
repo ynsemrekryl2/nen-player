@@ -2,5 +2,6 @@
 //!
 //! Crate sınırları ve izinli bağımlılıklar: ADR-0006.
 
+pub mod http;
 pub mod playback;
 pub mod renderer;

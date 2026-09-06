@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **71** task · ✅ done 51 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 18
+Toplam **72** task · ✅ done 52 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 18
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -58,7 +58,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-026](done/NEN-026-subtitle-menu-ui.md) | Subtitle menu UI | M | ✅ done | NEN-019 NEN-025 NEN-056 |
 | [NEN-027](done/NEN-027-subtitle-renderer.md) | SubtitleRenderer port and libmpv injection adapter | M | ✅ done | NEN-017 NEN-026 NEN-066 |
 | [NEN-028](done/NEN-028-slice-acceptance.md) | macOS vertical slice acceptance | S | ✅ done | NEN-027 |
-| [NEN-036](backlog/NEN-036-remote-evidence-port.md) | Remote media evidence port (HEAD, Content-Disposition, Range) | M | ⚪ backlog | NEN-018 |
+| [NEN-036](done/NEN-036-remote-evidence-port.md) | Remote media evidence port (HEAD, Content-Disposition, Range) | M | ✅ done | NEN-018 |
 | [NEN-037](backlog/NEN-037-subtitle-language-preferences.md) | Subtitle language preference setting (primary and secondary) | S | ⚪ backlog | NEN-019 NEN-024 NEN-047 |
 | [NEN-039](done/NEN-039-language-group-granularity.md) | Subtitle menu language grouping and matching use the primary subtag | S | ✅ done | NEN-019 |
 | [NEN-040](backlog/NEN-040-status-freshness-check.md) | check-docs.sh verifies STATUS.md's "Son doğrulama" date is not stale | S | ⚪ backlog | NEN-031 |
@@ -97,6 +97,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | ID | Başlık | Boyut | Durum | Bağımlılık |
 |---|---|---|---|---|
 | [NEN-044](backlog/NEN-044-embedded-text-extraction.md) | Embedded subtitle text extraction | M | ⚪ backlog | NEN-023 |
+| [NEN-072](backlog/NEN-072-remote-container-metadata.md) | Parse container metadata from remote byte windows | M | ⚪ backlog | NEN-036 |
 
 ## M6 — Real Providers
 
@@ -115,7 +116,6 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-033** — OpenSubtitles hash-based identity lookup
 - **NEN-034** — AI-assisted release name normalization
 - **NEN-035** — Identity confidence scoring and candidate ranking
-- **NEN-036** — Remote media evidence port (HEAD, Content-Disposition, Range)
 - **NEN-040** — check-docs.sh verifies STATUS.md's "Son doğrulama" date is not stale
 - **NEN-041** — doctor.sh reports an installed-but-unrunnable tool as missing
 - **NEN-042** — Recent media list in the empty state
@@ -127,3 +127,4 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-052** — Decide and pin what a seek during loading does
 - **NEN-057** — Read the language a subtitle filename declares
 - **NEN-071** — Decide what the subtitle file picker does with a link
+- **NEN-072** — Parse container metadata from remote byte windows

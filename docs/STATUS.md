@@ -3,9 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-06** (`NEN-069` done — videosuz medyada yüzeyde
-> önceki medyanın karesi kalmıyor. Önceki: `NEN-028` done — M3'ün beş çıkış
-> kriteri gerçek `.app`te kanıtlandı)
+> Son güncelleme: **2026-09-06** (`NEN-036` done — uzak medya evidence portu,
+> redirect/header/range politikası ve macOS URLSession adapter'ı. Önceki:
+> `NEN-069` done — videosuz medyada yüzeyde önceki medyanın karesi kalmıyor)
 
 ## Nerede duruyoruz
 
@@ -13,17 +13,26 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-069` — videosuz medyada yüzey temizlenir |
-| **Sıradaki READY** | `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-071` |
-| **Task sayısı** | 71 · done 51 · active 0 · blocked 0 · canceled 2 · backlog 18 |
+| **Son tamamlanan** | `NEN-036` — uzak medya evidence portu |
+| **Sıradaki READY** | `NEN-033`, `NEN-034`, `NEN-035`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-071`, `NEN-072` |
+| **Task sayısı** | 72 · done 52 · active 0 · blocked 0 · canceled 2 · backlog 18 |
 
 **M3 kapanmıyor: `milestone: M3` etiketli 13 task'ın hepsi bitecek**
 (kullanıcı kararı, 2026-09-06). Beş çıkış kriteri `NEN-028`'de kanıtlandı ve
 milestone dokümanının kanonik task listesi (`NEN-021`…`028`, `061`, `062`)
-tamamlandı, ama kriterlerle erken kapanış yapılmıyor. Kalan 12: `036` · `037` ·
-`040` · `041` · `042` · `043` · `047` · `049` · `050` · `052` · `057` · `071`
+tamamlandı, ama kriterlerle erken kapanış yapılmıyor. Kalan 11: `037` · `040` ·
+`041` · `042` · `043` · `047` · `049` · `050` · `052` · `057` · `071`
 (`037`, `047` bitene kadar READY değil). `docs/roadmap.md`'nin M3 satırı ve
 milestone dokümanının bayat task listesi kapanışta düzeltilecek.
+
+**`NEN-036` kapandı — uzak medya evidence portu ve macOS URLSession adapter'ı
+kanıtlandı.** Provider API'leri HTTPS + approved-host olarak kaldı; kullanıcı ve
+handoff medya URL'leri keyfi http/https hostları için core policy üzerinden
+doğrulanıyor. HEAD, final redirect basename'i, Content-Disposition, bounded
+Range pencereleri ve OpenSubtitles hash'i deterministic fake ve internetsiz
+URLProtocol testleriyle sınandı. Yeni container parser kapsamı `NEN-072`'ye
+ayrıldı. Rust workspace, fmt/clippy/cargo-deny, macOS Swift paketi **159/159**,
+`.app` build/codesign, shell ve doküman kapıları yeşil.
 
 **`NEN-069` kapandı — videosuz medya açıldığında ekranda önceki videonun son
 karesi kalmıyor.** Ölçüm task dosyasının yazdığı teşhisi **ikiye ayırdı ve

@@ -65,8 +65,8 @@ gömülmez.
 
 | Kural | Detay |
 |---|---|
-| Yalnız HTTPS | Düz HTTP isteği yapılmaz |
-| Approved host | Sağlayıcı host'ları sabit listede; liste dışına istek atılmaz |
+| Yalnız HTTPS | Provider API istekleri HTTPS'tir; kullanıcı/handoff medya URL'leri S5 gereği `http/https` olabilir |
+| Approved host | Sağlayıcı host'ları sabit listede; kullanıcı/handoff medya host'u bu listeyle sınırlandırılmaz |
 | Bounded redirect | Yönlendirme sayısı sınırlı; her adımda host yeniden doğrulanır |
 | Maksimum boyut | İndirme boyut sınırı aşılırsa akış kesilir, dosya reddedilir |
 | Archive reddi | Zip/rar/gzip vb. altyazı arşivi kabul edilmez (zip bomb / path traversal) |

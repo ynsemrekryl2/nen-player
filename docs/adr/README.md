@@ -26,6 +26,7 @@ Süreç: [`0001-adr-process.md`](0001-adr-process.md) · Şablon:
 | [0036](0036-video-presentation-metadata.md) | Video presentation metadata playback portundan geçer | ❌ rejected | M3 |
 | [0037](0037-subtitle-safe-area.md) | Kabuk kromunun örttüğü bant renderer'a bildirilir | ✅ accepted | M3 |
 | [0038](0038-video-display-geometry.md) | Video display geometry playback portundan geçer | ✅ accepted | M3 |
+| [0039](0039-remote-media-http-boundary.md) | Uzak medya HTTP sınırı ve macOS adapter'ı | ✅ accepted | M3 |
 | [0002](0002-core-language.md) | Shared core dili — go/no-go kapısı | ✅ accepted | M1 |
 | [0027](0027-performance-budget.md) | Performans bütçeleri — M1 baseline'larından marjlı kabul | ✅ accepted | M1 sonrası |
 

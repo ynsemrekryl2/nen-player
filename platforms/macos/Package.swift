@@ -14,6 +14,7 @@ let package = Package(
     platforms: [.macOS(.v14)],
     products: [
         .library(name: "NenPlaybackMPV", targets: ["NenPlaybackMPV"]),
+        .library(name: "NenRemoteEvidenceHTTP", targets: ["NenRemoteEvidenceHTTP"]),
         .library(name: "NenPlayerShell", targets: ["NenPlayerShell"]),
         .executable(name: "NenPlayer", targets: ["NenPlayerApp"])
     ],
@@ -37,6 +38,12 @@ let package = Package(
             ]
         ),
         .target(
+            name: "NenRemoteEvidenceHTTP",
+            dependencies: [
+                .product(name: "NenCore", package: "apple-shared")
+            ]
+        ),
+        .target(
             name: "NenPlayerShell",
             dependencies: [
                 "NenPlaybackMPV",
@@ -50,6 +57,13 @@ let package = Package(
         .testTarget(
             name: "NenPlaybackMPVTests",
             dependencies: ["NenPlaybackMPV"]
+        ),
+        .testTarget(
+            name: "NenRemoteEvidenceHTTPTests",
+            dependencies: [
+                "NenRemoteEvidenceHTTP",
+                .product(name: "NenCore", package: "apple-shared")
+            ]
         ),
         .testTarget(
             name: "NenPlayerShellTests",
