@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **71** task · ✅ done 50 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 19
+Toplam **71** task · ✅ done 51 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 18
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -88,7 +88,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-066](done/NEN-066-subtitle-not-composited-on-surface.md) | A subtitle mpv reports drawing is missing from the video surface | M | ✅ done | NEN-024 |
 | [NEN-067](done/NEN-067-ultra-thin-flush-player-chrome.md) | Ultra-thin flush player chrome | L | ✅ done | NEN-061 NEN-062 NEN-065 NEN-066 |
 | [NEN-068](done/NEN-068-media-sized-aspect-locked-window.md) | Media-sized, aspect-locked player window | L | ✅ done | NEN-067 |
-| [NEN-069](backlog/NEN-069-clear-surface-without-video.md) | Clear the video surface when the medium has no video | S | ⚪ backlog | — |
+| [NEN-069](done/NEN-069-clear-surface-without-video.md) | Clear the video surface when the medium has no video | S | ✅ done | — |
 | [NEN-070](done/NEN-070-wide-transport-layout-overflow.md) | Keep transport controls inside wide windows | S | ✅ done | NEN-067 NEN-068 |
 | [NEN-071](backlog/NEN-071-open-panel-resolves-links.md) | Decide what the subtitle file picker does with a link | S | ⚪ backlog | NEN-025 |
 
@@ -126,5 +126,4 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-050** — Cover the recent-media store's transient error paths
 - **NEN-052** — Decide and pin what a seek during loading does
 - **NEN-057** — Read the language a subtitle filename declares
-- **NEN-069** — Clear the video surface when the medium has no video
 - **NEN-071** — Decide what the subtitle file picker does with a link

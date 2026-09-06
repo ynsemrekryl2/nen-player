@@ -112,6 +112,55 @@ motoru sürüyor ve beklemesi bir olayın zamanında gelmesine dayanıyor. Oran
 ölçümü yine yapılmadı; bu satır yalnız gözlemi kaydediyor, task'a iş eklemiyor
 (Kural 5).
 
+## Dördüncü gözlem (2026-09-06, NEN-069 sırasında) — ilk oran ölçümü
+
+Aynı test (`ContractTests.successiveMediaReportTheirOwnDisplaySize`) dördüncü
+kez kırmızı geldi, ve bu kez **oran ölçüldü** — DoD #3'ün bugüne kadar
+üretilemeyen kaydı budur. Hiçbir şey değiştirilmemiş `HEAD` ağacında, art arda
+beş paralel tam paket koşusu:
+
+| Ağaç | Paralel tam paket |
+|---|---|
+| `HEAD` (NEN-069 öncesi) | **2/5 yeşil** |
+| `NEN-069` çalışması, aynı saatte | **2/5 yeşil** |
+| `NEN-069`, seri (`--no-parallel`) | **2/2 yeşil** (157/157) |
+
+Makinenin durumu oturum boyunca kaydı (aynı ağaç birkaç saat sonra 1/4), bu
+yüzden ölçüm ardışık değil **dönüşümlü** tekrarlandı — aynı ağaçta NEN-069'un
+suite dosyası sırayla var ve yok edilerek dörder koşu:
+
+| | Paralel tam paket |
+|---|---|
+| suite dosyası **var** | **1/4 yeşil** |
+| suite dosyası **yok** | **1/4 yeşil** |
+
+Yani paralel paket bu makinede **değişiklik olmadan da** koşuların çoğunda
+kırmızı, ve oran NEN-069 ile ölçülebilir biçimde değişmiyor.
+
+**Mekanizma bu kez okundu.** `waitForGeometry` **ilk non-nil** değeri kabul
+ediyor. `loadfile` sonrası `MPV_EVENT_FILE_LOADED` geldiğinde adapter'ın
+`phase`'i `.loaded` oluyor ama `video-out-params` hâlâ **giden** medyayı tarif
+edebiliyor — `aLoadingMediumDoesNotExposeTheOutgoingDisplaySize` bu davranışı
+zaten bilerek sabitliyor ("the old VO size must really exist"). Yük altında o
+pencere genişliyor ve `waitForGeometry` giden medyanın boyutunu döndürüyor;
+test 5 s'lik timeout'una hiç ulaşmadan, ~0,3 s'de kırmızı oluyor. Yani bu bir
+zaman aşımı değil, **bayat değer** kusuru.
+
+**NEN-069 sırasında iki şey ölçüldü ve ikisi de o task'ın kapsamını
+değiştirdi** — bu task'a iş eklemeden, ama burada kayda değer:
+
+1. `RunLoop.current.run(until:)` ile bekleyen bir libmpv suite'i, main actor'ı
+   paylaşan `PlayerModelTests`'in üç testini **beş saniyelik** deadline'larını
+   kaçıracak kadar aç bırakıyor. `await Task.sleep`'e çevrilince bu kırmızı
+   sınıfı tamamen kayboluyor. NEN-066'nın `settle()` deseni bu yüzden yeni
+   suite'lere kopyalanmamalı.
+2. Gerçek libmpv engine **sayısı** doğrudan etkili: iki ayrı engine kuran iki
+   test, `successiveMediaReportTheirOwnDisplaySize`'ı 2/5'ten **3/3 kırmızıya**
+   çeviriyordu. Tek engine'e birleştirilince oran taban değere döndü.
+
+Ölçümün tamamı: `evidence/M3/NEN-069-measurement.md` → "Paralel paket
+üzerindeki etki".
+
 ## Kanıt (DoD)
 
 - [ ] `bash scripts/test-macos.sh` art arda en az 3 kez çıkış 0

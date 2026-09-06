@@ -3,9 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-05** (`NEN-028` done — M3'ün beş çıkış kriteri
-> gerçek `.app`te kanıtlandı. Önceki: `NEN-027` done — altyazı seçim anında
-> ekranda, seek sonrası doğru replik anında)
+> Son güncelleme: **2026-09-06** (`NEN-069` done — videosuz medyada yüzeyde
+> önceki medyanın karesi kalmıyor. Önceki: `NEN-028` done — M3'ün beş çıkış
+> kriteri gerçek `.app`te kanıtlandı)
 
 ## Nerede duruyoruz
 
@@ -13,9 +13,59 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-028` — macOS vertical slice acceptance |
-| **Sıradaki READY** | `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-069`, `NEN-071` |
-| **Task sayısı** | 71 · done 50 · active 0 · blocked 0 · canceled 2 · backlog 19 |
+| **Son tamamlanan** | `NEN-069` — videosuz medyada yüzey temizlenir |
+| **Sıradaki READY** | `NEN-033`, `NEN-034`, `NEN-035`, `NEN-036`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-049`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-071` |
+| **Task sayısı** | 71 · done 51 · active 0 · blocked 0 · canceled 2 · backlog 18 |
+
+**M3 kapanmıyor: `milestone: M3` etiketli 13 task'ın hepsi bitecek**
+(kullanıcı kararı, 2026-09-06). Beş çıkış kriteri `NEN-028`'de kanıtlandı ve
+milestone dokümanının kanonik task listesi (`NEN-021`…`028`, `061`, `062`)
+tamamlandı, ama kriterlerle erken kapanış yapılmıyor. Kalan 12: `036` · `037` ·
+`040` · `041` · `042` · `043` · `047` · `049` · `050` · `052` · `057` · `071`
+(`037`, `047` bitene kadar READY değil). `docs/roadmap.md`'nin M3 satırı ve
+milestone dokümanının bayat task listesi kapanışta düzeltilecek.
+
+**`NEN-069` kapandı — videosuz medya açıldığında ekranda önceki videonun son
+karesi kalmıyor.** Ölçüm task dosyasının yazdığı teşhisi **ikiye ayırdı ve
+yarısını çürüttü:** ürünün kendi render yolu elle sürüldüğünde videosuz medyada
+yakalanan kare 0/921600 aydınlık piksel veriyor — mpv çizimi zaten yapıyor.
+Eksik olan **isteyen**di: update callback yalnız yeni kare üretildiğinde
+tetikleniyor, videosuz medya hiç kare üretmiyor, dolayısıyla `draw(_:)` hiç
+çağrılmıyor. Açılan her medya artık bir redraw alıyor.
+
+Bunun bedeli test tasarımına indi: DoD'un önerdiği biçimiyle yazılan piksel
+testi `renderFrame`'i doğrudan çağırdığı için `needsDisplay` yolunu atlar ve
+**düzeltmeden önce de yeşil** olurdu — nitekim negatif kontrolde yeşil kaldı.
+Kusuru ölçen test bu yüzden tetikleyiciye bakıyor. `videoGeometry == nil`
+guard'ı da elendi: motor `ready` anında cevap veriyor ama kabuğun kopyası o an
+resimli medyada da `nil`, yani guard hiçbir şeyi sabitlemezdi.
+
+**Yan bulgu: temizlik verildiği framebuffer'a inmiyordu.** `renderFrame`'in
+context'siz dalı `fbo` argümanını kullanmıyor, o an bağlı olana `glClear`
+ediyordu. Ekran yolunda ikisi de 0 olduğu için üründe yanlış bir şey olmuyordu;
+offscreen yakalamada hiç doğru olmuyor ve shutdown testi bu yüzden 834538
+pikselle kırmızı geldi. Kapanış yolunun geri kalanı için kod gerekmedi —
+`shutdown` zaten context'i bırakıyor ve kabuğun `stop()` çağırdığı bir yol yok.
+
+Negatif kontrol iki yönde ve ayrık: her düzeltme yalnız kendi testini kırıyor
+(1 + 1 kırmızı). Swift paketi **seri 157/157** (2/2 koşu), Rust workspace
+**560 passed**, fmt/clippy, `scripts/test.sh`, `.app` build'i ve strict
+codesign yeşil.
+
+**Karşılanmayan tek DoD maddesi açıkça kaydedildi:** `scripts/test-macos.sh`'in
+varsayılan **paralel** modu yeşil değil. Kırmızı olan test her koşuda aynı
+(`ContractTests.successiveMediaReportTheirOwnDisplaySize`) ve bu task'ın koduna
+erişmiyor. Katkı dönüşümlü ölçüldü — aynı ağaçta suite dosyası sırayla var ve
+yok edilerek dörder koşu: **1/4 ve 1/4 yeşil**. Yani paralel paket bu makinede
+bu task olmadan da aynı oranda kırmızı; mekanizma `waitForGeometry`'nin ilk
+non-nil değeri kabul edip giden medyanın boyutunu okuması. Gözlem `NEN-049`'a
+**dördüncü** kez ve ilk kez oran ölçümüyle yazıldı — o task'ın DoD #3'ünün
+bugüne kadar üretilemeyen kaydı budur. Yol üstünde iki ölçüm bu task'ın kendi
+kapsamını değiştirdi: `RunLoop.run(until:)` ile bekleyen bir libmpv suite'i
+`PlayerModelTests`'in üç testini beş saniyelik deadline'larını kaçıracak kadar
+aç bırakıyor (`await Task.sleep`'e çevrildi), ve gerçek engine sayısı doğrudan
+etkili (iki test tek engine'e birleştirildi). Kanıt:
+`evidence/M3/NEN-069-measurement.md`.
 
 **`NEN-028` kapandı — M3'ün beş çıkış kriteri üründe kanıtlandı.** Kabul
 senaryosu `docs/milestones/M3-macos-slice.md`'ye yazıldı ve gerçek `.app`te

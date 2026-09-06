@@ -725,6 +725,20 @@ public final class PlayerModel: ObservableObject {
         // first frame, with no scan having finished.
         if state == .ready {
             catalogEmbeddedTracks()
+            // Every medium that opens gets one redraw, whether or not it has a
+            // picture — because the one that has none would otherwise get no
+            // redraw at all. mpv asks for a frame only when it has produced
+            // one, so an audio-only medium leaves the previous medium's last
+            // frame standing on the surface (NEN-069).
+            //
+            // Unconditional rather than guarded by `videoGeometry == nil`:
+            // this property is cleared before every load and re-read only when
+            // VIDEO_RECONFIG says to (ADR-0038 Karar 2), and that event has
+            // not arrived yet — so here it reads `nil` for a medium with a
+            // picture exactly as it does for one without, and the guard would
+            // pin nothing. One redraw per load costs a single render of the
+            // frame mpv already holds.
+            videoView?.redrawWithoutNewFrame()
         }
         if state == .ready, playWhenReady, let session {
             playWhenReady = false

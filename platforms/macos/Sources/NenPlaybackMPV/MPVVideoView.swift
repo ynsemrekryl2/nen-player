@@ -101,6 +101,20 @@ public final class MPVVideoView: NSOpenGLView, @unchecked Sendable {
         openGLContext?.flushBuffer()
     }
 
+    /// Asks for one redraw that mpv is not going to ask for.
+    ///
+    /// The update callback fires when mpv has a **new frame**, and a medium
+    /// with no picture never produces one. Nothing else drives this view, so
+    /// without this call the surface keeps showing what was drawn last — the
+    /// final frame of the medium before it (NEN-069).
+    ///
+    /// Only the request is missing, not the drawing: measured against real
+    /// libmpv, the render path paints an empty picture black on its own
+    /// (`evidence/M3/NEN-069-measurement.md`).
+    public func redrawWithoutNewFrame() {
+        needsDisplay = true
+    }
+
     /// Draws mpv's current frame into `fbo` at the given size.
     ///
     /// Split out of ``draw(_:)`` so a test can drive **this** path — the one the
@@ -138,6 +152,14 @@ public final class MPVVideoView: NSOpenGLView, @unchecked Sendable {
                 }
             }
         } else {
+            // Bound here because nothing else binds it on this branch: mpv
+            // binds the framebuffer it is handed, so `fbo` reaches the picture
+            // only through it. Without this the clear lands on whatever was
+            // bound last, which on the screen path is 0 and therefore right by
+            // accident, and in an offscreen capture is never right at all —
+            // measured while writing NEN-069's shutdown test, which read back
+            // the previous medium from a target the clear had never touched.
+            glBindFramebuffer(GLenum(GL_FRAMEBUFFER), GLuint(fbo))
             glClearColor(0, 0, 0, 1)
             glClear(GLbitfield(GL_COLOR_BUFFER_BIT))
         }
