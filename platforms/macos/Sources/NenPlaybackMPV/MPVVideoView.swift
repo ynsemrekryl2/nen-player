@@ -96,7 +96,13 @@ public final class MPVVideoView: NSOpenGLView, @unchecked Sendable {
         renderFrame(
             intoFramebuffer: 0,
             width: Int32(max(1, backing.width)),
-            height: Int32(max(1, backing.height))
+            height: Int32(max(1, backing.height)),
+            // Normal drawing keeps libmpv's audio-timed wait. During a live
+            // resize that wait runs on AppKit's main thread and makes the
+            // window trail the pointer (NEN-074).
+            blockForTargetTime: MPVRenderTimingPolicy.shouldBlockForTargetTime(
+                inLiveResize: inLiveResize
+            )
         )
         openGLContext?.flushBuffer()
     }
@@ -125,6 +131,20 @@ public final class MPVVideoView: NSOpenGLView, @unchecked Sendable {
     /// The caller owns the GL context: it must be current, and on the screen
     /// path it must be flushed afterwards.
     func renderFrame(intoFramebuffer fbo: Int32, width: Int32, height: Int32) {
+        renderFrame(
+            intoFramebuffer: fbo,
+            width: width,
+            height: height,
+            blockForTargetTime: true
+        )
+    }
+
+    private func renderFrame(
+        intoFramebuffer fbo: Int32,
+        width: Int32,
+        height: Int32,
+        blockForTargetTime: Bool
+    ) {
         renderLock.lock()
         let context = renderContext
         if let context {
@@ -135,20 +155,27 @@ public final class MPVVideoView: NSOpenGLView, @unchecked Sendable {
                 internal_format: 0
             )
             var flip: Int32 = 1
+            var blockForTargetTimeValue: Int32 = blockForTargetTime ? 1 : 0
             withUnsafeMutablePointer(to: &framebuffer) { framebufferPointer in
                 withUnsafeMutablePointer(to: &flip) { flipPointer in
-                    var parameters = [
-                        mpv_render_param(
-                            type: MPV_RENDER_PARAM_OPENGL_FBO,
-                            data: UnsafeMutableRawPointer(framebufferPointer)
-                        ),
-                        mpv_render_param(
-                            type: MPV_RENDER_PARAM_FLIP_Y,
-                            data: UnsafeMutableRawPointer(flipPointer)
-                        ),
-                        mpv_render_param(type: MPV_RENDER_PARAM_INVALID, data: nil)
-                    ]
-                    mpv_render_context_render(context, &parameters)
+                    withUnsafeMutablePointer(to: &blockForTargetTimeValue) { blockPointer in
+                        var parameters = [
+                            mpv_render_param(
+                                type: MPV_RENDER_PARAM_OPENGL_FBO,
+                                data: UnsafeMutableRawPointer(framebufferPointer)
+                            ),
+                            mpv_render_param(
+                                type: MPV_RENDER_PARAM_FLIP_Y,
+                                data: UnsafeMutableRawPointer(flipPointer)
+                            ),
+                            mpv_render_param(
+                                type: MPV_RENDER_PARAM_BLOCK_FOR_TARGET_TIME,
+                                data: UnsafeMutableRawPointer(blockPointer)
+                            ),
+                            mpv_render_param(type: MPV_RENDER_PARAM_INVALID, data: nil)
+                        ]
+                        mpv_render_context_render(context, &parameters)
+                    }
                 }
             }
         } else {
@@ -164,6 +191,12 @@ public final class MPVVideoView: NSOpenGLView, @unchecked Sendable {
             glClear(GLbitfield(GL_COLOR_BUFFER_BIT))
         }
         renderLock.unlock()
+    }
+}
+
+enum MPVRenderTimingPolicy {
+    static func shouldBlockForTargetTime(inLiveResize: Bool) -> Bool {
+        !inLiveResize
     }
 }
 

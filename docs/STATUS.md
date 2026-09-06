@@ -3,9 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-06** (`NEN-073` düzeltici kapanış — pencere minimumu
-> SwiftUI root'a taşındı ve gerçek köşe sürüklemesinde 693 pt sınırı kanıtlandı.
-> Önceki: `NEN-037` done — Settings sahnesi iki dil tercihi kazandı)
+> Son güncelleme: **2026-09-06** (`NEN-074` done — canlı resize sırasında
+> libmpv hedef kare beklemesi ana thread'den kaldırıldı ve gerçek `.app`
+> önce/sonra ölçümüyle kanıtlandı. Önceki: `NEN-073` düzeltici kapanış)
 
 ## Nerede duruyoruz
 
@@ -13,9 +13,9 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-073` — Player kromu minimumu gerçek SwiftUI pencere yolunda uygulanıyor |
-| **Sıradaki READY** | `NEN-033`, `NEN-034`, `NEN-035`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-071`, `NEN-072`, `NEN-074` |
-| **Task sayısı** | 74 · done 56 · active 0 · blocked 0 · canceled 2 · backlog 16 |
+| **Son tamamlanan** | `NEN-074` — Canlı video resize ana thread hedef kare zamanını beklemiyor |
+| **Sıradaki READY** | `NEN-033`, `NEN-034`, `NEN-035`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-071`, `NEN-072` |
+| **Task sayısı** | 74 · done 57 · active 0 · blocked 0 · canceled 2 · backlog 15 |
 
 **M3 kapanmıyor: `milestone: M3` etiketli 15 task'ın hepsi bitecek**
 (kullanıcı kararı, 2026-09-06). Beş çıkış kriteri `NEN-028`'de kanıtlandı ve
@@ -25,8 +25,18 @@ tamamlandı, ama kriterlerle erken kapanış yapılmıyor. Kalan 8: `040` ·
 `docs/roadmap.md`'nin M3 satırı ve milestone dokümanının bayat task listesi
 kapanışta düzeltilecek. `NEN-073`, kullanıcının gerçek `.app`te minimum pencere
 sınırının uygulanmadığını göstermesiyle yeniden açıldı ve düzeltici kapanışta
-gerçek köşe sürüklemesiyle kanıtlandı; canlı resize regresyonu `NEN-074` yeniden
-READY.
+gerçek köşe sürüklemesiyle kanıtlandı; canlı resize regresyonu `NEN-074`
+ile kapandı.
+
+**`NEN-074` kapandı — canlı resize artık hedef kare zamanını ana thread'de
+beklemiyor.** `MPVVideoView`, normal çizimde libmpv'nin A/V zamanlamasını açık
+tutuyor; yalnız `inLiveResize` boyunca
+`MPV_RENDER_PARAM_BLOCK_FOR_TARGET_TIME=0` geçiyor. Aynı fixture ve altı eş
+sürüklemede önceki en kötü **175,899 ms** ana-thread çağrısı, düzeltmeden
+sonra en kötü **17,991 ms** oldu; sabit performans eşiği konmadı. Gerçek
+`.app` kabulü aspect lock, tam ekran dönüşü ve videosuz yüzeyi de korudu.
+macOS paketi **181/181**, app build, strict codesign, shell ve doküman kapıları
+yeşil. Kanıt: `evidence/M3/NEN-074-measurement.md`.
 
 **`NEN-073` düzeltici kapanışla tamamlandı — önceki minimum sınırı kanıtı
 geçersizdi.** `WindowGeometryWriter` AppKit `contentMinSize` değerini yazarken

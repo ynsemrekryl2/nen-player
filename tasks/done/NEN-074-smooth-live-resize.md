@@ -3,7 +3,7 @@ id: NEN-074
 title: Smooth live video resize
 milestone: M3
 size: M
-state: backlog
+state: done
 depends_on: [NEN-073]
 blocks: []
 adr: [38]
@@ -38,20 +38,38 @@ Oynayan video penceresi sürükleyerek yeniden boyutlandırılırken ana thread 
 
 ## Kanıt (DoD)
 
-- [ ] Birim test, normal çizimde hedef zamanı bekleme politikasının açık;
+- [x] Birim test, normal çizimde hedef zamanı bekleme politikasının açık;
       `inLiveResize` çiziminde kapalı olduğunu doğruluyor.
-- [ ] Bağlamlı baseline raporu aynı fixture ve resize hareketinde önce/sonra
+- [x] Bağlamlı baseline raporu aynı fixture ve resize hareketinde önce/sonra
       ana-thread render sürelerini ve gözlenen takılmayı karşılaştırıyor.
-- [ ] Gerçek `.app` manuel checklist'i oynayan videoda sürekli köşe
+- [x] Gerçek `.app` manuel checklist'i oynayan videoda sürekli köşe
       sürüklemesinin pencereyi takılmadan takip ettiğini ve videonun görünür
       kaldığını gösteriyor.
-- [ ] Resize bırakıldığında oynatma ilerliyor, normal render zamanlaması geri
+- [x] Resize bırakıldığında oynatma ilerliyor, normal render zamanlaması geri
       geliyor ve gözlenebilir A/V bozulması oluşmuyor.
-- [ ] Resize boyunca aspect ratio korunuyor; tam ekran giriş/çıkış ve
+- [x] Resize boyunca aspect ratio korunuyor; tam ekran giriş/çıkış ve
       videosuz yüzey regresyona uğramıyor.
-- [ ] Tam macOS test paketi, `.app` build'i, strict codesign ve depo doküman
+- [x] Tam macOS test paketi, `.app` build'i, strict codesign ve depo doküman
       kapıları yeşil.
 
 ## Kanıt kaydı
 
-<!-- done olurken gerçek test çıktısı ve baseline raporu ile doldurulacak -->
+`MPVVideoView` normal çizimde libmpv'nin hedef kare beklemesini açık
+tutuyor; yalnız AppKit `inLiveResize` bildirirken
+`MPV_RENDER_PARAM_BLOCK_FOR_TARGET_TIME=0` geçiyor. `RenderTimingPolicyTests`
+iki dalı da sabitliyor (**2/2**).
+
+Aynı Debug `.app`, `contract-clip.mkv` ve altı eş sürükleme koşusundaki
+baseline'da render sayısı `33–41`, en kötü ana-thread çağrısı **175,899
+ms** idi. Düzeltmeden sonra sayı `37–51`, altı koşunun en kötüsü **17,991
+ms** oldu; resize süresi iki tarafta da yaklaşık 2,4 saniye kaldı. Bunlar
+eşik değil, bağlamlı baseline'dır.
+
+Prob içermeyen son `.app`te oynayan video köşe sürüklemesini takip etti,
+video görünür kaldı ve bırakınca oynatma devam etti. 16:9 oran kilidi,
+`F` ile tam ekran giriş/çıkış ve video ardından audio-only siyah yüzey
+doğrulandı. Tam kayıt: `evidence/M3/NEN-074-measurement.md`.
+
+`bash scripts/test-macos.sh`: **181 test / 22 suite / 0 failure**.
+`bash scripts/build-macos-app.sh`, strict codesign, `bash scripts/test.sh`,
+`bash scripts/check-docs.sh` ve `bash scripts/task-index.sh --check` exit 0.
