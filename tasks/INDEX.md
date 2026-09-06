@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **72** task · ✅ done 53 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 17
+Toplam **72** task · ✅ done 54 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 16
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -67,7 +67,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-043](backlog/NEN-043-libmpv-app-bundling.md) | Bundle libmpv into the .app and notarize | M | ⚪ backlog | NEN-022 NEN-024 |
 | [NEN-045](done/NEN-045-playback-session-ffi.md) | Core playback session across the FFI boundary | M | ✅ done | NEN-021 NEN-022 |
 | [NEN-046](done/NEN-046-macos-window-lifecycle.md) | macOS window lifecycle — no inert app after the window closes | S | ✅ done | NEN-024 |
-| [NEN-047](backlog/NEN-047-keyboard-shortcut-scope.md) | Scope playback shortcuts to the player surface and echo them on screen | S | ⚪ backlog | NEN-024 |
+| [NEN-047](done/NEN-047-keyboard-shortcut-scope.md) | Scope playback shortcuts to the player surface and echo them on screen | S | ✅ done | NEN-024 |
 | [NEN-048](done/NEN-048-transient-error-class.md) | Fix the spurious transient error and prove the transient error class | S | ✅ done | NEN-024 |
 | [NEN-049](done/NEN-049-serialize-real-mpv-tests.md) | Serialize real libmpv platform tests | S | ✅ done | NEN-022 NEN-045 NEN-051 |
 | [NEN-050](backlog/NEN-050-recent-media-transient-paths.md) | Cover the recent-media store's transient error paths | S | ⚪ backlog | NEN-048 |
@@ -116,12 +116,12 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-033** — OpenSubtitles hash-based identity lookup
 - **NEN-034** — AI-assisted release name normalization
 - **NEN-035** — Identity confidence scoring and candidate ranking
+- **NEN-037** — Subtitle language preference setting (primary and secondary)
 - **NEN-040** — check-docs.sh verifies STATUS.md's "Son doğrulama" date is not stale
 - **NEN-041** — doctor.sh reports an installed-but-unrunnable tool as missing
 - **NEN-042** — Recent media list in the empty state
 - **NEN-043** — Bundle libmpv into the .app and notarize
 - **NEN-044** — Embedded subtitle text extraction
-- **NEN-047** — Scope playback shortcuts to the player surface and echo them on screen
 - **NEN-050** — Cover the recent-media store's transient error paths
 - **NEN-052** — Decide and pin what a seek during loading does
 - **NEN-057** — Read the language a subtitle filename declares

@@ -20,6 +20,11 @@ public final class PlayerModel: ObservableObject {
     @Published public private(set) var fatalMessage: String?
     @Published public private(set) var transientMessage: String?
     @Published public private(set) var controlsVisible = true
+    /// Mirrors the player window's `NSWindow` full-screen style mask
+    /// (NEN-047). Has no effect on playback itself — it exists so `Esc` can
+    /// be scoped to full screen only in `PlayerCommands`, and so that scoping
+    /// is testable without reading AppKit window state.
+    @Published public private(set) var isFullScreen = false
     @Published public private(set) var showsRemainingTime = false
     @Published public private(set) var seekPreviewMilliseconds: UInt64?
     /// Changes for every medium that reaches the playback session, even when
@@ -499,6 +504,10 @@ public final class PlayerModel: ObservableObject {
         let current = Int64(clamping: displayedPositionMilliseconds)
         let upper = durationMilliseconds.map { Int64(clamping: $0) } ?? Int64.max
         seek(to: UInt64(max(0, min(upper, current + delta))))
+        // A keyboard seek moves the playhead with no on-screen sign of it
+        // once the transport has faded — echo it the same way pointer
+        // movement does (NEN-047).
+        pointerMoved()
     }
 
     public func previewSeek(to milliseconds: UInt64) {
@@ -547,10 +556,19 @@ public final class PlayerModel: ObservableObject {
 
     public func adjustVolume(by delta: Float) {
         setVolume(volume + delta)
+        // Same reasoning as `seekRelative`: a keyboard volume nudge is
+        // otherwise silent on screen once the transport has faded (NEN-047).
+        pointerMoved()
     }
 
     public func toggleDurationMode() {
         showsRemainingTime.toggle()
+    }
+
+    /// Mirrors the player window's full-screen style mask so `PlayerCommands`
+    /// can scope `Esc` to full screen only (NEN-047).
+    public func setFullScreen(_ isFullScreen: Bool) {
+        self.isFullScreen = isFullScreen
     }
 
     public func pointerMoved() {

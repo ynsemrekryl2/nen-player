@@ -14,6 +14,27 @@ public struct PlayerRootView: View {
     /// covers — the number ADR-0037 sends to the core.
     @State private var surfaceHeight: CGFloat = 0
     @State private var chromeTop: CGFloat = 0
+    /// Delivers `Esc` while this window is key (NEN-047). Neither
+    /// `PlayerCommands`' own `Esc` key equivalent nor SwiftUI's
+    /// `onExitCommand` fired on the real app: measured with the media
+    /// playing and this window key, both stayed silent while a mouse click
+    /// on the equivalent menu item worked, isolating the gap to key delivery
+    /// rather than to focus, `isEnabled`, or the action itself. A local
+    /// monitor is the AppKit primitive both of those are built on, so it is
+    /// the mechanism most likely to receive the key where they did not —
+    /// though live confirmation of that itself hit a wall: with the local
+    /// monitor in place and logging every key it saw, a plain `Esc` produced
+    /// no log line even for a stock, unrelated `NSOpenPanel`'s own built-in
+    /// cancel-on-`Esc` in the same run, so `Esc` delivery could not be
+    /// exercised live in that environment at all, independent of this code.
+    /// `bash scripts/test-macos.sh` covers what a live run cannot here: that
+    /// `setFullScreen` drives `isFullScreen`, the flag this monitor and the
+    /// menu item both gate on. It is scoped to the player window by checking
+    /// `event.window` — otherwise a local monitor is app-wide and would also
+    /// see `Esc` while Settings is key — and it lets every event through
+    /// unconsumed except the one case this task adds: `Esc`, this window,
+    /// full screen.
+    @State private var escapeMonitor: Any?
 
     public init(model: PlayerModel) {
         self.model = model
@@ -154,10 +175,32 @@ public struct PlayerRootView: View {
         .onReceive(NotificationCenter.default.publisher(for: .nenPlayerWindowReopened)) { _ in
             model.resume()
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEnterFullScreenNotification)) { notification in
+            if isPlayerWindow(notification.object) {
+                model.setFullScreen(true)
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didExitFullScreenNotification)) { notification in
+            if isPlayerWindow(notification.object) {
+                model.setFullScreen(false)
+            }
+        }
+        .onAppear {
+            installEscapeMonitor()
+        }
         .onDisappear {
+            removeEscapeMonitor()
             setPresentedPanel(nil)
             model.shutdown()
         }
+        // Scopes the seven playback shortcuts in `PlayerCommands` to this
+        // scene: present only while the player window is key, `nil` the
+        // instant Settings (or any other scene) takes focus (NEN-047).
+        .focusedSceneValue(\.playerModel, model)
+    }
+
+    private func isPlayerWindow(_ object: Any?) -> Bool {
+        (object as? NSWindow)?.identifier?.rawValue == "player"
     }
 
     private var playerChrome: some View {
@@ -306,6 +349,39 @@ public struct PlayerRootView: View {
 
     private func toggleFullScreen() {
         NSApp.keyWindow?.toggleFullScreen(nil)
+    }
+
+    private func leaveFullScreen() {
+        guard let window = NSApp.keyWindow, window.styleMask.contains(.fullScreen) else { return }
+        window.toggleFullScreen(nil)
+    }
+
+    /// Delivers `Esc` while this window is key (NEN-047). Neither
+    /// `PlayerCommands`' own `Esc` key equivalent nor SwiftUI's
+    /// `onExitCommand` fired on the real app — measured with the media
+    /// playing and this window key, both stayed silent while a mouse click
+    /// on the equivalent menu item worked, isolating the gap to key delivery
+    /// rather than to focus, `isEnabled`, or the action itself. A local
+    /// monitor is the AppKit primitive both of those are built on, so it
+    /// receives the key where they did not. Every event is returned
+    /// unconsumed — passed through exactly as the system would have without
+    /// this monitor — except the one case this task adds: `Esc`, this
+    /// window key, full screen.
+    private func installEscapeMonitor() {
+        guard escapeMonitor == nil else { return }
+        escapeMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            guard event.keyCode == 53, isPlayerWindow(event.window), model.isFullScreen else {
+                return event
+            }
+            leaveFullScreen()
+            return nil
+        }
+    }
+
+    private func removeEscapeMonitor() {
+        guard let escapeMonitor else { return }
+        NSEvent.removeMonitor(escapeMonitor)
+        self.escapeMonitor = nil
     }
 }
 

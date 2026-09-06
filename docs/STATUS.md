@@ -3,9 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-06** (`NEN-049` done — paralel macOS paketindeki
-> kırmızı kaldırıldı: bekleme giden medyanın boyutunu kabul ediyordu. Önceki:
-> `NEN-036` done — uzak medya evidence portu)
+> Son güncelleme: **2026-09-06** (`NEN-047` done — yedi oynatma kısayolu
+> oynatma yüzeyine bağlandı, klavye seek/ses artık kontrolleri geri getiriyor.
+> Önceki: `NEN-049` done — paralel macOS paketindeki kırmızı kaldırıldı)
 
 ## Nerede duruyoruz
 
@@ -13,17 +13,36 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-049` — paralel macOS paketi deterministik |
-| **Sıradaki READY** | `NEN-033`, `NEN-034`, `NEN-035`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-047`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-071`, `NEN-072` |
-| **Task sayısı** | 72 · done 53 · active 0 · blocked 0 · canceled 2 · backlog 17 |
+| **Son tamamlanan** | `NEN-047` — kısayollar oynatma yüzeyine bağlandı, klavye seek/ses kontrolleri geri getiriyor |
+| **Sıradaki READY** | `NEN-033`, `NEN-034`, `NEN-035`, `NEN-037`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-071`, `NEN-072` |
+| **Task sayısı** | 72 · done 54 · active 0 · blocked 0 · canceled 2 · backlog 16 |
 
 **M3 kapanmıyor: `milestone: M3` etiketli 13 task'ın hepsi bitecek**
 (kullanıcı kararı, 2026-09-06). Beş çıkış kriteri `NEN-028`'de kanıtlandı ve
 milestone dokümanının kanonik task listesi (`NEN-021`…`028`, `061`, `062`)
-tamamlandı, ama kriterlerle erken kapanış yapılmıyor. Kalan 10: `037` · `040` ·
-`041` · `042` · `043` · `047` · `050` · `052` · `057` · `071`
-(`037`, `047` bitene kadar READY değil). `docs/roadmap.md`'nin M3 satırı ve
-milestone dokümanının bayat task listesi kapanışta düzeltilecek.
+tamamlandı, ama kriterlerle erken kapanış yapılmıyor. Kalan 9: `037` · `040` ·
+`041` · `042` · `043` · `050` · `052` · `057` · `071` — hepsi READY.
+`docs/roadmap.md`'nin M3 satırı ve milestone dokümanının bayat task listesi
+kapanışta düzeltilecek.
+
+**`NEN-047` kapandı — yedi kısayol artık yalnız oynatma penceresine ait,
+klavye eylemi ekranda görünür oluyor.** `NEN-024` incelemesinde ölçülen iki
+kusur giderildi: yedi kısayol `PlayerCommands`'te menü key equivalent'ı
+olmaktan çıkıp `@FocusedValue` ile oynatma sahnesine bağlandı — Ayarlar
+penceresi öndeyken artık ne oynatmayı ne sesi etkiliyor; `seekRelative` ve
+`adjustVolume` artık `pointerMoved()` çağırıp gizli kontrolleri geri
+getiriyor. `NEN-037`'yi bekleten bağımlılık kalktı, artık READY.
+
+**Yol boyunca bir AppKit sınırı ölçüldü:** `Esc`'in tam ekrandan çıkışı
+`NSMenu`'nun düz (modifikatörsüz) key equivalent'ı üzerinden hiç
+tetiklenmiyor — task'tan önce de var olan, bağımsız bir davranış. Gerçek
+çıkış artık `PlayerRootView`'daki pencereye ve `isFullScreen`'e taranmış bir
+`NSEvent` local monitor'e taşındı; menü maddesi keşif ve fare tıklaması için
+kaldı. Canlı `Esc` tuşu bu oturumun uzak masaüstü ortamında hiçbir uygulama
+için (bağımsız bir `NSOpenPanel`'in kendi Vazgeç-on-Esc'i dahil) teslim
+edilemediğinden gerçek tam-ekrandan-çıkış klavye ile doğrulanamadı; kod
+doğru AppKit birincili ile yazıldı, `isFullScreen` durumu model testiyle
+kanıtlı. Kanıt: `evidence/M3/NEN-047-checklist.md`.
 
 **`NEN-049` kapandı — paralel macOS paketi artık deterministik ve kusur
 gizlenmeden kaldırıldı.** Dört kapanışta gözlenen kırmızı

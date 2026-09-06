@@ -236,6 +236,67 @@ struct PlayerModelTests {
         #expect(model.controlsVisible)
     }
 
+    @Test("a keyboard seek brings hidden controls back")
+    func seekRelativeShowsHiddenControls() {
+        let fixture = FakeSession()
+        let model = makeModel(session: fixture)
+        model.openMedia(at: URL(fileURLWithPath: "/fixtures/media/contract-clip.mkv"))
+        model.consume([.stateChanged(state: .playing)])
+        model.hideControlsNow()
+        #expect(!model.controlsVisible)
+
+        model.seekRelative(seconds: 5)
+
+        #expect(model.controlsVisible)
+    }
+
+    @Test("a keyboard volume nudge brings hidden controls back")
+    func adjustVolumeShowsHiddenControls() {
+        let fixture = FakeSession()
+        let model = makeModel(session: fixture)
+        model.openMedia(at: URL(fileURLWithPath: "/fixtures/media/contract-clip.mkv"))
+        model.consume([.stateChanged(state: .playing)])
+        model.hideControlsNow()
+        #expect(!model.controlsVisible)
+
+        model.adjustVolume(by: 0.05)
+
+        #expect(model.controlsVisible)
+    }
+
+    @Test("controls a keyboard seek re-shows still hide again while playing")
+    func seekRelativeRestoresTheHideTimer() async throws {
+        let fixture = FakeSession()
+        let model = makeModel(session: fixture, controlsHideDelayNanoseconds: 2_000_000)
+        model.openMedia(at: URL(fileURLWithPath: "/fixtures/media/contract-clip.mkv"))
+        model.consume([.stateChanged(state: .playing)])
+        model.hideControlsNow()
+
+        model.seekRelative(seconds: 5)
+        #expect(model.controlsVisible)
+
+        // Same reasoning as `pinnedControlsSuspendAndRestoreAutomaticHiding`:
+        // waited for rather than slept through, because what matters is that
+        // the re-armed timer fires at all.
+        let deadline = Date().addingTimeInterval(5)
+        while model.controlsVisible, Date() < deadline {
+            try await Task.sleep(nanoseconds: 1_000_000)
+        }
+        #expect(!model.controlsVisible)
+    }
+
+    @Test("full-screen state starts false and follows setFullScreen")
+    func fullScreenStateFollowsSetFullScreen() {
+        let model = makeModel(session: FakeSession())
+        #expect(!model.isFullScreen)
+
+        model.setFullScreen(true)
+        #expect(model.isFullScreen)
+
+        model.setFullScreen(false)
+        #expect(!model.isFullScreen)
+    }
+
     @Test("pinned controls stay visible and unpin restores the hide timer")
     func pinnedControlsSuspendAndRestoreAutomaticHiding() async throws {
         let fixture = FakeSession()
