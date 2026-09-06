@@ -115,6 +115,21 @@ final class MemoryRecentStore: RecentMediaStoring {
     }
 }
 
+/// No seeding, unlike `UserDefaultsSubtitlePreferenceStore` — a test that
+/// wants "no preference" must not depend on the language of the machine
+/// running it (NEN-037, same reasoning as `preferredSubtitleLanguage` below).
+final class MemoryPreferenceStore: SubtitlePreferenceStoring {
+    var preferences: SubtitleLanguagePreferences
+
+    init(primary: String? = nil, secondary: String? = nil) {
+        preferences = SubtitleLanguagePreferences(primary: primary, secondary: secondary).normalized()
+    }
+
+    func save(_ preferences: SubtitleLanguagePreferences) {
+        self.preferences = preferences.normalized()
+    }
+}
+
 /// The session calls a test can make fail, so the shell's refusal paths run.
 enum FakeSessionCall: Hashable {
     case load, play, pause, stop, seek, position, duration, state, tracks, showSubtitle,

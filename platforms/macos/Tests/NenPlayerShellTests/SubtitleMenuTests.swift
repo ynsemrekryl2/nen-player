@@ -466,6 +466,60 @@ struct SubtitleMenuTests {
         #expect(model.selectedSubtitleToken != nil, "it was there when the shot was taken")
     }
 
+    // MARK: - Preferred language settings (NEN-037)
+
+    @Test("with no preference, language groups sort alphabetically — ADR-0010 Karar 10's first example")
+    func noPreferenceSortsAlphabetically() async {
+        let (model, _) = await playingModelWithTracks()
+
+        let languageGroups = model.subtitleMenu
+            .map { SubtitleMenuGroupID($0.group) }
+            .compactMap { group -> String? in
+                if case let .language(tag) = group { return tag }
+                return nil
+            }
+        #expect(languageGroups == ["en", "tr"], "English before Türkçe, LanguageTag ascending")
+    }
+
+    @Test("changing the preference re-sorts the menu without moving the selection")
+    func changingPreferenceReordersWithoutMovingSelection() async throws {
+        // No preference to start: en, then tr (see the test above).
+        let (model, fixture) = await playingModelWithTracks()
+        let english = try #require(token(in: model, group: .language("en")))
+        model.selectSubtitle(token: english)
+        #expect(model.selectedSubtitleToken == english)
+
+        model.updateSubtitlePreferences(SubtitleLanguagePreferences(primary: "tr"))
+
+        #expect(
+            SubtitleMenuGroupID(model.subtitleMenu[1].group) == .language("tr"),
+            "tr is now hoisted above the remaining languages (ADR-0010 Karar 4)"
+        )
+        #expect(
+            model.selectedSubtitleToken == english,
+            "a preference change never re-picks what is already on screen (ADR-0031 Karar 4.3)"
+        )
+        #expect(fixture.drawnSubtitles == [.track(2)], "and it never re-draws anything either")
+    }
+
+    @Test("a secondary equal to the primary is the same as no secondary at all")
+    func matchingSecondaryHasNoEffect() async {
+        let (withMatchingSecondary, _) = await playingModelWithTracks()
+        withMatchingSecondary.updateSubtitlePreferences(
+            SubtitleLanguagePreferences(primary: "tr", secondary: "tr")
+        )
+        let (withNoSecondary, _) = await playingModelWithTracks()
+        withNoSecondary.updateSubtitlePreferences(
+            SubtitleLanguagePreferences(primary: "tr", secondary: nil)
+        )
+
+        let groupsOf: (PlayerModel) -> [SubtitleMenuGroupID] = { model in
+            model.subtitleMenu.map { SubtitleMenuGroupID($0.group) }
+        }
+        #expect(groupsOf(withMatchingSecondary) == groupsOf(withNoSecondary))
+        #expect(withMatchingSecondary.subtitlePreferences.secondary == nil)
+    }
+
     // MARK: - Helpers
 
     private func entry(
@@ -541,7 +595,7 @@ struct SubtitleMenuTests {
             recentStore: MemoryRecentStore(),
             startsPolling: false,
             managesCursor: false,
-            preferredSubtitleLanguage: preferredLanguage,
+            preferenceStore: MemoryPreferenceStore(primary: preferredLanguage),
             sessionFactory: { _ in session }
         )
         model.attach(to: MPVVideoView.makePlaybackSurface())

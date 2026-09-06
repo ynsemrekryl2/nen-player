@@ -18,7 +18,7 @@ struct NenPlayerApp: App {
         }
 
         Settings {
-            SettingsPlaceholderView()
+            SubtitlePreferencesSettingsView(model: model)
         }
     }
 }

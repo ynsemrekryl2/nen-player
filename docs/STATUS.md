@@ -3,9 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-06** (`NEN-047` done — yedi oynatma kısayolu
-> oynatma yüzeyine bağlandı, klavye seek/ses artık kontrolleri geri getiriyor.
-> Önceki: `NEN-049` done — paralel macOS paketindeki kırmızı kaldırıldı)
+> Son güncelleme: **2026-09-06** (`NEN-037` done — Settings sahnesi iki dil
+> tercihi kazandı, altyazı menüsü ve otomatik seçim buna uyuyor.
+> Önceki: `NEN-047` done — yedi oynatma kısayolu oynatma yüzeyine bağlandı)
 
 ## Nerede duruyoruz
 
@@ -13,17 +13,55 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-047` — kısayollar oynatma yüzeyine bağlandı, klavye seek/ses kontrolleri geri getiriyor |
-| **Sıradaki READY** | `NEN-033`, `NEN-034`, `NEN-035`, `NEN-037`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-071`, `NEN-072` |
-| **Task sayısı** | 72 · done 54 · active 0 · blocked 0 · canceled 2 · backlog 16 |
+| **Son tamamlanan** | `NEN-037` — Settings'te birinci/ikinci tercih edilen dil, menü sırası ve otomatik seçim buna uyuyor |
+| **Sıradaki READY** | `NEN-033`, `NEN-034`, `NEN-035`, `NEN-040`, `NEN-041`, `NEN-042`, `NEN-043`, `NEN-044`, `NEN-050`, `NEN-052`, `NEN-057`, `NEN-071`, `NEN-072` |
+| **Task sayısı** | 72 · done 55 · active 0 · blocked 0 · canceled 2 · backlog 15 |
 
 **M3 kapanmıyor: `milestone: M3` etiketli 13 task'ın hepsi bitecek**
 (kullanıcı kararı, 2026-09-06). Beş çıkış kriteri `NEN-028`'de kanıtlandı ve
 milestone dokümanının kanonik task listesi (`NEN-021`…`028`, `061`, `062`)
-tamamlandı, ama kriterlerle erken kapanış yapılmıyor. Kalan 9: `037` · `040` ·
+tamamlandı, ama kriterlerle erken kapanış yapılmıyor. Kalan 8: `040` ·
 `041` · `042` · `043` · `050` · `052` · `057` · `071` — hepsi READY.
 `docs/roadmap.md`'nin M3 satırı ve milestone dokümanının bayat task listesi
 kapanışta düzeltilecek.
+
+**`NEN-037` kapandı — Settings'in tek sahnesi artık birinci ve ikinci tercih
+edilen altyazı dilini taşıyor, ADR-0010 Karar 4/10'un menü sırası ilk kez
+üründe kanıtlandı.** Çekirdek iki tercihi baştan beri destekliyordu
+(`SubtitlePreferences::new`, FFI `menu`/`auto_selection`); eksik olan macOS
+kabuğuydu — `PlayerModel` birinciyi sistem dilinden sessizce okuyup ikinciyi
+hep `nil` geçiyordu, Settings sahnesi de "Henüz ayarlanabilir bir seçenek
+yok." diyordu. Yeni `SubtitlePreferenceStore` (`RecentMediaStore`'un
+deseninde) ve `LanguageCatalog` (var olan `endonym(for:)`'u tekrar kullanan,
+yeni bir dil tablosu açmayan liste) bu boşluğu kapattı.
+
+**İki kullanıcı kararı alındı.** Birincisi: uygulama ilk açıldığında sistem
+dili birinci tercih olarak **görünür ve değiştirilebilir** şekilde depoya
+yazılır (`subtitlePreferencesSeeded` bayrağıyla tam bir kez) — bugünkü
+"Türkçe makinede Türkçe track otomatik açılır" davranışı böylece korunuyor,
+ama artık kullanıcının bildiği ve boşaltabildiği bir tercih olarak. İkincisi:
+dil listesi ikinci bir tabloyla curate edilmedi, Foundation'ın adlandırabildiği
+tüm diller listelendi.
+
+**Tercih değişikliği ekrandaki altyazıyı değiştirmiyor.** Otomatik seçim
+medya başına bir kez çalışıyor (ADR-0031 Karar 4.3); `updateSubtitlePreferences`
+menüyü yeniden sıralıyor ama `hasAutoSelected`'a dokunmuyor — otomatik test
+(`changingPreferenceReordersWithoutMovingSelection`) ve gerçek `.app`'te bunu
+ayrı ayrı kanıtladı.
+
+**Dört DoD maddesi de gerçek `.app` üzerinde tek tek koşuldu**, sentetik
+`menu-clip.mkv` fixture'ıyla (İngilizce/Fransızca/Türkçe gömülü track +
+dilsiz bir track — §8'in kanonik kümesi): iki tercih ayarlanıp `⌘Q` ile tam
+kapatılıp yeniden açıldığında `Français`/`English` aynen geri geldi (diskteki
+`.plist` doğrudan da okunup doğrulandı); birinci tercih değişince CC menüsü
+`Kapalı, Türkçe, English, Français, Dil Belirsiz` → `Kapalı, Français,
+English, Türkçe, Dil Belirsiz` sırasına döndü; ikinci tercih birinciyle aynı
+seçilince seçici anında `Yok`'a döndü; iki tercih de boşken menü sırası
+ADR-0010 Karar 10'un "tercih ayarlanmamış" örneğiyle (`en < fr < tr`) birebir
+aynı çıktı. Swift paketi **177/177** (7 yeni + 4 yeni + 3 eklenen test),
+negatif kontrol iki yönde ve ayrık. Rust workspace **568 passed / 1 ignored**
+(bu task Rust'a dokunmadı), fmt, clippy, cargo-deny, shell ve doküman
+kapıları yeşil. Kanıt: `evidence/M3/NEN-037-checklist.md`.
 
 **`NEN-047` kapandı — yedi kısayol artık yalnız oynatma penceresine ait,
 klavye eylemi ekranda görünür oluyor.** `NEN-024` incelemesinde ölçülen iki

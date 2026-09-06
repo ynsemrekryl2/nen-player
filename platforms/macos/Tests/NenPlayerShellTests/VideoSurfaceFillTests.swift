@@ -54,7 +54,7 @@ struct VideoSurfaceFillTests {
         let model = PlayerModel(
             startsPolling: false,
             managesCursor: false,
-            preferredSubtitleLanguage: nil,
+            preferenceStore: MemoryPreferenceStore(),
             sessionFactory: { _ in session }
         )
         model.openMedia(at: URL(fileURLWithPath: "/fixtures/media/contract-clip.mkv"))

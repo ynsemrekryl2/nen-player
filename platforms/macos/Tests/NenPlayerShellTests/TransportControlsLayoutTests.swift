@@ -60,7 +60,7 @@ struct TransportControlsLayoutTests {
             recentStore: MemoryRecentStore(),
             startsPolling: false,
             managesCursor: false,
-            preferredSubtitleLanguage: nil,
+            preferenceStore: MemoryPreferenceStore(),
             sessionFactory: { _ in session }
         )
         model.attach(to: MPVVideoView.makePlaybackSurface())

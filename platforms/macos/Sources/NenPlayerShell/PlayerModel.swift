@@ -105,13 +105,19 @@ public final class PlayerModel: ObservableObject {
     /// A monotonic clock, injectable so a test can reach the expiry without waiting.
     private let now: () -> UInt64
     private let managesCursor: Bool
-    /// The language the menu hoists and auto-selection looks for.
+    /// Where the two preferred languages live (NEN-037).
     ///
     /// Injected rather than read from `Locale` at the point of use: read
     /// statically, every menu test would depend on the language of the machine
     /// running it — green on a Turkish laptop and red on an English one, for a
     /// reason that has nothing to do with the code.
-    private let preferredSubtitleLanguage: String?
+    private let preferenceStore: any SubtitlePreferenceStoring
+    /// The languages the menu hoists and auto-selection looks for.
+    ///
+    /// Published so the Settings scene's pickers and the menu stay in the
+    /// same frame — a picker that only wrote to the store would need its own
+    /// mechanism to notice a change made elsewhere.
+    @Published public private(set) var subtitlePreferences: SubtitleLanguagePreferences
     /// The catalog and the documents behind it, owned by the core (NEN-025).
     ///
     /// Not behind a protocol, unlike `PlaybackSessionClient`: that one exists
@@ -157,7 +163,7 @@ public final class PlayerModel: ObservableObject {
         seekGuardTimeoutNanoseconds: UInt64 = 1_500_000_000,
         now: @escaping () -> UInt64 = { DispatchTime.now().uptimeNanoseconds },
         managesCursor: Bool = true,
-        preferredSubtitleLanguage: String? = Locale.preferredLanguages.first,
+        preferenceStore: any SubtitlePreferenceStoring = UserDefaultsSubtitlePreferenceStore(),
         sessionFactory: @escaping SessionFactory = { view in
             let engine = try MPVPlaybackEngine(videoView: view)
             return FfiPlaybackSession(engine: engine)
@@ -173,7 +179,8 @@ public final class PlayerModel: ObservableObject {
         self.seekGuardTimeoutNanoseconds = seekGuardTimeoutNanoseconds
         self.now = now
         self.managesCursor = managesCursor
-        self.preferredSubtitleLanguage = preferredSubtitleLanguage
+        self.preferenceStore = preferenceStore
+        self.subtitlePreferences = preferenceStore.preferences
         if startsPolling {
             startPolling()
         }
@@ -371,8 +378,8 @@ public final class PlayerModel: ObservableObject {
     /// changed — the core owns grouping, order and which headings exist at all.
     private func refreshSubtitleMenu() {
         subtitleMenu = subtitles.menu(
-            primary: preferredSubtitleLanguage,
-            secondary: nil
+            primary: subtitlePreferences.primary,
+            secondary: subtitlePreferences.secondary
         )
         subtitleSourceCount = subtitles.sourceCount()
         // Only when the heading is *gone* — a new medium. A heading that merely
@@ -386,10 +393,25 @@ public final class PlayerModel: ObservableObject {
         guard !hasAutoSelected else { return }
         hasAutoSelected = true
         guard let token = subtitles.autoSelection(
-            primary: preferredSubtitleLanguage,
-            secondary: nil
+            primary: subtitlePreferences.primary,
+            secondary: subtitlePreferences.secondary
         ) else { return }
         selectSubtitle(token: token)
+    }
+
+    /// Changes the two preferred languages (NEN-037's Settings scene).
+    ///
+    /// Re-sorts the menu on the spot — Karar 4's whole point is that the
+    /// preferred languages sit above the rest. It does **not** touch
+    /// `hasAutoSelected` or the subtitle already on screen: ADR-0031
+    /// Karar 4.3 runs auto-selection once, at the start of a medium, and a
+    /// preference changed mid-playback must not silently swap what the user
+    /// is reading.
+    public func updateSubtitlePreferences(_ preferences: SubtitleLanguagePreferences) {
+        let normalized = preferences.normalized()
+        preferenceStore.save(normalized)
+        subtitlePreferences = normalized
+        refreshSubtitleMenu()
     }
 
     // MARK: - Menu actions

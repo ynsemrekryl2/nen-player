@@ -926,7 +926,7 @@ struct PlayerModelTests {
             // Pinned rather than inherited from the machine: automatic subtitle
             // selection reads this, and a suite whose result depends on the
             // laptop's system language is not a suite.
-            preferredSubtitleLanguage: nil,
+            preferenceStore: MemoryPreferenceStore(),
             sessionFactory: { _ in session }
         )
         model.attach(to: MPVVideoView.makePlaybackSurface())
