@@ -12,10 +12,18 @@
 | | |
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
-| **Aktif task** | — |
+| **Aktif task** | `NEN-052` — yüklenirken verilen seek'in ne yaptığı (ADR-0042 accepted, implementasyon sürüyor) |
 | **Son tamamlanan** | `NEN-076` — `check-docs.sh` adım 9 artık her done task'ın `closed` frontmatter alanını okuyor, git log'a değil — shallow clone'da (CI'ın `fetch-depth: 1`'i) da doğru cevap veriyor |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-043`, `NEN-044`, `NEN-052`, `NEN-064`, `NEN-071`, `NEN-072` |
-| **Task sayısı** | 76 · done 65 · active 0 · blocked 0 · canceled 2 · backlog 9 |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-043`, `NEN-044`, `NEN-064`, `NEN-071`, `NEN-072` |
+| **Task sayısı** | 76 · done 65 · active 1 · blocked 0 · canceled 2 · backlog 8 |
+
+**`NEN-052` açıldı, `ADR-0042` accepted oldu.** Fake motor yüklenirken
+(`.buffering`) verilen bir seek'i her zaman kabul ediyor, gerçek libmpv
+adapter'ı ise reddediyor (`EngineFailure(code: -12)`) — kabuk bunu "beklenmeyen
+motor hatası" diye gösteriyor, oysa durum normal. `evidence/M3/NEN-052-measurement.md`
+gerçek adapter'da ölçtü: yükleme penceresi **2.5–12 ms**, yani nadiren değil
+her zaman rastlanabilecek bir yarış. Karar: seek reddedilmez, tutulur ve
+medya `Ready`'ye ulaştığında uygulanır. İmplementasyon sürüyor.
 
 **M3 kapanmıyor: `milestone: M3` etiketli 16 task'ın hepsi bitecek**
 (kullanıcı kararı, 2026-09-06). Beş çıkış kriteri `NEN-028`'de kanıtlandı ve

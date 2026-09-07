@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **76** task · ✅ done 65 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 9
+Toplam **76** task · ✅ done 65 · 🔵 active 1 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 8
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -72,7 +72,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-049](done/NEN-049-serialize-real-mpv-tests.md) | Serialize real libmpv platform tests | S | ✅ done | NEN-022 NEN-045 NEN-051 |
 | [NEN-050](done/NEN-050-recent-media-transient-paths.md) | Cover the recent-media store's transient error paths | S | ✅ done | NEN-048 |
 | [NEN-051](done/NEN-051-seek-answered-by-load-restart.md) | A seek is never answered by the load's own playback-restart | M | ✅ done | NEN-022 NEN-045 |
-| [NEN-052](backlog/NEN-052-seek-while-loading.md) | Decide and pin what a seek during loading does | S | ⚪ backlog | NEN-051 |
+| [NEN-052](active/NEN-052-seek-while-loading.md) | Decide and pin what a seek during loading does | S | 🔵 active | NEN-051 |
 | [NEN-053](done/NEN-053-stale-position-overrides-seek.md) | A stale position event never overrides a seek that landed | S | ✅ done | NEN-051 |
 | [NEN-054](done/NEN-054-volume-change-latency.md) | A volume change is heard when it is made | M | ✅ done | NEN-024 |
 | [NEN-055](done/NEN-055-transport-feedback-latency.md) | A transport command is shown without waiting for the next poll tick | S | ✅ done | NEN-053 |
@@ -121,7 +121,6 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-035** — Identity confidence scoring and candidate ranking
 - **NEN-043** — Bundle libmpv into the .app and notarize
 - **NEN-044** — Embedded subtitle text extraction
-- **NEN-052** — Decide and pin what a seek during loading does
 - **NEN-064** — Verified media identity in player chrome
 - **NEN-071** — Decide what the subtitle file picker does with a link
 - **NEN-072** — Parse container metadata from remote byte windows

@@ -3,10 +3,10 @@ id: NEN-052
 title: Decide and pin what a seek during loading does
 milestone: M3
 size: S
-state: backlog
+state: active
 depends_on: [NEN-051]
 blocks: []
-adr: [11]
+adr: [11, 42]
 ---
 
 # NEN-052 — Decide and pin what a seek during loading does
