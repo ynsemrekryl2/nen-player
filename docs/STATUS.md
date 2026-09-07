@@ -3,8 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-07** (**M3 kapandı** — 46 task, retro yazıldı,
-> roadmap durumu düzeltildi. Önceki: `NEN-043` done)
+> Son güncelleme: **2026-09-07** (**M3 kapandı** ve **M4 task'lara bölündü** —
+> `NEN-078`…`NEN-084`. Önceki: `NEN-043` done)
 
 ## Nerede duruyoruz
 
@@ -12,9 +12,12 @@
 |---|---|
 | **Mevcut milestone** | **M4 — Stremio Handoff (macOS)** (M3 2026-09-07'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **M3 kapanışı** — retro `docs/milestones/M3-macos-slice.md`'ye yazıldı, task listesi 10 → 46'ya düzeltildi, `docs/roadmap.md`'nin bayat M3 satırı ve giriş paragrafı güncellendi. Ondan önce: `NEN-043` |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-072` |
-| **Task sayısı** | 77 · done 69 · active 0 · blocked 0 · canceled 2 · backlog 6 |
+| **Son tamamlanan** | **M3 kapanışı + M4 kırılımı** — retro yazıldı, M3'ün task listesi 10 → 46'ya düzeltildi, roadmap durumu güncellendi, M4 yedi task'a bölündü. Ondan önce: `NEN-043` |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-072`, `NEN-078` |
+| **Task sayısı** | 84 · done 69 · active 0 · blocked 0 · canceled 2 · backlog 13 |
+
+**M4'ün tek READY task'ı `NEN-078`** — kırılımın geri kalanı bilinçli olarak
+onu bekliyor.
 
 **M3 kapandı — 2026-08-25'te başladı, 2026-09-07'de bitti, 46 task
 (44 done / 2 canceled), 14 gün.** 2026-09-06 kullanıcı kararı gereği beş çıkış
@@ -35,7 +38,25 @@ değişti" ile "karar geçersiz" ayrımı ADR-0035/ADR-0041 precedent'iyle
 sabitlendi.
 
 **Sıradaki milestone M4 — Stremio Handoff (macOS)** (kullanıcı kararı,
-2026-09-07). Task kırılımı kapanışın ikinci yarısı olarak üretiliyor.
+2026-09-07); kırılımı kapanışın ikinci yarısı olarak üretildi:
+`NEN-078` ölçüm → `NEN-079` ADR → `NEN-080` alıcı yüzey →
+{`NEN-081` başlangıç pozisyonu · `NEN-082` metadata → kanıt ·
+`NEN-083` log denetimi} → `NEN-084` kabul. Üç çıkış kriterinin üçünün de
+kanıtlayan task'ı var.
+
+**Kırılım ölçümle başlıyor, çünkü alıcı yüzey ölçülmeden seçilemez.**
+`platforms/macos/Resources/Info.plist` bugün ne `CFBundleDocumentTypes` ne
+`CFBundleURLTypes` taşıyor ve `NenPlayerApp.swift`'in `AppDelegate`'inde
+`application(_:open:)` yok — yani yüzey sıfırdan kurulacak, ve hangisinin
+kurulacağını yalnız gönderen taraf söyler. Stremio 5.1.26 bu makinede kurulu,
+dolayısıyla `NEN-078` tahmin değil ölçüm yapabilir (`NEN-025`/ADR-0034
+emsali: ölçüm kod yazılmadan önce yapılır ve planlanan çözümü elemeye
+yetkilidir).
+
+**Kırılım sırasında bulunan mimari tutarsızlık `NEN-079`'a yazıldı:**
+`docs/architecture.md`'nin sınır kuralı "Stremio handoff"u `port + platform
+adapter` sınıfında sayıyor, ama aynı dosyanın port tablosunda böyle bir port
+yok. ADR ya tabloya satır ekleyecek ya sınır kuralını düzeltecek.
 
 **`NEN-043` kapandı — Nen Player'ın `.app`'i artık Homebrew kurulu olmayan
 bir Mac'te açılıyor.** `scripts/bundle-macos.sh` (yeni) ve onun graf işini

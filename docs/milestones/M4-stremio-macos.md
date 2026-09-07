@@ -1,7 +1,6 @@
 # M4 — Stremio Handoff (macOS)
 
-> **İskelet.** Task kırılımı, bir önceki milestone kapanırken üretilir
-> (bkz. `tasks/README.md` → "Yeni task açma").
+> Task kırılımı M3 kapanırken üretildi (2026-09-07).
 
 ## Amaç
 
@@ -28,7 +27,38 @@ Stremio'dan external player olarak açılan medyanın macOS'ta doğru pozisyonda
 
 ## Task'lar
 
-_(henüz kırılmadı)_
+`NEN-078` · `NEN-079` · `NEN-080` · `NEN-081` · `NEN-082` · `NEN-083` ·
+`NEN-084`
+
+```
+078 ölçüm ──▶ 079 ADR ──▶ 080 alıcı yüzey ──┬──▶ 081 başlangıç pozisyonu ──┐
+                                             ├──▶ 082 metadata → kanıt ────┼──▶ 084 kabul
+                                             └──▶ 083 log denetimi ────────┘
+```
+
+**Sıra ölçümle başlıyor, kararla devam ediyor.** Alıcı yüzeyin ne olması
+gerektiğini yalnız gönderen taraf söyler; `NEN-078` bunu gerçek Stremio ile
+ölçer, `NEN-079` ADR'ye bağlar. `NEN-025`/ADR-0034 emsali: ölçüm kod yazılmadan
+önce yapılır ve planlanan çözümü elemeye yetkilidir.
+
+**Çıkış kriteri ↔ task eşleşmesi:**
+
+| Çıkış kriteri | Kanıtlayan |
+|---|---|
+| Medya doğru pozisyondan oynuyor | `NEN-080` + `NEN-081`, üründe `NEN-084` |
+| Argüman ve medya URL'si loglanmıyor | `NEN-083` (negatif kontrol zorunlu) |
+| Metadata yoksa akış bozulmuyor | `NEN-082` |
+
+**Zaten hazır olan, yeniden yazılmayacak zemin:** `PlaybackSession::load`
+(`core/crates/nen-app/src/session.rs`) · `remote_evidence::validate_url`'ün
+şema kapısı · ADR-0042 + `deferredSeekMs`'in yüklenirken-seek kontratı
+(`NEN-052`) · ADR-0009'un kanıt katmanları · `guard_playback_debug.rs`'in
+kapalı-küme log denetimi deseni · `RecentMediaStore`'un bookmark yolu.
+
+**Açık mimari sorusu (ADR'ye bırakıldı):** `docs/architecture.md`'nin sınır
+kuralı "Stremio handoff"u `port + platform adapter` sınıfına koyuyor, ama aynı
+dosyanın port tablosunda böyle bir port yok. `NEN-079` ya tabloya satır ekler ya
+sınır kuralını düzeltir.
 
 ## Bağımlılıklar
 

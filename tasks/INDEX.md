@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **77** task · ✅ done 69 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 6
+Toplam **84** task · ✅ done 69 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 13
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -97,6 +97,18 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-076](done/NEN-076-status-freshness-check-on-shallow-clone.md) | The STATUS freshness check reads every done task as today on CI | S | ✅ done | NEN-040 |
 | [NEN-077](done/NEN-077-safe-area-aspect-minimum.md) | Keep the minimum player surface aspect-correct across the titlebar safe area | M | ✅ done | NEN-068 NEN-073 |
 
+## M4 — Stremio Handoff (macOS)
+
+| ID | Başlık | Boyut | Durum | Bağımlılık |
+|---|---|---|---|---|
+| [NEN-078](backlog/NEN-078-stremio-launch-measurement.md) | Measure how Stremio launches an external player on macOS | S | ⚪ backlog | — |
+| [NEN-079](backlog/NEN-079-adr-handoff-surface.md) | Decide the macOS handoff receiving surface | S | ⚪ backlog | NEN-078 |
+| [NEN-080](backlog/NEN-080-receive-opened-medium.md) | Receive a medium opened by another application | M | ⚪ backlog | NEN-079 |
+| [NEN-081](backlog/NEN-081-handoff-start-position.md) | Apply the start position a handoff carries | S | ⚪ backlog | NEN-080 |
+| [NEN-082](backlog/NEN-082-handoff-metadata-evidence.md) | Treat handoff metadata as optional evidence | M | ⚪ backlog | NEN-080 |
+| [NEN-083](backlog/NEN-083-handoff-never-logged.md) | Handoff input never reaches a log surface | S | ⚪ backlog | NEN-080 |
+| [NEN-084](backlog/NEN-084-m4-acceptance.md) | Stremio handoff acceptance | S | ⚪ backlog | NEN-081 NEN-082 NEN-083 |
+
 ## M5 — Translation Core
 
 | ID | Başlık | Boyut | Durum | Bağımlılık |
@@ -123,3 +135,4 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-044** — Embedded subtitle text extraction
 - **NEN-064** — Verified media identity in player chrome
 - **NEN-072** — Parse container metadata from remote byte windows
+- **NEN-078** — Measure how Stremio launches an external player on macOS
