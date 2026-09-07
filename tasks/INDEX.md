@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **76** task · ✅ done 66 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 8
+Toplam **76** task · ✅ done 67 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 7
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -90,7 +90,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-068](done/NEN-068-media-sized-aspect-locked-window.md) | Media-sized, aspect-locked player window | L | ✅ done | NEN-067 |
 | [NEN-069](done/NEN-069-clear-surface-without-video.md) | Clear the video surface when the medium has no video | S | ✅ done | — |
 | [NEN-070](done/NEN-070-wide-transport-layout-overflow.md) | Keep transport controls inside wide windows | S | ✅ done | NEN-067 NEN-068 |
-| [NEN-071](backlog/NEN-071-open-panel-resolves-links.md) | Decide what the subtitle file picker does with a link | S | ⚪ backlog | NEN-025 |
+| [NEN-071](done/NEN-071-open-panel-resolves-links.md) | Decide what the subtitle file picker does with a link | S | ✅ done | NEN-025 |
 | [NEN-073](done/NEN-073-player-chrome-boundaries.md) | Player chrome boundary behaviour | M | ✅ done | — |
 | [NEN-074](done/NEN-074-smooth-live-resize.md) | Smooth live video resize | M | ✅ done | NEN-073 |
 | [NEN-075](done/NEN-075-sidecar-language-suffix.md) | Sidecar discovery does not see a language-suffixed subtitle | S | ✅ done | NEN-025 NEN-057 |
@@ -122,5 +122,4 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-043** — Bundle libmpv into the .app and notarize
 - **NEN-044** — Embedded subtitle text extraction
 - **NEN-064** — Verified media identity in player chrome
-- **NEN-071** — Decide what the subtitle file picker does with a link
 - **NEN-072** — Parse container metadata from remote byte windows

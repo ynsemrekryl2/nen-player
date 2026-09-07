@@ -85,6 +85,12 @@ Kullanıcının verdiği veya keşfedilen her altyazı dosyası için, **açmada
 5. **Encoding** tespit edilir ve sanitize edilir (BOM, UTF-16, legacy code page, kontrol karakterleri)
 6. **Strict parse** — geçemezse kaynak "hatalı" işaretlenir; **playback durmaz**
 
+macOS'ta kullanıcı `Altyazı Dosyası Yükle…` panelinden bir symlink/alias'ı
+açıkça seçtiğinde `NSOpenPanel` hedefi uygulamaya vermeden çözer; uygulamaya
+ulaşan hedef yukarıdaki kapılardan geçer. Bu, uygulamanın kendi sidecar
+keşfinde veya doğrudan dosya kapısına verilen symlink'in izlenmesi anlamına
+gelmez; bu iki yüzeyde symlink reddi yürürlüktedir (ADR-0031, NEN-071).
+
 Yazma tarafında: artifact commit **atomik** olmalıdır (geçici dosyaya yaz →
 fsync → rename). Yarım dosya asla görünür olmaz.
 

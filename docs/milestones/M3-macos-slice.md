@@ -114,7 +114,10 @@ Kapı üç yüzeyden çağrılabilir ve senaryo hepsini aynı yerden kanıtlamaz
   (ADR-0031 Karar 5).
 - **`⇧⌘O` paneli** — `NSOpenPanel` kısayolu uygulamaya vermeden **kendisi
   çözer**; panele bir kısayol seçildiğinde uygulamaya hedefin yolu gelir. Yani
-  symlink reddi bu yüzeyden tetiklenemez. Karar `NEN-071`'e ayrıldı.
+  symlink reddi bu yüzeyden tetiklenemez. `NEN-071` kararıyla bu davranış
+  `resolvesAliases = true` ile açıkça sabitlenmiştir: hedef normal kullanıcı
+  altyazısı olarak yüklenir. Uygulamanın keşfettiği veya doğrudan kapıya gelen
+  symlink yolları yine reddedilir.
 - **`..` içeren yol** — panel yolu standardize ettiği için kullanıcı
   arayüzünden üretilemez. Traversal ayağı kapının kendi seviyesinde, negatif
   testlerle kanıtlanır (`core/crates/nen-app/tests/subtitle_file_gates.rs`).

@@ -3,9 +3,10 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-07** (`NEN-052` done — yüklenirken verilen seek
-> artık reddedilmiyor, ertelenip `FILE_LOADED` anında uygulanıyor.
-> Önceki: `NEN-076`)
+> Son güncelleme: **2026-09-07** (`NEN-071` done — altyazı panelinde açıkça
+> seçilen symlink/alias hedefi çözülüyor; keşfedilen veya doğrudan verilen
+> symlink yolları reddedilmeye devam ediyor.
+> Önceki: `NEN-052`)
 
 ## Nerede duruyoruz
 
@@ -13,9 +14,9 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-052` — yüklenirken verilen seek artık `EngineFailure`'la reddedilmiyor, tutulup medya hazır olduğunda uygulanıyor (ADR-0042) |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-043`, `NEN-044`, `NEN-064`, `NEN-071`, `NEN-072` |
-| **Task sayısı** | 76 · done 66 · active 0 · blocked 0 · canceled 2 · backlog 8 |
+| **Son tamamlanan** | `NEN-071` — altyazı panelinde açıkça seçilen symlink/alias hedefi çözülüyor; keşfedilen veya doğrudan verilen symlink yolları reddedilmeye devam ediyor (ADR-0031) |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-043`, `NEN-044`, `NEN-064`, `NEN-072` |
+| **Task sayısı** | 76 · done 67 · active 0 · blocked 0 · canceled 2 · backlog 7 |
 
 **`NEN-052` kapandı — yüklenirken verilen seek artık kaybolmuyor.** Fake motor
 `.buffering` durumunda verilen bir seek'i her zaman kabul ediyordu, gerçek
@@ -59,11 +60,11 @@ FFI yüzeyi, `nen-ffi` ve kabuk (`PlayerModel`) dokunulmadı. Gerçek `.app`'te
 elle klavye testi yapılmadı — ölçülen pencere insan tepki süresinden çok daha
 kısa, otomatik test tek güvenilir kanıt yolu. Kanıt: `tasks/done/NEN-052-*.md`.
 
-**M3 kapanmıyor: `milestone: M3` etiketli 16 task'ın hepsi bitecek**
+**M3 kapanmıyor: `milestone: M3` etiketli task'ların hepsi bitecek**
 (kullanıcı kararı, 2026-09-06). Beş çıkış kriteri `NEN-028`'de kanıtlandı ve
 milestone dokümanının kanonik task listesi (`NEN-021`…`028`, `061`, `062`)
-tamamlandı, ama kriterlerle erken kapanış yapılmıyor. Kalan 3: `043` ·
-`052` · `071` — hepsi READY.
+tamamlandı, ama kriterlerle erken kapanış yapılmıyor. Kalan backlog: `043`;
+`052` ve `071` kapanış kanıtlarıyla tamamlandı.
 `docs/roadmap.md`'nin M3 satırı ve milestone dokümanının bayat task listesi
 kapanışta düzeltilecek. `NEN-073`, kullanıcının gerçek `.app`te minimum pencere
 sınırının uygulanmadığını göstermesiyle yeniden açıldı ve düzeltici kapanışta
@@ -439,8 +440,8 @@ roadmap'in milestone durumu bilinçli olarak `NEN-028` kapsamı dışında bıra
 toolchain blocker" gösteriyor; bu satır bayat ve kapanış kararıyla birlikte
 düzeltilecek.
 
-Koşudan iki iş çıktı: `NEN-071` — `⇧⌘O` panelinin kısayolu kendisi çözmesi,
-davranış kararı ve ürün yüzeyinde testi. Ve `NEN-049`'a üçüncü gözlem: paralel
+Koşudan çıkan `NEN-071` işi kapandı: `⇧⌘O` panelinin kısayolu kendisi çözmesi,
+davranış kararı ve ürün yüzeyinde testi. `NEN-049`'a üçüncü gözlem: paralel
 tam paket bu kez **gerçek libmpv** testinde bir kez kırmızı verdi
 (`successiveMediaReportTheirOwnDisplaySize`); aynı ağaçta test tek başına 3/3,
 paralel paket 1/1, seri paket 2/2 yeşil.
@@ -1814,15 +1815,13 @@ Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
 
-2026-09-07'de `NEN-076` kapanışı için `scripts/tests/check-docs.test.sh`
-**20/20 doğrulama** geçti (yeni T14–T17: shallow clone'da adım 9'un doğru
-cevabı, bayat STATUS'un shallow'da da yakalanması, `closed` alanının
-eksik/bozuk biçimde reddedilmesi). `bash scripts/test.sh` (2/2 dosya) ve
-`bash scripts/check-docs.sh` yeşil. Üç ayrık negatif kontrol izole ölçüldü —
-ayrıntı `tasks/done/NEN-076-*.md` içinde. Rust ve Swift'e dokunulmadı, bu
-task kapsamında koşturulmadı; bir önceki tam koşu `NEN-075` kapanışındaydı
-(Rust **605 passed / 1 ignored**, macOS Swift paketi **195/195**, `.app`
-build'i ve strict codesign — `tasks/done/NEN-075-*.md`).
+2026-09-07'de `NEN-071` kapanışı için gerçek `.app` fixture koşusu ve
+`PlayerModelTests.subtitlePanelResolvesAliasesExplicitly` geçti; panel
+`resolvesAliases = true` ile yapılandırıldı. `bash scripts/test-macos.sh`
+**198 test / 22 suite**, `bash scripts/test.sh` ve `bash scripts/check-docs.sh`
+yeşil; `.app` build'i de üretildi. Doğrudan symlink ve sidecar-symlink negatif
+testleri yeşil kaldı. Ayrıntılı fixture adımları:
+`evidence/M3/NEN-071-checklist.md`.
 
 ### Toolchain kapısı geçmiş kaydı
 

@@ -226,3 +226,10 @@ kapısına koyuyor — kapıdan dönen dosya kataloğa hiç girmediği için o e
 hiçbir zaman üretilemezdi. ADR-0035 kümeyi `okunamadı` · `biçim hatalı` olarak
 sabitliyor; Karar 5'in geri kalanı ve bu ADR'nin diğer beş kararı yürürlükte.
 Gövde ADR-0001 gereği olduğu gibi bırakıldı.
+
+**Açık kullanıcı seçimi kısayolu [NEN-071] ile ayrıştırıldı (2026-09-07).**
+`Altyazı Dosyası Yükle…` paneli `resolvesAliases = true` ile yapılandırılır;
+`NSOpenPanel` symlink/alias hedefini uygulamaya vermeden çözer ve hedef normal
+bir kullanıcı altyazısı olarak yüklenir. Bu, ADR-0031 Karar 5'teki uygulamanın
+keşfettiği veya doğrudan güvenlik kapısına ulaşan symlink'in reddedilmesiyle
+çelişmez: iki yüzeyin kullanıcı niyeti ve tehdit modeli farklıdır.

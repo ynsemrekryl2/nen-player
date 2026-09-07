@@ -807,8 +807,11 @@ struct PlayerModelTests {
         #expect(model.transientMessage == nil)
     }
 
-    @Test("a file the user picked and had refused produces a notification")
-    func explicitRefusalIsAnnounced() {
+    @Test("a symlink handed directly to the model produces a refusal notification")
+    func directSymlinkRefusalIsAnnounced() {
+        // This bypasses NSOpenPanel deliberately: the panel resolves an
+        // explicitly selected link before the model receives its URL. The
+        // direct model/filesystem surface must still keep the symlink gate.
         let dir = TempFixture("explicit-refusal")
         defer { dir.remove() }
         let real = dir.write("real.srt", TempFixture.validSrt)
@@ -819,6 +822,17 @@ struct PlayerModelTests {
 
         #expect(model.transientMessage == "Bu bir kısayol; altyazı olarak açılamıyor.")
         #expect(model.subtitleSourceCount == 0)
+    }
+
+    @Test("the subtitle panel explicitly resolves aliases")
+    func subtitlePanelResolvesAliasesExplicitly() {
+        let panel = NSOpenPanel()
+        panel.resolvesAliases = false
+
+        PlayerModel.configureSubtitleFilePanel(panel)
+
+        #expect(panel.resolvesAliases)
+        #expect(panel.allowedContentTypes == [.init(filenameExtension: "srt")].compactMap { $0 })
     }
 
     @Test("the same refusal found by a scan says nothing at all")

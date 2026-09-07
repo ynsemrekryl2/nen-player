@@ -88,6 +88,21 @@ public final class PlayerModel: ObservableObject {
     /// The closed set exposed by NEN-067's in-player rate panel.
     public static let playbackRateOptions: [Float] = [0.5, 0.75, 1, 1.5, 2]
 
+    /// Configures the subtitle picker as an explicit user-selection surface.
+    ///
+    /// `NSOpenPanel` resolves a selected symlink/alias before handing the URL
+    /// to the application. Keep that choice explicit rather than relying on
+    /// AppKit's default, while the filesystem gates still reject symlinks on
+    /// paths the application discovers or receives directly.
+    static func configureSubtitleFilePanel(_ panel: NSOpenPanel) {
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.allowedContentTypes = [.init(filenameExtension: "srt")].compactMap { $0 }
+        panel.prompt = "Yükle"
+        panel.resolvesAliases = true
+    }
+
     private static let logger = Logger(subsystem: "player.nen.macos", category: "playback")
 
     private let recentStore: any RecentMediaStoring
@@ -286,11 +301,7 @@ public final class PlayerModel: ObservableObject {
             return
         }
         let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = false
-        panel.canChooseFiles = true
-        panel.allowedContentTypes = [.init(filenameExtension: "srt")].compactMap { $0 }
-        panel.prompt = "Yükle"
+        Self.configureSubtitleFilePanel(panel)
         if panel.runModal() == .OK, let url = panel.url {
             loadSubtitleFile(at: url)
         }
