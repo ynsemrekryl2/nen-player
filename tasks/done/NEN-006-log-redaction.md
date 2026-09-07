@@ -4,6 +4,7 @@ title: Log redaction helpers and guard test
 milestone: M1
 size: M
 state: done
+closed: 2026-08-24
 depends_on: [NEN-001, NEN-007]
 blocks: []
 adr: []

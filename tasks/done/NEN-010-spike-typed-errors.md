@@ -4,6 +4,7 @@ title: Spike - typed error mapping
 milestone: M1
 size: S
 state: done
+closed: 2026-08-24
 depends_on: [NEN-007]
 blocks: [NEN-011]
 adr: [28]

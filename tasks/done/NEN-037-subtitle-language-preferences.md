@@ -4,6 +4,7 @@ title: Subtitle language preference setting (primary and secondary)
 milestone: M3
 size: S
 state: done
+closed: 2026-09-06
 depends_on: [NEN-019, NEN-024, NEN-047]
 blocks: []
 adr: [10, 31]

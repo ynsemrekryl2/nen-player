@@ -4,6 +4,7 @@ title: PlaybackEngine port contract and capability model
 milestone: M3
 size: M
 state: done
+closed: 2026-08-25
 depends_on: [NEN-012]
 blocks: [NEN-022]
 adr: [11, 26]

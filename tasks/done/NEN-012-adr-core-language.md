@@ -4,6 +4,7 @@ title: Spike report and core language decision
 milestone: M1
 size: S
 state: done
+closed: 2026-08-24
 depends_on: [NEN-011, NEN-029]
 blocks: [NEN-013, NEN-018, NEN-021]
 adr: [2, 27]

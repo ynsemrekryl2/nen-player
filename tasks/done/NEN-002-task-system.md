@@ -4,6 +4,7 @@ title: Task system and index generator
 milestone: M0
 size: M
 state: done
+closed: 2026-08-24
 depends_on: [NEN-001]
 blocks: [NEN-004]
 adr: []

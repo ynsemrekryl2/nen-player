@@ -4,6 +4,7 @@ title: Keep transport controls inside wide windows
 milestone: M3
 size: S
 state: done
+closed: 2026-09-05
 depends_on: [NEN-067, NEN-068]
 blocks: []
 adr: [31, 38]

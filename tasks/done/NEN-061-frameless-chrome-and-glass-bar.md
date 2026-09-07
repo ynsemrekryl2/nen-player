@@ -4,6 +4,7 @@ title: Frameless chrome and glass transport bar
 milestone: M3
 size: M
 state: done
+closed: 2026-08-27
 depends_on: [NEN-024]
 blocks: [NEN-062, NEN-063]
 adr: [31]

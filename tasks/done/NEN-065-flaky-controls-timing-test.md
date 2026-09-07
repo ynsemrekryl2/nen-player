@@ -4,6 +4,7 @@ title: Stabilize the pinned-controls timing test
 milestone: M3
 size: S
 state: done
+closed: 2026-08-31
 depends_on: [NEN-061]
 blocks: [NEN-067]
 adr: []

@@ -4,6 +4,7 @@ title: Scope playback shortcuts to the player surface and echo them on screen
 milestone: M3
 size: S
 state: done
+closed: 2026-09-06
 depends_on: [NEN-024]
 blocks: [NEN-037]
 adr: [31]

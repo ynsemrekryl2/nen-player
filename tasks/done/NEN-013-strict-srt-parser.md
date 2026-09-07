@@ -4,6 +4,7 @@ title: Strict SRT parser
 milestone: M2
 size: M
 state: done
+closed: 2026-08-24
 depends_on: [NEN-012]
 blocks: [NEN-014, NEN-015, NEN-016, NEN-020, NEN-025]
 adr: []

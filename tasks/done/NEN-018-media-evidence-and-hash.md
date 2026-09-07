@@ -4,6 +4,7 @@ title: Media evidence, OS-compatible hash, release name parser
 milestone: M2
 size: L
 state: done
+closed: 2026-08-25
 depends_on: [NEN-012]
 blocks: [NEN-019, NEN-033, NEN-034, NEN-035, NEN-036]
 adr: [9]

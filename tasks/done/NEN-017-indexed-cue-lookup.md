@@ -4,6 +4,7 @@ title: Indexed cue lookup
 milestone: M2
 size: M
 state: done
+closed: 2026-08-25
 depends_on: [NEN-016]
 blocks: [NEN-027]
 adr: []

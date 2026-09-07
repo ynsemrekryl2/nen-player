@@ -4,6 +4,7 @@ title: Milestone-aware doctor and STATUS consistency checks
 milestone: M1
 size: S
 state: done
+closed: 2026-08-24
 depends_on: []
 blocks: []
 adr: []

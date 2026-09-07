@@ -4,6 +4,7 @@ title: SubtitleRenderer port and libmpv injection adapter
 milestone: M3
 size: M
 state: done
+closed: 2026-09-05
 depends_on: [NEN-017, NEN-026, NEN-066]
 blocks: [NEN-028]
 adr: [13]

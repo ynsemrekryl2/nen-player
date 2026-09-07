@@ -4,6 +4,7 @@ title: Media-sized, aspect-locked player window
 milestone: M3
 size: L
 state: done
+closed: 2026-09-05
 depends_on: [NEN-067]
 blocks: []
 adr: [26, 31, 38]

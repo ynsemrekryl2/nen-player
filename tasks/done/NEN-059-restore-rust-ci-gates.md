@@ -4,6 +4,7 @@ title: Restore the Rust CI gates
 milestone: M3
 size: S
 state: done
+closed: 2026-08-27
 depends_on: [NEN-025, NEN-051]
 blocks: []
 adr: []

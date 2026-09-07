@@ -4,6 +4,7 @@ title: Make check-docs test fixture independent of live repo state
 milestone: M1
 size: S
 state: done
+closed: 2026-08-24
 depends_on: []
 blocks: []
 adr: []

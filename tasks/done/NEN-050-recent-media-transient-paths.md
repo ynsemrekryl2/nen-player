@@ -4,6 +4,7 @@ title: Cover the recent-media store's transient error paths
 milestone: M3
 size: S
 state: done
+closed: 2026-09-06
 depends_on: [NEN-048]
 blocks: []
 adr: [31]

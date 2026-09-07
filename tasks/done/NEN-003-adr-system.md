@@ -4,6 +4,7 @@ title: ADR system
 milestone: M0
 size: S
 state: done
+closed: 2026-08-24
 depends_on: [NEN-001]
 blocks: []
 adr: [1]

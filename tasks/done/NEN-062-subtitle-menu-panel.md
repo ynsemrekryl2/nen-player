@@ -4,6 +4,7 @@ title: Subtitle menu panel above the transport bar
 milestone: M3
 size: M
 state: done
+closed: 2026-08-29
 depends_on: [NEN-026, NEN-061]
 blocks: []
 adr: [10, 31, 35]

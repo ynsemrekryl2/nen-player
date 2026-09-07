@@ -105,6 +105,25 @@ $FILES
 EOF
 [ "$bad" = "0" ] && ok "tüm canceled task'ların iptal kaydı dolu"
 
+echo "== 3c. done task'larda closed alanı =="
+bad=0
+while IFS= read -r f; do
+  [ "$(fm_get "$f" state)" = "done" ] || continue
+  closed="$(fm_get "$f" closed)"
+  if [ -z "$closed" ]; then
+    err "${f#$ROOT/}: done ama 'closed' alanı boş."
+    echo "      Yapılacak: kapanış tarihini YYYY-MM-DD biçiminde yazın (CLAUDE.md kural 3)." >&2
+    bad=1
+  elif ! printf '%s' "$closed" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
+    err "${f#$ROOT/}: 'closed' alanı '$closed' — YYYY-MM-DD biçiminde değil."
+    echo "      Yapılacak: tarihi YYYY-MM-DD biçimine düzeltin." >&2
+    bad=1
+  fi
+done <<EOF
+$FILES
+EOF
+[ "$bad" = "0" ] && ok "tüm done task'ların closed alanı geçerli"
+
 echo "== 4. depends_on / blocks hedefleri =="
 ALL_IDS="$(while IFS= read -r f; do fm_get "$f" id; done <<EOF
 $FILES
@@ -213,6 +232,9 @@ else
 fi
 
 echo "== 9. STATUS.md son doğrulama tarihi =="
+# Kapanış tarihi git geçmişinden değil, her done task'ın kendi 'closed'
+# frontmatter alanından okunur (NEN-076). Geçmişin derinliğinden (shallow
+# clone dahil) tümüyle bağımsız — adım 3c biçimini zaten zorluyor.
 if [ -f "$STATUS" ]; then
   verification_date="$(awk '
     /^## Son doğrulama[[:space:]]*$/ { inside = 1; next }
@@ -226,27 +248,24 @@ if [ -f "$STATUS" ]; then
   if [ -z "$verification_date" ]; then
     err "docs/STATUS.md 'Son doğrulama' bölümünde YYYY-MM-DD tarihi yok."
     echo "      Yapılacak: son doğrulama tarihini gerçek kapanış kanıtıyla güncelleyin." >&2
-  elif ! git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    err "done task tarihleri okunamadı: depo Git çalışma ağacı değil."
-    echo "      Yapılacak: check-docs.sh'ı Git geçmişi bulunan depo içinde çalıştırın." >&2
   else
     latest_done_date=""
     latest_done_id=""
     for f in "$TASKS"/done/NEN-*.md; do
       [ -e "$f" ] || continue
-      commit_date="$(git -C "$ROOT" log -1 --format=%cs -- "$f" 2>/dev/null)"
-      [ -n "$commit_date" ] || continue
+      closed_date="$(fm_get "$f" closed)"
+      [ -n "$closed_date" ] || continue
       id="$(fm_get "$f" id)"
       if [ -z "$latest_done_date" ] ||
-         [ "$(printf '%s\n' "$latest_done_date" "$commit_date" | sort | tail -1)" = "$commit_date" ]; then
-        latest_done_date="$commit_date"
+         [ "$(printf '%s\n' "$latest_done_date" "$closed_date" | sort | tail -1)" = "$closed_date" ]; then
+        latest_done_date="$closed_date"
         latest_done_id="$id"
       fi
     done
 
     if [ -z "$latest_done_date" ]; then
-      err "Git geçmişinde tarih taşıyan bir done task bulunamadı."
-      echo "      Yapılacak: done task'ların kapanış commit'lerini Git geçmişinde doğrulayın." >&2
+      err "'closed' alanı taşıyan bir done task bulunamadı."
+      echo "      Yapılacak: done task'ların 'closed' alanını doldurun (adım 3c)." >&2
     elif [ "$verification_date" \< "$latest_done_date" ]; then
       err "docs/STATUS.md Son doğrulama tarihi $verification_date; $latest_done_id ($latest_done_date) daha yeni."
       echo "      Yapılacak: Son doğrulama bölümünü $latest_done_id kapanış kanıtıyla güncelleyin." >&2

@@ -4,6 +4,7 @@ title: OpenSubtitles hash-based identity lookup
 milestone: M6
 size: M
 state: done
+closed: 2026-09-06
 depends_on: [NEN-018]
 blocks: []
 adr: [40]

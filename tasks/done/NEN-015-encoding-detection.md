@@ -4,6 +4,7 @@ title: Encoding detection and sanitization
 milestone: M2
 size: M
 state: done
+closed: 2026-08-24
 depends_on: [NEN-013]
 blocks: [NEN-025]
 adr: [8]

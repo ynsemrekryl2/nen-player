@@ -4,6 +4,7 @@ title: A medium fails to load when a symlinked sidecar sits beside it
 milestone: M3
 size: S
 state: done
+closed: 2026-08-27
 depends_on: [NEN-022, NEN-025]
 blocks: []
 adr: [12]

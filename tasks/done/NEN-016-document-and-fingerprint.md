@@ -4,6 +4,7 @@ title: SubtitleDocument and timeline fingerprint
 milestone: M2
 size: M
 state: done
+closed: 2026-08-25
 depends_on: [NEN-013]
 blocks: [NEN-017, NEN-019]
 adr: [7]

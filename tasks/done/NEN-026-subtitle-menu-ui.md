@@ -4,6 +4,7 @@ title: Subtitle menu UI
 milestone: M3
 size: M
 state: done
+closed: 2026-08-27
 depends_on: [NEN-019, NEN-025, NEN-056]
 blocks: [NEN-027]
 adr: [10, 31, 35]

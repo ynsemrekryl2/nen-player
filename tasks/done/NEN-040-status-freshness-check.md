@@ -4,6 +4,7 @@ title: check-docs.sh verifies STATUS.md's "Son doğrulama" date is not stale
 milestone: M3
 size: S
 state: done
+closed: 2026-09-06
 depends_on: [NEN-031]
 blocks: []
 adr: []

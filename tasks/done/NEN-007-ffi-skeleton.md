@@ -4,6 +4,7 @@ title: Rust workspace and UniFFI skeleton
 milestone: M1
 size: M
 state: done
+closed: 2026-08-24
 depends_on: [NEN-004]
 blocks: [NEN-005, NEN-006, NEN-008, NEN-009, NEN-010]
 adr: [6]

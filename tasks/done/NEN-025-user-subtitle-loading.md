@@ -4,6 +4,7 @@ title: User subtitle loading and sidecar discovery
 milestone: M3
 size: M
 state: done
+closed: 2026-08-27
 depends_on: [NEN-013, NEN-015, NEN-024]
 blocks: [NEN-026]
 adr: [8, 31, 34]

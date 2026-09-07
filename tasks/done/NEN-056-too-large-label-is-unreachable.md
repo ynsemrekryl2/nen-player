@@ -4,6 +4,7 @@ title: Resolve the unreachable "çok büyük" reason label
 milestone: M3
 size: S
 state: done
+closed: 2026-08-27
 depends_on: [NEN-025]
 blocks: [NEN-026]
 adr: [31, 35]

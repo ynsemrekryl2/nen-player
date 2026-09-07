@@ -4,6 +4,7 @@ title: A transport command is shown without waiting for the next poll tick
 milestone: M3
 size: S
 state: done
+closed: 2026-08-27
 depends_on: [NEN-053]
 blocks: []
 adr: [31, 33]

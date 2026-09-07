@@ -4,6 +4,7 @@ title: Player chrome boundary behaviour
 milestone: M3
 size: M
 state: done
+closed: 2026-09-06
 depends_on: []
 blocks: []
 adr: [37, 38]

@@ -4,6 +4,7 @@ title: A stale position event never overrides a seek that landed
 milestone: M3
 size: S
 state: done
+closed: 2026-08-26
 depends_on: [NEN-051]
 blocks: [NEN-055]
 adr: [11, 31]

@@ -4,6 +4,7 @@ title: macOS window lifecycle — no inert app after the window closes
 milestone: M3
 size: S
 state: done
+closed: 2026-08-26
 depends_on: [NEN-024]
 blocks: []
 adr: [31]

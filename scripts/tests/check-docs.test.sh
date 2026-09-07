@@ -40,8 +40,12 @@ STATUS="$REPO/docs/STATUS.md"
 
 # Geçerli frontmatter taşıyan fixture task'ı yazar. Denetim 1-7 de geçmeli,
 # yoksa çıkış kodu denetim 8 dışında bir sebeple 1 olur.
-# Kullanım: write_task <dizin> <id> <state> <depends_on içeriği>
+# Kullanım: write_task <dizin> <id> <state> <depends_on içeriği> [closed tarihi]
+# state 'done' ise ve 5. argüman verilmezse 'closed' varsayılan olarak
+# fixture commit tarihiyle (2026-09-05) aynı olur — NEN-076.
 write_task() {
+  closed="${5:-}"
+  if [ "$3" = "done" ] && [ -z "$closed" ]; then closed="2026-09-05"; fi
   cat > "$REPO/tasks/$1/$2-fixture.md" <<EOF
 ---
 id: $2
@@ -49,6 +53,7 @@ title: Fixture task $2
 milestone: M0
 size: S
 state: $3
+closed: $closed
 depends_on: [$4]
 blocks: []
 adr: []
@@ -308,6 +313,99 @@ echo "  T13: bayat Son doğrulama tarihi yeni task'ı söylüyor"
 set_verification_date '2026-09-04'
 run_check
 expect 1 "NEN-901 (2026-09-05) daha yeni" "T13 bayat tarih → task ile hata"
+
+# ===================================== F. closed alanı biçim kapısı (adım 3c)
+
+remove_closed_field() { # <dosya>
+  python3 - "$1" <<'REMOVE_CLOSED'
+import re, sys
+p = sys.argv[1]
+s = open(p, encoding='utf-8').read()
+s = re.sub(r'^closed:.*\n', '', s, count=1, flags=re.M)
+open(p, 'w', encoding='utf-8').write(s)
+REMOVE_CLOSED
+}
+
+set_malformed_closed() { # <dosya>
+  python3 - "$1" <<'MALFORM_CLOSED'
+import re, sys
+p = sys.argv[1]
+s = open(p, encoding='utf-8').read()
+s = re.sub(r'^closed: .*$', 'closed: 2026-9-5', s, count=1, flags=re.M)
+open(p, 'w', encoding='utf-8').write(s)
+MALFORM_CLOSED
+}
+
+echo "  Fixture: closed alanı eksik (negatif)"
+make_fixture ready
+set_status_row '`NEN-902`'
+remove_closed_field "$REPO/tasks/done/NEN-901-fixture.md"
+
+echo "  T16: closed alanı boş done task'ı yakalıyor"
+run_check
+expect 1 "'closed' alanı boş" "T16 eksik closed → hata"
+
+echo "  Fixture: closed alanı bozuk biçimde (negatif)"
+make_fixture ready
+set_status_row '`NEN-902`'
+set_malformed_closed "$REPO/tasks/done/NEN-901-fixture.md"
+
+echo "  T17: bozuk biçimli closed tarihi yakalanıyor"
+run_check
+expect 1 "YYYY-MM-DD biçiminde değil" "T17 bozuk biçim → hata"
+
+# ========================= G. shallow clone gerçek CI senaryosu (adım 9, NEN-076)
+#
+# 1ad194d'nin şekli: commit 1 fixture'ı kurar, commit 2 yalnız doküman ekler
+# (STATUS.md ve tasks/'a dokunmaz) ve YENİ bir günde atılır. Denetim git
+# geçmişine hiç bakmadığından `git clone --depth 1` ile üretilen tek-commit'lik
+# bir kopya da aynı cevabı vermeli — CI'da (fetch-depth: 1) koşan tam olarak bu.
+
+set_shallow_verification_date() { # <shallow STATUS.md> <YYYY-MM-DD>
+  python3 - "$1" "$2" <<'SET_SHALLOW_DATE'
+import re, sys
+p, date = sys.argv[1], sys.argv[2]
+s = open(p, encoding='utf-8').read()
+s = re.sub(r'(^## Son doğrulama\n\n)[0-9]{4}-[0-9]{2}-[0-9]{2}',
+           rf'\g<1>{date}', s, count=1, flags=re.M)
+open(p, 'w', encoding='utf-8').write(s)
+SET_SHALLOW_DATE
+}
+
+echo "  Fixture: iki commit'lik geçmiş, ikincisi yalnız doküman"
+make_fixture ready
+set_status_row '`NEN-902`'
+# make_fixture'ın tek commit'i STATUS'un yerleşim tutucu READY satırını taşıyor
+# (set_status_row commit SONRASI çalışıyor) — commit 1'e katlanır, çünkü commit
+# 2'nin "yalnız doküman" olması gereken 1ad194d senaryosunu bu değişiklik
+# taşımamalı.
+git -C "$REPO" add -A
+env GIT_AUTHOR_DATE='2026-09-05T12:00:00+0300' GIT_COMMITTER_DATE='2026-09-05T12:00:00+0300' \
+  git -C "$REPO" -c user.name='Nen Fixture' -c user.email='fixture@invalid' \
+    commit -q --amend -m 'fixture state'
+cat > "$REPO/docs/NOTE-fixture.md" <<'NOTE_EOF'
+# Fixture note
+
+Yalnız doküman içeren, STATUS.md ve tasks/'a dokunmayan ikinci commit.
+NOTE_EOF
+git -C "$REPO" add docs/NOTE-fixture.md
+env GIT_AUTHOR_DATE='2026-09-07T09:00:00+0300' GIT_COMMITTER_DATE='2026-09-07T09:00:00+0300' \
+  git -C "$REPO" -c user.name='Nen Fixture' -c user.email='fixture@invalid' \
+    commit -q -m 'docs-only fixture commit'
+
+SHALLOW="$TMP/shallow"
+rm -rf "$SHALLOW"
+git clone -q --depth 1 "file://$REPO" "$SHALLOW"
+SHALLOW_CHECK="$SHALLOW/scripts/check-docs.sh"
+
+echo "  T14: shallow klonda (depth 1) denetim geçiyor"
+OUT="$(bash "$SHALLOW_CHECK" 2>&1)"; RC=$?
+expect 0 "Son doğrulama tarihi güncel" "T14 shallow klon, güncel STATUS → geçiyor"
+
+echo "  T15: shallow klonda bayat STATUS yine yakalanıyor (negatif)"
+set_shallow_verification_date "$SHALLOW/docs/STATUS.md" "2026-09-04"
+OUT="$(bash "$SHALLOW_CHECK" 2>&1)"; RC=$?
+expect 1 "NEN-901 (2026-09-05) daha yeni" "T15 shallow klon, bayat STATUS → hata"
 
 # =============================================================== E. yan etkisizlik
 

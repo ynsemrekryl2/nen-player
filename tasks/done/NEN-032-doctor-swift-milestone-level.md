@@ -4,6 +4,7 @@ title: Move swift to M1 in doctor's milestone levels
 milestone: M1
 size: S
 state: done
+closed: 2026-08-24
 depends_on: [NEN-030]
 blocks: []
 adr: []

@@ -4,6 +4,7 @@ title: Spike - large cue list across FFI
 milestone: M1
 size: M
 state: done
+closed: 2026-08-24
 depends_on: [NEN-007]
 blocks: [NEN-011]
 adr: [28]

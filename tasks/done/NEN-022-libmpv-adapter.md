@@ -4,6 +4,7 @@ title: libmpv playback adapter for macOS
 milestone: M3
 size: L
 state: done
+closed: 2026-08-26
 depends_on: [NEN-021, NEN-004]
 blocks: [NEN-023, NEN-024, NEN-043]
 adr: [11, 12]

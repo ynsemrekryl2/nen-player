@@ -20,6 +20,7 @@ tasks/<state>/NEN-###-kebab-case-english-slug.md
 | `milestone` | ✅ | `M0`…`M11` |
 | `size` | ✅ | `S` · `M` · `L` (`XL` yasak) |
 | `state` | ✅ | `backlog` · `active` · `blocked` · `done` · `canceled` — **bulunduğu dizinle uyumlu olmalı** |
+| `closed` | ✅ yalnız `state: done` | Kapanış tarihi, `YYYY-MM-DD`. Git geçmişinden değil buradan okunur (NEN-076) — shallow clone'dan bağımsız |
 | `depends_on` | ✅ | Önce bitmesi gereken task ID'leri (`[]` olabilir) |
 | `blocks` | ✅ | Bunu bekleyen task ID'leri (`[]` olabilir) |
 | `adr` | ✅ | İlgili ADR numaraları (`[]` olabilir). Doluysa, ADR `accepted` olmadan task `done` olamaz |
@@ -113,10 +114,14 @@ edilen bir kararın task kaydı da bu dizinde korunabilir.
 1. `tasks/active/` içinde en fazla bir task
 2. `state` alanı bulunduğu dizinle uyumlu
 3. `done` task'ların **Kanıt kaydı**, `canceled` task'ların **İptal kaydı** boş değil
-4. `depends_on` hedefleri var olan task'lara işaret ediyor
-5. Bağımlılık döngüsü yok
-6. `adr` alanı dolu olan `done` task'ın ADR'si `accepted`; canceled task bu kapıya girmez
-7. `INDEX.md` güncel
+4. `done` task'ların `closed` alanı dolu ve `YYYY-MM-DD` biçiminde (NEN-076)
+5. `depends_on` hedefleri var olan task'lara işaret ediyor
+6. Bağımlılık döngüsü yok
+7. `adr` alanı dolu olan `done` task'ın ADR'si `accepted`; canceled task bu kapıya girmez
+8. `INDEX.md` güncel
+9. `docs/STATUS.md`'nin "Sıradaki READY" satırı `INDEX.md` ile uyumlu
+10. `docs/STATUS.md`'nin "Son doğrulama" tarihi en yeni done task'ın `closed`
+    tarihinden bayat değil
 
 ## Yeni task açma
 

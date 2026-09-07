@@ -4,6 +4,7 @@ title: Toolchain doctor script
 milestone: M0
 size: S
 state: done
+closed: 2026-08-24
 depends_on: [NEN-001]
 blocks: [NEN-005, NEN-007, NEN-022]
 adr: []

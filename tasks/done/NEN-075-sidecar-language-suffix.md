@@ -4,6 +4,7 @@ title: Sidecar discovery does not see a language-suffixed subtitle
 milestone: M3
 size: S
 state: done
+closed: 2026-09-07
 depends_on: [NEN-025, NEN-057]
 blocks: []
 adr: [31, 34, 41]

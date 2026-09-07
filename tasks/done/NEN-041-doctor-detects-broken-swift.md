@@ -4,6 +4,7 @@ title: doctor.sh reports an installed-but-unrunnable tool as missing
 milestone: M3
 size: S
 state: done
+closed: 2026-09-06
 depends_on: [NEN-032]
 blocks: []
 adr: []

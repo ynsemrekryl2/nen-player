@@ -4,6 +4,7 @@ title: Subtitle menu language grouping and matching use the primary subtag
 milestone: M3
 size: S
 state: done
+closed: 2026-08-25
 depends_on: [NEN-019]
 blocks: [NEN-026]
 adr: [30]

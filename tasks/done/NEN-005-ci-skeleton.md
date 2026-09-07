@@ -4,6 +4,7 @@ title: CI skeleton
 milestone: M1
 size: S
 state: done
+closed: 2026-08-24
 depends_on: [NEN-004, NEN-007]
 blocks: []
 adr: []

@@ -4,6 +4,7 @@ title: Repository skeleton
 milestone: M0
 size: S
 state: done
+closed: 2026-08-24
 depends_on: []
 blocks: [NEN-002, NEN-003, NEN-004, NEN-006]
 adr: []

@@ -4,6 +4,7 @@ title: Fix the spurious transient error and prove the transient error class
 milestone: M3
 size: S
 state: done
+closed: 2026-08-26
 depends_on: [NEN-024]
 blocks: []
 adr: [31]

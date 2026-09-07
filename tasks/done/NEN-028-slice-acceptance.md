@@ -4,6 +4,7 @@ title: macOS vertical slice acceptance
 milestone: M3
 size: S
 state: done
+closed: 2026-09-05
 depends_on: [NEN-027]
 blocks: []
 adr: []

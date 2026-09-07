@@ -4,6 +4,7 @@ title: Subtitle language detection with confidence threshold
 milestone: M2
 size: S
 state: done
+closed: 2026-08-25
 depends_on: [NEN-013]
 blocks: []
 adr: [10, 29]

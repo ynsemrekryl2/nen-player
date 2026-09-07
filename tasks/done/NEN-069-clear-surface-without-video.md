@@ -4,6 +4,7 @@ title: Clear the video surface when the medium has no video
 milestone: M3
 size: S
 state: done
+closed: 2026-09-06
 depends_on: []
 blocks: []
 adr: [12]

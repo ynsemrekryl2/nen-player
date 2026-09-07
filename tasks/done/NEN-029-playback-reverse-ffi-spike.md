@@ -4,6 +4,7 @@ title: Playback/renderer reverse-FFI boundary spike
 milestone: M1
 size: M
 state: done
+closed: 2026-08-24
 depends_on: [NEN-007, NEN-009]
 blocks: [NEN-012, NEN-021]
 adr: [26]

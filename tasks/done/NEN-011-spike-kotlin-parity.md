@@ -4,6 +4,7 @@ title: Spike - Kotlin binding parity
 milestone: M1
 size: M
 state: done
+closed: 2026-08-24
 depends_on: [NEN-008, NEN-009, NEN-010]
 blocks: [NEN-012]
 adr: [28]

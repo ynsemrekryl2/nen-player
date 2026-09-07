@@ -4,6 +4,7 @@ title: Core playback session across the FFI boundary
 milestone: M3
 size: M
 state: done
+closed: 2026-08-26
 depends_on: [NEN-021, NEN-022]
 blocks: [NEN-024]
 adr: [33]

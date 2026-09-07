@@ -4,6 +4,7 @@ title: WebVTT writer
 milestone: M2
 size: S
 state: done
+closed: 2026-08-24
 depends_on: [NEN-013]
 blocks: []
 adr: []

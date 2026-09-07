@@ -4,6 +4,7 @@ title: Short English title
 milestone: M0
 size: S
 state: backlog
+closed:
 depends_on: []
 blocks: []
 adr: []

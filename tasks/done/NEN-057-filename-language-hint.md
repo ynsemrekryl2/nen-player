@@ -4,6 +4,7 @@ title: Read the language a subtitle filename declares
 milestone: M3
 size: S
 state: done
+closed: 2026-09-06
 depends_on: [NEN-025]
 blocks: []
 adr: [29, 30]

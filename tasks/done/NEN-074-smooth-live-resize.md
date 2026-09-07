@@ -4,6 +4,7 @@ title: Smooth live video resize
 milestone: M3
 size: M
 state: done
+closed: 2026-09-06
 depends_on: [NEN-073]
 blocks: []
 adr: [38]

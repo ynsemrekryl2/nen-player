@@ -21,7 +21,9 @@ Aktif task'ı **kanıtla kapat** — eksikse kapatma.
    tamamlanacağını söyle, dur.
 8. Tümü karşılanıyorsa "Kanıt kaydı" bölümünü **gerçek çıktıyla** doldur —
    "test edildi" / "çalışıyor" yeterli değil.
-9. `state: done` yap, dosyayı `tasks/done/` altına taşı.
+9. `state: done` yap, `closed: <bugünün tarihi, YYYY-MM-DD>` frontmatter alanını
+   doldur (NEN-076 — güncellik denetimi git geçmişini değil bu alanı okur),
+   dosyayı `tasks/done/` altına taşı.
 10. `bash scripts/task-index.sh` çalıştır.
 11. `docs/STATUS.md`'yi güncelle: son tamamlanan, sıradaki READY, toolchain
     değiştiyse o satır, çözülen blocker'lar.

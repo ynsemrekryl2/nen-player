@@ -4,6 +4,7 @@ title: A volume change is heard when it is made
 milestone: M3
 size: M
 state: done
+closed: 2026-08-27
 depends_on: [NEN-024]
 blocks: []
 adr: [12, 31]

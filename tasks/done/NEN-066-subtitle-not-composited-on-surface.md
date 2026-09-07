@@ -4,6 +4,7 @@ title: A subtitle mpv reports drawing is missing from the video surface
 milestone: M3
 size: M
 state: done
+closed: 2026-08-29
 depends_on: [NEN-024]
 blocks: [NEN-027]
 adr: [37]

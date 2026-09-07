@@ -4,6 +4,7 @@ title: Serialize real libmpv platform tests
 milestone: M3
 size: S
 state: done
+closed: 2026-09-06
 depends_on: [NEN-022, NEN-045, NEN-051]
 blocks: []
 adr: [12, 33]

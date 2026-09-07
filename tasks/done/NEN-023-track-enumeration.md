@@ -4,6 +4,7 @@ title: Embedded track enumeration and selection
 milestone: M3
 size: M
 state: done
+closed: 2026-08-26
 depends_on: [NEN-022]
 blocks: []
 adr: [11, 32]

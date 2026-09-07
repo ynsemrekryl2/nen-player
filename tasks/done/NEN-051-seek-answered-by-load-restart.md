@@ -4,6 +4,7 @@ title: A seek is never answered by the load's own playback-restart
 milestone: M3
 size: M
 state: done
+closed: 2026-08-26
 depends_on: [NEN-022, NEN-045]
 blocks: [NEN-049, NEN-052]
 adr: [11]

@@ -4,6 +4,7 @@ title: Remote media evidence port (HEAD, Content-Disposition, Range)
 milestone: M3
 size: M
 state: done
+closed: 2026-09-06
 depends_on: [NEN-018]
 blocks: []
 adr: [39]

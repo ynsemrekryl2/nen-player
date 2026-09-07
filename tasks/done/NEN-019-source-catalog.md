@@ -4,6 +4,7 @@ title: SubtitleSourceCatalog with grouping and dedup
 milestone: M2
 size: M
 state: done
+closed: 2026-08-25
 depends_on: [NEN-016, NEN-018]
 blocks: [NEN-026, NEN-037]
 adr: [10]

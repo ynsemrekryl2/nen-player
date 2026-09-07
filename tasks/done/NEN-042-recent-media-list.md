@@ -4,6 +4,7 @@ title: Recent media list in the empty state
 milestone: M3
 size: S
 state: done
+closed: 2026-09-06
 depends_on: [NEN-024]
 blocks: []
 adr: [31]

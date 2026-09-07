@@ -3,8 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-07** (`NEN-075` done — sidecar taraması artık dil
-> alt-uzantılı dosyayı görüyor. Önceki: `NEN-057`)
+> Son güncelleme: **2026-09-07** (`NEN-076` done — STATUS güncellik denetimi
+> artık git geçmişine değil, done task'ın kendi `closed` alanına bakıyor.
+> Önceki: `NEN-075`)
 
 ## Nerede duruyoruz
 
@@ -12,9 +13,9 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-075` — sidecar taraması artık medyanın dizinini bir kez listeliyor, `Film.tr.srt` elle seçilmeden bulunuyor (ADR-0041) |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-043`, `NEN-044`, `NEN-052`, `NEN-064`, `NEN-071`, `NEN-072`, `NEN-076` |
-| **Task sayısı** | 76 · done 64 · active 0 · blocked 0 · canceled 2 · backlog 10 |
+| **Son tamamlanan** | `NEN-076` — `check-docs.sh` adım 9 artık her done task'ın `closed` frontmatter alanını okuyor, git log'a değil — shallow clone'da (CI'ın `fetch-depth: 1`'i) da doğru cevap veriyor |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-043`, `NEN-044`, `NEN-052`, `NEN-064`, `NEN-071`, `NEN-072` |
+| **Task sayısı** | 76 · done 65 · active 0 · blocked 0 · canceled 2 · backlog 9 |
 
 **M3 kapanmıyor: `milestone: M3` etiketli 16 task'ın hepsi bitecek**
 (kullanıcı kararı, 2026-09-06). Beş çıkış kriteri `NEN-028`'de kanıtlandı ve
@@ -26,6 +27,46 @@ kapanışta düzeltilecek. `NEN-073`, kullanıcının gerçek `.app`te minimum p
 sınırının uygulanmadığını göstermesiyle yeniden açıldı ve düzeltici kapanışta
 gerçek köşe sürüklemesiyle kanıtlandı; canlı resize regresyonu `NEN-074`
 ile kapandı.
+
+**`NEN-076` kapandı — `check-docs.sh`'ın STATUS güncellik denetimi CI'ın
+shallow clone'unda artık her done task'ı bugün sanmıyor.** Kusur `NEN-075`
+çalışılırken ölçüldü: yalnız ADR dosyaları içeren `1ad194d` (ADR-0041 kabulü)
+GitHub Actions run **34086963805**'i `failure` ile bitirdi, aynı ağaç yerelde
+`ok` veriyordu. Sebep `.github/workflows/ci.yml`'in varsayılan `fetch-depth: 1`
+kullanması — tek commit'lik bir geçmişte o commit **bütün** dosyaları eklemiş
+görünür, dolayısıyla adım 9'un eski `git log -1 --format=%cs -- "$f"` sorgusu
+her done task için **HEAD'in** tarihini bildiriyordu. `NEN-075`'in kapanışı
+STATUS'u ileri taşıdığı için CI o commit'te yeşile döndü (run 34088324092)
+ama mekanizma durmuyordu: STATUS'a dokunmayan, yeni bir günde atılan **her**
+commit — her ADR-only ve her tooling commit'i — aynı yanlış hatayı verecekti.
+
+**Kullanıcı kararı: kapanış tarihi git geçmişinden değil, done task'ın kendi
+`closed` frontmatter alanından okunur.** İki alternatif — `fetch-depth: 0` ve
+shallow'da denetimi atlamak — reddedildi: ilki denetimin kendisini shallow'da
+yanlış bırakıyordu (yalnız CI'ın bugünkü derinliği yeterli olduğu için
+görünmezdi), ikincisi denetimi tam koşması gereken yerde (CI) hiç
+koşturmuyordu. `closed` alanı denetimi geçmişin derinliğinden **tümüyle**
+bağımsız kılıyor — adım 9 artık git'e hiç dokunmuyor, `fm_get "$f" closed`
+okuyor. Yeni adım 3c, `state: done` her task'ın `closed`'ının `YYYY-MM-DD`
+biçiminde dolu olduğunu zorluyor.
+
+**64 done task'a `closed:` backfill edildi, elle değil ölçülerek.** Her dosya
+için iki bağımsız git sorgusu (`git log -1` ve `git log --reverse | head -1`)
+**64'ünde de birebir aynı tarihi** verdi — göç yeni bir doğru/yanlış
+üretmedi, yalnız kaynağı değiştirdi. `fetch-depth: 1` kalıyor;
+`.github/workflows/ci.yml`'e dokunulmadı, çünkü kararın anlamı tam olarak
+denetimin artık geçmiş derinliğini önemsememesi.
+
+Yeni test paketi `scripts/tests/check-docs.test.sh` T14–T17 (toplam 20
+doğrulama). T14/T15 `1ad194d`'nin şeklini üreten iki commit'lik bir fixture'ı
+`git clone --depth 1` ile klonlayıp — CI'ın kendisiyle aynı derinlikte —
+denetimin doğru cevabı verdiğini ve bayat bir STATUS'u yine yakaladığını
+gösteriyor; T16/T17 `closed` alanının eksik/bozuk biçimini yakalıyor. Üç ayrık
+negatif kontrol izole ölçüldü: adım 9 eski git-tabanlı hâline dönünce yalnız
+T14/T15 kırmızı, biçim kapısı kaldırılınca yalnız T16/T17 kırmızı, adım 9'un
+karşılaştırması sabitlenince T13 ve T15 kırmızı. `bash scripts/test.sh` ve
+`bash scripts/check-docs.sh` yeşil. Rust ve Swift'e dokunulmadı. Kanıt:
+`tasks/done/NEN-076-*.md`.
 
 **`NEN-075` kapandı — `Film.mkv`'nin yanındaki `Film.tr.srt` artık elle
 seçilmeden bulunuyor.** `NEN-057`'nin ölçtüğü kapsam sınırı kapatıldı:
@@ -1731,15 +1772,15 @@ Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
 
-2026-09-07'de `NEN-075` kapanışı için Rust workspace **605 passed / 1
-ignored** (bu task ile 594 → 605) geçti, `cargo fmt --check`,
-`cargo clippy --workspace --all-targets -- -D warnings` ve `cargo deny check`
-temiz; üç ardışık koşuda 0 kırmızı. macOS Swift paketi **195/195**, `.app`
-build'i, `codesign --verify --strict` → `valid on disk`, shell testleri,
-task index ve doküman kapıları yeşil. Gerçek `.app`te `Film.mkv`'nin yanına
-konan `Film.tr.srt`/`Film.en.srt` sidecar'ları `⇧⌘O`'ya dokunulmadan
-bulundu, symlink aday sessizce reddedildi. Ayrıntılı kayıt
-`tasks/done/NEN-075-*.md` ve `evidence/M3/NEN-075-checklist.md` içinde.
+2026-09-07'de `NEN-076` kapanışı için `scripts/tests/check-docs.test.sh`
+**20/20 doğrulama** geçti (yeni T14–T17: shallow clone'da adım 9'un doğru
+cevabı, bayat STATUS'un shallow'da da yakalanması, `closed` alanının
+eksik/bozuk biçimde reddedilmesi). `bash scripts/test.sh` (2/2 dosya) ve
+`bash scripts/check-docs.sh` yeşil. Üç ayrık negatif kontrol izole ölçüldü —
+ayrıntı `tasks/done/NEN-076-*.md` içinde. Rust ve Swift'e dokunulmadı, bu
+task kapsamında koşturulmadı; bir önceki tam koşu `NEN-075` kapanışındaydı
+(Rust **605 passed / 1 ignored**, macOS Swift paketi **195/195**, `.app`
+build'i ve strict codesign — `tasks/done/NEN-075-*.md`).
 
 ### Toolchain kapısı geçmiş kaydı
 

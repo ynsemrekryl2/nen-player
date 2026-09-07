@@ -4,6 +4,7 @@ title: Ultra-thin flush player chrome
 milestone: M3
 size: L
 state: done
+closed: 2026-08-31
 depends_on: [NEN-061, NEN-062, NEN-065, NEN-066]
 blocks: []
 adr: [31, 37]
