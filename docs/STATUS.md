@@ -3,9 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-07** (`NEN-077` done — minimum player penceresi
-> titlebar safe area boyunca video oranını ve tam transport yüksekliğini
-> koruyor. Önceki: `NEN-071`)
+> Son güncelleme: **2026-09-07** (`NEN-043` done — libmpv'nin 48 dylib'lik
+> Homebrew kapanışı `.app` içine gömülüyor, `@rpath`'e çevriliyor, ad-hoc
+> imzalanıyor; gerçek makinede negatif kontrol kanıtlı. Önceki: `NEN-077`)
 
 ## Nerede duruyoruz
 
@@ -13,9 +13,66 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-077` — minimum player penceresi titlebar safe area'yı bir kez hesaba katarak video oranını, tam yüzeyi ve 57 pt transport'u koruyor |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-043`, `NEN-044`, `NEN-064`, `NEN-072` |
-| **Task sayısı** | 77 · done 68 · active 0 · blocked 0 · canceled 2 · backlog 7 |
+| **Son tamamlanan** | `NEN-043` — libmpv ve 48 Homebrew dylib'i `.app/Contents/Frameworks/` içine gömülüyor, `@rpath`/`@loader_path`'e çevriliyor, ad-hoc imzalanıyor; `Cellar` gizlenmiş gerçek makinede negatif kontrol kanıtlı |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-072` |
+| **Task sayısı** | 77 · done 69 · active 0 · blocked 0 · canceled 2 · backlog 6 |
+
+**`milestone: M3` etiketli tüm task'lar artık `done`.** `NEN-043` bu
+etiketin son kalan iş kalemiydi (bkz. 2026-09-06 kullanıcı kararı, aşağıda);
+M3'ün kapanışı ayrı, kasıtlı bir adım olarak bekliyor.
+
+**`NEN-043` kapandı — Nen Player'ın `.app`'i artık Homebrew kurulu olmayan
+bir Mac'te açılıyor.** `scripts/bundle-macos.sh` (yeni) ve onun graf işini
+üstlenen `scripts/lib/rewrite_macho_deps.py` (yeni — bash 3.2 ilişkisel dizi
+desteklemediği için) libmpv'nin **48 dylib'lik** geçişli Homebrew kapanışını
+hesaplayıp `Contents/Frameworks/`'e kopyalıyor, `install_name_tool` ile tüm
+yolları `@rpath`/`@loader_path`'e çeviriyor, `Contents/Resources/licenses/`
+altına `LICENSE` + mpv'nin kendi lisans metinlerini + üretilen bir
+`THIRD-PARTY.md`'yi (formül + sürüm + SPDX lisansı, her satır) koyuyor, ad-hoc
+imzalıyor ve bundle'ı bağımsızca tarayıp Homebrew referansı kalmadığını
+doğruluyor.
+
+**Kapsam kullanıcı kararıyla ikiye bölündü.** DoD'un iki maddesi
+(`spctl -a -vv`, notarization ticket) bu makinede kanıtlanamıyordu:
+`security find-identity -v -p codesigning` → 0 kimlik, `xcrun notarytool
+history` → kimlik bilgisi yok. Developer ID imzası, hardened runtime,
+notarization ve `spctl`, `NEN-043`'ün YAPILMAYACAK'ına ve roadmap **S11**'e
+yazıldı; Apple Developer Program üyeliği alındığında numaralandırılmış bir
+task açılacak. Bundle'a giren lisans metinleri de kullanıcı kararıyla
+daraltıldı: 48 formülün tam metni değil, mpv'nin kendisi + üretilen bir
+bildirim tablosu.
+
+**Negatif kontrol gerçek makinede, gerçek `.app`'te koşuldu.**
+`/opt/homebrew/Cellar` geçici olarak yeniden adlandırıldığında (aynı gizli
+pencerede, tek shell çağrısında, `trap` ile garantili geri yükleme):
+gömme-öncesi (Homebrew'a dinamik bağlı) bir snapshot `dyld: Library not
+loaded` ile çöktü — kontrol sağır değil; gömülü `.app` **aynı pencerede**
+açıldı, uygulamanın kendi son-açılanlar listesinden gerçek bir dosyayı
+(`GTAVI_An_Extended_Look.mp4`) oynattı (ekran görüntüsü kanıtlı, playhead
+ilerliyor); `vmmap` yüklü image listesinde tek bir `/opt/homebrew` girdisi
+kalmadığını gösterdi. Aynı mekanizma `scripts/tests/bundle-macos.test.sh` ile
+deterministik hale getirildi: sahte bir Homebrew düzeni üzerinde gerçek bir
+`mainbin → liba → libb` zinciri derlenip yeniden yazılıyor ve vendor prefix'i
+diskten kaldırıldıktan **sonra çalıştırılarak** sınanıyor; ayrı bir negatif
+kontrol, yeniden yazma atlanmış ham kopyanın aynı koşulda çöktüğünü ve
+tarama deseninin bunu yakaladığını doğruluyor.
+
+**Yol üstünde bulunan araç kusuru, kendi kendine düzeltildi:**
+`scripts/task-index.sh`'ı `bash scripts/task-index.sh > tasks/INDEX.md` ile
+çağırmak dosyayı bozuyor — script `tasks/INDEX.md`'yi zaten **kendi içinde**
+yazıyor, dıştaki yönlendirme onun stdout'undaki yalnızca `"Üretildi:
+tasks/INDEX.md"` satırını dosyanın başına, script'in içerideki tam yazımından
+**sonra** açtığı ayrı bir dosya tanıtıcısıyla çakışarak yazıyor ve `# Task
+Index` başlığını kısmen eziyor. Düzeltme kod değişikliği değil, çağrı biçimi:
+script argümansız çalıştırılır, yönlendirilmez. `bash scripts/task-index.sh
+--check` bunu şimdi doğruluyor.
+
+Rust workspace ve macOS Swift paketi **dokunulmadı** (fmt/clippy/`cargo test
+--workspace`/`cargo deny check` **202/202 Swift**, sırasıyla regresyon
+kontrolü olarak koşuldu, hepsi yeşil); değişiklik yalnız `scripts/` altında.
+`bash scripts/test.sh` yeni `bundle-macos.test.sh` dahil **3/3**, `bash
+scripts/check-docs.sh` çıkış 0. Kanıt: `evidence/M3/NEN-043-checklist.md`
+(iki gerçek ekran görüntüsü dahil).
 
 **`NEN-077` kapandı — minimum pencerede video oranı ile player kromu artık
 aynı koordinatta.** `693×390 pt` krom tabanı safe-area içi kullanılabilir alan

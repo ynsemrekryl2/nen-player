@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# NEN-024 development app bundle. libmpv remains a Homebrew dynamic dependency;
-# copying it into the bundle, signing for distribution, and notarization belong
-# to NEN-043.
+# NEN-024 development app bundle. libmpv remains a Homebrew dynamic dependency
+# and the app is signed ad-hoc here — copying dependencies into the bundle,
+# rewriting their load paths, and Developer ID / notarization are
+# scripts/bundle-macos.sh's job (NEN-043).
 
 set -eu
 

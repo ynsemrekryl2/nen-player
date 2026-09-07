@@ -87,7 +87,7 @@ Yanıtlanan satır **silinmez** — durumu güncellenir ve kararı
 | **S8** | Kullanıcı tercihleri cihazlar arası taşınacak mı? | ✅ cevaplandı (2026-08-24) | **Cloud sync ilk ürün için non-goal** |
 | **S9** | Aynı medya için birden fazla AI çeviri saklanabilir mi? | ❓ açık | Asıl açık kısım: farklı provider/model/glossary ile üretilen artifact'ler **UI'da nasıl gösterilecek** — M5 |
 | **S10** | Telemetri / crash raporlama olacak mı? | ✅ cevaplandı (2026-08-24) | **İlk ürün için yok** |
-| **S11** | İleride public dağıtım — hangi kanal, ne zaman? | 🟡 daraldı (2026-08-26) | ADR-0012 lisansı **GPL-3.0-or-later** yaptı: **App Store kapalı** (GPL ile uyumsuz), açık kaynak side-loading / GitHub release açık. Kalan soru kanal ve zamanlama; ön koşulu **NEN-043** (libmpv bundling + notarization) |
+| **S11** | İleride public dağıtım — hangi kanal, ne zaman? | 🟡 daraldı (2026-09-07) | ADR-0012 lisansı **GPL-3.0-or-later** yaptı: **App Store kapalı** (GPL ile uyumsuz), açık kaynak side-loading / GitHub release açık. `NEN-043` libmpv gömme + `@rpath` kolunu kapattı (ad-hoc imzalı `.app` Homebrew olmadan çalışıyor — negatif kontrol kanıtlı). Kalan ön koşul: **Developer ID imzası, hardened runtime, notarization, `spctl`** — Apple Developer Program üyeliği gerektiriyor, bu makinede yok (`security find-identity` → 0 kimlik). Numaralandırılmış bir task S11 zamanlandığında açılacak |
 | **S12** | Gerçek lisans seçimi: open-source / source-available / private? | ✅ cevaplandı (2026-08-26) | **Açık kaynak, GPL-3.0-or-later.** Kökte `LICENSE`; gerekçe [ADR-0012](adr/0012-macos-playback-engine.md), anlatımı [`licensing.md`](licensing.md) |
 
 ## Riskler
@@ -96,7 +96,7 @@ Yanıtlanan satır **silinmez** — durumu güncellenir ve kararı
 |---|---|---|---|
 | R1 | FFI/cancellation modeli tutmaz — iptal sonrası late commit veya sızıntı | Kritik (K15/K20 ihlali) | M1 kapı; NEN-009 late-callback'i açıkça test eder |
 | R12 | **Reverse-FFI tutmaz** — Rust core Swift/Kotlin playback adapter'larını güvenilir biçimde geri arayamaz (thread dönüşü, lifetime, event ordering, yüksek frekanslı position trafiği) | Kritik: M3'ün tamamı ve M7 position çözünürlüğü buna bağlı | NEN-029 spike'ı A/B karşılaştırır; ADR-0026 ownership yönünü kilitler; NEN-021 bu karar olmadan başlamaz |
-| R2 | libmpv dağıtımı — notarization, bundling | Orta (düştü, 2026-08-26): lisans kolu kapandı, kalan iş paketleme | ADR-0012 lisansı GPL-3.0-or-later yaparak LGPL/GPL sorusunu kapattı — Homebrew mpv'si olduğu gibi gömülebilir. Kalan risk **NEN-043**'te (bundling, `install_name_tool`, imzalama, notarization) |
+| R2 | libmpv dağıtımı — notarization, bundling | Düşük (düştü, 2026-09-07): bundling/`@rpath` kolu `NEN-043` ile kapandı | ADR-0012 lisansı GPL-3.0-or-later yaparak LGPL/GPL sorusunu kapattı — Homebrew mpv'si olduğu gibi gömülebilir. `NEN-043` `otool -L`/`install_name_tool`/ad-hoc imza kolunu kanıtladı (48 dylib, negatif kontrol gerçek makinede). Kalan risk yalnız Developer ID + notarization — Apple Developer Program üyeliği gerektiriyor, S11'de |
 | R3 | Bu makinede tam Xcode yok | Orta: M3 başlayamaz | NEN-004 doctor raporlar; M3 öncesi kurulum zorunlu |
 | R4 | Provider çıktısı kronik olarak validation'ı geçemez | Yüksek | Önce mock ile validation olgunlaştır; repair bütçesi ölçülür |
 | R5 | Cache identity eksik bileşen → bayat çeviri servis edilir | Yüksek: sessiz yanlışlık | ADR-0018; versiyon sabitleri testle korunur |

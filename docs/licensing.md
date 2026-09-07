@@ -69,7 +69,7 @@ koşuludur; `cargo deny check` allow listesi bunu mekanik olarak koruyor.
 | Konu | Nerede |
 |---|---|
 | **S11** — public dağıtım kanalı ve zamanı | `docs/roadmap.md` |
-| **NEN-043** — libmpv'yi `.app` içine gömme, imzalama, notarization | dağıtımdan önce zorunlu |
+| **Developer ID imzası, hardened runtime, notarization** — `NEN-043` libmpv gömme kolunu kapattı (ad-hoc imzalı `.app` Homebrew olmadan çalışıyor); kalan bu üçü Apple Developer Program üyeliği gerektiriyor | dağıtımdan önce zorunlu, **S11**'de numaralandırılacak |
 
 ## İlgili
 
