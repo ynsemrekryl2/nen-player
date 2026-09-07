@@ -118,6 +118,71 @@ struct ContractTests {
         #expect(try engine.durationMs() == 30_008)
     }
 
+    // MARK: - Seek during loading (ADR-0042)
+
+    @Test func aSeekIssuedTheInstantLoadingStartsIsAppliedNotRefused() throws {
+        // Isolated from the shared kit, and self-checking about the one thing
+        // that would make it pass for the wrong reason: this asserts the
+        // adapter was actually caught still opening, not that it happened to
+        // have finished by the time the next line ran.
+        // `evidence/M3/NEN-052-measurement.md` measured the window at
+        // 2.5–12 ms on this fixture, comfortably slower than the handful of
+        // instructions between `load()` returning and `state()` being read —
+        // but a silent pass here would be exactly the kind of race this task
+        // exists to close, so it is asserted rather than assumed.
+        let engine = try MPVPlaybackEngine()
+        defer { try? engine.shutdown() }
+
+        try engine.load(locator: Self.fixturePath("contract-clip.mkv"))
+        #expect(
+            engine.state() == .buffering,
+            "the seek below proves nothing about ADR-0042 unless the medium is still opening; it was already \(engine.state())"
+        )
+
+        // Before the decision this threw `EngineFailure(code: -12)` — mpv's
+        // own refusal to `seek` here, surfaced to the shell as "beklenmeyen
+        // motor hatası" for a situation that was not an error at all.
+        try engine.seek(toMs: 12_000)
+
+        // `Ready` is reported the instant `FILE_LOADED` is handled, which is
+        // also where the deferred seek is decided (`consume()`) — but the
+        // command it produces is only issued *after* that handling returns,
+        // on the event-loop thread (see the note above `consume`). Reading
+        // position the moment `Ready` is visible races that dispatch under
+        // load; waiting for the position itself is the same fix NEN-051 made
+        // at the contract level, applied here to this test's own assertion.
+        try settle(engine, until: .ready)
+        try settle(engine) { _ in
+            (try? engine.positionMs()).map { $0 > 11_000 && $0 < 13_000 } ?? false
+        }
+        let landed = try engine.positionMs()
+        #expect(landed > 11_900 && landed < 12_100, "seek landed at \(landed) ms")
+    }
+
+    @Test func aDeferredSeekDoesNotSurviveTheLoadItTargeted() throws {
+        // ADR-0042 Karar 4, forced rather than raced — same reasoning as
+        // `aLoadingMediumDoesNotExposeTheOutgoingDisplaySize` below: the real
+        // window is too short (2.5–12 ms) to reliably land a test inside it,
+        // so the adapter's own phase is held there directly.
+        let engine = try MPVPlaybackEngine()
+        defer { try? engine.shutdown() }
+
+        try engine.mutate(requireLoaded: false) { engine.phase = .loading }
+        try engine.seek(toMs: 5_000)
+        #expect(engine.deferredSeekMs == 5_000)
+        #expect(engine.pendingSeeks == 1)
+
+        try engine.stop()
+        #expect(
+            engine.deferredSeekMs == nil,
+            "a seek whose load will never answer must not linger to answer a later one"
+        )
+        #expect(
+            engine.pendingSeeks == 0,
+            "no SeekCompleted is owed for a seek that was dropped, not served"
+        )
+    }
+
     // MARK: - Display geometry (ADR-0038)
 
     @Test func theDisplaySizeIsAnnouncedAndThenReadable() throws {

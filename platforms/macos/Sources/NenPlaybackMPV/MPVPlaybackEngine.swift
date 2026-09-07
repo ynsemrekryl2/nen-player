@@ -90,6 +90,18 @@ public final class MPVPlaybackEngine: ForeignPlaybackEngine, @unchecked Sendable
     /// `playback-restart`. A restart seen while this is `false` cannot be
     /// answering a seek, because no seek had started.
     var seekInFlight = false
+    /// A seek issued while `phase == .loading`, held here instead of being
+    /// sent to mpv — which refuses it (measured `MPV_ERROR_COMMAND`,
+    /// `evidence/M3/NEN-052-measurement.md`) — and applied once
+    /// `FILE_LOADED` arrives (ADR-0042). `pendingSeeks` is still incremented
+    /// when a seek is deferred: the caller is owed a `SeekCompleted` exactly
+    /// as if the command had been sent.
+    ///
+    /// Only the latest deferred target survives if more than one arrives in
+    /// the window — the same trade `pendingSeeks` already makes for seeks
+    /// mpv merges into one `playback-restart` (Karar 3): every caller is
+    /// still answered, but only one position is actually reached.
+    var deferredSeekMs: UInt64?
     var stopRequested = false
     /// The playlist entry id of the medium this adapter is currently loading or
     /// playing, as mpv numbered it.
@@ -213,6 +225,11 @@ public final class MPVPlaybackEngine: ForeignPlaybackEngine, @unchecked Sendable
             // entry id is this load's, so the outgoing file's end cannot be
             // mistaken for this one's failure.
             currentEntryId = Self.noEntry
+            // A deferred seek was waiting on the medium this adapter is
+            // about to replace — the same reasoning ADR-0042 Karar 4 applies
+            // to a load that fails applies here too, since that load's own
+            // `FILE_LOADED` is now never coming.
+            dropDeferredSeekUnlocked()
             pending.append(.stateChanged(state: .buffering))
         }
         let entry = try loadFile(locator)
@@ -239,12 +256,30 @@ public final class MPVPlaybackEngine: ForeignPlaybackEngine, @unchecked Sendable
             seekInFlight = false
             trackList = []
             injectedSubtitleId = Self.noTrack
+            // Nothing is left to apply it to (ADR-0042 Karar 4).
+            dropDeferredSeekUnlocked()
             pending.append(.stateChanged(state: .idle))
         }
     }
 
     public func seek(toMs: UInt64) throws {
-        try mutate { pendingSeeks += 1 }
+        try requireMedia()
+        var deferred = false
+        lock.lock()
+        pendingSeeks += 1
+        if phase == .loading {
+            // ADR-0042: the medium is still opening, and mpv's own `seek`
+            // command refuses in this window — measured `MPV_ERROR_COMMAND`
+            // (`evidence/M3/NEN-052-measurement.md`), a window of 2.5–12 ms
+            // on the contract fixture, i.e. one a real seek routinely lands
+            // in rather than rarely. The request is not lost: it is held and
+            // applied at `FILE_LOADED`, the same event that answers the
+            // load's own restart.
+            deferredSeekMs = toMs
+            deferred = true
+        }
+        lock.unlock()
+        guard !deferred else { return }
         // `absolute+exact` rather than plain `absolute`: without it mpv lands on
         // the nearest keyframe, which on a sparse-keyframe medium is seconds
         // away from what was asked. Measured on the contract fixture, exact

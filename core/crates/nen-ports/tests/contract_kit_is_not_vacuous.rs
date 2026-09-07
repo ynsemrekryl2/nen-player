@@ -24,6 +24,7 @@ use nen_ports::playback::{
     Capabilities, EventQueue, MediaSource, PlaybackEngine, PlaybackError, PlaybackEvent,
     PlaybackState, TrackDescriptor, TrackId, TrackKind, VideoGeometry,
 };
+use std::cell::Cell;
 use std::time::Duration;
 
 /// Which single thing a twin gets wrong.
@@ -63,7 +64,24 @@ enum Defect {
     /// Modelled here by transposing the size, which is wrong in exactly the
     /// way an un-corrected aspect is: plausible numbers, wrong picture.
     ReportsTheWrongVideoGeometry,
+    /// Refuses a seek for no reason but that the medium is still opening.
+    ///
+    /// ADR-0042's defect, modelled on the real one: before the decision,
+    /// `MPVPlaybackEngine` answered a seek issued in the 2.5–12 ms window
+    /// between `load()` returning and `FILE_LOADED`
+    /// (`evidence/M3/NEN-052-measurement.md`) with
+    /// `EngineFailure(code: -12)`. The kind of the error is not the point —
+    /// any refusal here is what the new scenario exists to catch — so this
+    /// twin reproduces the actual code for realism, not because the kit
+    /// checks it.
+    RefusesASeekWhileLoading,
 }
+
+/// How many `state()` polls [`Defect::RefusesASeekWhileLoading`] keeps
+/// answering `Buffering` before it admits the medium is ready. Mirrors the
+/// window `contract_fake.rs`'s `LoadingWindowEngine` uses, so the positive
+/// and negative twins model the same thing from opposite sides.
+const LOADING_WINDOW_POLLS: u32 = 3;
 
 /// A [`FakeEngine`] with exactly one thing wrong.
 struct BrokenEngine {
@@ -75,6 +93,11 @@ struct BrokenEngine {
     events: EventQueue,
     /// Set once the medium is loaded, for the twin that lies about its state.
     loaded: bool,
+    /// State-poll countdown for [`Defect::RefusesASeekWhileLoading`]: how many
+    /// more `state()` calls answer `Buffering` before this twin stops
+    /// refusing a seek. `Cell` because `state()` takes `&self` — the twin
+    /// answers differently on each poll without needing a mutable borrow.
+    loading_window: Cell<u32>,
 }
 
 impl BrokenEngine {
@@ -84,6 +107,7 @@ impl BrokenEngine {
             defect,
             events: EventQueue::default(),
             loaded: false,
+            loading_window: Cell::new(0),
         }
     }
 
@@ -135,6 +159,9 @@ impl PlaybackEngine for BrokenEngine {
     fn load(&mut self, source: &MediaSource) -> Result<(), PlaybackError> {
         self.inner.load(source)?;
         self.loaded = true;
+        if self.defect == Defect::RefusesASeekWhileLoading {
+            self.loading_window.set(LOADING_WINDOW_POLLS);
+        }
         self.forward_events();
         Ok(())
     }
@@ -154,11 +181,18 @@ impl PlaybackEngine for BrokenEngine {
     fn stop(&mut self) -> Result<(), PlaybackError> {
         self.inner.stop()?;
         self.loaded = false;
+        self.loading_window.set(0);
         self.forward_events();
         Ok(())
     }
 
     fn seek(&mut self, to: Duration) -> Result<(), PlaybackError> {
+        if self.defect == Defect::RefusesASeekWhileLoading && self.loading_window.get() > 0 {
+            // The exact code the real adapter returned before ADR-0042: mpv's
+            // `MPV_ERROR_COMMAND` (`-12`), mapped by `check()`. Any refusal
+            // would do for the kit; this one is the measured one.
+            return Err(PlaybackError::EngineFailure { code: -12 });
+        }
         let target = if self.defect == Defect::SeekDriftsFarther {
             to + Duration::from_secs(2)
         } else {
@@ -192,6 +226,13 @@ impl PlaybackEngine for BrokenEngine {
         // forgets to update what it reports.
         if self.defect == Defect::NeverBecomesReady && self.loaded {
             return PlaybackState::Buffering;
+        }
+        if self.defect == Defect::RefusesASeekWhileLoading {
+            let remaining = self.loading_window.get();
+            if remaining > 0 {
+                self.loading_window.set(remaining - 1);
+                return PlaybackState::Buffering;
+            }
         }
         state
     }
@@ -380,4 +421,17 @@ fn a_selection_that_accepts_any_id_is_caught() {
     // show the symbolic `TrackRef` rewrite did not weaken the id scenarios.
     let failures = failures_for(Defect::AcceptsAnyTrackId);
     assert!(!failures.is_empty(), "an engine accepting any id passed");
+}
+
+#[test]
+fn a_seek_refused_while_loading_is_caught() {
+    // ADR-0042: refusing a seek for the sole reason that the medium is still
+    // opening is the exact defect the decision closes. This twin fails on the
+    // very first `Seek` step of the new scenario — before `Settle` ever
+    // runs — which is also why it needs no timing margin to be deterministic.
+    let failures = failures_for(Defect::RefusesASeekWhileLoading);
+    assert!(
+        !failures.is_empty(),
+        "a seek refused merely because the medium was still opening passed"
+    );
 }

@@ -3,27 +3,61 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-07** (`NEN-076` done — STATUS güncellik denetimi
-> artık git geçmişine değil, done task'ın kendi `closed` alanına bakıyor.
-> Önceki: `NEN-075`)
+> Son güncelleme: **2026-09-07** (`NEN-052` done — yüklenirken verilen seek
+> artık reddedilmiyor, ertelenip `FILE_LOADED` anında uygulanıyor.
+> Önceki: `NEN-076`)
 
 ## Nerede duruyoruz
 
 | | |
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
-| **Aktif task** | `NEN-052` — yüklenirken verilen seek'in ne yaptığı (ADR-0042 accepted, implementasyon sürüyor) |
-| **Son tamamlanan** | `NEN-076` — `check-docs.sh` adım 9 artık her done task'ın `closed` frontmatter alanını okuyor, git log'a değil — shallow clone'da (CI'ın `fetch-depth: 1`'i) da doğru cevap veriyor |
+| **Aktif task** | — |
+| **Son tamamlanan** | `NEN-052` — yüklenirken verilen seek artık `EngineFailure`'la reddedilmiyor, tutulup medya hazır olduğunda uygulanıyor (ADR-0042) |
 | **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-043`, `NEN-044`, `NEN-064`, `NEN-071`, `NEN-072` |
-| **Task sayısı** | 76 · done 65 · active 1 · blocked 0 · canceled 2 · backlog 8 |
+| **Task sayısı** | 76 · done 66 · active 0 · blocked 0 · canceled 2 · backlog 8 |
 
-**`NEN-052` açıldı, `ADR-0042` accepted oldu.** Fake motor yüklenirken
-(`.buffering`) verilen bir seek'i her zaman kabul ediyor, gerçek libmpv
-adapter'ı ise reddediyor (`EngineFailure(code: -12)`) — kabuk bunu "beklenmeyen
-motor hatası" diye gösteriyor, oysa durum normal. `evidence/M3/NEN-052-measurement.md`
-gerçek adapter'da ölçtü: yükleme penceresi **2.5–12 ms**, yani nadiren değil
-her zaman rastlanabilecek bir yarış. Karar: seek reddedilmez, tutulur ve
-medya `Ready`'ye ulaştığında uygulanır. İmplementasyon sürüyor.
+**`NEN-052` kapandı — yüklenirken verilen seek artık kaybolmuyor.** Fake motor
+`.buffering` durumunda verilen bir seek'i her zaman kabul ediyordu, gerçek
+libmpv adapter'ı ise reddediyordu (`EngineFailure(code: -12)`) — kabuk bunu
+"beklenmeyen motor hatası" diye gösteriyordu, oysa durum normaldi.
+`evidence/M3/NEN-052-measurement.md` gerçek adapter'da beş ölçümle doğruladı:
+yükleme penceresi **2.5–12 ms** — bir insanın tuşa basıp yakalaması için
+fazlasıyla dar, yani nadiren değil her zaman rastlanabilecek bir yarış.
+
+**`ADR-0042` accepted: seek reddedilmez, tutulur, `FILE_LOADED` anında
+uygulanır.** Contract kitine tek senaryo eklendi ("a seek issued the instant
+loading starts is answered, not refused") — kasıtlı olarak `Settle` öncesinde
+hiç yok, motor ister hâlâ açılıyor ister zaten hazır olsun aynı cevabı
+(kabul + hedefte iniş) vermeli. Rust'ta `LoadingWindowEngine` gerçek adapter'ın
+ölçülen penceresini birkaç `state()` sorgusu olarak taklit edip **kitin
+tamamını** geçiyor; macOS'ta `MPVPlaybackEngine`'e `deferredSeekMs` eklendi ve
+gerçek libmpv adapter'ı aynı kiti üç ardışık tam paket koşusunda (197/197)
+geçti.
+
+**Negatif kontrol iki seviyede.** Rust'ta `Defect::RefusesASeekWhileLoading`
+düzeltmeden önceki davranışı üretip kiti deterministik olarak kırmızıya
+döndürüyor. Swift'te erteleme geçici olarak kaldırılıp hem paylaşılan kit hem
+pencereyi kendi kendine doğrulayan yeni mekanizma testi beklenen
+`EngineFailure { code: -12 }` mesajıyla kırmızıya döndü; üçüncü kontrol
+Karar 4'ü (yükleme başarısız/`stop` olunca ertelenen seek'in düşmesi) ayrıca
+kanıtladı.
+
+**Yol üstünde bulunan bulgu, ürün koduna değil teste aitti:** ilk mekanizma
+testi `Ready`'yi görür görmez `positionMs()`'i tek seferde okuyordu — tam
+paket koşusunun yükü altında bu, ertelenmiş `seek` komutunun event-loop
+thread'ine gerçekten ulaşmasından önceye denk geldi (`landed = 0 ms`).
+`NEN-051`'in kontrat seviyesinde öğrettiği ders ("hazır" tamamlandı anlamına
+gelmez) testin kendi iddiasında tekrarlanmıştı; düzeltme pozisyonu bekleyerek
+okumaktı (`playPauseAndSeekOnTheLocalClip`'in zaten kullandığı desen). Kontrat
+kitinin kendi `AwaitSeekLanding` adımı zaten olayı bekliyordu, üç koşuda da
+yeşildi.
+
+Rust workspace **605 → 607**, macOS Swift paketi **197/197**; fmt, clippy,
+cargo-deny, `.app` build'i, strict codesign, shell ve doküman kapıları yeşil.
+FFI yüzeyi, `nen-ffi` ve kabuk (`PlayerModel`) dokunulmadı. Gerçek `.app`'te
+elle klavye testi yapılmadı — ölçülen pencere insan tepki süresinden çok daha
+kısa, otomatik test tek güvenilir kanıt yolu. Kanıt: `tasks/done/NEN-052-*.md`.
 
 **M3 kapanmıyor: `milestone: M3` etiketli 16 task'ın hepsi bitecek**
 (kullanıcı kararı, 2026-09-06). Beş çıkış kriteri `NEN-028`'de kanıtlandı ve

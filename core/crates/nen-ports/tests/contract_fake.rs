@@ -4,9 +4,15 @@
 //! list NEN-022 will drive through FFI against the real libmpv adapter —
 //! `docs/milestones/M3-macos-slice.md` requires both to pass *the same* kit.
 
+use nen_domain::subtitle::SubtitleDocument;
 use nen_ports::playback::contract::{applicable_count, run_all, scenarios, Applicability};
 use nen_ports::playback::fake::{fake_inputs, fake_inputs_without_video, FakeEngine};
-use nen_ports::playback::{Capabilities, Capability, PlaybackEngine};
+use nen_ports::playback::{
+    guard_reentrancy, Capabilities, Capability, EventQueue, MediaSource, Operation, PlaybackEngine,
+    PlaybackError, PlaybackState, TrackDescriptor, TrackId, TrackKind, VideoGeometry,
+};
+use std::cell::{Cell, RefCell};
+use std::time::Duration;
 
 #[test]
 fn a_fully_capable_engine_passes_every_applicable_scenario() {
@@ -124,6 +130,208 @@ fn every_capability_is_covered_in_both_directions() {
 fn the_fake_declares_what_it_was_built_with() {
     assert_eq!(FakeEngine::full().capabilities(), Capabilities::ALL);
     assert_eq!(FakeEngine::minimal().capabilities(), Capabilities::NONE);
+}
+
+#[test]
+fn an_engine_with_a_real_loading_window_still_passes_every_applicable_scenario() {
+    // ADR-0042's positive reference. `FakeEngine` itself settles inside the
+    // call to `load()`, so nothing in this kit has ever driven a seek issued
+    // *while* the medium is still opening — the gap `NEN-051` measured and
+    // `NEN-052` closes. `LoadingWindowEngine` reproduces the window
+    // `evidence/M3/NEN-052-measurement.md` measured on the real adapter (a
+    // few `state()` polls answer `Buffering` before `Ready`) and holds a seek
+    // issued during it instead of losing it — the decision this ADR pins.
+    // Passing the *whole* kit, not just the new scenario, is what proves the
+    // window does not disturb anything the synchronous fake already satisfied.
+    let inputs = fake_inputs();
+    let failures = run_all(LoadingWindowEngine::new, &inputs);
+    assert!(failures.is_empty(), "{}", report(&failures));
+}
+
+/// A [`FakeEngine`] whose `state()` answers `Buffering` for a short, measured
+/// window after every `load()`, and holds a seek issued during that window
+/// instead of losing it — the reference for ADR-0042's decision.
+///
+/// Built the same way `contract_kit_is_not_vacuous.rs`'s `BrokenEngine` is:
+/// wraps [`FakeEngine`], keeps its own [`EventQueue`], and forwards what the
+/// inner engine reports. No test hook was added to the port for this.
+///
+/// `state()` and the other read-only operations take `&self` on the port
+/// (there is nowhere else to poll from), so counting the window down and
+/// applying a seek that was waiting on it both need interior mutability —
+/// [`Cell`] for the plain countdown, [`RefCell`] for the engine and queue a
+/// deferred seek must reach into.
+struct LoadingWindowEngine {
+    inner: RefCell<FakeEngine>,
+    events: RefCell<EventQueue>,
+    /// `state()` polls left before this engine stops pretending to still be
+    /// opening. Reset by every `load()`.
+    window: Cell<u32>,
+    /// A seek accepted while `window > 0`, applied the instant it reaches
+    /// zero — mirrors `MPVPlaybackEngine` applying a deferred seek on
+    /// `FILE_LOADED` rather than on a timer.
+    deferred_seek: RefCell<Option<Duration>>,
+}
+
+/// How many `state()` polls the window lasts. Not the measured 2.5–12 ms
+/// itself — this fake has no clock — but enough that `Action::Settle`'s real
+/// polling loop (`contract.rs`, 5 ms apart) crosses it in a few iterations,
+/// well inside any scenario's settle timeout.
+const LOADING_WINDOW_POLLS: u32 = 3;
+
+impl LoadingWindowEngine {
+    fn new() -> Self {
+        Self {
+            inner: RefCell::new(FakeEngine::full()),
+            events: RefCell::new(EventQueue::default()),
+            window: Cell::new(0),
+            deferred_seek: RefCell::new(None),
+        }
+    }
+
+    /// Moves whatever the inner engine has queued into this engine's own
+    /// queue. Called after every operation that could have produced events.
+    fn forward_pending(&self) {
+        let pending = self.inner.borrow_mut().events().drain();
+        let mut events = self.events.borrow_mut();
+        for event in pending {
+            events.push(event);
+        }
+    }
+}
+
+impl PlaybackEngine for LoadingWindowEngine {
+    fn capabilities(&self) -> Capabilities {
+        self.inner.borrow().capabilities()
+    }
+
+    fn load(&mut self, source: &MediaSource) -> Result<(), PlaybackError> {
+        self.inner.borrow_mut().load(source)?;
+        self.window.set(LOADING_WINDOW_POLLS);
+        *self.deferred_seek.borrow_mut() = None;
+        self.forward_pending();
+        Ok(())
+    }
+
+    fn play(&mut self) -> Result<(), PlaybackError> {
+        let result = self.inner.borrow_mut().play();
+        self.forward_pending();
+        result
+    }
+
+    fn pause(&mut self) -> Result<(), PlaybackError> {
+        let result = self.inner.borrow_mut().pause();
+        self.forward_pending();
+        result
+    }
+
+    fn stop(&mut self) -> Result<(), PlaybackError> {
+        let result = self.inner.borrow_mut().stop();
+        self.window.set(0);
+        *self.deferred_seek.borrow_mut() = None;
+        self.forward_pending();
+        result
+    }
+
+    fn seek(&mut self, to: Duration) -> Result<(), PlaybackError> {
+        guard_reentrancy(Operation::Seek)?;
+        if self.window.get() > 0 {
+            // ADR-0042 Karar: held, not refused. Only the latest of several
+            // deferred seeks survives — the same trade the real adapter's
+            // `pendingSeeks` count makes, and one no scenario here exercises
+            // more than once.
+            *self.deferred_seek.borrow_mut() = Some(to);
+            return Ok(());
+        }
+        let result = self.inner.borrow_mut().seek(to);
+        self.forward_pending();
+        result
+    }
+
+    fn position(&self) -> Result<Duration, PlaybackError> {
+        self.inner.borrow().position()
+    }
+
+    fn duration(&self) -> Result<Option<Duration>, PlaybackError> {
+        self.inner.borrow().duration()
+    }
+
+    fn state(&self) -> PlaybackState {
+        let remaining = self.window.get();
+        if remaining == 0 {
+            return self.inner.borrow().state();
+        }
+        self.window.set(remaining - 1);
+        if remaining == 1 {
+            // The window just closed: apply what was waiting on it, exactly
+            // where the real adapter does — on the event that ends loading,
+            // not on a poll of its own.
+            if let Some(target) = self.deferred_seek.borrow_mut().take() {
+                let _ = self.inner.borrow_mut().seek(target);
+                self.forward_pending();
+            }
+        }
+        PlaybackState::Buffering
+    }
+
+    fn video_geometry(&self) -> Result<Option<VideoGeometry>, PlaybackError> {
+        self.inner.borrow().video_geometry()
+    }
+
+    fn tracks(&self, kind: TrackKind) -> Result<Vec<TrackDescriptor>, PlaybackError> {
+        self.inner.borrow().tracks(kind)
+    }
+
+    fn select_track(
+        &mut self,
+        kind: TrackKind,
+        track: Option<TrackId>,
+    ) -> Result<(), PlaybackError> {
+        let result = self.inner.borrow_mut().select_track(kind, track);
+        self.forward_pending();
+        result
+    }
+
+    fn selected_track(&self, kind: TrackKind) -> Result<Option<TrackId>, PlaybackError> {
+        self.inner.borrow().selected_track(kind)
+    }
+
+    fn events(&mut self) -> &mut EventQueue {
+        self.events.get_mut()
+    }
+
+    fn shutdown(&mut self) -> Result<(), PlaybackError> {
+        let result = self.inner.borrow_mut().shutdown();
+        self.window.set(0);
+        *self.deferred_seek.borrow_mut() = None;
+        result
+    }
+
+    fn set_rate(&mut self, rate: f32) -> Result<(), PlaybackError> {
+        self.inner.borrow_mut().set_rate(rate)
+    }
+
+    fn set_volume(&mut self, volume: f32) -> Result<(), PlaybackError> {
+        self.inner.borrow_mut().set_volume(volume)
+    }
+
+    fn set_subtitle_bottom_inset(&mut self, fraction: f32) -> Result<(), PlaybackError> {
+        self.inner.borrow_mut().set_subtitle_bottom_inset(fraction)
+    }
+
+    fn extract_text(&mut self, track: TrackId) -> Result<String, PlaybackError> {
+        self.inner.borrow_mut().extract_text(track)
+    }
+
+    fn inject_subtitle(&mut self, document: &SubtitleDocument) -> Result<(), PlaybackError> {
+        let result = self.inner.borrow_mut().inject_subtitle(document);
+        self.forward_pending();
+        result
+    }
+
+    fn rendered_subtitle_text(&self) -> Result<Option<String>, PlaybackError> {
+        self.inner.borrow().rendered_subtitle_text()
+    }
 }
 
 fn report(failures: &[nen_ports::playback::contract::Failure]) -> String {

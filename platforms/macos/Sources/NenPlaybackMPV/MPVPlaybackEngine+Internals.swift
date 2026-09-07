@@ -19,16 +19,31 @@ extension MPVPlaybackEngine {
             guard let event = mpv_wait_event(handle, -1) else { continue }
             if event.pointee.event_id == MPV_EVENT_SHUTDOWN { break }
             if event.pointee.event_id == MPV_EVENT_NONE { continue }
-            consume(event)
+            // `consume` only ever *decides* a deferred seek should be applied
+            // — it cannot send it itself. It runs under `lock`, and
+            // `command()` (via `requireLive()`) takes the same lock, so
+            // issuing mpv's `seek` from inside `consume` would deadlock this
+            // thread against itself. The command goes out here, after
+            // `consume` has returned and released the lock.
+            if let deferredMs = consume(event) {
+                try? command([
+                    "seek", String(format: "%.3f", Double(deferredMs) / 1000.0), "absolute+exact",
+                ])
+            }
         }
         // Teardown waits on this before freeing the handle this loop reads.
         pumpFinished.signal()
     }
 
     /// Translates one mpv event into what the port reports.
-    private func consume(_ event: UnsafeMutablePointer<mpv_event>) {
+    ///
+    /// Returns a seek to apply once the lock this function holds is
+    /// released — see the caller's note. Only `FILE_LOADED` ever produces
+    /// one, and only when a seek was deferred onto it (ADR-0042).
+    private func consume(_ event: UnsafeMutablePointer<mpv_event>) -> UInt64? {
         lock.lock()
         defer { lock.unlock() }
+        var seekToApply: UInt64?
 
         switch event.pointee.event_id {
         case MPV_EVENT_FILE_LOADED:
@@ -36,6 +51,14 @@ extension MPVPlaybackEngine {
             reloadTracksUnlocked()
             pending.append(.stateChanged(state: .ready))
             pending.append(.tracksChanged)
+            // The window this seek was waiting on just closed. Taking the
+            // value now, before the command is sent, is what keeps a second
+            // `load()` racing in on another thread from finding it still
+            // here — `dropDeferredSeekUnlocked()` would have nothing to drop.
+            if let deferredMs = deferredSeekMs {
+                deferredSeekMs = nil
+                seekToApply = deferredMs
+            }
 
         case MPV_EVENT_VIDEO_RECONFIG:
             // mpv reconfigured its video output, which is the moment the
@@ -129,6 +152,9 @@ extension MPVPlaybackEngine {
             // load failures, and the reason code alone cannot tell them from
             // each other.
             phase = .failed
+            // The load it targeted failed, so no `FILE_LOADED` is coming to
+            // apply it (ADR-0042 Karar 4).
+            dropDeferredSeekUnlocked()
             let error = Self.loadFailure(from: end)
             pending.append(.stateChanged(state: .failed))
             pending.append(.failed(error: error))
@@ -164,6 +190,8 @@ extension MPVPlaybackEngine {
         default:
             break
         }
+
+        return seekToApply
     }
 
     private static func loadFailure(from reason: mpv_event_end_file) -> FfiPlaybackError {
@@ -255,6 +283,18 @@ extension MPVPlaybackEngine {
         return UInt64((seconds * 1000).rounded())
     }
 
+    /// Drops a seek that was waiting on a load which is not going to answer
+    /// it — a failure, a `stop`, or being replaced by the next `load`
+    /// (ADR-0042 Karar 4). No `SeekCompleted` is owed for it, so the count
+    /// the caller is waiting on is corrected along with it.
+    ///
+    /// Must be called with `lock` held.
+    func dropDeferredSeekUnlocked() {
+        guard deferredSeekMs != nil else { return }
+        deferredSeekMs = nil
+        pendingSeeks = max(0, pendingSeeks - 1)
+    }
+
     // MARK: - Lifecycle helpers
 
     func requireLive() throws {
@@ -298,6 +338,8 @@ extension MPVPlaybackEngine {
         shutDown = true
         phase = .idle
         pending.removeAll()
+        // Nothing is left to apply it to (ADR-0042 Karar 4).
+        deferredSeekMs = nil
         lock.unlock()
 
         // Wakes the pump out of its blocking wait, then tears the core down.

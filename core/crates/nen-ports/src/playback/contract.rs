@@ -494,6 +494,29 @@ pub fn scenarios() -> Vec<Scenario> {
             ],
         },
         Scenario {
+            // ADR-0042: a seek issued the instant `Load` returns may land in
+            // either of two engine states — still opening, or already
+            // `Ready` — and the fixture cannot make that pick for it. No
+            // `Settle` runs before the seek on purpose: forcing `Ready` first
+            // would test the easy branch and let the other one hide.
+            // Measured on libmpv (`evidence/M3/NEN-052-measurement.md`): the
+            // window between `Load` returning and `Ready` is 2.5–12 ms, so an
+            // adapter that refuses while opening fails this in practice, not
+            // just in theory. The decision is that both branches answer the
+            // same way — accepted, and later landed at the requested
+            // position — so the scenario does not need to control which one
+            // it hits.
+            name: "a seek issued the instant loading starts is answered, not refused",
+            applies: Applicability::Always,
+            steps: vec![
+                Step::new(Action::Load, Outcome::Ok),
+                Step::new(Action::Seek { to_ms: 5_000 }, Outcome::Ok),
+                Step::settle(PlaybackState::Ready),
+                Step::awaits_seek_landing(5_000),
+                Step::new(Action::Position, Outcome::PositionNear(5_000)),
+            ],
+        },
+        Scenario {
             name: "relative seek moves from the current position and clamps at zero",
             applies: Applicability::Always,
             steps: vec![
