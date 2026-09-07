@@ -3,8 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-07** (**M3 kapandı** ve **M4 task'lara bölündü** —
-> `NEN-078`…`NEN-084`. Önceki: `NEN-043` done)
+> Son güncelleme: **2026-09-07** (**`NEN-078` done** — Stremio'nun harici
+> oynatıcı çağırma mekanizması ölçüldü. Önceki: M3 kapanışı + M4 kırılımı)
 
 ## Nerede duruyoruz
 
@@ -12,12 +12,49 @@
 |---|---|
 | **Mevcut milestone** | **M4 — Stremio Handoff (macOS)** (M3 2026-09-07'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **M3 kapanışı + M4 kırılımı** — retro yazıldı, M3'ün task listesi 10 → 46'ya düzeltildi, roadmap durumu güncellendi, M4 yedi task'a bölündü. Ondan önce: `NEN-043` |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-072`, `NEN-078` |
-| **Task sayısı** | 84 · done 69 · active 0 · blocked 0 · canceled 2 · backlog 13 |
+| **Son tamamlanan** | **`NEN-078`** — Stremio'nun macOS'ta harici oynatıcıyı nasıl çağırdığı gerçek Stremio 5.1.26 ile ölçüldü. Ondan önce: M3 kapanışı + M4 kırılımı |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-072`, `NEN-079` |
+| **Task sayısı** | 84 · done 70 · active 0 · blocked 0 · canceled 2 · backlog 12 |
 
-**M4'ün tek READY task'ı `NEN-078`** — kırılımın geri kalanı bilinçli olarak
-onu bekliyor.
+**M4'ün sıradaki task'ı `NEN-079`** (ADR) — `NEN-078`'in ölçümünü alıcı yüzey
+kararına bağlayacak; kırılımın geri kalanı bilinçli olarak onu bekliyor.
+
+**`NEN-078` kapandı — Stremio'nun macOS'ta harici oynatıcıyı hangi mekanizmayla
+çağırdığı gerçek Stremio 5.1.26 ile ölçüldü.** `NEN-025`/ADR-0034 emsali izlendi:
+depoya girmeyen, geçici bir prob (`HandoffProbe.app`) `mpv:`/`iina:`/`vlc:`
+scheme'lerini claim etti ama Stremio'nun iki tetiklemesinde de **hiç**
+çağrılmadı — Stremio custom URL scheme kullanmıyor. Bunun yerine hedef
+oynatıcıyı **doğrudan, kendi CLI biçimiyle** başlatıyor: `ps aux`'un yalnız
+bayrak adları okundu (`--start=`/`--no-terminal` mpv için, `--start-time=`/
+`--no-video-title-show` VLC için — URL hiçbir dosyaya yazılmadı, K23).
+
+**Ayar var ama kapalı bir liste** (Ayarlar → Oynatıcı → Gelişmiş → "Harici
+oynatıcıda oynat": `Etkisizleştirildi · MPV · IINA · Infuse · M3U Playlist`,
+serbest metin yok) ve bu ayarı değiştirmek oynatmayı etkilemiyor — harici
+oynatıcı yalnız oynatıcı ekranının `...` menüsünden elle tetikleniyor, o menü
+de ayardan bağımsız hep aynı iki sabit seçeneği (VLC/MPV) gösteriyor.
+
+**Pozisyon taşınmıyor.** Aynı medya iki farklı gerçek oynatma konumunda
+(~48 sn ve ~15 dk 29 sn) harici oynatıcıya gönderildi; başlangıç bayrağı her
+ikisinde de **0** geldi. Metadata için ayrı bir alan yok, yalnız URL'nin
+dosya adı segmenti zımni ipucu taşıyor. Bu iki bulgu M4'ün "doğru pozisyondan
+oynuyor" kriterini ve `NEN-081`/`NEN-082`'nin kapsamını doğrudan etkiliyor;
+kesin karar `NEN-079`'a (ADR) bırakıldı — ölçüm kesin bir yüzey önerisi
+üretmiyor, iki adayı (custom scheme vs. isim bazlı CLI taklidi) ölçülmüş
+verilerle karşılaştırıyor.
+
+**Sağırlık kontrolünün kendisi ayrı bir bulgu üretti:** bu makinede gerçek
+Developer ID imzası yok (`security find-identity` → 0, `NEN-043`'ün de
+kaydettiği durum) ve ad-hoc imzalı prob `spctl -a -vv` altında `rejected` —
+böyle bir uygulama hiçbir göndericiye scheme handler olarak görünmüyor
+(kontrol grubu: düzgün imzalı `claude://`/`bitwarden://` normal çözülüyor).
+Stremio zaten scheme kullanmadığı için bu ölçümü engellemedi, ama gelecekte
+bir scheme yüzeyi seçilirse bu kısıt notarization boşluğuyla birleşecek.
+
+Kod değişmedi (ölçüm task'ı). Prob temizliği doğrulandı: `lsregister -u`
+sonrası `lsregister -dump`'ta prob referansı **0**; Stremio'nun kendi ayarı ve
+seek edilen konum ölçüm sonunda özgün haline geri getirildi. `bash
+scripts/check-docs.sh` çıkış 0. Kanıt: `evidence/M4/NEN-078-measurement.md`.
 
 **M3 kapandı — 2026-08-25'te başladı, 2026-09-07'de bitti, 46 task
 (44 done / 2 canceled), 14 gün.** 2026-09-06 kullanıcı kararı gereği beş çıkış
