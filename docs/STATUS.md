@@ -3,23 +3,39 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-07** (`NEN-043` done — libmpv'nin 48 dylib'lik
-> Homebrew kapanışı `.app` içine gömülüyor, `@rpath`'e çevriliyor, ad-hoc
-> imzalanıyor; gerçek makinede negatif kontrol kanıtlı. Önceki: `NEN-077`)
+> Son güncelleme: **2026-09-07** (**M3 kapandı** — 46 task, retro yazıldı,
+> roadmap durumu düzeltildi. Önceki: `NEN-043` done)
 
 ## Nerede duruyoruz
 
 | | |
 |---|---|
-| **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
+| **Mevcut milestone** | **M4 — Stremio Handoff (macOS)** (M3 2026-09-07'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-043` — libmpv ve 48 Homebrew dylib'i `.app/Contents/Frameworks/` içine gömülüyor, `@rpath`/`@loader_path`'e çevriliyor, ad-hoc imzalanıyor; `Cellar` gizlenmiş gerçek makinede negatif kontrol kanıtlı |
+| **Son tamamlanan** | **M3 kapanışı** — retro `docs/milestones/M3-macos-slice.md`'ye yazıldı, task listesi 10 → 46'ya düzeltildi, `docs/roadmap.md`'nin bayat M3 satırı ve giriş paragrafı güncellendi. Ondan önce: `NEN-043` |
 | **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-072` |
 | **Task sayısı** | 77 · done 69 · active 0 · blocked 0 · canceled 2 · backlog 6 |
 
-**`milestone: M3` etiketli tüm task'lar artık `done`.** `NEN-043` bu
-etiketin son kalan iş kalemiydi (bkz. 2026-09-06 kullanıcı kararı, aşağıda);
-M3'ün kapanışı ayrı, kasıtlı bir adım olarak bekliyor.
+**M3 kapandı — 2026-08-25'te başladı, 2026-09-07'de bitti, 46 task
+(44 done / 2 canceled), 14 gün.** 2026-09-06 kullanıcı kararı gereği beş çıkış
+kriteri `NEN-028`'de kanıtlandıktan sonra da beklendi ve `milestone: M3`
+etiketli **her** task bitirildi; son iş kalemi `NEN-043` idi. Kapanış ritüeli
+(`docs/roadmap.md` → "Milestone kapanış ritüeli") uygulandı: retro yazıldı
+(süre · yanlış çıkan varsayımlar · ADR kararları · sonraki milestone), M3
+doküman'ının 10 task sayan bayat listesi 46'nın tamamına genişletildi, roadmap'in
+`🔵 sıradaki — toolchain blocker` satırı ve *"Sırada `NEN-023`/`NEN-024`"*
+diyen giriş paragrafı düzeltildi.
+
+**Retro'nun taşıdığı asıl bulgu:** M3'ün task sayısı 10'dan 46'ya çıktı ve
+büyümenin sebebi kapsam kayması değil, **teşhis**ti — ölçüm dört kez
+(`NEN-066`, `NEN-049`, `NEN-069`, `NEN-076`) task dosyasının kendi yazdığı
+teşhisi çürüttü. 15 ADR yazıldı (14 accepted, ADR-0036 rejected); hiçbiri
+`superseded` olmadı, ama iki kez bu ihtimal ölçülüp reddedildi ve "karar
+değişti" ile "karar geçersiz" ayrımı ADR-0035/ADR-0041 precedent'iyle
+sabitlendi.
+
+**Sıradaki milestone M4 — Stremio Handoff (macOS)** (kullanıcı kararı,
+2026-09-07). Task kırılımı kapanışın ikinci yarısı olarak üretiliyor.
 
 **`NEN-043` kapandı — Nen Player'ın `.app`'i artık Homebrew kurulu olmayan
 bir Mac'te açılıyor.** `scripts/bundle-macos.sh` (yeni) ve onun graf işini
@@ -128,13 +144,13 @@ FFI yüzeyi, `nen-ffi` ve kabuk (`PlayerModel`) dokunulmadı. Gerçek `.app`'te
 elle klavye testi yapılmadı — ölçülen pencere insan tepki süresinden çok daha
 kısa, otomatik test tek güvenilir kanıt yolu. Kanıt: `tasks/done/NEN-052-*.md`.
 
-**M3 kapanmıyor: `milestone: M3` etiketli task'ların hepsi bitecek**
-(kullanıcı kararı, 2026-09-06). Beş çıkış kriteri `NEN-028`'de kanıtlandı ve
-milestone dokümanının kanonik task listesi (`NEN-021`…`028`, `061`, `062`)
-tamamlandı, ama kriterlerle erken kapanış yapılmıyor. Kalan backlog: `043`;
-`052` ve `071` kapanış kanıtlarıyla tamamlandı.
-`docs/roadmap.md`'nin M3 satırı ve milestone dokümanının bayat task listesi
-kapanışta düzeltilecek. `NEN-073`, kullanıcının gerçek `.app`te minimum pencere
+**(2026-09-07 itibarıyla tamamlandı.)** O tarihte geçerli olan karar şuydu:
+*"M3 kapanmıyor: `milestone: M3` etiketli task'ların hepsi bitecek"*
+(kullanıcı kararı, 2026-09-06) — beş çıkış kriteri `NEN-028`'de kanıtlanmıştı
+ve kanonik task listesi (`NEN-021`…`028`, `061`, `062`) tamamlanmıştı, ama
+kriterlerle erken kapanış yapılmadı. Son kalan backlog `043` de kapanınca M3
+2026-09-07'de kapatıldı; roadmap'in M3 satırı ve milestone dokümanının bayat
+task listesi o kapanışta düzeltildi (bkz. yukarıdaki kapanış kaydı). `NEN-073`, kullanıcının gerçek `.app`te minimum pencere
 sınırının uygulanmadığını göstermesiyle yeniden açıldı ve düzeltici kapanışta
 gerçek köşe sürüklemesiyle kanıtlandı; canlı resize regresyonu `NEN-074`
 ile kapandı.
@@ -502,11 +518,10 @@ menüyü yenilemediği için `⇧⌘O` ile yüklenen altyazı dosyası menüye h
 girmiyordu — sidecar yolu taramanın yenilemesi sayesinde çalıştığından kusur
 bugüne kadar görünmemişti. Üç test önce kırmızı görüldü, düzeltme tek satır.
 
-**M3 biçimsel olarak kapanmadı.** Çıkış kriterleri işaretlendi ama retro ve
-roadmap'in milestone durumu bilinçli olarak `NEN-028` kapsamı dışında bırakıldı
-(kullanıcı kararı, 2026-09-05). `docs/roadmap.md` hâlâ M3'ü "sıradaki —
-toolchain blocker" gösteriyor; bu satır bayat ve kapanış kararıyla birlikte
-düzeltilecek.
+**M3, `NEN-028` ile biçimsel olarak kapanmadı.** Çıkış kriterleri işaretlendi
+ama retro ve roadmap'in milestone durumu bilinçli olarak `NEN-028` kapsamı
+dışında bırakıldı (kullanıcı kararı, 2026-09-05). O bekleyen adım 2026-09-07'de
+atıldı — bkz. yukarıdaki M3 kapanış kaydı.
 
 Koşudan çıkan `NEN-071` işi kapandı: `⇧⌘O` panelinin kısayolu kendisi çözmesi,
 davranış kararı ve ürün yüzeyinde testi. `NEN-049`'a üçüncü gözlem: paralel

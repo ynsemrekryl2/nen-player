@@ -33,7 +33,7 @@
 **Tam Xcode ve libmpv kurulu olmalıdır** (`scripts/doctor.sh M3` ile
 doğrulanır). Bu makinede kapı 2026-08-25'te açıldı (Xcode 26.6 · libmpv 2.5.0);
 kapı açılırken doctor'da bulunan bir yanlış pozitif `NEN-041`'e ayrıldı. M3 o
-tarihten beri sürüyor.
+tarihte başladı ve **2026-09-07'de kapandı** — 14 gün.
 
 ## Çıkış kriterleri (NEN-028 acceptance)
 
@@ -53,8 +53,11 @@ dayanaklar: `evidence/M3/NEN-028-checklist.md`.
 Ek olarak: gerçek libmpv adapter'ı, fake adapter ile **aynı** contract kitini
 geçmelidir — `ContractTests.theRealAdapterPassesTheSharedContractKit` yeşil.
 
-Kriterler kanıtlandı; M3'ün **biçimsel kapanışı** (retro + roadmap durumu) ayrı
-bir karara bağlıdır ve `NEN-028` onu kapsamaz.
+Kriterler 2026-09-05'te kanıtlandı, ama **biçimsel kapanış** (retro + roadmap
+durumu) kullanıcı kararıyla ayrı tutuldu: `NEN-028`'in kapsamına alınmadı ve
+`milestone: M3` etiketli **her** task'ın bitmesi beklendi (2026-09-06 kararı).
+Son task `NEN-043` 2026-09-07'de kapandı; M3 aynı gün kapatıldı. Aşağıdaki
+**Retro** o kapanışın kaydıdır.
 
 ## Kabul senaryosu (NEN-028)
 
@@ -126,17 +129,38 @@ Ayrıntı ve koşum kaydı: `evidence/M3/NEN-028-checklist.md`.
 
 ## Task'lar
 
+`milestone: M3` etiketli **46** task: 44 `done`, 2 `canceled`. Kanonik liste
+milestone açılırken 10 task sayıyordu; kalan 36'sı M3 sürerken açıldı
+(gerekçesi Retro → "Yanlış veya eksik varsayımlar").
+
+**Kanonik dilim** — milestone açılırken planlanan hat:
 `NEN-021` · `NEN-022` · `NEN-023` · `NEN-024` · `NEN-025` · `NEN-026` ·
-`NEN-027` · `NEN-028` · `NEN-061` · `NEN-062`
+`NEN-027` · `NEN-028`
 
-Yerleşim regresyonları: `NEN-070` — ekran genişliğindeki pencerede transport
-kontrollerinin yatay sınırları; `NEN-073` — üst gradient, fare çıkışı ve güvenli
-minimum pencere boyutu; `NEN-074` — akıcı canlı video resize; `NEN-077` —
-titlebar safe area varken minimum pencere, root ve video yüzeyinin aynı oranı
-koruması.
+**Playback kontratı ve motor davranışı:**
+`NEN-045` · `NEN-051` · `NEN-052` · `NEN-053` · `NEN-054` · `NEN-055` ·
+`NEN-058`
 
-İptal edilen kapsam: `NEN-063` — teknik video kalitesi rozeti
-(ADR-0036 `rejected`).
+**Kabuk, pencere ve krom:**
+`NEN-042` · `NEN-046` · `NEN-047` · `NEN-048` · `NEN-050` · `NEN-061` ·
+`NEN-062` · `NEN-067` · `NEN-068` · `NEN-070` · `NEN-073` · `NEN-074` ·
+`NEN-077`
+
+**Video yüzeyi ve altyazı çizimi:**
+`NEN-066` · `NEN-069`
+
+**Altyazı kataloğu, dil ve dosya kapıları:**
+`NEN-036` · `NEN-037` · `NEN-039` · `NEN-056` · `NEN-057` · `NEN-071` ·
+`NEN-075`
+
+**Test altyapısı ve araçlar:**
+`NEN-040` · `NEN-041` · `NEN-049` · `NEN-059` · `NEN-065` · `NEN-076`
+
+**Paketleme:** `NEN-043`
+
+**İptal edilen kapsam:** `NEN-060` — tam ekranda çizilmeyen gömülü track
+(`NEN-066` ile aynı kök nedene katlandı) · `NEN-063` — teknik video kalitesi
+rozeti (ADR-0036 `rejected`).
 
 ## Bağımlılıklar
 
@@ -148,4 +172,67 @@ kriterlerinden **değil** — `NEN-043`, dağıtımdan (S11) önce.
 
 ## Retro
 
-<!-- M3 kapanışında doldurulacak -->
+**Süre ve çıktı.** M3, 2026-08-25'te (toolchain kapısı açıldığı gün) başladı ve
+2026-09-07'de **46 task** ile kapandı — 44 `done`, 2 `canceled`, 14 gün.
+Milestone'un vaat ettiği kullanıcı hikâyesi üründe geçerli: gerçek `.app`
+dosyayı açıyor, oynatıyor, gömülü track'leri ve sidecar'ları gruplu bir menüde
+gösteriyor, seçileni ekrana çiziyor ve seek sonrası doğru repliği anında
+veriyor. Kapanış regresyonu: Rust workspace **607** test, macOS Swift paketi
+**202/202** (22 suite), `cargo fmt`/`clippy`/`deny check`, `.app` build'i,
+strict codesign, `bash scripts/test.sh` (3/3) ve `bash scripts/check-docs.sh`
+(çıkış 0) yeşil.
+
+**Yanlış veya eksik varsayımlar.** Bu milestone'un en pahalı dersi kapsamda
+değil **teşhiste**: M3'ün task sayısı 10'dan 46'ya çıktı, çünkü kapanan her
+task yol üstünde ölçülebilir bir kusur bırakıyordu (kural 5 gereği her biri
+yeni bir backlog task'ı oldu). Ölçüm dört kez, önce yazılmış teşhisin kendisini
+çürüttü:
+
+- `NEN-066` — "altyazı çizilmiyor" yanlıştı. mpv dört durumun dördünde de
+  (gömülü/enjekte × oynarken/duraklatılmış) çiziyordu; 134 pt'lik cam transport
+  o piksel bandını örtüyordu. Çare render yolunda değil, kabuğun kromunu
+  çekirdeğe bildirmesindeydi → ADR-0037.
+- `NEN-049` — "paralel testler birbirini bozuyor" yanlıştı. Kusur
+  `waitForGeometry`'nin **ilk** non-nil değeri kabul edip giden medyanın
+  boyutunu okumasıydı; task'ın açılışta önerdiği izolasyon kırmızıyı
+  düzeltmez, **gizlerdi**. Ürün kaynak kodu değişmedi.
+- `NEN-069` — "videosuz medyada kare çizilmiyor" yanlıştı. Çizim doğruydu,
+  eksik olan **isteyen**di: update callback yalnız yeni kare üretildiğinde
+  tetikleniyor, videosuz medya hiç kare üretmiyordu.
+- `NEN-076` — doğrulamanın kendisi yanlıştı. `check-docs.sh`'ın STATUS
+  güncellik denetimi kapanış tarihini git geçmişinden okuyordu; CI'ın
+  `fetch-depth: 1` shallow clone'unda bu her done task'ı "bugün" gösteriyor ve
+  yalnız doküman içeren commit'leri kırmızıya döndürüyordu. Tarih artık task'ın
+  kendi `closed` frontmatter alanından okunuyor.
+
+Platform varsayımı da bir kez ürünü değiştirdi: `NEN-025`'in sidecar keşfi kod
+yazılmadan **önce** ölçüldü ve planlanan çözüm elendi — App Sandbox içinde
+kardeş `.srt` üç ayrı kurulumda `EPERM` verdi, çünkü Powerbox uzantısı seçilen
+**dosyaya** çıkıyor, dizinine değil. ADR-0034 sandbox'ı düşürdü, `security-policy.md`
+§4 kapılarını tek savunma hattı ilan etti ve Mac App Store'u non-goal yaptı.
+
+**Kararlar.** M3 döneminde **15 ADR** yazıldı: 0011, 0012, 0013, 0030, 0031,
+0032, 0033, 0034, 0035, 0037, 0038, 0039, 0041, 0042 `accepted`; **0036
+`rejected`** (teknik video kalitesi rozeti — `NEN-063` onunla birlikte iptal
+edildi). Ayrıca M1/M2'den gelen 0008, 0009, 0010, 0026 ve 0029 bu milestone'da
+ilk kez üründe sınandı.
+
+**Hiçbir ADR `superseded` olmadı** — ama iki kez bu ihtimal açıkça tartılıp
+reddedildi ve depo bunun için bir precedent kurdu: ADR-0035, ADR-0031'i bütün
+olarak supersede etmenin `adr: [.., 31]` taşıyan 7 done task'ı
+`check-docs.sh` adım 6'da kırmızıya düşüreceğini ölçtü; ADR-0041 aynı yolu
+izleyip ADR-0034'ün Karar 3'ünü **değiştirdi**, gövdesini yerinde bıraktı ve
+Notlar'a işaret ekledi. Yani "karar değişti" ile "karar geçersiz" bu
+milestone'da ayrı iki şey olarak sabitlendi.
+
+**Sonraki milestone.** Sıra **M4 — Stremio Handoff (macOS)**'ta (kullanıcı
+kararı, 2026-09-07); task kırılımı bu kapanışla birlikte üretiliyor. Ön koşul
+yok: toolchain kapısı açık ve `NEN-043` `.app`'i Homebrew'dan bağımsız hale
+getirdi. M4'ün "optional start position" maddesi hazır bir zemine oturuyor —
+ADR-0042 yüklenirken verilen seek'in ne yapacağını `NEN-052`'de zaten karara
+bağladı.
+
+**Kapanışta açık kalan, M3'ün dışına yazılan iş.** Developer ID imzası,
+hardened runtime, notarization ve `spctl` `NEN-043`'ün YAPILMAYACAK'ına ve
+roadmap **S11**'e taşındı: Apple Developer Program üyeliği gerektiriyor, bu
+makinede yok. `.app` bugün ad-hoc imzalı ve side-loading ile çalışıyor.

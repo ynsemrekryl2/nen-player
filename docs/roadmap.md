@@ -3,9 +3,11 @@
 Üst görünüm. Task ayrıntısı için `tasks/INDEX.md`, milestone ayrıntısı için
 `docs/milestones/`.
 
-**Şu anki konum: M3 sürüyor.** Subtitle core'un sekiz task'ı tamamlandı;
-toolchain kapısı açık (Xcode 26.6 · libmpv 2.5.0), `NEN-021` ve `NEN-022`
-kapandı — macOS'ta gerçek video oynuyor. Sırada `NEN-023`/`NEN-024`.
+**Şu anki konum: M3 kapandı (2026-09-07), sırada M4.** macOS dilimi 46 task
+ile tamamlandı: gerçek `.app` dosyayı açıyor, oynatıyor, gömülü track'leri ve
+sidecar'ları gruplu menüde gösteriyor, seçileni ekrana çiziyor. Retro
+[`milestones/M3-macos-slice.md`](milestones/M3-macos-slice.md)'de.
+Sıradaki milestone **M4 — Stremio Handoff (macOS)**.
 Güncel durum: [`docs/STATUS.md`](STATUS.md) ·
 Kararlar: [`docs/DECISIONS.md`](DECISIONS.md)
 
@@ -16,8 +18,8 @@ Kararlar: [`docs/DECISIONS.md`](DECISIONS.md)
 | **M0** | Foundation | Repo, roadmap/task sistemi, ADR süreci, CI, toolchain doctor, log redaction politikası hazır. | ✅ kapandı |
 | **M1** | Core Technical Spike | Rust↔Swift↔Kotlin binding'in async/cancel/typed-error/50k-cue davranışı ölçülmüş; ADR-0002 ile core dili kilitlenmiş (go/no-go); playback ownership yönü ADR-0026 ile karara bağlanmış. | ✅ kapandı |
 | **M2** | Subtitle Core | SRT strict parse, WebVTT yazımı, encoding, timeline fingerprint, indeksli cue lookup, media evidence, source catalog — headless test edilmiş. | ✅ kapandı |
-| **M3** | macOS Vertical Slice | Dosya aç → oynat → katalog (embedded + sidecar) → altyazı menüsü → seç → ekranda göster. **İlk gerçek ürün.** | 🔵 sıradaki — toolchain blocker |
-| **M4** | Stremio Handoff (macOS) | Stremio'dan açılan medya macOS'ta doğru pozisyondan oynuyor; argüman/URL loglanmıyor. | ⚪ |
+| **M3** | macOS Vertical Slice | Dosya aç → oynat → katalog (embedded + sidecar) → altyazı menüsü → seç → ekranda göster. **İlk gerçek ürün.** | ✅ kapandı |
+| **M4** | Stremio Handoff (macOS) | Stremio'dan açılan medya macOS'ta doğru pozisyondan oynuyor; argüman/URL loglanmıyor. | 🔵 sıradaki |
 | **M5** | Translation Core | Blok pipeline + strict validation + checkpoint/cancel + artifact/cache; mock provider ile uçtan uca doğrulanmış. | ⚪ |
 | **M6** | Real Providers | OpenSubtitles resmi API + OpenAI + OpenRouter; secure credential storage; katalogda gerçek adaylar. | ⚪ |
 | **M7** | Manual Sync | Offset · replik-temelli anchor · iki-anchor drift; SyncProfile persistence, undo/reset/preview. | ⚪ |
