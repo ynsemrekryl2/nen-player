@@ -28,6 +28,18 @@ struct WindowGeometryWriterTests {
         )
     }
 
+    private func appStyleWindow() -> NSWindow {
+        let window = NSWindow(
+            contentRect: NSRect(x: 200, y: 200, width: 1_024, height: 576),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+            backing: .buffered,
+            defer: true
+        )
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        return window
+    }
+
     private func visibleFrame(_ window: NSWindow) -> CGRect {
         (window.screen ?? NSScreen.main)?.visibleFrame ?? .zero
     }
@@ -47,6 +59,33 @@ struct WindowGeometryWriterTests {
 
         #expect(window.contentAspectRatio == NSSize(width: 1_920, height: 1_080))
         #expect(window.contentMinSize == contentMinimum, "the writer competed with SwiftUI's minimum")
+    }
+
+    @Test("the app window's titlebar overhead reaches the root and the opening size")
+    func titlebarOverheadReachesBothMinimumOwners() {
+        let window = appStyleWindow()
+        let coordinator = WindowGeometryWriter.Coordinator()
+        let overhead = coordinator.safeAreaOverhead(in: window)
+        var reported = CGSize.zero
+
+        coordinator.apply(
+            geometry: FfiVideoGeometry(width: 160, height: 90),
+            mediaRevision: 1,
+            safeAreaOverhead: overhead,
+            onSafeAreaOverheadChange: { reported = $0 },
+            to: window
+        )
+
+        #expect(overhead.height > 0, "the app-style window has no titlebar safe area")
+        #expect(reported == overhead)
+        let expected = WindowGeometry.minimumContentSize(
+            for: CGSize(width: 160, height: 90),
+            safeAreaOverhead: overhead
+        )
+        let content = window.contentRect(forFrameRect: window.frame)
+        #expect(abs(content.width - expected.width) < 1)
+        #expect(abs(content.height - expected.height) < 1)
+        #expect(abs(content.width / content.height - 16.0 / 9.0) < 0.01)
     }
 
     @Test("a 4:3 picture locks to 4:3, not to the 16:9 the last one had")
@@ -149,8 +188,9 @@ struct WindowGeometryWriterTests {
         )
 
         let content = window.contentRect(forFrameRect: window.frame)
-        #expect(abs(content.width - 693) < 1)
-        #expect(abs(content.height - 390) < 1)
+        let expected = WindowGeometry.minimumContentSize(for: 16.0 / 9)
+        #expect(abs(content.width - expected.width) < 1)
+        #expect(abs(content.height - expected.height) < 1)
     }
 
     @Test("a reconfiguration of the same medium does not move the window")
@@ -301,6 +341,37 @@ struct WindowGeometryWriterTests {
 
         NotificationCenter.default.post(name: NSWindow.didExitFullScreenNotification, object: window)
         #expect(window.contentAspectRatio == NSSize(width: 1_920, height: 1_080))
+    }
+
+    @Test("full screen keeps the last window safe-area measurement")
+    func fullScreenKeepsTheWindowSafeArea() {
+        let window = appStyleWindow()
+        let coordinator = WindowGeometryWriter.Coordinator()
+        defer { coordinator.stopObserving() }
+        let windowOverhead = coordinator.safeAreaOverhead(in: window)
+        var reported = CGSize.zero
+        let report: @MainActor (CGSize) -> Void = { reported = $0 }
+
+        coordinator.apply(
+            geometry: FfiVideoGeometry(width: 1_920, height: 1_080),
+            mediaRevision: 1,
+            safeAreaOverhead: windowOverhead,
+            onSafeAreaOverheadChange: report,
+            to: window
+        )
+        #expect(windowOverhead.height > 0)
+        #expect(reported == windowOverhead)
+
+        NotificationCenter.default.post(name: NSWindow.willEnterFullScreenNotification, object: window)
+        coordinator.apply(
+            geometry: FfiVideoGeometry(width: 1_920, height: 1_080),
+            mediaRevision: 1,
+            safeAreaOverhead: .zero,
+            onSafeAreaOverheadChange: report,
+            to: window
+        )
+
+        #expect(reported == windowOverhead, "full screen replaced the window inset")
     }
 
     @Test("a medium opened in full screen is sized only after exit")

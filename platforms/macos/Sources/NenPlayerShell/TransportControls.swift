@@ -12,6 +12,7 @@ enum PresentedPanel: Equatable, Sendable {
 }
 
 enum TransportLayoutElement: Hashable {
+    case bar
     case playPause
     case seek
     case fullScreen
@@ -213,6 +214,7 @@ struct TransportControls: View {
                 .onTapGesture(perform: closePanel)
         }
         .coordinateSpace(name: transportLayoutSpace)
+        .reportTransportFrame(.bar, enabled: onLayout != nil)
         .onPreferenceChange(TransportLayoutPreferenceKey.self) { frames in
             onLayout?(frames)
         }

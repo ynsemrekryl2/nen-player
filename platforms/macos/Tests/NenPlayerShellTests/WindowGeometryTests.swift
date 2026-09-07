@@ -49,10 +49,58 @@ struct WindowGeometryTests {
 
     @Test("each ratio derives the size the task measured")
     func theDerivedMinimums() {
-        #expect(WindowGeometry.minimumContentSize(for: 16.0 / 9) == CGSize(width: 693, height: 390))
-        #expect(WindowGeometry.minimumContentSize(for: 2.39) == CGSize(width: 932, height: 390))
-        #expect(WindowGeometry.minimumContentSize(for: 4.0 / 3) == CGSize(width: 693, height: 520))
+        #expect(WindowGeometry.minimumContentSize(for: 16.0 / 9) == CGSize(width: 693.3333333333333, height: 390))
+        #expect(WindowGeometry.minimumContentSize(for: 2.39) == CGSize(width: 932.1, height: 390))
+        #expect(WindowGeometry.minimumContentSize(for: 4.0 / 3) == CGSize(width: 693, height: 519.75))
         #expect(WindowGeometry.minimumContentSize(for: 9.0 / 16) == CGSize(width: 693, height: 1_232))
+    }
+
+    @Test("the titlebar overhead is included once and the full minimum keeps the video ratio")
+    func theSafeAreaAdjustedMinimums() {
+        let titlebar = CGSize(width: 0, height: 32)
+        let cases: [(media: CGSize?, content: CGSize, layout: CGSize)] = [
+            (nil, CGSize(width: 693, height: 422), CGSize(width: 693, height: 390)),
+            (
+                CGSize(width: 1_920, height: 1_080),
+                CGSize(width: 750.2222222222222, height: 422),
+                CGSize(width: 750.2222222222222, height: 390)
+            ),
+            (
+                CGSize(width: 640, height: 480),
+                CGSize(width: 693, height: 519.75),
+                CGSize(width: 693, height: 487.75)
+            ),
+            (
+                CGSize(width: 2_390, height: 1_000),
+                CGSize(width: 1_008.58, height: 422),
+                CGSize(width: 1_008.58, height: 390)
+            ),
+            (
+                CGSize(width: 900, height: 1_600),
+                CGSize(width: 693, height: 1_232),
+                CGSize(width: 693, height: 1_200)
+            ),
+        ]
+
+        for testCase in cases {
+            let content = WindowGeometry.minimumContentSize(
+                for: testCase.media,
+                safeAreaOverhead: titlebar
+            )
+            let layout = WindowGeometry.minimumLayoutSize(
+                for: testCase.media,
+                safeAreaOverhead: titlebar
+            )
+            #expect(abs(content.width - testCase.content.width) < 0.001)
+            #expect(abs(content.height - testCase.content.height) < 0.001)
+            #expect(abs(layout.width - testCase.layout.width) < 0.001)
+            #expect(abs(layout.height - testCase.layout.height) < 0.001)
+            #expect(layout.width >= WindowGeometry.chromeBase.width)
+            #expect(layout.height >= WindowGeometry.chromeBase.height)
+            if let media = testCase.media {
+                #expect(abs(content.width / content.height - media.width / media.height) < 0.001)
+            }
+        }
     }
 
     @Test("a ratio that is not a ratio falls back to the chrome base")
@@ -75,7 +123,7 @@ struct WindowGeometryTests {
             for: CGSize(width: 160, height: 90),
             visibleFrame: Self.laptopScreen
         )
-        #expect(size == CGSize(width: 693, height: 390))
+        #expect(size == WindowGeometry.minimumContentSize(for: 16.0 / 9))
     }
 
     @Test("a medium that fits opens at its own size, one point per pixel")

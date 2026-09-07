@@ -48,6 +48,29 @@ struct VideoSurfaceFillTests {
         return nil
     }
 
+    private func windowAttachmentView(in view: NSView) -> WindowGeometryWriter.WindowAttachmentView? {
+        if let attachment = view as? WindowGeometryWriter.WindowAttachmentView { return attachment }
+        for child in view.subviews {
+            if let found = windowAttachmentView(in: child) { return found }
+        }
+        return nil
+    }
+
+    /// SwiftUI installs representable views on a later AppKit turn. Poll only
+    /// until the requested state exists instead of holding the shared main
+    /// actor for a fixed delay; other timing tests run in parallel.
+    @discardableResult
+    private func waitUntil(
+        timeout: TimeInterval = 1,
+        _ condition: () -> Bool
+    ) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !condition(), Date() < deadline {
+            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.01))
+        }
+        return condition()
+    }
+
     @Test("the video surface covers the whole content view, safe area included")
     func theSurfaceFillsTheWindow() throws {
         let session = FakeSession()
@@ -64,8 +87,7 @@ struct VideoSurfaceFillTests {
         window.contentView = host
         host.frame = window.contentLayoutRect
         host.layoutSubtreeIfNeeded()
-        // The layout the video surface belongs to is created on a later pass.
-        RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        #expect(waitUntil { videoSurface(in: host) != nil })
 
         let content = try #require(window.contentView, "the window has no content view")
         let surface = try #require(
@@ -113,5 +135,130 @@ struct VideoSurfaceFillTests {
             test above proves nothing — give it a window that does
             """
         )
+    }
+
+    @Test("the minimum window, hosting root and video surface keep one aspect ratio")
+    func theMinimumWindowKeepsEverySurfaceAligned() throws {
+        let geometries = [
+            FfiVideoGeometry(width: 160, height: 90),
+            FfiVideoGeometry(width: 160, height: 120),
+            FfiVideoGeometry(width: 239, height: 100),
+            FfiVideoGeometry(width: 90, height: 160),
+        ]
+
+        for geometry in geometries {
+            let session = FakeSession()
+            session.currentState = .ready
+            session.currentVideoGeometry = geometry
+            let model = PlayerModel(
+                startsPolling: false,
+                managesCursor: false,
+                preferenceStore: MemoryPreferenceStore(),
+                sessionFactory: { _ in session }
+            )
+
+            let window = window()
+            var transportFrames: [TransportLayoutElement: CGRect] = [:]
+            let host = NSHostingView(
+                rootView: PlayerRootView(model: model) { transportFrames = $0 }
+            )
+            window.contentView = host
+            defer {
+                model.shutdown()
+                window.close()
+            }
+            host.layoutSubtreeIfNeeded()
+            #expect(waitUntil { windowAttachmentView(in: host) != nil })
+            // Production learns the display geometry after the SwiftUI
+            // hierarchy is attached to its window. Trigger the same sequence
+            // so the writer measures the real titlebar safe area.
+            model.openMedia(at: URL(fileURLWithPath: "/fixtures/media/contract-clip.mkv"))
+            model.consume([
+                .stateChanged(state: .ready),
+                .videoGeometryChanged,
+            ])
+            #expect(waitUntil {
+                window.contentAspectRatio
+                    == NSSize(width: CGFloat(geometry.width), height: CGFloat(geometry.height))
+                    && videoSurface(in: host) != nil
+                    && transportFrames[.bar] != nil
+            })
+            #expect(model.videoGeometry == geometry)
+            _ = try #require(
+                windowAttachmentView(in: host),
+                "SwiftUI never created the window attachment view"
+            )
+            #expect(
+                window.contentAspectRatio
+                    == NSSize(width: CGFloat(geometry.width), height: CGFloat(geometry.height)),
+                "the attached window writer never applied \(geometry)"
+            )
+
+            // Push past every supported minimum. SwiftUI and AppKit must
+            // settle on one safe-area-aware, aspect-correct answer.
+            window.setFrame(
+                NSRect(origin: window.frame.origin, size: NSSize(width: 300, height: 200)),
+                display: false
+            )
+            host.layoutSubtreeIfNeeded()
+            #expect(waitUntil {
+                host.layoutSubtreeIfNeeded()
+                guard let surface = videoSurface(in: host) else { return false }
+                let covered = surface.convert(surface.bounds, to: host)
+                return abs(covered.width - host.bounds.width) < 1
+                    && abs(covered.height - host.bounds.height) < 1
+                    && transportFrames[.bar]?.width == host.frame.width
+            })
+
+            let content = try #require(window.contentView, "the window has no content view")
+            let surface = try #require(
+                videoSurface(in: content),
+                "the player never created a video surface to measure"
+            )
+            let covered = surface.convert(surface.bounds, to: content)
+            let ratio = CGFloat(geometry.width) / CGFloat(geometry.height)
+            let insets = content.safeAreaInsets
+            let overhead = CGSize(
+                width: insets.left + insets.right,
+                height: insets.top + insets.bottom
+            )
+            let expected = WindowGeometry.minimumContentSize(
+                for: CGSize(width: CGFloat(geometry.width), height: CGFloat(geometry.height)),
+                safeAreaOverhead: overhead
+            )
+
+            #expect(abs(window.frame.width - expected.width) <= 1)
+            #expect(abs(window.frame.height - expected.height) <= 1)
+            #expect(
+                abs(window.frame.width / window.frame.height - ratio) < 0.01,
+                "the minimum window \(window.frame.size) is not ratio \(ratio)"
+            )
+            #expect(
+                abs(host.frame.width - window.frame.width) < 1
+                    && abs(host.frame.height - window.frame.height) < 1,
+                "the hosting root \(host.frame.size) overflows the minimum window \(window.frame.size)"
+            )
+            #expect(
+                abs(covered.width - content.bounds.width) < 1
+                    && abs(covered.height - content.bounds.height) < 1,
+                "the video surface \(covered.size) does not cover the window \(content.bounds.size)"
+            )
+            #expect(
+                abs(covered.width / covered.height - ratio) < 0.01,
+                "the minimum video surface \(covered.size) is not ratio \(ratio)"
+            )
+            let bar = try #require(
+                transportFrames[.bar],
+                "the minimum transport was not laid out"
+            )
+            let playPause = try #require(transportFrames[.playPause])
+            let seek = try #require(transportFrames[.seek])
+            let fullScreen = try #require(transportFrames[.fullScreen])
+            #expect(abs(bar.height - TransportControls.height) < 0.5)
+            #expect(abs(bar.width - covered.width) < 1)
+            #expect(playPause.minX >= TransportControls.horizontalPadding - 0.5)
+            #expect(fullScreen.maxX <= bar.width - TransportControls.horizontalPadding + 0.5)
+            #expect(seek.width >= 76)
+        }
     }
 }

@@ -131,7 +131,9 @@ Ayrıntı ve koşum kaydı: `evidence/M3/NEN-028-checklist.md`.
 
 Yerleşim regresyonları: `NEN-070` — ekran genişliğindeki pencerede transport
 kontrollerinin yatay sınırları; `NEN-073` — üst gradient, fare çıkışı ve güvenli
-minimum pencere boyutu; `NEN-074` — akıcı canlı video resize.
+minimum pencere boyutu; `NEN-074` — akıcı canlı video resize; `NEN-077` —
+titlebar safe area varken minimum pencere, root ve video yüzeyinin aynı oranı
+koruması.
 
 İptal edilen kapsam: `NEN-063` — teknik video kalitesi rozeti
 (ADR-0036 `rejected`).

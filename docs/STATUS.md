@@ -3,10 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-07** (`NEN-071` done — altyazı panelinde açıkça
-> seçilen symlink/alias hedefi çözülüyor; keşfedilen veya doğrudan verilen
-> symlink yolları reddedilmeye devam ediyor.
-> Önceki: `NEN-052`)
+> Son güncelleme: **2026-09-07** (`NEN-077` done — minimum player penceresi
+> titlebar safe area boyunca video oranını ve tam transport yüksekliğini
+> koruyor. Önceki: `NEN-071`)
 
 ## Nerede duruyoruz
 
@@ -14,9 +13,21 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-071` — altyazı panelinde açıkça seçilen symlink/alias hedefi çözülüyor; keşfedilen veya doğrudan verilen symlink yolları reddedilmeye devam ediyor (ADR-0031) |
+| **Son tamamlanan** | `NEN-077` — minimum player penceresi titlebar safe area'yı bir kez hesaba katarak video oranını, tam yüzeyi ve 57 pt transport'u koruyor |
 | **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-043`, `NEN-044`, `NEN-064`, `NEN-072` |
-| **Task sayısı** | 76 · done 67 · active 0 · blocked 0 · canceled 2 · backlog 7 |
+| **Task sayısı** | 77 · done 68 · active 0 · blocked 0 · canceled 2 · backlog 7 |
+
+**`NEN-077` kapandı — minimum pencerede video oranı ile player kromu artık
+aynı koordinatta.** `693×390 pt` krom tabanı safe-area içi kullanılabilir alan
+olarak ayrıldı; gerçek pencere minimumu ölçülen titlebar payıyla video oranında
+türetiliyor ve SwiftUI root bu payı minimumundan yalnız bir kez çıkarıyor.
+Gizli başlıklı gerçek `NSWindow` matrisi window/root/`MPVVideoView` eşitliğini,
+`57 pt` transport'u ve kenar kontrollerini 16:9, 4:3, 2.39:1 ve 9:16 için
+sabitledi. Gerçek `.app` kabulünde minimumlar sırasıyla `750–751×422`,
+`693×520` ve `1008×422 pt`; tam ekran çıkışı yeniden `751×422 pt` ölçüldü.
+Safe-area telafisinin kaldırıldığı negatif kontrol 10 issue üretti. Tam macOS
+paketi 202 test / 22 suite ile, `.app` build'i, strict codesign ve depo kapıları
+yeşil. Kanıt: `evidence/M3/NEN-077-checklist.md`.
 
 **`NEN-052` kapandı — yüklenirken verilen seek artık kaybolmuyor.** Fake motor
 `.buffering` durumunda verilen bir seek'i her zaman kabul ediyordu, gerçek

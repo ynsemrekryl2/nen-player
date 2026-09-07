@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **76** task · ✅ done 67 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 7
+Toplam **77** task · ✅ done 68 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 7
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -95,6 +95,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-074](done/NEN-074-smooth-live-resize.md) | Smooth live video resize | M | ✅ done | NEN-073 |
 | [NEN-075](done/NEN-075-sidecar-language-suffix.md) | Sidecar discovery does not see a language-suffixed subtitle | S | ✅ done | NEN-025 NEN-057 |
 | [NEN-076](done/NEN-076-status-freshness-check-on-shallow-clone.md) | The STATUS freshness check reads every done task as today on CI | S | ✅ done | NEN-040 |
+| [NEN-077](done/NEN-077-safe-area-aspect-minimum.md) | Keep the minimum player surface aspect-correct across the titlebar safe area | M | ✅ done | NEN-068 NEN-073 |
 
 ## M5 — Translation Core
 

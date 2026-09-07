@@ -13,9 +13,9 @@ struct TransportControlsLayoutTests {
     func playerRootAdvertisesTheWindowMinimum() {
         let cases: [(geometry: FfiVideoGeometry?, expected: CGSize)] = [
             (nil, CGSize(width: 693, height: 390)),
-            (FfiVideoGeometry(width: 1_920, height: 1_080), CGSize(width: 693, height: 390)),
-            (FfiVideoGeometry(width: 640, height: 480), CGSize(width: 693, height: 520)),
-            (FfiVideoGeometry(width: 2_390, height: 1_000), CGSize(width: 932, height: 390)),
+            (FfiVideoGeometry(width: 1_920, height: 1_080), CGSize(width: 693.3333333333333, height: 390)),
+            (FfiVideoGeometry(width: 640, height: 480), CGSize(width: 693, height: 519.75)),
+            (FfiVideoGeometry(width: 2_390, height: 1_000), CGSize(width: 932.1, height: 390)),
             (FfiVideoGeometry(width: 900, height: 1_600), CGSize(width: 693, height: 1_232)),
         ]
 
@@ -41,8 +41,8 @@ struct TransportControlsLayoutTests {
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
 
             let fitting = host.fittingSize
-            #expect(abs(fitting.width - testCase.expected.width) < 1)
-            #expect(abs(fitting.height - testCase.expected.height) < 1)
+            #expect(abs(fitting.width - testCase.expected.width) <= 1)
+            #expect(abs(fitting.height - testCase.expected.height) <= 1)
             model.shutdown()
         }
     }
@@ -75,6 +75,8 @@ struct TransportControlsLayoutTests {
                     - TransportControls.horizontalPadding + 0.5
             )
             #expect(measurement.seek.width >= 76)
+            #expect(abs(measurement.bar.height - TransportControls.height) < 0.5)
+            #expect(abs(measurement.bar.width - measurement.window.width) < 0.5)
         }
     }
 
@@ -141,6 +143,7 @@ struct TransportControlsLayoutTests {
 
         return Measurement(
             window: host.bounds,
+            bar: try #require(frames[.bar], "transport bar frame was not reported"),
             playPause: try #require(frames[.playPause], "play/pause frame was not reported"),
             seek: try #require(frames[.seek], "seek frame was not reported"),
             fullScreen: try #require(frames[.fullScreen], "full-screen frame was not reported")
@@ -149,6 +152,7 @@ struct TransportControlsLayoutTests {
 
     private struct Measurement {
         let window: CGRect
+        let bar: CGRect
         let playPause: CGRect
         let seek: CGRect
         let fullScreen: CGRect

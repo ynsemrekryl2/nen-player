@@ -8,12 +8,17 @@ public extension Notification.Name {
 
 public struct PlayerRootView: View {
     @ObservedObject private var model: PlayerModel
+    private let onTransportLayout: (([TransportLayoutElement: CGRect]) -> Void)?
     @State private var presentedPanel: PresentedPanel?
     /// The surface's own height, and the top edge of the transport bar in the
     /// same space. Together they are the share of the surface the chrome
     /// covers — the number ADR-0037 sends to the core.
     @State private var surfaceHeight: CGFloat = 0
     @State private var chromeTop: CGFloat = 0
+    /// The part of the full-size content view reserved by the hidden titlebar.
+    /// SwiftUI cannot expose this while it computes `fittingSize`; AppKit's
+    /// window writer measures it and feeds it back after attachment.
+    @State private var safeAreaOverhead: CGSize = .zero
     /// Delivers `Esc` while this window is key (NEN-047). Neither
     /// `PlayerCommands`' own `Esc` key equivalent nor SwiftUI's
     /// `onExitCommand` fired on the real app: measured with the media
@@ -38,10 +43,23 @@ public struct PlayerRootView: View {
 
     public init(model: PlayerModel) {
         self.model = model
+        onTransportLayout = nil
+    }
+
+    init(
+        model: PlayerModel,
+        onTransportLayout: @escaping ([TransportLayoutElement: CGRect]) -> Void
+    ) {
+        self.model = model
+        self.onTransportLayout = onTransportLayout
     }
 
     public var body: some View {
-        let minimum = WindowGeometry.minimumContentSize(for: displaySize)
+        let safeAreaOverheadBinding = $safeAreaOverhead
+        let minimum = WindowGeometry.minimumLayoutSize(
+            for: displaySize,
+            safeAreaOverhead: safeAreaOverhead
+        )
 
         ZStack {
             Color.black
@@ -135,7 +153,11 @@ public struct PlayerRootView: View {
         .background(
             WindowGeometryWriter(
                 geometry: model.videoGeometry,
-                mediaRevision: model.mediaPresentationRevision
+                mediaRevision: model.mediaPresentationRevision,
+                onSafeAreaOverheadChange: { overhead in
+                    guard safeAreaOverheadBinding.wrappedValue != overhead else { return }
+                    safeAreaOverheadBinding.wrappedValue = overhead
+                }
             )
         )
         .animation(.easeOut(duration: 0.24), value: model.controlsVisible)
@@ -253,7 +275,8 @@ public struct PlayerRootView: View {
                     onInteractionOutsidePanel: {
                         setPresentedPanel(nil)
                     },
-                    onToggleFullScreen: toggleFullScreen
+                    onToggleFullScreen: toggleFullScreen,
+                    onLayout: onTransportLayout
                 )
                 .frame(maxWidth: .infinity)
                 .background(

@@ -20,33 +20,85 @@ struct WindowGeometryWriter: NSViewRepresentable {
     /// an inference from the size having changed — two 16:9 films in a row are
     /// two openings, and a stream that reconfigures mid-playback is not one.
     let mediaRevision: UInt64
+    /// Sends the hidden-titlebar footprint back to the SwiftUI root. The root
+    /// owns the scene minimum; the writer only measures the AppKit fact the
+    /// root cannot see while computing its fitting size.
+    let onSafeAreaOverheadChange: @MainActor (CGSize) -> Void
+
+    init(
+        geometry: FfiVideoGeometry?,
+        mediaRevision: UInt64,
+        onSafeAreaOverheadChange: @escaping @MainActor (CGSize) -> Void = { _ in }
+    ) {
+        self.geometry = geometry
+        self.mediaRevision = mediaRevision
+        self.onSafeAreaOverheadChange = onSafeAreaOverheadChange
+    }
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
     }
 
-    func makeNSView(context _: Context) -> NSView {
-        NSView()
+    func makeNSView(context _: Context) -> WindowAttachmentView {
+        WindowAttachmentView()
     }
 
-    func updateNSView(_ nsView: NSView, context: Context) {
+    func updateNSView(_ nsView: WindowAttachmentView, context: Context) {
         let geometry = geometry
         let mediaRevision = mediaRevision
-        // Deferred for `WindowTitleWriter`'s reason: during `updateNSView` the
-        // view is not reliably in a window yet, and resizing one from inside a
-        // SwiftUI layout pass re-enters that pass.
-        DispatchQueue.main.async {
-            guard let window = nsView.window else { return }
+        let onSafeAreaOverheadChange = onSafeAreaOverheadChange
+        let applyToWindow = { (window: NSWindow) in
+            let safeAreaOverhead = context.coordinator.safeAreaOverhead(in: window)
             context.coordinator.apply(
                 geometry: geometry,
                 mediaRevision: mediaRevision,
+                safeAreaOverhead: safeAreaOverhead,
+                onSafeAreaOverheadChange: onSafeAreaOverheadChange,
                 to: window
             )
         }
+        // `updateNSView` can precede attachment. Keep the latest application
+        // closure on the view so `viewDidMoveToWindow` retries instead of
+        // silently losing both the aspect lock and the safe-area measurement.
+        nsView.onWindowChange = applyToWindow
+        // Still defer ordinary updates: resizing from inside SwiftUI's layout
+        // pass re-enters that pass.
+        nsView.scheduleApply()
     }
 
-    static func dismantleNSView(_: NSView, coordinator: Coordinator) {
+    static func dismantleNSView(_ nsView: WindowAttachmentView, coordinator: Coordinator) {
+        nsView.cancelScheduledApply()
+        nsView.onWindowChange = nil
         coordinator.stopObserving()
+    }
+
+    @MainActor
+    final class WindowAttachmentView: NSView {
+        var onWindowChange: ((NSWindow) -> Void)?
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            guard window != nil else { return }
+            scheduleApply()
+        }
+
+        func scheduleApply() {
+            cancelScheduledApply()
+            perform(#selector(applyToAttachedWindow), with: nil, afterDelay: 0)
+        }
+
+        func cancelScheduledApply() {
+            NSObject.cancelPreviousPerformRequests(
+                withTarget: self,
+                selector: #selector(applyToAttachedWindow),
+                object: nil
+            )
+        }
+
+        @objc private func applyToAttachedWindow() {
+            guard let window else { return }
+            onWindowChange?(window)
+        }
     }
 
     @MainActor
@@ -62,14 +114,23 @@ struct WindowGeometryWriter: NSViewRepresentable {
         private var suspendedForFullScreen = false
         private var latestGeometry: FfiVideoGeometry?
         private var latestRevision: UInt64 = 0
+        private var onSafeAreaOverheadChange: (@MainActor (CGSize) -> Void)?
         private var observations: [NSObjectProtocol] = []
         private weak var observed: NSWindow?
 
-        func apply(geometry: FfiVideoGeometry?, mediaRevision: UInt64, to window: NSWindow) {
+        func apply(
+            geometry: FfiVideoGeometry?,
+            mediaRevision: UInt64,
+            safeAreaOverhead: CGSize = .zero,
+            onSafeAreaOverheadChange: @escaping @MainActor (CGSize) -> Void = { _ in },
+            to window: NSWindow
+        ) {
             observe(window)
             latestGeometry = geometry
             latestRevision = mediaRevision
+            self.onSafeAreaOverheadChange = onSafeAreaOverheadChange
             guard !suspendedForFullScreen, !window.styleMask.contains(.fullScreen) else { return }
+            onSafeAreaOverheadChange(safeAreaOverhead)
 
             guard let geometry,
                   let size = Self.displaySize(geometry) else {
@@ -97,7 +158,7 @@ struct WindowGeometryWriter: NSViewRepresentable {
             // the user has already placed and sized.
             guard sizedForRevision != mediaRevision else { return }
             sizedForRevision = mediaRevision
-            resize(window, to: size)
+            resize(window, to: size, safeAreaOverhead: safeAreaOverhead)
         }
 
         private static func releaseAspectLock(in window: NSWindow) {
@@ -107,9 +168,17 @@ struct WindowGeometryWriter: NSViewRepresentable {
             window.resizeIncrements = NSSize(width: 1, height: 1)
         }
 
-        private func resize(_ window: NSWindow, to media: CGSize) {
+        private func resize(
+            _ window: NSWindow,
+            to media: CGSize,
+            safeAreaOverhead: CGSize
+        ) {
             let visible = (window.screen ?? NSScreen.main)?.visibleFrame ?? .zero
-            let content = WindowGeometry.contentSize(for: media, visibleFrame: visible)
+            let content = WindowGeometry.contentSize(
+                for: media,
+                visibleFrame: visible,
+                safeAreaOverhead: safeAreaOverhead
+            )
             // Through `frameRect(forContentRect:)` rather than `setContentSize`
             // plus a separate move: the two would be two animations and the
             // window would visibly step. One `setFrame` is one movement.
@@ -158,9 +227,12 @@ struct WindowGeometryWriter: NSViewRepresentable {
                     MainActor.assumeIsolated {
                         guard let self else { return }
                         self.suspendedForFullScreen = false
+                        let safeAreaOverhead = self.safeAreaOverhead(in: window)
                         self.apply(
                             geometry: self.latestGeometry,
                             mediaRevision: self.latestRevision,
+                            safeAreaOverhead: safeAreaOverhead,
+                            onSafeAreaOverheadChange: self.onSafeAreaOverheadChange ?? { _ in },
                             to: window
                         )
                     }
@@ -174,6 +246,18 @@ struct WindowGeometryWriter: NSViewRepresentable {
             }
             observations = []
             observed = nil
+        }
+
+        /// The safe-area footprint belongs to the window's content view, not
+        /// to this representable's descendant view (which is already inside
+        /// that safe area and therefore reports zero).
+        func safeAreaOverhead(in window: NSWindow) -> CGSize {
+            guard let contentView = window.contentView else { return .zero }
+            let insets = contentView.safeAreaInsets
+            return CGSize(
+                width: max(0, insets.left) + max(0, insets.right),
+                height: max(0, insets.top) + max(0, insets.bottom)
+            )
         }
 
         /// The size as points, refusing anything degenerate.

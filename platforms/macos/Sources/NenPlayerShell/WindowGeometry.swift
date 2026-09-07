@@ -15,7 +15,7 @@ import Foundation
 /// test can state the whole input, and `WindowGeometryWriter` is left with
 /// nothing but the applying.
 public enum WindowGeometry {
-    /// The smallest content area NEN-073's chrome fits in, in points.
+    /// The smallest safe-area layout NEN-073's chrome fits in, in points.
     ///
     /// Measured rather than chosen:
     ///
@@ -34,35 +34,78 @@ public enum WindowGeometry {
     /// stay letterbox-free.
     public static let chromeBase = CGSize(width: 693, height: 390)
 
-    /// The smallest content size a window locked to `ratio` may have.
+    /// The smallest full content size a window locked to `ratio` may have.
     ///
     /// Derived from [`chromeBase`](chromeBase) rather than stated per ratio,
     /// because a minimum that did not itself satisfy the aspect lock is a
     /// minimum AppKit cannot honour — and the black bars come back at exactly
     /// the size the user is most likely to reach for.
     ///
-    /// Width leads: the chrome's height budget is the softer of the two, so the
-    /// derived size is the base height scaled out to the ratio, floored at the
-    /// base width. 16:9 → 693×390 · 2.39:1 → 932×390 · 4:3 → 693×520 ·
-    /// 9:16 → 693×1232.
+    /// `chromeBase` is measured inside the titlebar safe area, while AppKit's
+    /// aspect lock shapes the full-size content view under the hidden titlebar.
+    /// The overhead bridges those coordinate spaces. The larger required axis
+    /// leads and the other is derived from the ratio; independently rounding
+    /// both axes would recreate a (small but real) aspect mismatch.
     ///
     /// A non-finite or non-positive ratio has no shape to honour, so the base
-    /// is returned unchanged.
-    public static func minimumContentSize(for ratio: CGFloat) -> CGSize {
-        guard ratio.isFinite, ratio > 0 else { return chromeBase }
-        let width = max(chromeBase.width, (chromeBase.height * ratio).rounded())
-        return CGSize(width: width, height: (width / ratio).rounded())
+    /// plus the measured overhead is returned without an aspect lock.
+    public static func minimumContentSize(
+        for ratio: CGFloat,
+        safeAreaOverhead: CGSize = .zero
+    ) -> CGSize {
+        let overhead = sanitised(safeAreaOverhead)
+        guard ratio.isFinite, ratio > 0 else {
+            return CGSize(
+                width: chromeBase.width + overhead.width,
+                height: chromeBase.height + overhead.height
+            )
+        }
+        let requiredWidth = chromeBase.width + overhead.width
+        let requiredHeight = chromeBase.height + overhead.height
+        let height = max(requiredHeight, requiredWidth / ratio)
+        return CGSize(width: height * ratio, height: height)
     }
 
-    /// The content minimum SwiftUI should advertise for the current picture.
+    /// The full-content minimum for the current picture.
     ///
     /// `nil` and degenerate sizes have no aspect to preserve, but the chrome
     /// still needs its base footprint. Keeping this conversion beside the
     /// ratio arithmetic prevents the root view and the AppKit writer from
     /// inventing different fallbacks for the same window.
-    public static func minimumContentSize(for media: CGSize?) -> CGSize {
-        guard let media, media.width > 0, media.height > 0 else { return chromeBase }
-        return minimumContentSize(for: media.width / media.height)
+    public static func minimumContentSize(
+        for media: CGSize?,
+        safeAreaOverhead: CGSize = .zero
+    ) -> CGSize {
+        let overhead = sanitised(safeAreaOverhead)
+        guard let media, media.width > 0, media.height > 0 else {
+            return CGSize(
+                width: chromeBase.width + overhead.width,
+                height: chromeBase.height + overhead.height
+            )
+        }
+        return minimumContentSize(
+            for: media.width / media.height,
+            safeAreaOverhead: overhead
+        )
+    }
+
+    /// The minimum the SwiftUI root publishes inside the safe area.
+    ///
+    /// `NSHostingView` adds the titlebar safe area to its fitting size. Giving
+    /// it the full window minimum would add that height twice: a 693×390 16:9
+    /// window became a 693×422 root, so mpv correctly letterboxed inside the
+    /// wrong-shaped surface. Subtracting the same measured overhead makes the
+    /// fitting size and AppKit's full-content aspect lock ask for one size.
+    public static func minimumLayoutSize(
+        for media: CGSize?,
+        safeAreaOverhead: CGSize
+    ) -> CGSize {
+        let overhead = sanitised(safeAreaOverhead)
+        let content = minimumContentSize(for: media, safeAreaOverhead: overhead)
+        return CGSize(
+            width: max(chromeBase.width, content.width - overhead.width),
+            height: max(chromeBase.height, content.height - overhead.height)
+        )
     }
 
     /// The content size a window should open at for a picture of `media`.
@@ -83,8 +126,14 @@ public enum WindowGeometry {
     /// picture on a short display). That is deliberate: a window the chrome
     /// does not fit in is broken in a way the user cannot fix, while one whose
     /// edge runs past the screen is merely awkward and still usable.
-    public static func contentSize(for media: CGSize, visibleFrame: CGRect) -> CGSize {
-        guard media.width > 0, media.height > 0 else { return chromeBase }
+    public static func contentSize(
+        for media: CGSize,
+        visibleFrame: CGRect,
+        safeAreaOverhead: CGSize = .zero
+    ) -> CGSize {
+        guard media.width > 0, media.height > 0 else {
+            return minimumContentSize(for: Optional<CGSize>.none, safeAreaOverhead: safeAreaOverhead)
+        }
         let ratio = media.width / media.height
 
         var size = media
@@ -94,16 +143,23 @@ public enum WindowGeometry {
                 visibleFrame.height / media.height
             ))
             size = CGSize(
-                width: (media.width * scale).rounded(),
-                height: (media.height * scale).rounded()
+                width: media.width * scale,
+                height: media.height * scale
             )
         }
 
-        let minimum = minimumContentSize(for: ratio)
+        let minimum = minimumContentSize(for: ratio, safeAreaOverhead: safeAreaOverhead)
         guard size.width < minimum.width || size.height < minimum.height else {
             return size
         }
         return minimum
+    }
+
+    private static func sanitised(_ overhead: CGSize) -> CGSize {
+        CGSize(
+            width: overhead.width.isFinite ? max(0, overhead.width) : 0,
+            height: overhead.height.isFinite ? max(0, overhead.height) : 0
+        )
     }
 
     /// Moves `size` into `visibleFrame` around the window's current centre.
