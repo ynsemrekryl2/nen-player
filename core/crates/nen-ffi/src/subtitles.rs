@@ -249,15 +249,19 @@ impl FfiSubtitleLibrary {
         lock(&self.inner).add_file(path, root).into()
     }
 
-    /// Looks beside a medium for a sidecar with the same basename.
+    /// Looks beside a medium for sidecars carrying its basename.
     ///
-    /// `None` when there is nothing beside it — the ordinary case, and not a
+    /// Empty when there is nothing beside it — the ordinary case, and not a
     /// refusal. A refusal only exists once there is a file to refuse, and
-    /// ADR-0031 Karar 5 has the shell stay silent about those anyway.
-    pub fn add_sidecar_for(&self, media_path: String) -> Option<FfiSubtitleOutcome> {
+    /// ADR-0031 Karar 5 has the shell stay silent about those anyway. One
+    /// outcome per candidate that was there (ADR-0041), which is why this is a
+    /// list rather than the single answer it returned before.
+    pub fn add_sidecars_for(&self, media_path: String) -> Vec<FfiSubtitleOutcome> {
         lock(&self.inner)
-            .add_sidecar_of(Path::new(&media_path))
+            .add_sidecars_of(Path::new(&media_path))
+            .into_iter()
             .map(Into::into)
+            .collect()
     }
 
     /// Catalogues the embedded subtitle tracks of a freshly loaded medium.
@@ -385,10 +389,9 @@ mod tests {
     #[test]
     fn a_medium_with_nothing_beside_it_answers_nothing() {
         let library = FfiSubtitleLibrary::new();
-        assert_eq!(
-            library.add_sidecar_for("/nen-025/definitely/not/here.mkv".into()),
-            None
-        );
+        assert!(library
+            .add_sidecars_for("/nen-025/definitely/not/here.mkv".into())
+            .is_empty());
     }
 
     fn subtitle_track(id: u32, language: Option<&str>, title: Option<&str>) -> FfiTrackDescriptor {

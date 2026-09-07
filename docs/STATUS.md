@@ -3,8 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-06** (`NEN-057` done — dosya adının söylediği dil
-> artık okunuyor. Önceki: `NEN-042`)
+> Son güncelleme: **2026-09-07** (`NEN-075` done — sidecar taraması artık dil
+> alt-uzantılı dosyayı görüyor. Önceki: `NEN-057`)
 
 ## Nerede duruyoruz
 
@@ -12,21 +12,68 @@
 |---|---|
 | **Mevcut milestone** | **M3 — macOS Vertical Slice** (M2 kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | `NEN-057` — kullanıcı altyazısının dili artık dosya adındaki alt-uzantıdan da okunuyor, metadata olarak içerik tespitine önceliklenir |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-043`, `NEN-044`, `NEN-052`, `NEN-064`, `NEN-071`, `NEN-072`, `NEN-075` |
-| **Task sayısı** | 75 · done 63 · active 0 · blocked 0 · canceled 2 · backlog 10 |
+| **Son tamamlanan** | `NEN-075` — sidecar taraması artık medyanın dizinini bir kez listeliyor, `Film.tr.srt` elle seçilmeden bulunuyor (ADR-0041) |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-043`, `NEN-044`, `NEN-052`, `NEN-064`, `NEN-071`, `NEN-072`, `NEN-076` |
+| **Task sayısı** | 76 · done 64 · active 0 · blocked 0 · canceled 2 · backlog 10 |
 
 **M3 kapanmıyor: `milestone: M3` etiketli 16 task'ın hepsi bitecek**
 (kullanıcı kararı, 2026-09-06). Beş çıkış kriteri `NEN-028`'de kanıtlandı ve
 milestone dokümanının kanonik task listesi (`NEN-021`…`028`, `061`, `062`)
-tamamlandı, ama kriterlerle erken kapanış yapılmıyor. Kalan 4: `043` ·
-`052` · `071` · `075` — hepsi READY (`075`, `057`'nin bıraktığı sidecar
-boşluğuyla bugün açıldı).
+tamamlandı, ama kriterlerle erken kapanış yapılmıyor. Kalan 3: `043` ·
+`052` · `071` — hepsi READY.
 `docs/roadmap.md`'nin M3 satırı ve milestone dokümanının bayat task listesi
 kapanışta düzeltilecek. `NEN-073`, kullanıcının gerçek `.app`te minimum pencere
 sınırının uygulanmadığını göstermesiyle yeniden açıldı ve düzeltici kapanışta
 gerçek köşe sürüklemesiyle kanıtlandı; canlı resize regresyonu `NEN-074`
 ile kapandı.
+
+**`NEN-075` kapandı — `Film.mkv`'nin yanındaki `Film.tr.srt` artık elle
+seçilmeden bulunuyor.** `NEN-057`'nin ölçtüğü kapsam sınırı kapatıldı:
+sidecar taraması bugüne kadar yalnız tam basename eşleşmesine
+(`Film.mkv` → `Film.srt`) bakıyordu, dil alt-uzantılı adlar taramadan hiç
+geçmiyordu. `subtitle_files::sidecars_of` artık medyanın kendi dizinini
+**bir kez, özyinelemesiz** listeliyor ve `<basename>.` önekli, `.srt` ile
+biten her girdiyi aday sayıyor; `admit()`'in symlink, traversal,
+regular-file ve boyut kapıları her aday için **teker teker** aynen
+çalışıyor — büyüyen tek şey aday kümesi. `NEN-057`'nin dil ipucu
+(`from_file_name`) zaten ortak yükleme yolundaydı, dolayısıyla dil hattına
+dokunulmadı.
+
+**Önce ADR-0041 yazıldı, kullanıcı onayladı.** ADR-0034 Karar 3'ün "dizin
+listelemez" cümlesi bu kararla değişti; ADR-0034 supersede edilmedi, gövdesi
+duruyor ve Notlar'a işaret eklendi (ADR-0035'in kurduğu precedent). Üç
+kullanıcı kararı alındı: dizin listelemesi (sabit dil-kodu tablosu değil —
+ikinci bir ISO tablosu ve kombinatoryal patlama anlamına gelirdi), her
+alt-uzantı aday (dili çözülemeyen `Film.backup.srt` da kabul edilir, dili
+içerikten gelir), ve **16** adaylık belgeli bir üst sınır — tam basename
+eşleşmesi sıralamada her zaman ilk gelip sınırdan her zaman kurtulacak
+şekilde.
+
+**Dört negatif kontrol ayrık ölçüldü:** dizin listelemesi geri alınınca
+**8** kırmızı, sınır sıralaması geri alınınca **1** kırmızı, `admit()`'in
+symlink kapısı kaldırılınca **2** kırmızı, harf-duyarsız dedup geri alınınca
+**1** kırmızı. Yol üstünde ölçülen bir kenar durum (`Film.SRT`'nin
+büyük/küçük harf farkıyla ikinci bir aday sayılmaması) ayrı testle kapatıldı.
+
+**Gerçek `.app` kabulü** `Film.mkv`'nin yanına üç sidecar (`Film.srt`,
+`Film.en.srt`, `Film.tr.srt`), bir symlink (`Film.fr.srt`) ve başka bir
+"medyaya" ait bir dosya (`Baska.tr.srt`) konarak koşuldu: `⇧⌘O`'ya hiç
+dokunulmadan üçü de menüde (`Kullanıcı Altyazıları 3`), otomatik seçim
+Türkçe sidecar'ı açtı ve repliği ekranda çizdi; symlink sessizce yok,
+`Baska.tr.srt` hiç aday olmadı. Kanıt: `evidence/M3/NEN-075-checklist.md`.
+
+Rust workspace **594 → 605** (+11, dokuzu NEN-075'in kendi testleri, biri
+kenar durum), üç ardışık temiz koşuda 0 kırmızı; fmt, clippy, cargo-deny
+(yeni dış bağımlılık yok) yeşil. macOS Swift paketi **195/195**, `.app`
+build'i ve strict codesign yeşil. Değişiklik yalnız Rust çekirdeği ve tek
+satırlık bir Swift çağrı yeri güncellemesi; FFI yüzeyi `Vec` dönecek şekilde
+genişledi.
+
+**Yol üstünde bulunan, kapsam dışına ayrılan kusur:** `check-docs.sh` adım
+9'un STATUS güncellik denetimi CI'ın shallow clone'unda (`fetch-depth: 1`)
+her done task'ı HEAD'in tarihiyle okuyor — yalnız doküman içeren, yeni bir
+günde atılan bir commit (`1ad194d`, ADR-0041 kabulü) bunu ilk kez ortaya
+çıkardı. `NEN-076` olarak dosyalandı.
 
 **`NEN-057` kapandı — `Film.tr.srt` gibi bir dosya adı artık dilini
 söylüyor.** Bugüne kadar kullanıcı altyazısının dili yalnız içerikten tespit
@@ -1684,14 +1731,15 @@ Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
 
-2026-09-06'da `NEN-057` kapanışı için Rust workspace **594 passed / 1
-ignored** (bu task ile 586 → 594) geçti, `cargo fmt --check`,
+2026-09-07'de `NEN-075` kapanışı için Rust workspace **605 passed / 1
+ignored** (bu task ile 594 → 605) geçti, `cargo fmt --check`,
 `cargo clippy --workspace --all-targets -- -D warnings` ve `cargo deny check`
-temiz. Bu task Swift'e dokunmadı; aynı gün daha erken `NEN-042` kapanışı için
-macOS Swift paketi paralel ve seri **195/195** geçmişti, `.app` build'i,
-strict codesign, shell testleri, task index ve doküman kapıları da yeşildi.
-Ayrıntılı kayıt `tasks/done/NEN-057-*.md` ve
-`evidence/M3/NEN-042-checklist.md` içinde.
+temiz; üç ardışık koşuda 0 kırmızı. macOS Swift paketi **195/195**, `.app`
+build'i, `codesign --verify --strict` → `valid on disk`, shell testleri,
+task index ve doküman kapıları yeşil. Gerçek `.app`te `Film.mkv`'nin yanına
+konan `Film.tr.srt`/`Film.en.srt` sidecar'ları `⇧⌘O`'ya dokunulmadan
+bulundu, symlink aday sessizce reddedildi. Ayrıntılı kayıt
+`tasks/done/NEN-075-*.md` ve `evidence/M3/NEN-075-checklist.md` içinde.
 
 ### Toolchain kapısı geçmiş kaydı
 

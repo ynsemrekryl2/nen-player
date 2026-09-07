@@ -8,7 +8,9 @@
 //! test is consistent with itself. Nothing in this file needs a network, a
 //! credential or a fixed clock, so it stays deterministic all the same.
 
-use nen_app::subtitle_files::{FileRejection, SourceDefect, MAX_SUBTITLE_BYTES};
+use nen_app::subtitle_files::{
+    FileRejection, SourceDefect, MAX_SIDECAR_CANDIDATES, MAX_SUBTITLE_BYTES,
+};
 use nen_app::subtitles::{AddOutcome, SubtitleLibrary};
 use nen_domain::source::SubtitleSourceKind;
 use std::fs::{self, File};
@@ -61,7 +63,7 @@ fn a_sidecar_beside_the_medium_is_found_and_catalogued_as_a_user_source() {
     dir.write("Inception.2010.srt", VALID_SRT);
 
     let mut library = SubtitleLibrary::new();
-    assert_eq!(library.add_sidecar_of(&media), Some(AddOutcome::Added));
+    assert_eq!(library.add_sidecars_of(&media), vec![AddOutcome::Added]);
 
     let sources: Vec<_> = library
         .catalog()
@@ -79,7 +81,7 @@ fn a_medium_with_no_sidecar_beside_it_is_not_a_refusal() {
     let media = dir.write("Alone.mkv", "not really a video");
 
     let mut library = SubtitleLibrary::new();
-    assert_eq!(library.add_sidecar_of(&media), None);
+    assert_eq!(library.add_sidecars_of(&media), Vec::new());
     assert_eq!(library.catalog().len(), 0);
 }
 
@@ -99,7 +101,7 @@ fn a_sidecar_lands_in_the_language_group_its_text_belongs_to() {
     );
 
     let mut library = SubtitleLibrary::new();
-    assert_eq!(library.add_sidecar_of(&media), Some(AddOutcome::Added));
+    assert_eq!(library.add_sidecars_of(&media), vec![AddOutcome::Added]);
 
     let source = library
         .catalog()
@@ -524,7 +526,7 @@ fn a_sidecar_and_the_same_file_loaded_by_hand_are_one_entry() {
     let sidecar = dir.write("Film.srt", VALID_SRT);
 
     let mut library = SubtitleLibrary::new();
-    assert_eq!(library.add_sidecar_of(&media), Some(AddOutcome::Added));
+    assert_eq!(library.add_sidecars_of(&media), vec![AddOutcome::Added]);
     assert_eq!(library.add_file(&sidecar, dir.path()), AddOutcome::Added);
     assert_eq!(library.catalog().len(), 1);
 }
@@ -565,4 +567,204 @@ fn reloading_a_repaired_file_clears_the_mark_it_used_to_carry() {
     assert_eq!(library.catalog().len(), 1);
     assert_eq!(library.defect(source.id()), None);
     assert!(library.is_usable(source.id()));
+}
+
+// --- ADR-0041: the candidate set, and the gates in front of it --------------
+
+/// The label of every user source in the catalog, sorted so the assertion does
+/// not depend on insertion order.
+fn user_labels(library: &SubtitleLibrary) -> Vec<String> {
+    let mut labels: Vec<String> = library
+        .catalog()
+        .of_kind(SubtitleSourceKind::User)
+        .map(|source| source.label().to_string())
+        .collect();
+    labels.sort();
+    labels
+}
+
+#[test]
+fn a_language_suffixed_sidecar_is_found_by_the_scan_and_carries_its_language() {
+    // The gap NEN-057 measured: the hint has always been in `load`, but
+    // `Film.tr.srt` never reached it because the scan could not name the file.
+    let dir = TempDir::new("suffixed");
+    let media = dir.write("Film.mkv", "not really a video");
+    dir.write("Film.tr.srt", VALID_SRT);
+
+    let mut library = SubtitleLibrary::new();
+    assert_eq!(library.add_sidecars_of(&media), vec![AddOutcome::Added]);
+
+    let source = library
+        .catalog()
+        .of_kind(SubtitleSourceKind::User)
+        .next()
+        .expect("one user source");
+    assert_eq!(source.label(), "Film.tr.srt");
+    // English text under a `.tr.` name: the language can only have come from
+    // the filename, so this also proves which of the two answered.
+    assert_eq!(source.language().map(|tag| tag.as_str()), Some("tr"));
+}
+
+#[test]
+fn the_exact_basename_still_arrives_alongside_the_suffixed_ones() {
+    let dir = TempDir::new("both-kinds");
+    let media = dir.write("Film.mkv", "not really a video");
+    dir.write("Film.srt", VALID_SRT);
+    dir.write("Film.tr.srt", VALID_SRT);
+    dir.write("Film.en.srt", VALID_SRT);
+
+    let mut library = SubtitleLibrary::new();
+    assert_eq!(
+        library.add_sidecars_of(&media),
+        vec![AddOutcome::Added, AddOutcome::Added, AddOutcome::Added]
+    );
+    assert_eq!(
+        user_labels(&library),
+        ["Film.en.srt", "Film.srt", "Film.tr.srt"]
+    );
+}
+
+#[test]
+fn a_suffix_that_names_no_language_is_still_a_sidecar() {
+    // ADR-0041 Karar 6. Whether the suffix is a language is `from_file_name`'s
+    // question at load time, not a second gate on the candidate set — refusing
+    // here would make `Film.backup.srt` invisible to the scan while `⇧⌘O`
+    // loads it happily, which is a smaller copy of the defect being fixed.
+    let dir = TempDir::new("nonlanguage-suffix");
+    let media = dir.write("Film.mkv", "not really a video");
+    dir.write("Film.backup.srt", VALID_SRT);
+
+    let mut library = SubtitleLibrary::new();
+    assert_eq!(library.add_sidecars_of(&media), vec![AddOutcome::Added]);
+    assert_eq!(user_labels(&library), ["Film.backup.srt"]);
+}
+
+#[test]
+fn the_scan_takes_only_the_medium_s_own_basename() {
+    // Not a directory sweep. A neighbour belonging to another film stays out,
+    // which is what keeps ADR-0041 a widening of the basename rule rather than
+    // a replacement for it.
+    let dir = TempDir::new("only-own");
+    let media = dir.write("Film.mkv", "not really a video");
+    dir.write("Film.tr.srt", VALID_SRT);
+    dir.write("Baska.tr.srt", VALID_SRT);
+    dir.write("Filmography.tr.srt", VALID_SRT);
+
+    let mut library = SubtitleLibrary::new();
+    assert_eq!(library.add_sidecars_of(&media), vec![AddOutcome::Added]);
+    assert_eq!(user_labels(&library), ["Film.tr.srt"]);
+}
+
+#[test]
+fn a_candidate_must_still_end_in_srt() {
+    let dir = TempDir::new("not-srt");
+    let media = dir.write("Film.mkv", "not really a video");
+    dir.write("Film.tr.txt", VALID_SRT);
+    dir.write("Film.srt.bak", VALID_SRT);
+    dir.write("Film.tr.srt.disabled", VALID_SRT);
+
+    let mut library = SubtitleLibrary::new();
+    assert_eq!(library.add_sidecars_of(&media), Vec::new());
+    assert_eq!(library.catalog().len(), 0);
+}
+
+#[test]
+fn the_candidate_set_stops_at_the_cap_and_never_drops_the_exact_match() {
+    // ADR-0041 Karar 4. Twenty candidates whose names all sort *before*
+    // `Film.srt`, so a cap applied to a plain alphabetical order would drop
+    // exactly the file today's scan finds.
+    let dir = TempDir::new("capped");
+    let media = dir.write("Film.mkv", "not really a video");
+    dir.write("Film.srt", VALID_SRT);
+    for n in 0..20 {
+        dir.write(&format!("Film.a{n:02}.srt"), VALID_SRT);
+    }
+
+    let mut library = SubtitleLibrary::new();
+    let outcomes = library.add_sidecars_of(&media);
+    assert_eq!(outcomes.len(), MAX_SIDECAR_CANDIDATES);
+    assert_eq!(library.catalog().len(), MAX_SIDECAR_CANDIDATES);
+
+    let labels = user_labels(&library);
+    assert!(labels.contains(&"Film.srt".to_string()), "{labels:?}");
+    // The fifteen lowest-sorting suffixed names, and nothing past them.
+    assert!(labels.contains(&"Film.a00.srt".to_string()), "{labels:?}");
+    assert!(labels.contains(&"Film.a14.srt".to_string()), "{labels:?}");
+    assert!(!labels.contains(&"Film.a15.srt".to_string()), "{labels:?}");
+}
+
+#[test]
+#[cfg(unix)]
+fn a_symlinked_language_suffixed_sidecar_is_refused_by_the_scan() {
+    // The new surface does not walk around the old gates (ADR-0041 Karar 3).
+    // The target is valid SRT, so following it would have produced a working
+    // entry — an empty catalog is what proves it was not followed.
+    let dir = TempDir::new("suffixed-symlink");
+    let media = dir.write("Film.mkv", "not really a video");
+    let real = dir.write("real.srt", VALID_SRT);
+    std::os::unix::fs::symlink(&real, dir.path().join("Film.tr.srt")).expect("symlink");
+
+    let mut library = SubtitleLibrary::new();
+    assert_eq!(
+        library.add_sidecars_of(&media),
+        vec![AddOutcome::Rejected(FileRejection::Symlink)]
+    );
+    assert_eq!(library.catalog().len(), 0);
+}
+
+#[test]
+#[cfg(unix)]
+fn an_oversized_language_suffixed_sidecar_is_refused_without_being_opened() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let dir = TempDir::new("suffixed-too-large");
+    let media = dir.write("Film.mkv", "not really a video");
+    let big = dir.path().join("Film.tr.srt");
+    let file = File::create(&big).expect("create");
+    file.set_len(MAX_SUBTITLE_BYTES + 1).expect("set_len");
+    drop(file);
+    fs::set_permissions(&big, fs::Permissions::from_mode(0o000)).expect("chmod");
+
+    let mut library = SubtitleLibrary::new();
+    let outcomes = library.add_sidecars_of(&media);
+
+    let _ = fs::set_permissions(&big, fs::Permissions::from_mode(0o600));
+    // Opening it first would have to report `Unreadable`; `TooLarge` is only
+    // reachable without opening.
+    assert_eq!(
+        outcomes,
+        vec![AddOutcome::Rejected(FileRejection::TooLarge)]
+    );
+    assert_eq!(library.catalog().len(), 0);
+}
+
+#[test]
+fn a_directory_named_like_a_suffixed_sidecar_is_refused_by_the_scan() {
+    let dir = TempDir::new("suffixed-directory");
+    let media = dir.write("Film.mkv", "not really a video");
+    fs::create_dir_all(dir.path().join("Film.tr.srt")).expect("directory");
+
+    let mut library = SubtitleLibrary::new();
+    assert_eq!(
+        library.add_sidecars_of(&media),
+        vec![AddOutcome::Rejected(FileRejection::NotRegularFile)]
+    );
+    assert_eq!(library.catalog().len(), 0);
+}
+
+#[test]
+fn a_differently_cased_exact_match_is_not_a_second_candidate() {
+    // Measured while writing ADR-0041: on a case-insensitive volume — macOS's
+    // default — `Film.SRT` is reachable through the exact candidate, so a
+    // listing that also named it would catalog one file twice under two
+    // spellings. The assertion holds on either kind of volume, which is why it
+    // is made about the candidate list rather than about the catalog.
+    let dir = TempDir::new("cased");
+    let media = dir.write("Film.mkv", "not really a video");
+    dir.write("Film.SRT", VALID_SRT);
+
+    assert_eq!(
+        nen_app::subtitle_files::sidecars_of(&media),
+        vec![dir.path().join("Film.srt")]
+    );
 }

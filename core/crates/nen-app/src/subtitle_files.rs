@@ -282,19 +282,84 @@ pub fn load(path: &Path, root: &Path) -> LoadedFile {
     }
 }
 
-/// The one path a sidecar scan looks at: the medium's own name with `.srt`.
+/// The most candidates one scan will look at (ADR-0041 Karar 4).
 ///
-/// Deliberately not a directory listing. NEN-025's scope allows the same
-/// basename and nothing else, which means the scan never needs to enumerate a
-/// directory — it needs to open one known file. That keeps the "no recursive
-/// search" rule true by construction instead of by discipline, and on a
-/// sandboxed platform it is also the difference between needing access to a
-/// folder and needing access to a file.
+/// Not a performance budget — a ceiling on pathological input. A medium with
+/// more than sixteen subtitles beside it is not something real libraries
+/// produce; a directory holding thousands of `Film.*.srt` entries is, and each
+/// candidate costs up to [`MAX_SUBTITLE_BYTES`] of reading and parsing.
+pub const MAX_SIDECAR_CANDIDATES: usize = 16;
+
+/// Every path a sidecar scan looks at: the medium's own name with `.srt`, plus
+/// whatever language-suffixed siblings sit next to it (ADR-0041).
 ///
-/// `None` when the medium has no filename to build one from.
-pub fn sidecar_of(media: &Path) -> Option<PathBuf> {
-    media.file_name()?;
-    Some(media.with_extension("srt"))
+/// One directory, read once, no recursion. The candidate set is everything
+/// named `<basename>.….srt` — `Film.srt`, `Film.tr.srt`, `Film.en.sdh.srt`,
+/// `Film.backup.srt`. Whether a suffix names a language is not asked here;
+/// [`load`] already asks it of the filename it admits (NEN-057), so a second
+/// opinion at this point would only be a second language table.
+///
+/// **The gates are not part of this decision.** Every returned path still goes
+/// through [`admit`] one by one, so widening the set here cannot widen what is
+/// accepted — ADR-0041 Karar 3, and the reason ADR-0034 Karar 2 survives it.
+///
+/// Order is fixed rather than whatever `read_dir` happens to yield: the exact
+/// basename match comes first — so the one file today's scan finds can never be
+/// the one the cap drops — and the rest sort by name. Empty when the medium has
+/// no filename to build a candidate from.
+pub fn sidecars_of(media: &Path) -> Vec<PathBuf> {
+    if media.file_name().is_none() {
+        return Vec::new();
+    }
+    let exact = media.with_extension("srt");
+    let Some(parent) = media.parent() else {
+        return vec![exact];
+    };
+    // `Inception.2010.mkv` → `Inception.2010`, i.e. the same basename the exact
+    // match uses. Built from the exact path so the two can never disagree.
+    let Some(stem) = exact.file_stem().and_then(|s| s.to_str()) else {
+        return vec![exact];
+    };
+    let exact_name = exact.file_name().and_then(|n| n.to_str()).unwrap_or("");
+
+    // A directory that cannot be listed leaves the scan exactly where it was
+    // before ADR-0041: the one known path. The new surface is never narrower
+    // than the old one.
+    let Ok(entries) = fs::read_dir(parent) else {
+        return vec![exact];
+    };
+
+    let prefix = format!("{stem}.");
+    let mut suffixed: Vec<String> = entries
+        .flatten()
+        .filter_map(|entry| entry.file_name().into_string().ok())
+        // Case-insensitively, because on a case-insensitive volume `Film.SRT`
+        // *is* the exact match: today's scan already finds it through
+        // `Film.srt`, and letting the listing name it a second time would put
+        // one file in the catalog twice under two spellings.
+        .filter(|name| !name.eq_ignore_ascii_case(exact_name))
+        .filter(|name| name.starts_with(&prefix))
+        // Case-insensitive on the extension alone: `Film.SRT` is already found
+        // today on a case-insensitive volume, and the listing must not be the
+        // thing that takes it away. The prefix stays exact — it names the
+        // medium the user opened.
+        .filter(|name| {
+            Path::new(name)
+                .extension()
+                .and_then(|e| e.to_str())
+                .is_some_and(|e| e.eq_ignore_ascii_case("srt"))
+        })
+        .collect();
+    suffixed.sort();
+
+    let mut candidates = vec![exact];
+    candidates.extend(
+        suffixed
+            .into_iter()
+            .take(MAX_SIDECAR_CANDIDATES - 1)
+            .map(|name| parent.join(name)),
+    );
+    candidates
 }
 
 #[cfg(test)]
@@ -302,25 +367,43 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_sidecar_is_the_same_basename_with_srt() {
-        let sidecar = sidecar_of(Path::new("/m/Inception.2010.mkv")).expect("a name");
-        assert_eq!(sidecar, Path::new("/m/Inception.2010.srt"));
+    fn the_exact_basename_is_always_the_first_candidate() {
+        // The one path today's scan finds. First in the order means the cap
+        // (ADR-0041 Karar 4) can never be the thing that drops it.
+        let candidates = sidecars_of(Path::new("/m/Inception.2010.mkv"));
+        assert_eq!(
+            candidates.first().map(PathBuf::as_path),
+            Some(Path::new("/m/Inception.2010.srt"))
+        );
     }
 
     #[test]
-    fn a_sidecar_replaces_the_extension_rather_than_appending_one() {
+    fn a_candidate_replaces_the_extension_rather_than_appending_one() {
         // "aynı basename" — `Inception.2010.mkv.srt` would be a different one.
-        let sidecar = sidecar_of(Path::new("/m/Inception.2010.mkv")).expect("a name");
-        assert_eq!(sidecar.extension().and_then(|e| e.to_str()), Some("srt"));
+        let exact = sidecars_of(Path::new("/m/Inception.2010.mkv"))
+            .into_iter()
+            .next()
+            .expect("a candidate");
+        assert_eq!(exact.extension().and_then(|e| e.to_str()), Some("srt"));
         assert_eq!(
-            sidecar.file_stem().and_then(|e| e.to_str()),
+            exact.file_stem().and_then(|e| e.to_str()),
             Some("Inception.2010")
         );
     }
 
     #[test]
-    fn a_path_without_a_filename_has_no_sidecar() {
-        assert_eq!(sidecar_of(Path::new("/")), None);
+    fn a_path_without_a_filename_has_no_candidates() {
+        assert!(sidecars_of(Path::new("/")).is_empty());
+    }
+
+    #[test]
+    fn an_unlistable_directory_still_yields_the_exact_match() {
+        // `/m` does not exist, so `read_dir` fails. ADR-0041 Karar 5: the scan
+        // falls back to what it looked at before, never to nothing.
+        assert_eq!(
+            sidecars_of(Path::new("/m/Inception.2010.mkv")),
+            vec![PathBuf::from("/m/Inception.2010.srt")]
+        );
     }
 
     #[test]

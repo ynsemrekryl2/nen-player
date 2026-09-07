@@ -346,7 +346,7 @@ public final class PlayerModel: ObservableObject {
         isScanningSubtitles = true
         sidecarScanTask = Task { [weak self] in
             _ = await Task.detached(priority: .utility) {
-                library.addSidecarFor(mediaPath: path)
+                library.addSidecarsFor(mediaPath: path)
             }.value
             guard !Task.isCancelled, let self else { return }
             self.isScanningSubtitles = false

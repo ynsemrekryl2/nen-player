@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **75** task · ✅ done 63 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 10
+Toplam **76** task · ✅ done 64 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 10
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -93,7 +93,8 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-071](backlog/NEN-071-open-panel-resolves-links.md) | Decide what the subtitle file picker does with a link | S | ⚪ backlog | NEN-025 |
 | [NEN-073](done/NEN-073-player-chrome-boundaries.md) | Player chrome boundary behaviour | M | ✅ done | — |
 | [NEN-074](done/NEN-074-smooth-live-resize.md) | Smooth live video resize | M | ✅ done | NEN-073 |
-| [NEN-075](backlog/NEN-075-sidecar-language-suffix.md) | Sidecar discovery does not see a language-suffixed subtitle | S | ⚪ backlog | NEN-025 NEN-057 |
+| [NEN-075](done/NEN-075-sidecar-language-suffix.md) | Sidecar discovery does not see a language-suffixed subtitle | S | ✅ done | NEN-025 NEN-057 |
+| [NEN-076](backlog/NEN-076-status-freshness-check-on-shallow-clone.md) | The STATUS freshness check reads every done task as today on CI | S | ⚪ backlog | NEN-040 |
 
 ## M5 — Translation Core
 
@@ -124,4 +125,4 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-064** — Verified media identity in player chrome
 - **NEN-071** — Decide what the subtitle file picker does with a link
 - **NEN-072** — Parse container metadata from remote byte windows
-- **NEN-075** — Sidecar discovery does not see a language-suffixed subtitle
+- **NEN-076** — The STATUS freshness check reads every done task as today on CI

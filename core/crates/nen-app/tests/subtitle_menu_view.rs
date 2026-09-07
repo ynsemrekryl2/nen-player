@@ -154,8 +154,8 @@ fn a_broken_sidecar_stays_in_the_menu_carrying_its_reason() {
 
     let mut library = SubtitleLibrary::new();
     assert_eq!(
-        library.add_sidecar_of(&media),
-        Some(AddOutcome::Defective(SourceDefect::Malformed))
+        library.add_sidecars_of(&media),
+        vec![AddOutcome::Defective(SourceDefect::Malformed)]
     );
 
     let menu = library.menu(&SubtitlePreferences::none());
@@ -171,7 +171,7 @@ fn a_readable_sidecar_carries_no_reason() {
     dir.write("Clip.srt", VALID_SRT);
 
     let mut library = SubtitleLibrary::new();
-    assert_eq!(library.add_sidecar_of(&media), Some(AddOutcome::Added));
+    assert_eq!(library.add_sidecars_of(&media), vec![AddOutcome::Added]);
 
     let menu = library.menu(&SubtitlePreferences::none());
     let user = section(&menu, &MenuGroup::UserSubtitles);
@@ -216,7 +216,7 @@ fn a_growing_library_never_renumbers_a_row() {
         .collect();
 
     dir.write("Clip.srt", VALID_SRT);
-    assert_eq!(library.add_sidecar_of(&media), Some(AddOutcome::Added));
+    assert_eq!(library.add_sidecars_of(&media), vec![AddOutcome::Added]);
 
     let after: Vec<(u32, String)> = library
         .menu(&SubtitlePreferences::none())

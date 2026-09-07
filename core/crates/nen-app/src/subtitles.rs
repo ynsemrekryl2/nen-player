@@ -171,18 +171,27 @@ impl SubtitleLibrary {
         }
     }
 
-    /// Looks beside the medium for a sidecar with the same basename.
+    /// Looks beside the medium for sidecars carrying its basename.
     ///
-    /// `None` when there is nothing there to look at — a medium without a
+    /// Empty when there is nothing there to look at — a medium without a
     /// filename, or simply no sidecar. That is the ordinary case and not a
-    /// rejection: a refusal only exists once there is a file to refuse.
-    pub fn add_sidecar_of(&mut self, media: &Path) -> Option<AddOutcome> {
-        let sidecar = subtitle_files::sidecar_of(media)?;
-        if !sidecar.exists() {
-            return None;
-        }
-        let root = media.parent()?;
-        Some(self.add_file(&sidecar, root))
+    /// rejection: a refusal only exists once there is a file to refuse, which
+    /// is also why a candidate that is not there is skipped rather than
+    /// reported. One outcome per candidate that exists, in the order
+    /// [`subtitle_files::sidecars_of`] fixed.
+    ///
+    /// Each candidate goes through [`Self::add_file`] — the same body the file
+    /// picker reaches, so ADR-0041 widens the candidate set without opening a
+    /// second way into the catalog or a second set of gates.
+    pub fn add_sidecars_of(&mut self, media: &Path) -> Vec<AddOutcome> {
+        let Some(root) = media.parent() else {
+            return Vec::new();
+        };
+        subtitle_files::sidecars_of(media)
+            .into_iter()
+            .filter(|candidate| candidate.exists())
+            .map(|candidate| self.add_file(&candidate, root))
+            .collect()
     }
 
     pub fn catalog(&self) -> &SubtitleSourceCatalog {

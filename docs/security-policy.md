@@ -88,6 +88,14 @@ Kullanıcının verdiği veya keşfedilen her altyazı dosyası için, **açmada
 Yazma tarafında: artifact commit **atomik** olmalıdır (geçici dosyaya yaz →
 fsync → rename). Yarım dosya asla görünür olmaz.
 
+**Sidecar keşfinin kapsamı (ADR-0041):** medyanın kendi dizini bir kez,
+özyinelemesiz listelenir; adı `<basename>.` önekiyle başlayıp `.srt` ile biten
+her girdi adaydır. Alt dizin yok, üst dizin yok, ikinci bir dizin yok. Her
+aday yukarıdaki altı kapıdan **teker teker** geçer — dizin listelemesi aday
+kümesini büyütür, kapıları gevşetmez. Aday sayısı **16** ile sınırlıdır; tam
+basename eşleşmesi (`Film.srt`) sıralamada her zaman ilk gelir ve sınırdan
+her zaman kurtulur.
+
 ## 5. Secret yaşam döngüsü
 
 | Aşama | Kural |
