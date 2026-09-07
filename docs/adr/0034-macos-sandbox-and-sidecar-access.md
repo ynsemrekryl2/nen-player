@@ -120,3 +120,5 @@ teknik olarak ucuz, ürün olarak pahalı.
 ## Notlar
 
 Ölçümün tam kaydı: `evidence/M3/NEN-025-sandbox-measurement.md`.
+
+**Karar 3'ün sidecar cümlesi ADR-0041 ile değişti (2026-09-07).** "Sidecar taraması aynı basename'li tek dosyaya bakar, dizin listelemez" artık geçerli değil: tarama medyanın **kendi dizinini bir kez, özyinelemesiz** listeliyor ve `<basename>.` önekli `.srt` adaylarını topluyor. Karar 3'ün geri kalanı — açılan medyanın dizini dışında hiçbir yerin okunmaması, özyineleme yasağı — ve Karar 2'nin "§4 kapıları tek savunma hattıdır, zayıflatılamaz" hükmü aynen yürürlükte; ADR-0041 kapıları değiştirmiyor, yalnız aday kümesini büyütüyor. Gerekçe ve kabul edilen maliyet için bkz. ADR-0041. Bu ADR **supersede edilmedi**: gövdesi olduğu gibi geçerli ve `adr:` alanıyla buraya referans veren done task'lar (`NEN-025`) etkilenmiyor.
