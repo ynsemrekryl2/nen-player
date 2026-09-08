@@ -141,7 +141,14 @@ public final class PlayerModel: ObservableObject {
     /// and prove the real gates.
     private let subtitles = FfiSubtitleLibrary()
     private var session: (any PlaybackSessionClient)?
-    private var pendingURL: URL?
+    /// A medium (and its handoff start position, if any) that arrived before
+    /// `attach(to:)` gave it something to open into — the ordinary case for a
+    /// handoff that starts the app cold (NEN-080's `HandoffCoordinator`).
+    private var pendingOpen: (url: URL, startPositionMs: UInt64?)?
+    /// The handoff start position for the medium currently loading, applied
+    /// once `apply(_:)` sees `.ready` (NEN-081). `⌘O` and every other opener
+    /// leave this `nil`.
+    private var pendingHandoffStartPositionMs: UInt64?
     private var pollTask: Task<Void, Never>?
     private var sidecarScanTask: Task<Void, Never>?
     /// ADR-0031 Karar 4.3: automatic selection runs **once**, at the start.
@@ -216,9 +223,9 @@ public final class PlayerModel: ObservableObject {
             if shouldPoll {
                 startPolling()
             }
-            if let pendingURL {
-                self.pendingURL = nil
-                openMedia(at: pendingURL)
+            if let pendingOpen {
+                self.pendingOpen = nil
+                openMedia(at: pendingOpen.url, startPositionMs: pendingOpen.startPositionMs)
             }
         } catch {
             presentFatal(error)
@@ -248,13 +255,19 @@ public final class PlayerModel: ObservableObject {
     /// shapes `nen_app::handoff` resolves a locator to. Everything else
     /// (`⌘O`'s own panel, drag-and-drop) already only ever hands over a file
     /// URL, so the remote branch is reached only from a handoff.
-    public func openMedia(at url: URL) {
+    ///
+    /// `startPositionMs` is a handoff's business only (NEN-081); `⌘O`, the
+    /// recents list and drag-and-drop all leave it `nil`. It is not applied
+    /// here — the medium's duration is not knowable until it has loaded, so
+    /// it waits in `pendingHandoffStartPositionMs` for `apply(_:)`'s `.ready`
+    /// branch, the same event ADR-0042's own deferred seek answers to.
+    public func openMedia(at url: URL, startPositionMs: UInt64? = nil) {
         guard url.isFileURL || Self.isSupportedRemoteURL(url) else {
             presentTransient(PlaybackPresentation.unsupportedMediaSourceMessage)
             return
         }
         guard let session else {
-            pendingURL = url
+            pendingOpen = (url, startPositionMs)
             return
         }
 
@@ -269,6 +282,9 @@ public final class PlayerModel: ObservableObject {
         fatalMessage = nil
         transientMessage = nil
         resetSubtitleCatalog()
+        // Every open replaces whatever position a previous, still-loading
+        // medium was carrying — there is only ever one medium in flight.
+        pendingHandoffStartPositionMs = startPositionMs
         if url.isFileURL {
             // A remote locator's `.path` is a URL path component, not a
             // filesystem path — there is no directory beside it to list.
@@ -321,17 +337,15 @@ public final class PlayerModel: ObservableObject {
     ///
     /// `.none` does nothing — an ordinary launch (no positional argument) is
     /// not a failure to react to. `.medium` opens exactly the way `⌘O` opens
-    /// one; `.rejected` uses the same transient surface `openMedia(at:)`
-    /// already shows for a source it refuses on its own.
-    ///
-    /// `startPositionMs` is intentionally unused here — NEN-081 is what turns
-    /// it into a seek once the medium has loaded.
+    /// one, carrying its start position along (NEN-081); `.rejected` uses the
+    /// same transient surface `openMedia(at:)` already shows for a source it
+    /// refuses on its own.
     public func handleHandoff(_ outcome: HandoffOutcome) {
         switch outcome {
         case .none:
             break
-        case let .medium(url, startPositionMs: _):
-            openMedia(at: url)
+        case let .medium(url, startPositionMs):
+            openMedia(at: url, startPositionMs: startPositionMs)
         case let .rejected(message):
             presentTransient(message)
         }
@@ -747,6 +761,9 @@ public final class PlayerModel: ObservableObject {
         videoGeometry = nil
         seekPreviewMilliseconds = nil
         releaseSeekGuard()
+        // The session it targeted is gone, so nothing is left to seek
+        // (ADR-0042 Karar 4's own reasoning, carried over — NEN-081).
+        pendingHandoffStartPositionMs = nil
         fatalMessage = nil
         transientMessage = nil
         playWhenReady = false
@@ -836,6 +853,12 @@ public final class PlayerModel: ObservableObject {
 
     private func apply(_ state: FfiPlaybackState) {
         playbackState = state
+        if state == .failed || state == .idle {
+            // Nothing is left to apply a still-pending handoff position to —
+            // the load it targeted either failed or was stopped before it
+            // answered (ADR-0042 Karar 4's own reasoning, carried over).
+            pendingHandoffStartPositionMs = nil
+        }
         // The tracks exist the moment the file is loaded, which is what `ready`
         // means here. Cataloguing before play keeps ADR-0031 Karar 4's promise
         // literal: the menu holds `Kapalı` plus the embedded tracks from the
@@ -856,6 +879,10 @@ public final class PlayerModel: ObservableObject {
             // pin nothing. One redraw per load costs a single render of the
             // frame mpv already holds.
             videoView?.redrawWithoutNewFrame()
+            // Before `playWhenReady` turns into `session.play()` below — a
+            // handoff position is where the medium starts, not somewhere it
+            // jumps to after a frame of playing from the beginning (NEN-081).
+            applyHandoffStartPosition()
         }
         if state == .ready, playWhenReady, let session {
             playWhenReady = false
@@ -926,23 +953,70 @@ public final class PlayerModel: ObservableObject {
         }
     }
 
-    private func seek(to milliseconds: UInt64) {
+    /// Issues a seek and starts the guard NEN-053 depends on.
+    ///
+    /// `drainingEvents` is `false` only for NEN-081's handoff start position:
+    /// that call runs from inside `apply(_:)`, itself reached from inside
+    /// `consume(_:)`'s loop over one batch of events — draining again there
+    /// would feed a second, overlapping batch into the same loop before it
+    /// has finished the first. Every other caller (`seekRelative`,
+    /// `commitSeek`) drains immediately: NEN-055 measured the answer as
+    /// already queued by the time the command returns.
+    ///
+    /// `presentsErrorOnFailure` is `false` for the same handoff path: a
+    /// rejected handoff position is not the user's own action, so ADR-0031
+    /// Karar 1 has no class for it — the medium simply keeps playing from
+    /// wherever it already is.
+    private func seek(
+        to milliseconds: UInt64,
+        drainingEvents: Bool = true,
+        presentsErrorOnFailure: Bool = true
+    ) {
         guard let session, hasMedia else { return }
         do {
             try session.seek(toMs: milliseconds)
             positionMilliseconds = milliseconds
             pendingSeekCount += 1
             seekGuardExpiry = now() + seekGuardTimeoutNanoseconds
-            // Safe only because of the guard above: what the queue is holding
-            // at this instant is the position from *before* the seek, which is
-            // exactly what NEN-053 measured and now refuses.
-            drainSessionEvents()
+            if drainingEvents {
+                // Safe only because of the guard above: what the queue is
+                // holding at this instant is the position from *before* the
+                // seek, which is exactly what NEN-053 measured and now
+                // refuses.
+                drainSessionEvents()
+            }
         } catch {
             // A refused seek is owed no answer, so it must not leave a guard
             // behind: the position that keeps arriving is the true one.
             releaseSeekGuard()
-            presentTransient(PlaybackPresentation.errorMessage(for: error))
+            if presentsErrorOnFailure {
+                presentTransient(PlaybackPresentation.errorMessage(for: error))
+            }
         }
+    }
+
+    /// Applies the position a handoff carried, once the medium it targets has
+    /// finished loading (NEN-081).
+    ///
+    /// Called from `apply(_:)`'s `.ready` branch rather than riding
+    /// ADR-0042's own deferred-seek mechanism at `load` time: the duration
+    /// this needs to judge the position against is not knowable until the
+    /// medium has loaded, since mpv itself only learns it then (see
+    /// ADR-0043's Notlar).
+    private func applyHandoffStartPosition() {
+        guard let target = pendingHandoffStartPositionMs else { return }
+        pendingHandoffStartPositionMs = nil
+        // A duration this session cannot read (a live stream, or a session
+        // that is already gone) has nothing to exceed — the position is
+        // trusted rather than dropped for a question the medium cannot
+        // answer. A duration it *can* read and the position meets or passes
+        // is exactly ADR-0043 Karar 2's "süreyi aşan değer sessizce düşer":
+        // the medium keeps playing from where the load already put it,
+        // no error surface.
+        if let duration = try? session?.durationMs(), target >= duration {
+            return
+        }
+        seek(to: target, drainingEvents: false, presentsErrorOnFailure: false)
     }
 
     /// Whether a position report may still be describing where the medium was

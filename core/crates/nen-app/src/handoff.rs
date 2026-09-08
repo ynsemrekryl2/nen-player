@@ -114,10 +114,12 @@ impl fmt::Debug for HandoffLocator {
 
 /// One handoff, resolved.
 ///
-/// `start_position_ms` is parsed here but applied by NEN-081 — this task
-/// stops at "the medium opens the way `⌘O` opens it". The unit is
-/// milliseconds because that is what ADR-0042's `deferredSeekMs` contract
-/// speaks; seconds only exist at the boundary, where senders write them.
+/// `start_position_ms` is parsed here but applied by the macOS shell
+/// (`PlayerModel.applyHandoffStartPosition()`, NEN-081) once the medium has
+/// loaded — this module stops at "the medium opens the way `⌘O` opens it".
+/// The unit is milliseconds because that is what ADR-0042's `deferredSeekMs`
+/// contract speaks; seconds only exist at the boundary, where senders write
+/// them.
 #[derive(Clone, PartialEq, Eq)]
 pub struct HandoffRequest {
     pub locator: HandoffLocator,

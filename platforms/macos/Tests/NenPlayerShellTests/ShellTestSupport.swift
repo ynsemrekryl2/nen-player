@@ -198,6 +198,10 @@ final class FakeSession: PlaybackSessionClient {
     var playCount = 0
     var pauseCount = 0
     var seekTargets: [UInt64] = []
+    /// `.seek` and `.play`, in the order the shell actually issued them —
+    /// NEN-081's DoD is specifically that a handoff's start position lands
+    /// *before* playback starts, and two separate counters cannot show that.
+    var callOrder: [FakeSessionCall] = []
     var rates: [Float] = []
     var volumes: [Float] = []
     /// Every bottom inset the shell declared, in order (ADR-0037).
@@ -237,6 +241,7 @@ final class FakeSession: PlaybackSessionClient {
     }
     func play() throws {
         try refuse(.play)
+        callOrder.append(.play)
         playCount += 1
         currentState = .playing
         // The real adapter appends the transition before the command returns
@@ -256,6 +261,7 @@ final class FakeSession: PlaybackSessionClient {
     }
     func seek(toMs: UInt64) throws {
         try refuse(.seek)
+        callOrder.append(.seek)
         seekTargets.append(toMs)
         currentPosition = toMs
     }

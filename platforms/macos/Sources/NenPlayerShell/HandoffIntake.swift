@@ -10,8 +10,10 @@ import NenCore
 public enum HandoffOutcome: Equatable {
     /// A medium to open, the way `⌘O` opens one.
     ///
-    /// `startPositionMs` crosses the gate today but is not applied here —
-    /// NEN-081 is what turns it into a seek.
+    /// `startPositionMs` is applied once the medium has loaded
+    /// (`PlayerModel.applyHandoffStartPosition()`, NEN-081) — not here, and
+    /// not at `PlayerModel.openMedia(at:startPositionMs:)`'s own `load` call,
+    /// because the medium's duration is unknowable that early.
     case medium(URL, startPositionMs: UInt64?)
     /// No positional locator was present. Not an error.
     case none

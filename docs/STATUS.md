@@ -3,8 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-08** (**`NEN-080` done** — başka bir uygulamanın
-> verdiği medya artık `⌘O` ile aynı yoldan açılıyor. Önceki: `NEN-079` ADR)
+> Son güncelleme: **2026-09-08** (**`NEN-081` done** — handoff'un taşıdığı
+> başlangıç pozisyonu artık uygulanıyor. Önceki: `NEN-080` alıcı yüzey)
 
 ## Nerede duruyoruz
 
@@ -12,13 +12,58 @@
 |---|---|
 | **Mevcut milestone** | **M4 — Stremio Handoff (macOS)** (M3 2026-09-07'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-080`** — macOS handoff alıcı yüzeyi (`argv` + open-with + `nenplayer://` scheme) uygulandı: başka bir uygulamanın verdiği `file`/`http`/`https` medyası, uygulama kapalıyken de açıkken de, `⌘O`'nun kullandığı yoldan açılıyor. Ondan önce: `NEN-079` ADR |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-072`, `NEN-081`, `NEN-082`, `NEN-083` |
-| **Task sayısı** | 84 · done 72 · active 0 · blocked 0 · canceled 2 · backlog 10 |
+| **Son tamamlanan** | **`NEN-081`** — handoff bir başlangıç pozisyonu taşıyorsa medya artık o andan açılıyor; taşımıyorsa veya süreyi aşıyorsa baştan açılıyor, hata gösterilmiyor. Ondan önce: `NEN-080` alıcı yüzey |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-072`, `NEN-082`, `NEN-083` |
+| **Task sayısı** | 84 · done 73 · active 0 · blocked 0 · canceled 2 · backlog 9 |
 
-**M4'ün sıradaki task'ı `NEN-081`** — handoff'un taşıdığı başlangıç
-pozisyonunu (`NEN-080`'in şimdiden ayrıştırıp taşıdığı, henüz uygulamadığı
-`start_position_ms`) ADR-0042'nin `deferredSeekMs` kontratına bağlayacak.
+**M4'ün sıradaki task'ı `NEN-082`** — handoff'un taşıdığı locator'ı (uzak
+URL path segmentleri, sunucunun beyan ettiği ad) ADR-0009'un kanıt katmanına
+opsiyonel bir girdi olarak bağlayacak (ADR-0043 Karar 5).
+
+**`NEN-081` kapandı — handoff'un taşıdığı başlangıç pozisyonu artık
+uygulanıyor.** `NEN-080` `start_position_ms`'i zaten ayrıştırıp taşıyordu,
+`PlayerModel.handleHandoff` onu bilerek kullanmıyordu; bu task son adımı attı.
+Kapsam yalnız macOS kabuğu (`PlayerModel.swift`) — Rust çekirdeğinde kod
+değişmedi.
+
+**Planlama sırasında ADR-0043 Karar 2'de bir tutarsızlık bulundu ve kullanıcı
+kararıyla netleşti (ADR'nin Notlar'ına eklendi, supersede edilmedi).** Karar
+hem pozisyonun ADR-0042'nin erteleme mekanizmasından (`load` ile birlikte,
+`FILE_LOADED` anında) geçmesini hem de süreyi aşan bir değerin sessizce
+düşüp medyanın **baştan** açılmasını istiyordu — ama `load` anında süre
+bilinmiyor (mpv onu ancak `FILE_LOADED`'da biliyor), yani ertelenmiş, süreyi
+aşan bir seek medyayı sonda açardı, baştan değil. Kullanıcı kararı: pozisyon
+kabukta (`pendingHandoffStartPositionMs`) tutulur, `apply(_:)`'ın `.ready`
+dalında — `play()`'den **önce** — uygulanır; süre okunamayan medyada (canlı
+yayın) pozisyon yine uygulanır, kapı yalnız "süre biliniyor ve pozisyon ≥
+süre" olduğunda kapanır.
+
+**Kanıt hem sahte hem gerçek motorla.** `FakeSession` üzerinden 10 test
+(seek `play`'den önce — çağrı sırası kaydedilerek doğrulandı —, süreyi
+aşan/aşmayan/okunamayan pozisyon, başarısız yükleme ve ikinci handoffun
+öncekini düşürmesi, soğuk açılış kuyruğu). DoD'un kendi maddesi gerçek
+libmpv de istiyordu: yeni `HandoffStartPositionRealEngineTests`,
+`PlayerModel`'in gerçek `sessionFactory`'siyle (`PicturelessSurfaceTests`'in
+zaten kurduğu pencereli-yüzey deseni, ilk kez `PlayerModel` üzerinden
+sürüldü) `contract-clip.mkv`'yi 12.000 ms'de açıp inen pozisyonu bekleyerek
+okuyor, sonra aynı medyayı 999.000 ms'le (30.008 ms'lik süreyi kat kat aşan)
+yeniden açıp düştüğünü doğruluyor. Üç ayrı negatif kontrol ayrık ölçüldü.
+
+**Paralel test koşusunda, bu task'tan bağımsız bir contention bulgusu
+izole edildi.** Bu oturumun kendi masaüstü yükü altında `bash
+scripts/test-macos.sh`'ın varsayılan paralel koşusu ara sıra, önceden
+belgelenmiş main-actor zamanlama testlerinde (`NEN-049`/`NEN-066` sınıfı)
+kırmızı çıktı; `swift test --skip HandoffStartPositionRealEngineTests` ile
+yeni suite tamamen çıkarıldığında **aynı** kırmızı **aynen** kaldı — sebep bu
+task değil. Kesin kanıt `swift test --no-parallel`: iki ardışık koşu,
+232/232, 0 kırmızı.
+
+Rust workspace **646 passed / 1 ignored** (kod değişmedi, yalnız iki yorum
+güncellendi), fmt/clippy/`cargo deny check` temiz. macOS Swift paketi
+**221 → 232**. Gerçek `.app` kabulü: doğrudan argv exec, `contract-clip.mkv`
+üzerinde `--start=5` (transport bar `00:05`, zaten oynuyor) ve `--start=999`
+(medya baştan açıldı, `00:02`, hata yok) — ekran görüntüsüyle kanıtlı. Kanıt:
+`evidence/M4/NEN-081-checklist.md`.
 
 **`NEN-080` kapandı — başka bir uygulamanın Nen Player'a verdiği medya
 `⌘O` ile açılmış gibi aynı yoldan oynuyor.** ADR-0043'ün üç yüzeyi

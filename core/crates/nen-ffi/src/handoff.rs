@@ -43,8 +43,8 @@ impl fmt::Debug for FfiHandoffLocator {
 
 /// One handoff, ready for the shell to open the way `⌘O` does.
 ///
-/// `start_position_ms` crosses the gate today but is not applied by this task
-/// — NEN-081 is what turns it into a seek.
+/// `start_position_ms` crosses the gate here; the macOS shell turns it into a
+/// seek once the medium it targets has loaded (NEN-081).
 #[derive(Clone, PartialEq, Eq, uniffi::Record)]
 pub struct FfiHandoffRequest {
     pub locator: FfiHandoffLocator,
