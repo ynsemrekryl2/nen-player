@@ -23,12 +23,15 @@ Süreç: [`0001-adr-process.md`](0001-adr-process.md) · Şablon:
 | [0013](0013-subtitle-renderer-strategy.md) | `SubtitleRenderer` stratejisi — engine-native çizim ve portun sınırları | ✅ accepted | M3 |
 | [0032](0032-container-language-codes.md) | Konteynerin ISO 639-2 dil kodları tek kanonik etikete indirgenir | ✅ accepted | M3 |
 | [0033](0033-playback-session-ffi-surface.md) | Çekirdek playback oturumunun FFI yüzeyi ve olay teslimat yönü | ✅ accepted | M3 |
+| [0034](0034-macos-sandbox-and-sidecar-access.md) | macOS dağıtımı sandbox'sızdır; sidecar erişimi buna dayanır | ✅ accepted | M3 |
+| [0035](0035-subtitle-source-reason-labels.md) | Altyazı kaynağı sebep etiketleri — kapalı küme iki elemanlıdır | ✅ accepted | M3 |
 | [0036](0036-video-presentation-metadata.md) | Video presentation metadata playback portundan geçer | ❌ rejected | M3 |
 | [0037](0037-subtitle-safe-area.md) | Kabuk kromunun örttüğü bant renderer'a bildirilir | ✅ accepted | M3 |
 | [0038](0038-video-display-geometry.md) | Video display geometry playback portundan geçer | ✅ accepted | M3 |
 | [0039](0039-remote-media-http-boundary.md) | Uzak medya HTTP sınırı ve macOS adapter'ı | ✅ accepted | M3 |
 | [0040](0040-opensubtitles-identity-provider-boundary.md) | OpenSubtitles hash kimlik provider sınırı | ✅ accepted | M6 |
 | [0041](0041-sidecar-discovery-scope.md) | Sidecar keşfi medyanın dizinini bir kez listeler | ✅ accepted | M3 |
+| [0042](0042-seek-during-loading.md) | Yüklenirken verilen seek reddedilmez, ertelenir | ✅ accepted | M3 |
 | [0043](0043-macos-handoff-surface.md) | macOS handoff alıcı yüzeyi — argv + open-with + custom scheme | ✅ accepted | M4 |
 | [0044](0044-stremio-mpv-bridge.md) | Stremio macOS MPV launcher için geri alınabilir Nen Player köprüsü | ✅ accepted | M4 |
 | [0002](0002-core-language.md) | Shared core dili — go/no-go kapısı | ✅ accepted | M1 |
