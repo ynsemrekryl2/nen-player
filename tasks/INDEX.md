@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **84** task · ✅ done 73 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 9
+Toplam **85** task · ✅ done 73 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 10
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -32,6 +32,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-030](done/NEN-030-milestone-aware-doctor.md) | Milestone-aware doctor and STATUS consistency checks | S | ✅ done | — |
 | [NEN-031](done/NEN-031-check-docs-test-fixture-independence.md) | Make check-docs test fixture independent of live repo state | S | ✅ done | — |
 | [NEN-032](done/NEN-032-doctor-swift-milestone-level.md) | Move swift to M1 in doctor's milestone levels | S | ✅ done | NEN-030 |
+| [NEN-085](backlog/NEN-085-flaky-spike-async-cancel-test.md) | Stabilize the flaky spike-async-cancel completion test | S | ⚪ backlog | — |
 
 ## M2 — Subtitle Core
 
@@ -137,3 +138,4 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-072** — Parse container metadata from remote byte windows
 - **NEN-082** — Treat handoff metadata as optional evidence
 - **NEN-083** — Handoff input never reaches a log surface
+- **NEN-085** — Stabilize the flaky spike-async-cancel completion test

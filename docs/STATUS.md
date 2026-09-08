@@ -13,8 +13,8 @@
 | **Mevcut milestone** | **M4 — Stremio Handoff (macOS)** (M3 2026-09-07'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
 | **Son tamamlanan** | **`NEN-081`** — handoff bir başlangıç pozisyonu taşıyorsa medya artık o andan açılıyor; taşımıyorsa veya süreyi aşıyorsa baştan açılıyor, hata gösterilmiyor. Ondan önce: `NEN-080` alıcı yüzey |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-072`, `NEN-082`, `NEN-083` |
-| **Task sayısı** | 84 · done 73 · active 0 · blocked 0 · canceled 2 · backlog 9 |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-072`, `NEN-082`, `NEN-083`, `NEN-085` |
+| **Task sayısı** | 85 · done 73 · active 0 · blocked 0 · canceled 2 · backlog 10 |
 
 **M4'ün sıradaki task'ı `NEN-082`** — handoff'un taşıdığı locator'ı (uzak
 URL path segmentleri, sunucunun beyan ettiği ad) ADR-0009'un kanıt katmanına
@@ -64,6 +64,14 @@ güncellendi), fmt/clippy/`cargo deny check` temiz. macOS Swift paketi
 üzerinde `--start=5` (transport bar `00:05`, zaten oynuyor) ve `--start=999`
 (medya baştan açıldı, `00:02`, hata yok) — ekran görüntüsüyle kanıtlı. Kanıt:
 `evidence/M4/NEN-081-checklist.md`.
+
+**Push sırasında bağımsız bir CI kusuru görüldü, ayrı task'a yazıldı.** Yalnız
+`docs/adr/0043-*.md` değiştiren commit (`244baee`) GitHub Actions'ta `cargo
+test` adımında `spike-async-cancel::tests::uncancelled_job_completes_and_commits_exactly_once`
+ile kırmızı döndü (`join()`'ün döndüğü an `live_jobs()` henüz sıfır değildi);
+**aynı** commit `gh run rerun` ile yeniden koşulduğunda tamamen yeşil geldi —
+bir yarış, bu task'ın içeriğiyle ilgisiz. `NEN-085` olarak dosyalandı (M1,
+spike koduna ait); geçerli olan işi bekletmedi.
 
 **`NEN-080` kapandı — başka bir uygulamanın Nen Player'a verdiği medya
 `⌘O` ile açılmış gibi aynı yoldan oynuyor.** ADR-0043'ün üç yüzeyi

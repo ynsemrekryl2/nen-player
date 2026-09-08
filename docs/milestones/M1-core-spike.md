@@ -96,6 +96,11 @@ dışındaki tüm plan yeniden yazılır.
 `NEN-005` · `NEN-006` · `NEN-007` · `NEN-008` · `NEN-009` · `NEN-010` ·
 `NEN-011` · `NEN-012` · `NEN-029` · `NEN-030` · `NEN-031`
 
+**`NEN-085`** (2026-09-08, `NEN-081` sırasında bulundu): CI'da
+`spike-async-cancel`'in tamamlanma testi ara sıra kırmızı — `join()`'ün
+döndüğü an `live_jobs()` sayacının henüz sıfırlanmamış olması, bir yarış.
+Spike kapanmış olsa da CI'ın güvenilirliği tüm gelecek push'ları etkiliyor.
+
 ## Bağımlılıklar
 
 M0. **Bu milestone bir kapıdır** — NEN-012 kapanmadan M2 dışında hiçbir
