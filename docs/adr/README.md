@@ -30,6 +30,7 @@ Süreç: [`0001-adr-process.md`](0001-adr-process.md) · Şablon:
 | [0040](0040-opensubtitles-identity-provider-boundary.md) | OpenSubtitles hash kimlik provider sınırı | ✅ accepted | M6 |
 | [0041](0041-sidecar-discovery-scope.md) | Sidecar keşfi medyanın dizinini bir kez listeler | ✅ accepted | M3 |
 | [0043](0043-macos-handoff-surface.md) | macOS handoff alıcı yüzeyi — argv + open-with + custom scheme | ✅ accepted | M4 |
+| [0044](0044-stremio-mpv-bridge.md) | Stremio macOS MPV launcher için geri alınabilir Nen Player köprüsü | ✅ accepted | M4 |
 | [0002](0002-core-language.md) | Shared core dili — go/no-go kapısı | ✅ accepted | M1 |
 | [0027](0027-performance-budget.md) | Performans bütçeleri — M1 baseline'larından marjlı kabul | ✅ accepted | M1 sonrası |
 

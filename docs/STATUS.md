@@ -3,9 +3,11 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-08** (**`NEN-085` done** — spike async-cancel testindeki
-> global `live_jobs()` yarışını test-only seri guard ile kapattı. Önceki: `NEN-084`
-> done — M4 handoff kabul koşusu tamamlandı.)
+> Son güncelleme: **2026-09-08** (**`NEN-086` done** — Stremio MPV launcher
+> ölçüm düzeltmesi ve geri alınabilir bridge kararı. Sonraki hazır iş:
+> `NEN-087`. Önceki: `NEN-085` done —
+> spike async-cancel testindeki global `live_jobs()` yarışını test-only seri
+> guard ile kapattı.)
 
 ## Nerede duruyoruz
 
@@ -13,12 +15,19 @@
 |---|---|
 | **Mevcut milestone** | **M4 — Stremio Handoff (macOS)** (M3 2026-09-07'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-085`** — spike async-cancel testlerinde süreç-genel `live_jobs()` sayacını paralel test yarışından izole eden test guard'ı eklendi; 25 seri + 25 paralel koşu ve workspace yeşil. Ondan önce: `NEN-084` |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-072` |
-| **Task sayısı** | 85 · done 77 · active 0 · blocked 0 · canceled 2 · backlog 6 |
+| **Son tamamlanan** | **`NEN-086`** — Stremio MPV launcher ölçümü düzeltildi; geri alınabilir bridge kararı ADR-0044'e bağlandı, M4 gerçek akışa kadar açık bırakıldı. Ondan önce: `NEN-085` |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-072`, `NEN-087` |
+| **Task sayısı** | 88 · done 78 · active 0 · blocked 0 · canceled 2 · backlog 8 |
 
-**`NEN-084` kapandı — M4'ün üç çıkış kriteri kanıtlandı.** Gerçek Stremio
-5.1.26'da harici oynatıcı yüzeyi yeniden görüldü; ADR-0043 sınırı gereği
+**`NEN-086` M4 kabul yorumunu düzeltiyor.** `NEN-084`'ün gerçek `.app`
+üzerindeki koşusu ölçülmüş MPV argv sözleşmesini doğruladı; Stremio'nun Nen
+Player bundle'ını doğrudan hedeflediğini doğrulamadı. Kurulu Stremio shell ilk
+mevcut `/usr/local/bin/mpv` yolunu çalıştırıyor ve bu makinede o yol önceden
+kurulmuş bir wrapper'dı. M4, kullanıcı onaylı geri alınabilir bridge (`NEN-087`)
+ve gerçek Stremio kabul koşusu (`NEN-088`) tamamlanana kadar kapanmayacak.
+
+**`NEN-084` kapandı — Nen Player'ın MPV argv sözleşmesi kanıtlandı.** Gerçek
+Stremio 5.1.26'da harici oynatıcı yüzeyi yeniden görüldü; ADR-0043 sınırı gereği
 doğrudan Nen Player hedefi iddia edilmedi. Aynı ölçülmüş CLI sözleşmesi gerçek
 `.app` üzerinde `contract-clip.mkv` ile 00:12'de oynadı; metadata'sız opak
 loopback fixture 00:09'da oynadı. Unified log ve stdout/stderr negatif
@@ -225,8 +234,9 @@ sabitlendi.
 2026-09-07); kırılımı kapanışın ikinci yarısı olarak üretildi:
 `NEN-078` ölçüm → `NEN-079` ADR → `NEN-080` alıcı yüzey →
 {`NEN-081` başlangıç pozisyonu · `NEN-082` metadata → kanıt ·
-`NEN-083` log denetimi} → `NEN-084` kabul. Üç çıkış kriterinin üçünün de
-kanıtlayan task'ı var.
+`NEN-083` log denetimi} → `NEN-084` CLI sözleşmesi kanıtı → `NEN-086` launcher
+ölçüm düzeltmesi. M4'ün gerçek Stremio akışını ve bridge kurulumunu kapatacak
+`NEN-087`/`NEN-088` hâlâ backlog'dadır.
 
 **Kırılım ölçümle başlıyor, çünkü alıcı yüzey ölçülmeden seçilemez.**
 `platforms/macos/Resources/Info.plist` bugün ne `CFBundleDocumentTypes` ne

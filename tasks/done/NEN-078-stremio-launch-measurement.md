@@ -110,3 +110,16 @@ Prob temizliği doğrulandı: `lsregister -u` sonrası `lsregister -dump`'ta pro
 referansı **0**; geçici kopya ve log dosyaları silindi. Stremio'nun kendi
 ayarı (`Etkisizleştirildi`) ve seek edilen konum ölçüm sonunda özgün haline
 geri getirildi. Ürün koduna dokunulmadı.
+
+## Düzeltme kaydı — 2026-09-08 (`NEN-086`)
+
+Bu kaydın canlı koşusunda başlayan uygulama, Stremio'nun keşfettiği özel bir
+yardımcı bundle değildi. Kurulu Stremio shell'in `server.js` tablosu macOS'ta
+MPV için sırasıyla `/usr/local/bin/mpv`, `/opt/local/bin/mpv` ve `/sw/bin/mpv`
+yollarını kontrol eder; ilk mevcut executable `--start=<saniye> --no-terminal
+<locator>` argv'siyle çalıştırılır. İlk yol bu makinede mevcut bir wrapper
+olduğu için gözlenen uygulamaya geçmiştir.
+
+Özgün ölçüm sonuçları ve kanıtları tarihsel kayıt olarak korunur. Launcher
+korelasyonu ve geri alınabilir köprü kararı `evidence/M4/NEN-086-stremio-mpv-bridge.md`
+ve `docs/adr/0044-stremio-mpv-bridge.md` içinde güncellenmiştir.

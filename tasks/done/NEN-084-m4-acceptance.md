@@ -78,3 +78,13 @@ Tam doğrulama:
 - `bash scripts/build-macos-app.sh` — çıkış 0
 - `codesign --verify --deep --strict` — valid on disk; designated requirement sağlandı
 - `bash scripts/test.sh` ve `bash scripts/check-docs.sh` — kapanış doğrulamasında yeşil
+
+## Düzeltme kaydı — 2026-09-08 (`NEN-086`)
+
+Bu task'ın kanıtı Nen Player'ın ölçülmüş MPV argv sözleşmesini gerçek `.app`
+üzerinde doğrular; gerçek Stremio'nun Nen Player bundle'ını doğrudan
+hedeflediğini doğrulamaz. Stremio'nun çalışan yolu, sabit MPV executable
+listesindeki mevcut `/usr/local/bin/mpv` wrapper'ıdır. Bu nedenle mevcut kabul
+kanıtı tarihsel olarak korunur, ancak M4'ün gerçek Stremio → Nen Player çıkış
+kriterini tek başına tamamlamaz. Geri alınabilir bridge kurulumu `NEN-087`,
+gerçek Stremio kabulü `NEN-088` kapsamındadır.

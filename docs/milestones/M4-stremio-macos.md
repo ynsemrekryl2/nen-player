@@ -21,10 +21,10 @@ Stremio'dan external player olarak açılan medyanın macOS'ta doğru pozisyonda
 
 ## Çıkış kriterleri
 
-- [x] Stremio'nun ölçülmüş CLI sözleşmesiyle açılan medya doğru pozisyondan
-      oynuyor (Stremio 5.1.26 doğrudan Nen Player'ı hedefleyemediği için kabul
-      koşusu aynı sözleşmenin gerçek Nen Player `.app` üzerindeki fixture
-      uygulamasıdır)
+- [ ] Gerçek Stremio 5.1.26'da "MPV içinde oynat" eylemi, geri alınabilir
+      MPV köprüsü üzerinden Nen Player'ı açıyor ve gelen pozisyonu uyguluyor.
+      Mevcut sürümün ölçülen `--start=0` davranışı baştan oynatma olarak
+      kaydedilir; olmayan bir devam konumu tahmin edilmez.
 - [x] Negatif: argüman ve medya URL'si **loglanmıyor** (log denetimi)
 - [x] Handoff metadata yoksa akış bozulmuyor (kanıt opsiyoneldir)
 
@@ -36,6 +36,9 @@ gerçek Stremio 5.1.26 ve gerçek Nen Player `.app` ile yapıldı. ADR-0043'ün
 doğrudan hedeflemiyor; bu nedenle Stremio'da canlı yüzey (VLC/MPV harici
 oynatıcı menüsü ve sürüm) yeniden görüldü, ardından aynı CLI sözleşmesi
 fixture tabanlı gerçek `.app` koşusuyla kabul edildi.
+
+Bu koşu artık tarihsel CLI sözleşmesi kanıtıdır. M4'ün ilk kriteri, `NEN-087`
+köprüsü kurulup `NEN-088` gerçek Stremio koşusu tamamlanana kadar açık kalır.
 
 1. `contract-clip.mkv`, `--start` ve bilinmeyen `--no-terminal` bayrağıyla
    açıldı; Nen Player ekranında medya **00:12 / 00:30** konumunda oynuyordu.
@@ -50,12 +53,13 @@ Ekran ve ayrıntılı adım kaydı: `evidence/M4/NEN-084-checklist.md`.
 ## Task'lar
 
 `NEN-078` · `NEN-079` · `NEN-080` · `NEN-081` · `NEN-082` · `NEN-083` ·
-`NEN-084`
+`NEN-084` · `NEN-086` · `NEN-087` · `NEN-088`
 
 ```
 078 ölçüm ──▶ 079 ADR ──▶ 080 alıcı yüzey ──┬──▶ 081 başlangıç pozisyonu ──┐
-                                             ├──▶ 082 metadata → kanıt ────┼──▶ 084 kabul
+                                             ├──▶ 082 metadata → kanıt ────┼──▶ 084 CLI kanıtı
                                              └──▶ 083 log denetimi ────────┘
+084 düzeltme ──▶ 086 launcher ölçümü + ADR-0044 ──▶ 087 bridge ──▶ 088 gerçek kabul
 ```
 
 **Sıra ölçümle başlıyor, kararla devam ediyor.** Alıcı yüzeyin ne olması
@@ -67,7 +71,7 @@ gerektiğini yalnız gönderen taraf söyler; `NEN-078` bunu gerçek Stremio ile
 
 | Çıkış kriteri | Kanıtlayan |
 |---|---|
-| Medya doğru pozisyondan oynuyor | `NEN-080` + `NEN-081`, üründe `NEN-084` |
+| Gerçek Stremio eylemi Nen Player'ı açıyor ve gelen pozisyonu uyguluyor | `NEN-086` + `NEN-087`, üründe `NEN-088` |
 | Argüman ve medya URL'si loglanmıyor | `NEN-083` (negatif kontrol zorunlu) |
 | Metadata yoksa akış bozulmuyor | `NEN-082` |
 
@@ -90,6 +94,14 @@ ayrıştırmanın core'da yapılacağını sabitledi. `NEN-080` bu kararı uygul
 ## Bağımlılıklar
 
 M3
+
+## Düzeltme notu
+
+`NEN-084`'ün ölçülmüş CLI sözleşmesi koşusu gerçek Stremio'nun Nen Player'ı
+hedeflediği anlamına gelmiyordu. Kurulu shell'in MPV launcher'ı sabit bir
+executable yolunu arıyor ve bu makinede o yolda önceden kurulmuş bir wrapper
+bulunuyordu. `NEN-086` bu korelasyonu ve geri alınabilir köprü kararını
+belgeliyor; `NEN-087`/`NEN-088` tamamlanmadan M4 kapanış retrosu yazılmayacak.
 
 ## Retro
 

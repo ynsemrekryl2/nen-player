@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **85** task · ✅ done 77 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 6
+Toplam **88** task · ✅ done 78 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 8
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -109,6 +109,9 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-082](done/NEN-082-handoff-metadata-evidence.md) | Treat handoff metadata as optional evidence | M | ✅ done | NEN-080 |
 | [NEN-083](done/NEN-083-handoff-never-logged.md) | Handoff input never reaches a log surface | S | ✅ done | NEN-080 |
 | [NEN-084](done/NEN-084-m4-acceptance.md) | Stremio handoff acceptance | S | ✅ done | NEN-081 NEN-082 NEN-083 |
+| [NEN-086](done/NEN-086-correct-stremio-mpv-launcher-measurement.md) | Correct Stremio MPV launcher measurement | S | ✅ done | — |
+| [NEN-087](backlog/NEN-087-install-reversible-stremio-mpv-bridge.md) | Install reversible Stremio MPV bridge | M | ⚪ backlog | NEN-086 |
+| [NEN-088](backlog/NEN-088-stremio-to-nen-player-acceptance.md) | Stremio to Nen Player acceptance | S | ⚪ backlog | NEN-087 |
 
 ## M5 — Translation Core
 
@@ -136,3 +139,4 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-044** — Embedded subtitle text extraction
 - **NEN-064** — Verified media identity in player chrome
 - **NEN-072** — Parse container metadata from remote byte windows
+- **NEN-087** — Install reversible Stremio MPV bridge
