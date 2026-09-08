@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **104** task · ✅ done 82 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 20
+Toplam **104** task · ✅ done 83 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 19
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -133,7 +133,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-100](backlog/NEN-100-translation-ffi-surface.md) | Translation FFI surface with progress, cancel and log guard | M | ⚪ backlog | NEN-099 |
 | [NEN-101](backlog/NEN-101-macos-translate-command.md) | macOS translate command and target language setting | M | ⚪ backlog | NEN-100 NEN-037 |
 | [NEN-102](backlog/NEN-102-macos-translation-progress.md) | macOS translation progress and cancellation surface | M | ⚪ backlog | NEN-101 |
-| [NEN-103](backlog/NEN-103-adr-embedded-text-demux.md) | Decide the demux path for embedded subtitle text | S | ⚪ backlog | NEN-089 |
+| [NEN-103](done/NEN-103-adr-embedded-text-demux.md) | Decide the demux path for embedded subtitle text | S | ✅ done | NEN-089 |
 | [NEN-104](backlog/NEN-104-m5-acceptance.md) | Translation core acceptance | S | ⚪ backlog | NEN-102 NEN-044 |
 
 ## M6 — Real Providers
@@ -152,6 +152,6 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 
 - **NEN-034** — AI-assisted release name normalization
 - **NEN-035** — Identity confidence scoring and candidate ranking
+- **NEN-044** — Embedded subtitle text extraction
 - **NEN-064** — Verified media identity in player chrome
 - **NEN-090** — Translation provider port and deterministic mock
-- **NEN-103** — Decide the demux path for embedded subtitle text

@@ -3,9 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-08** (**`NEN-089` kapandı** — M5'in ilk
-> implementasyon task'ı: deterministik çeviri blok düzeni ve belge bağlamı,
-> ADR-0015 `accepted`.)
+> Son güncelleme: **2026-09-08** (**`NEN-103` kapandı** — M5'in demux yolu
+> kararı: ADR-0045 `accepted`, libavformat/libavcodec seçildi.)
 
 ## Nerede duruyoruz
 
@@ -13,9 +12,16 @@
 |---|---|
 | **Mevcut milestone** | **M5 — Translation Core** (M4 2026-09-08'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-089`** — deterministik çeviri blok düzeni ve belge bağlamı (`nen-translate` dolduruldu, ADR-0015 `accepted`). Ondan önce: `NEN-072` |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-064`, `NEN-090`, `NEN-103` |
-| **Task sayısı** | 104 · done 82 · active 0 · blocked 0 · canceled 2 · backlog 20 |
+| **Son tamamlanan** | **`NEN-103`** — gömülü altyazı demux yolu kararı (`libavformat`/`libavcodec`, ADR-0045 `accepted`). Ondan önce: `NEN-089` |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-090` |
+| **Task sayısı** | 104 · done 83 · active 0 · blocked 0 · canceled 2 · backlog 19 |
+
+**`NEN-103` kapandı — ADR-0045, gömülü metin çıkarımı için macOS playback
+adapter'ında `libavformat`/`libavcodec` yolunu kabul etti.** `EmbeddedTrackExtractor`
+portu ve `nen-identity`'nin I/O'suz sınırı korunuyor; bitmap track'ler merkezi
+`TrackDescriptor.is_text` sınıflandırmasıyla çeviriye kapalı kalıyor. Mevcut
+libmpv dylib kapanışının libav kütüphanelerini zaten içerdiği ölçüldü; gerçek
+bundle doğrulaması implementasyon task'ı `NEN-044`e bırakıldı.
 
 **`NEN-089` kapandı — `SubtitleDocument` artık her zaman aynı, yeniden
 üretilebilir overlapping bloklara ayrılıyor ve belgenin tamamından çıkarılan

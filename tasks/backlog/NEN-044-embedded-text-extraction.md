@@ -30,19 +30,18 @@ Tüketici M5'te ortaya çıkıyor: çeviri, kaynak altyazının metnini ister
 
 ## Ön koşul — ADR-0045
 
-Demux yolu **kararlaştırılmamıştır** ve kod yazılmadan önce bir ADR ister.
-Karar `NEN-103`'ün konusudur (ADR-0045); bu task o ADR `accepted` olmadan
-başlatılmaz. Bilinen adaylar:
+Demux yolu ADR-0045 ile kararlaştırıldı; bu task o ADR `accepted` olmadan
+başlatılmaz. Kabul edilen yol:
 
 - **libavformat/libavcodec** — Homebrew mpv'nin zaten getirdiği kütüphaneler,
-  Swift'te yeni bir `systemLibrary` hedefi. Bedeli: ikinci bir yerel bağımlılık
-  ve `NEN-043`'ün bundling yükünün büyümesi.
-- **Rust konteyner parser'ı** — `nen-identity/src/container.rs`'in zaten
-  beklediği MKV/MP4 demux'ü. Yeni yerel bağımlılık yok, her platformda aynı kod;
-  en pahalı seçenek.
+  Swift'te adapter'a bağlanır; mevcut libmpv kapanışında zaten bulunan
+  bağımlılıklar yeniden kullanılır.
 
-ADR ayrıca ADR-0009 Karar 6'nın (container metadata katmanı) bugün boş duran
-I/O tarafını aynı demux'ün karşılayıp karşılamayacağını değerlendirmelidir.
+Rust konteyner parser'ı, tam demux/decode bakım yüzeyi açtığı için ADR-0045'te
+reddedildi.
+
+ADR ayrıca ADR-0009 Karar 6'nın yerel container I/O tarafının adapter ile
+karşılanabileceğini, fakat `nen-identity`'nin I/O'suz kalacağını sabitledi.
 
 ## Kapsam
 

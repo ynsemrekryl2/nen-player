@@ -20,6 +20,9 @@
 > `nen-domain`'in I/O'suzluğu. Bunlar mimari yönün kendisidir ve spike sonucundan
 > bağımsızdır. "Teknoloji adaydır" ifadesi "mimari açıktır" anlamına gelmez.
 
+> **Kabul edilmiş teknoloji:** Gömülü metin çıkarımında macOS adapter'ı
+> `libavformat`/`libavcodec` kullanır ([ADR-0045](adr/0045-embedded-text-demux-path.md)).
+
 ## Katmanlar
 
 ```
@@ -120,7 +123,7 @@ motorudur. Core yalnız çıkan metni parse eder.
 | `SubtitleRenderer` | Engine-native adapter (core'da, motorun enjeksiyon capability'sine delege eder) · ileride custom overlay | Çizim stratejisi değişebilir; çağrı yeri değişmesin (ADR-0013) |
 | `SecureCredentialStore` | Keychain / Keystore / CredMan / Secret Service | OS güvenlik API'si |
 | `MediaFileAccess` | Platform dosya seçici + sandbox/bookmark | İzin modeli platforma özgü |
-| `EmbeddedTrackExtractor` | Playback motoru | Çıkarımı motor yapar |
+| `EmbeddedTrackExtractor` | Playback motoru; macOS'ta libavformat/libavcodec kullanan adapter | Container I/O ve cue çıkarımı motorda; core yalnız metni parse eder |
 | `AudioSampleSource` | Platform decoder | M8 audio auto-sync için |
 | `HttpClient` | Core adapter (aday: rustls); gerekirse native | Politika core'da, implementasyon adapter'da |
 | `Persistence` | Core adapter (aday: SQLite + CAS) | Semantik core'da; yol platformdan enjekte edilir |

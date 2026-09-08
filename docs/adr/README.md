@@ -38,7 +38,7 @@ Süreç: [`0001-adr-process.md`](0001-adr-process.md) · Şablon:
 | [0016](0016-translation-validation-and-repair.md) | Çeviri doğrulama ve onarım politikası — yerel doğrulama authoritative | 🟡 proposed | M5 |
 | [0017](0017-artifact-persistence-adapter.md) | Doğrulanmış artifact'lerin persistence adapter'ı | 🟡 proposed | M5 |
 | [0018](0018-cache-identity-and-invalidation.md) | Cache identity bileşenleri, versiyonlama ve invalidasyon | 🟡 proposed | M5 |
-| [0045](0045-embedded-text-demux-path.md) | Gömülü altyazı metninin demux yolu | 🟡 proposed | M5 |
+| [0045](0045-embedded-text-demux-path.md) | Gömülü altyazı metninin demux yolu | ✅ accepted | M5 |
 | [0002](0002-core-language.md) | Shared core dili — go/no-go kapısı | ✅ accepted | M1 |
 | [0027](0027-performance-budget.md) | Performans bütçeleri — M1 baseline'larından marjlı kabul | ✅ accepted | M1 sonrası |
 
