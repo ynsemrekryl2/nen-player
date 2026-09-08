@@ -243,6 +243,23 @@ impl TranslationCall {
         }
     }
 
+    /// Run `f` under the same delivery gate that guards progress and result
+    /// delivery (ADR-0004 Karar 5). If the gate is closed, `f` never runs and
+    /// [`TranslationProviderError::Cancelled`] is returned. Otherwise the gate
+    /// lock is held for the duration of `f`, so a concurrent `cancel()` blocks
+    /// until `f` returns, and once `cancel()` has returned no `commit` can run.
+    ///
+    /// `f` must not call back into this `TranslationCall` (the gate lock is
+    /// not reentrant and doing so will deadlock).
+    pub fn commit<T>(&self, f: impl FnOnce() -> T) -> Result<T, TranslationProviderError> {
+        let state = self.lock_fail_closed();
+        if state.cancelled {
+            Err(TranslationProviderError::Cancelled)
+        } else {
+            Ok(f())
+        }
+    }
+
     fn lock_fail_closed(&self) -> MutexGuard<'_, DeliveryState> {
         match self.state.lock() {
             Ok(state) => state,
@@ -429,5 +446,77 @@ mod tests {
         }));
         assert!(delivery.is_err());
         assert_eq!(call.checkpoint(), Err(TranslationProviderError::Cancelled));
+    }
+
+    #[test]
+    fn commit_after_cancel_never_runs_the_closure() {
+        let call = TranslationCall::without_progress();
+        call.cancel();
+
+        let mut ran = false;
+        let result = call.commit(|| {
+            ran = true;
+        });
+
+        assert_eq!(result, Err(TranslationProviderError::Cancelled));
+        assert!(!ran, "commit closure must not run once the gate is closed");
+    }
+
+    #[test]
+    fn cancel_waits_for_an_in_flight_commit_and_blocks_every_commit_after() {
+        use std::sync::mpsc;
+        use std::sync::Mutex as StdMutex;
+        use std::thread;
+        use std::time::Duration;
+
+        let call = TranslationCall::without_progress();
+        let (commit_started_tx, commit_started_rx) = mpsc::channel::<()>();
+        let (release_commit_tx, release_commit_rx) = mpsc::channel::<()>();
+        // Independent of `TranslationCall`'s own gate lock, so recording an
+        // event never itself contends on the lock under test.
+        let events = Arc::new(StdMutex::new(Vec::<&'static str>::new()));
+
+        let committer_call = call.clone();
+        let committer_events = events.clone();
+        let committer = thread::spawn(move || {
+            committer_call.commit(|| {
+                committer_events.lock().unwrap().push("commit_start");
+                commit_started_tx.send(()).expect("signal commit start");
+                release_commit_rx
+                    .recv_timeout(Duration::from_secs(5))
+                    .expect("released after cancel() has started waiting");
+                committer_events.lock().unwrap().push("commit_end");
+            })
+        });
+
+        commit_started_rx
+            .recv_timeout(Duration::from_secs(5))
+            .expect("commit reported it started");
+
+        // `cancel()` must block on the gate lock the running commit holds,
+        // so it cannot record `cancel_done` until the commit above does.
+        let canceller_call = call.clone();
+        let canceller_events = events.clone();
+        let canceller = thread::spawn(move || {
+            canceller_call.cancel();
+            canceller_events.lock().unwrap().push("cancel_done");
+        });
+
+        // Give the canceller a chance to reach (and block on) the lock
+        // before the commit is allowed to finish.
+        thread::sleep(Duration::from_millis(50));
+        release_commit_tx.send(()).expect("release the commit");
+
+        committer
+            .join()
+            .expect("committer thread")
+            .expect("commit succeeded");
+        canceller.join().expect("canceller thread");
+
+        let recorded = events.lock().unwrap().clone();
+        assert_eq!(recorded, vec!["commit_start", "commit_end", "cancel_done"]);
+
+        assert!(call.is_cancelled());
+        assert_eq!(call.commit(|| ()), Err(TranslationProviderError::Cancelled));
     }
 }

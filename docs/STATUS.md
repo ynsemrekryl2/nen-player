@@ -3,8 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-08** (**`NEN-092` kapandı** — targeted repair ve
-> full-block retry bütçesi tamamlandı.)
+> Son güncelleme: **2026-09-08** (**`NEN-093` kapandı** — yalnız doğrulanmış
+> blok checkpoint'leniyor, iptal sonrası late commit yok.)
 
 ## Nerede duruyoruz
 
@@ -12,9 +12,30 @@
 |---|---|
 | **Mevcut milestone** | **M5 — Translation Core** (M4 2026-09-08'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-092`** — targeted repair ve full-block retry bütçesi. Ondan önce: `NEN-091` |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-093` |
-| **Task sayısı** | 104 · done 86 · active 0 · blocked 0 · canceled 2 · backlog 16 |
+| **Son tamamlanan** | **`NEN-093`** — checkpoint-only commit, cancel gate. Ondan önce: `NEN-092` |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-094` |
+| **Task sayısı** | 104 · done 87 · active 0 · blocked 0 · canceled 2 · backlog 15 |
+
+**`NEN-093` kapandı — yalnız tamamen doğrulanmış bir blok checkpoint'leniyor,
+iptal edilen bir çeviri işi hiçbir koşulda sonradan bir şey commit etmiyor.**
+`nen-ports::translation::TranslationCall`'a checkpoint yazımını progress/
+result teslimatıyla aynı kilit sınırında tutan bir `commit<T>` primitifi
+eklendi (ADR-0004 Karar 2/5, kullanıcı onaylı): gate kapalıysa kapanan closure
+hiç çalışmıyor, `cancel()` süren bir commit'in bitmesini bekliyor, döndükten
+sonra hiçbir commit çalışamıyor. Yeni `nen-translate::checkpoint` modülü
+blokları sırayla sürüyor — zaten checkpoint'li blok provider'a hiç gitmeden
+atlanıyor, blok sınırında iptal kontrol ediliyor, yalnız `NEN-092`'nin
+onarım bütçesinden geçen blok commit ediliyor. `BlockCheckpoints::into_completed`
+bütün bloklar checkpoint'lenmeden `CompletedBlocks` üretmiyor — yarım yayın
+yasağı tip düzeyinde.
+
+Kanıt: gerçek çok-thread'li iptal testi (bir blok cevabı barrier'la havada
+tutulurken başka thread `cancel()` çağırıyor, cevap `finish()` içinde
+reddediliyor) ve blok sınırı/gate mutasyon kontrolleri — kaldırılan her iki
+kontrol de ayrı, tam sayıda testi kırmızıya döndürdü (kontrol sağır değil).
+`cargo test -p nen-translate` **36 passed** (+ 4 negatif dosyada); workspace
+**724 passed / 1 ignored**; fmt, clippy, cargo-deny, `bash scripts/test.sh`
+**4/4** ve `bash scripts/check-docs.sh` yeşil. Kanıt: `tasks/done/NEN-093-*.md`.
 
 **`NEN-091` kapandı — provider'ın typed blok cevabı artık yerel ve
 authoritative validation'dan geçmeden teslim edilmiyor.** ADR-0016 kabul edildi;

@@ -4,9 +4,12 @@
 //!
 //! `blocks` deterministically splits a [`SubtitleDocument`] into overlapping
 //! translation blocks (ADR-0015); `context` extracts a small, deterministic
-//! document-wide context; and `validation` checks untrusted provider DTOs
-//! locally (ADR-0016). None of these modules performs I/O or owns provider
-//! calls — orchestration starts after `NEN-091`.
+//! document-wide context; `validation` checks untrusted provider DTOs
+//! locally (ADR-0016); `repair` bounds how many times an invalid block is
+//! retried (`NEN-092`); and `checkpoint` drives blocks in sequence, committing
+//! each only under the provider port's cancellation gate so a cancelled or
+//! interrupted run never produces a late or partial result (`NEN-093`).
+//! None of these modules performs I/O.
 //!
 //! [`SubtitleDocument`]: nen_domain::subtitle::SubtitleDocument
 //!
@@ -28,6 +31,7 @@
 )]
 
 pub mod blocks;
+pub mod checkpoint;
 pub mod context;
 pub mod repair;
 pub mod validation;
