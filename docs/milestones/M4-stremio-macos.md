@@ -55,10 +55,15 @@ gerektiğini yalnız gönderen taraf söyler; `NEN-078` bunu gerçek Stremio ile
 (`NEN-052`) · ADR-0009'un kanıt katmanları · `guard_playback_debug.rs`'in
 kapalı-küme log denetimi deseni · `RecentMediaStore`'un bookmark yolu.
 
-**Açık mimari sorusu (ADR'ye bırakıldı):** `docs/architecture.md`'nin sınır
-kuralı "Stremio handoff"u `port + platform adapter` sınıfına koyuyor, ama aynı
-dosyanın port tablosunda böyle bir port yok. `NEN-079` ya tabloya satır ekler ya
-sınır kuralını düzeltir.
+**Mimari soru `ADR-0043` ile kapandı:** `docs/architecture.md`'nin sınır kuralı
+"Stremio handoff"u `port + platform adapter` sınıfına koyuyordu, ama aynı
+dosyanın port tablosunda böyle bir port yoktu. Karar: yeni port açılmadı,
+sınır kuralı düzeltildi — handoff **inbound** bir OS olayı sayılır (core
+çağırmaz, OS kabuğa iter), sonuç mevcut `PlaybackSession::load` + seek
+çağrısına düşer. ADR ayrıca alıcı yüzeyi (argv + open-with + custom scheme,
+üçü birden), başlangıç pozisyonunun taşıyıcısını (argv bayrağı/scheme
+fragment'ı, ADR-0042'nin `deferredSeekMs` kontratından geçer) ve
+ayrıştırmanın core'da yapılacağını sabitledi. `NEN-080` bu kararı uygular.
 
 ## Bağımlılıklar
 

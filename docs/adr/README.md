@@ -29,6 +29,7 @@ Süreç: [`0001-adr-process.md`](0001-adr-process.md) · Şablon:
 | [0039](0039-remote-media-http-boundary.md) | Uzak medya HTTP sınırı ve macOS adapter'ı | ✅ accepted | M3 |
 | [0040](0040-opensubtitles-identity-provider-boundary.md) | OpenSubtitles hash kimlik provider sınırı | ✅ accepted | M6 |
 | [0041](0041-sidecar-discovery-scope.md) | Sidecar keşfi medyanın dizinini bir kez listeler | ✅ accepted | M3 |
+| [0043](0043-macos-handoff-surface.md) | macOS handoff alıcı yüzeyi — argv + open-with + custom scheme | ✅ accepted | M4 |
 | [0002](0002-core-language.md) | Shared core dili — go/no-go kapısı | ✅ accepted | M1 |
 | [0027](0027-performance-budget.md) | Performans bütçeleri — M1 baseline'larından marjlı kabul | ✅ accepted | M1 sonrası |
 
@@ -45,7 +46,7 @@ karar verilmiş sayılmaz (bkz. `docs/architecture.md` → "Karar statüsü").
 | 0003 | FFI binding stratejisi (aday: UniFFI + C ABI); büyük veri geçiş modeli | M1 |
 | 0004 | Async / cancellation / progress kontratı ve late-commit yasağı | M1 |
 | 0005 | Typed error taksonomisi ve redaction kuralları | M1 |
-| 0014 | Stremio handoff kontratı (Android Intent + macOS argüman) ve log yasakları | M4 |
+| 0014 | Stremio handoff kontratı — Android Intent tarafı ve log yasakları (macOS yarısı ADR-0043 ile kapandı) | M10 |
 | 0015 | Translation blok stratejisi: boyut, overlap, context analizi | M5 |
 | 0016 | Validation ve repair politikası; authoritative local validation | M5 |
 | 0017 | Persistence adapter (aday: SQLite index + content-addressed store), atomik commit | M5 |

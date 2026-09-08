@@ -60,10 +60,22 @@ Bir yeteneğin core'da mı platformda mı olduğunun **tek testi**:
 
 - **Dokunuyorsa** → port + platform adapter.
   Playback · dosya erişimi ve sandbox · secure storage · audio decode ·
-  subtitle renderer · Stremio handoff · lifecycle.
+  subtitle renderer.
 - **Dokunmuyorsa** → core.
   Parse · model · fingerprint · katalog · orchestration · validation ·
   cache identity · sync matematiği · hata modeli.
+
+### Inbound OS olayları port değildir
+
+Stremio handoff ve pencere/uygulama **lifecycle**'ı (açılış, kapanış,
+reopen) cihaza/OS'e dokunur ama yukarıdaki listede **değildir**: bir port,
+core'un **çağırdığı** bir yeteneği temsil eder (`HttpClient`, `Persistence`
+örneklerindeki gibi) — bu ikisi ise tam tersi yönde, **OS'in kabuğa ittiği**
+olaylardır. Kabuk olayı ham haliyle toplar (argv, açılış bildirimi, URL);
+ayrıştırma ve politika, dokunduğu her şeyde olduğu gibi core'dadır — yalnız
+çağrı yönü ters. Sonuç mevcut bir use-case çağrısı olarak core'a girer
+(handoff → `PlaybackSession::load` + seek). Bkz.
+[ADR-0043](adr/0043-macos-handoff-surface.md) Karar 3.
 
 ### Politika core'a, implementasyon adaya aittir
 
