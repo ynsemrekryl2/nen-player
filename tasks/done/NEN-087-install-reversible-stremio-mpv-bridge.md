@@ -3,8 +3,8 @@ id: NEN-087
 title: Install reversible Stremio MPV bridge
 milestone: M4
 size: M
-state: backlog
-closed:
+state: done
+closed: 2026-09-08
 depends_on: [NEN-086]
 blocks: [NEN-088]
 adr: [44]
@@ -45,4 +45,14 @@ alınabilir.
 
 ## Kanıt kaydı
 
-<!-- NEN-087 kapanışında doldurulacak. -->
+`evidence/M4/NEN-087-checklist.md` içindeki deterministik kök testi, gerçek
+kurulu köprü soğuk/sıcak handoff kontrolü ve tam regresyon kapıları tamamlandı.
+
+- `bash scripts/tests/stremio-mpv-bridge.test.sh`: tüm senaryolar geçti.
+- Kurulu köprü: `status=installed`, marker v2 ve manifest checksum eşleşti;
+  hedef/yedek metadata'sı `0755 root:wheel`.
+- Gerçek app koşusu: `cold_running=yes`, `warm_command_rc=0`,
+  `warm_process_after=yes`; koşu sonrası NenPlayer süreci yok.
+- `bash scripts/test.sh`, `bash scripts/test-macos.sh` (239/0), macOS build,
+  Rust workspace test/fmt/clippy/deny, `check-docs` ve `git diff --check`
+  yeşil.

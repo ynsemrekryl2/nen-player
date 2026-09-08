@@ -3,9 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-08** (**`NEN-086` done** — Stremio MPV launcher
-> ölçüm düzeltmesi ve geri alınabilir bridge kararı. Sonraki hazır iş:
-> `NEN-087`. Önceki: `NEN-085` done —
+> Son güncelleme: **2026-09-08** (**`NEN-087` done** — geri alınabilir Stremio
+> MPV bridge kuruldu, gerçek soğuk/sıcak handoff ve güvenlik kapıları doğrulandı.
+> Önceki: `NEN-086` done —
 > spike async-cancel testindeki global `live_jobs()` yarışını test-only seri
 > guard ile kapattı.)
 
@@ -15,9 +15,9 @@
 |---|---|
 | **Mevcut milestone** | **M4 — Stremio Handoff (macOS)** (M3 2026-09-07'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-086`** — Stremio MPV launcher ölçümü düzeltildi; geri alınabilir bridge kararı ADR-0044'e bağlandı, M4 gerçek akışa kadar açık bırakıldı. Ondan önce: `NEN-085` |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-072`, `NEN-087` |
-| **Task sayısı** | 88 · done 78 · active 0 · blocked 0 · canceled 2 · backlog 8 |
+| **Son tamamlanan** | **`NEN-087`** — geri alınabilir Stremio MPV bridge kuruldu; atomik yedek/geri yükleme, bütünlük ve soğuk/sıcak handoff kanıtlandı. Ondan önce: `NEN-086` |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-072`, `NEN-088` |
+| **Task sayısı** | 88 · done 79 · active 0 · blocked 0 · canceled 2 · backlog 7 |
 
 **`NEN-086` M4 kabul yorumunu düzeltiyor.** `NEN-084`'ün gerçek `.app`
 üzerindeki koşusu ölçülmüş MPV argv sözleşmesini doğruladı; Stremio'nun Nen
@@ -235,8 +235,8 @@ sabitlendi.
 `NEN-078` ölçüm → `NEN-079` ADR → `NEN-080` alıcı yüzey →
 {`NEN-081` başlangıç pozisyonu · `NEN-082` metadata → kanıt ·
 `NEN-083` log denetimi} → `NEN-084` CLI sözleşmesi kanıtı → `NEN-086` launcher
-ölçüm düzeltmesi. M4'ün gerçek Stremio akışını ve bridge kurulumunu kapatacak
-`NEN-087`/`NEN-088` hâlâ backlog'dadır.
+ölçüm düzeltmesi → `NEN-087` geri alınabilir bridge kurulumu. M4'ün gerçek
+Stremio akışını doğrulayacak `NEN-088` backlog'dadır.
 
 **Kırılım ölçümle başlıyor, çünkü alıcı yüzey ölçülmeden seçilemez.**
 `platforms/macos/Resources/Info.plist` bugün ne `CFBundleDocumentTypes` ne
