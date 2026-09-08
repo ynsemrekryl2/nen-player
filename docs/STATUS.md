@@ -3,28 +3,25 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-08** (**`NEN-087` done** — geri alınabilir Stremio
-> MPV bridge kuruldu, gerçek soğuk/sıcak handoff ve güvenlik kapıları doğrulandı.
-> Önceki: `NEN-086` done —
-> spike async-cancel testindeki global `live_jobs()` yarışını test-only seri
-> guard ile kapattı.)
+> Son güncelleme: **2026-09-08** (**`NEN-088` done** — gerçek Stremio 5.1.26
+> soğuk/sıcak handoff'u, `0` başlangıç davranışı, metadata yokluğu ve güvenli
+> log kapıları doğrulandı. M4 kapandı, M5 sırada.)
 
 ## Nerede duruyoruz
 
 | | |
 |---|---|
-| **Mevcut milestone** | **M4 — Stremio Handoff (macOS)** (M3 2026-09-07'de kapandı; toolchain kapısı **açık**) |
+| **Mevcut milestone** | **M5 — Translation Core** (M4 2026-09-08'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-087`** — geri alınabilir Stremio MPV bridge kuruldu; atomik yedek/geri yükleme, bütünlük ve soğuk/sıcak handoff kanıtlandı. Ondan önce: `NEN-086` |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-072`, `NEN-088` |
-| **Task sayısı** | 88 · done 79 · active 0 · blocked 0 · canceled 2 · backlog 7 |
+| **Son tamamlanan** | **`NEN-088`** — gerçek Stremio → Nen Player soğuk/sıcak kabulü tamamlandı; M4 kapandı. Ondan önce: `NEN-087` |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-072` |
+| **Task sayısı** | 88 · done 80 · active 0 · blocked 0 · canceled 2 · backlog 6 |
 
-**`NEN-086` M4 kabul yorumunu düzeltiyor.** `NEN-084`'ün gerçek `.app`
-üzerindeki koşusu ölçülmüş MPV argv sözleşmesini doğruladı; Stremio'nun Nen
-Player bundle'ını doğrudan hedeflediğini doğrulamadı. Kurulu Stremio shell ilk
-mevcut `/usr/local/bin/mpv` yolunu çalıştırıyor ve bu makinede o yol önceden
-kurulmuş bir wrapper'dı. M4, kullanıcı onaylı geri alınabilir bridge (`NEN-087`)
-ve gerçek Stremio kabul koşusu (`NEN-088`) tamamlanana kadar kapanmayacak.
+**`NEN-088` M4'ü kapattı.** Gerçek Stremio 5.1.26 “MPV içinde oynat” eylemi,
+kurulu ve bütünlüğü doğrulanmış geri alınabilir köprü üzerinden taze Nen Player
+`.app`'ini hem soğuk hem sıcak durumda açtı. Stremio'nun ölçülen `0` başlangıç
+değeri baştan oynatma olarak gözlendi; metadata yokluğu akışı bozmadı. Geçici
+log taramalarındaki URL, query, özel yol ve handoff argv sayaçları sıfırdı.
 
 **`NEN-084` kapandı — Nen Player'ın MPV argv sözleşmesi kanıtlandı.** Gerçek
 Stremio 5.1.26'da harici oynatıcı yüzeyi yeniden görüldü; ADR-0043 sınırı gereği
@@ -2113,13 +2110,13 @@ Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
 
-2026-09-08'de `NEN-079` kapandı — bu bir karar/doküman task'ı, kod
-değişmedi (Rust workspace ve macOS Swift paketine dokunulmadı), bu yüzden
-`cargo test`/`test-macos.sh` koşulmadı. Doğrulama `bash
-scripts/check-docs.sh` (çıkış 0: ADR referansı, `accepted` durumu, `closed`
-alanı, INDEX/STATUS tutarlılığı) ve `bash scripts/task-index.sh` ile
-yapıldı. Son gerçek toolchain/test koşusu aşağıdaki `NEN-071` kaydıdır ve
-hâlâ günceldir — bu closure onu geçersiz kılmadı.
+2026-09-08'de `NEN-088` kapandı — gerçek Stremio 5.1.26 soğuk/sıcak kabulü,
+transport ekran kanıtları ve negatif log taraması tamamlandı. `bash
+scripts/build-macos-app.sh` çıkış 0; `bash scripts/doctor.sh M3` çıkış 0;
+köprü `installed`; geçici güvenlik sayaçlarının tamamı 0. Doküman kanıtı:
+`evidence/M4/NEN-088-checklist.md`.
+
+Bu kapanışta Rust/macOS ürün kodu değişmedi; task'a özel ürün testi eklenmedi.
 
 2026-09-07'de `NEN-071` kapanışı için gerçek `.app` fixture koşusu ve
 `PlayerModelTests.subtitlePanelResolvesAliasesExplicitly` geçti; panel

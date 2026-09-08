@@ -21,7 +21,7 @@ Stremio'dan external player olarak açılan medyanın macOS'ta doğru pozisyonda
 
 ## Çıkış kriterleri
 
-- [ ] Gerçek Stremio 5.1.26'da "MPV içinde oynat" eylemi, geri alınabilir
+- [x] Gerçek Stremio 5.1.26'da "MPV içinde oynat" eylemi, geri alınabilir
       MPV köprüsü üzerinden Nen Player'ı açıyor ve gelen pozisyonu uyguluyor.
       Mevcut sürümün ölçülen `--start=0` davranışı baştan oynatma olarak
       kaydedilir; olmayan bir devam konumu tahmin edilmez.
@@ -105,4 +105,22 @@ belgeliyor; `NEN-087`/`NEN-088` tamamlanmadan M4 kapanış retrosu yazılmayacak
 
 ## Retro
 
-<!-- kapanışta doldurulacak -->
+**Süre ve çıktı.** M4, 2026-09-07'de başladı ve 2026-09-08'de **10 task** ile
+kapandı. Gerçek Stremio 5.1.26 eylemi geri alınabilir MPV köprüsü üzerinden
+Nen Player'ı hem soğuk hem sıcak handoff'ta açtı; Stremio'nun ölçülen `0`
+başlangıç değeri baştan oynatma olarak doğrulandı. Negatif log sayaçları sıfır
+kaldı. `NEN-088` kanıtı: `evidence/M4/NEN-088-checklist.md`.
+
+**Yanlış çıkan varsayım.** `NEN-084`'ün ölçülmüş MPV CLI sözleşmesinin gerçek
+Stremio'nun Nen Player bundle'ını doğrudan hedeflediği varsayımı yanlıştı.
+`NEN-086` gerçek launcher yolunu ölçtü, `ADR-0044` geri alınabilir köprüyü
+karara bağladı, `NEN-087` köprüyü güvenli kurdu ve `NEN-088` canlı akışı
+kanıtladı. Stremio uygulama paketi veya bundle kimliği değiştirilmedi.
+
+**Kararlar.** `ADR-0043` alıcı yüzeyi ve handoff ayrıştırmasını, `ADR-0044`
+ise sabit MPV launcher yoluna bağlanan geri alınabilir köprüyü kabul etti.
+Hiçbir ADR supersede edilmedi.
+
+**Sonraki milestone.** Sıra **M5 — Translation Core**'da. İlk hazır işler
+`NEN-044` (embedded subtitle text extraction) ve `NEN-072` (remote container
+metadata); her ikisinin de bağımlılıkları tamamlandı.

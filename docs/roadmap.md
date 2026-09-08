@@ -3,12 +3,12 @@
 Üst görünüm. Task ayrıntısı için `tasks/INDEX.md`, milestone ayrıntısı için
 `docs/milestones/`.
 
-**Şu anki konum: M3 kapandı (2026-09-07), M4 sürüyor (2026-09-08).** macOS dilimi 46 task
+**Şu anki konum: M4 kapandı (2026-09-08), M5 sırada.** macOS dilimi 46 task
 ile tamamlandı: gerçek `.app` dosyayı açıyor, oynatıyor, gömülü track'leri ve
 sidecar'ları gruplu menüde gösteriyor, seçileni ekrana çiziyor. Retro
 [`milestones/M3-macos-slice.md`](milestones/M3-macos-slice.md)'de.
 M4'ün gerçek Stremio → Nen Player akışı, geri alınabilir MPV köprüsü ve gerçek
-kabul koşusu (`NEN-087`/`NEN-088`) tamamlanana kadar kapanmayacak.
+kabul koşusu (`NEN-087`/`NEN-088`) tamamlandı.
 Güncel durum: [`docs/STATUS.md`](STATUS.md) ·
 Kararlar: [`docs/DECISIONS.md`](DECISIONS.md)
 
@@ -20,7 +20,7 @@ Kararlar: [`docs/DECISIONS.md`](DECISIONS.md)
 | **M1** | Core Technical Spike | Rust↔Swift↔Kotlin binding'in async/cancel/typed-error/50k-cue davranışı ölçülmüş; ADR-0002 ile core dili kilitlenmiş (go/no-go); playback ownership yönü ADR-0026 ile karara bağlanmış. | ✅ kapandı |
 | **M2** | Subtitle Core | SRT strict parse, WebVTT yazımı, encoding, timeline fingerprint, indeksli cue lookup, media evidence, source catalog — headless test edilmiş. | ✅ kapandı |
 | **M3** | macOS Vertical Slice | Dosya aç → oynat → katalog (embedded + sidecar) → altyazı menüsü → seç → ekranda göster. **İlk gerçek ürün.** | ✅ kapandı |
-| **M4** | Stremio Handoff (macOS) | Stremio'dan açılan medya macOS'ta doğru pozisyondan oynuyor; argüman/URL loglanmıyor. | 🔵 sürüyor |
+| **M4** | Stremio Handoff (macOS) | Stremio'dan açılan medya macOS'ta doğru pozisyondan oynuyor; argüman/URL loglanmıyor. | ✅ kapandı |
 | **M5** | Translation Core | Blok pipeline + strict validation + checkpoint/cancel + artifact/cache; mock provider ile uçtan uca doğrulanmış. | ⚪ |
 | **M6** | Real Providers | OpenSubtitles resmi API + OpenAI + OpenRouter; secure credential storage; katalogda gerçek adaylar. | ⚪ |
 | **M7** | Manual Sync | Offset · replik-temelli anchor · iki-anchor drift; SyncProfile persistence, undo/reset/preview. | ⚪ |
