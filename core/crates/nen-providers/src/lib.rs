@@ -3,3 +3,4 @@
 //! Crate sınırları ve izinli bağımlılıklar: ADR-0006.
 
 pub mod opensubtitles;
+pub mod translation_mock;

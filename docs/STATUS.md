@@ -3,8 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-08** (**`NEN-103` kapandı** — M5'in demux yolu
-> kararı: ADR-0045 `accepted`, libavformat/libavcodec seçildi.)
+> Son güncelleme: **2026-09-08** (**`NEN-090` kapandı** — translation provider
+> portu, caller-owned cancellation gate'i ve deterministic mock tamamlandı.)
 
 ## Nerede duruyoruz
 
@@ -12,9 +12,31 @@
 |---|---|
 | **Mevcut milestone** | **M5 — Translation Core** (M4 2026-09-08'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-103`** — gömülü altyazı demux yolu kararı (`libavformat`/`libavcodec`, ADR-0045 `accepted`). Ondan önce: `NEN-089` |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-090` |
-| **Task sayısı** | 104 · done 83 · active 0 · blocked 0 · canceled 2 · backlog 19 |
+| **Son tamamlanan** | **`NEN-090`** — translation provider portu ve deterministic mock. Ondan önce: `NEN-103` |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-091` |
+| **Task sayısı** | 104 · done 84 · active 0 · blocked 0 · canceled 2 · backlog 18 |
+
+**`NEN-090` kapandı — provider sınırı runtime'sız ve caller-owned kaldı.**
+`nen-ports::translation::TranslationProvider`, yalnız `CueId + text`
+taşıyan provider-neutral istek/cevap tiplerini, provider/model kimliğini ve
+payload'sız hata sınıflarını açıyor. Yeni `TranslationCall`, cancellation,
+monoton sayısal progress ve sonuç teslimini aynı kilit altında tutuyor;
+`cancel()` döndükten sonra geç callback veya sonuç teslim edilemiyor. Bu sözleşme
+önce ADR-0004 olarak `accepted` oldu; ayrı `31619b8` commit'inin CI'ı yeşil.
+
+**`nen-providers::translation_mock::MockTranslationProvider` tamamen ağsız ve
+deterministik.** Aynı istek aynı provider/model kimliği, cevap ve progress
+dizisini üretiyor. Ortak contract kiti geçiyor; eksik cue döndüren kasıtlı
+adapter kiti kırmızıya döndürüyor. Bariyer kontrollü negatif test, havadaki
+çağrı iptal edildikten sonra geç sonuç/progress sayısının sıfır olduğunu
+kanıtlıyor; panikleyen callback kilidi zehirlese bile gate fail-closed.
+
+K23 guard'ları istek, cevap, context/cue metni ve provider kimliğinin
+`Debug`/`Display` yüzeyine çıkmadığını; kasıtlı `derive(Debug)` ikizinin ise
+sentinel'ı sızdırdığını gösterdi. `cargo test -p nen-ports`: **106 passed**;
+`cargo test -p nen-providers`: **18 passed**; workspace: **695 passed / 1
+ignored**. fmt, clippy, deny ve shell/doc kapıları yeşil. Kanıt:
+`tasks/done/NEN-090-*.md`.
 
 **`NEN-103` kapandı — ADR-0045, gömülü metin çıkarımı için macOS playback
 adapter'ında `libavformat`/`libavcodec` yolunu kabul etti.** `EmbeddedTrackExtractor`

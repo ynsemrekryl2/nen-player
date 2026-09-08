@@ -6,3 +6,4 @@ pub mod http;
 pub mod identity;
 pub mod playback;
 pub mod renderer;
+pub mod translation;

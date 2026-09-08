@@ -251,4 +251,15 @@ ilgili kaynağı hatalı işaretler.
 | `nen-app` | Use-case katmanı | hepsi |
 | `nen-ffi` | FFI yüzeyi (aday: UniFFI) — **tek dış kapı** | app |
 
+### Provider portları
+
+| Port | Sorumluluk | İlk adapter |
+|---|---|---|
+| `TranslationProvider` | Cue ID + metin tabanlı untrusted blok cevabı; caller-owned cancellation/progress gate; payload'sız transient/permanent hata sınıfı | `nen-providers::translation_mock::MockTranslationProvider` (deterministic, ağsız) |
+
+Translation provider portu senkron ve object-safe'tir; worker/job yaşam
+döngüsü caller'a aittir ([ADR-0004](adr/0004-async-cancellation-progress.md)).
+Provider'a `TimeSpan` verilmez; cevap yalnız `CueId + text` taşır ve yerel
+doğrulama geçene kadar güvenilmez (`NEN-091`, ADR-0016).
+
 Ok yönü tek yönlüdür; `nen-domain` hiçbir şeye bağlı değildir.
