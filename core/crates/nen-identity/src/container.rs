@@ -152,6 +152,436 @@ fn clean_value(raw: &str) -> Option<String> {
     }
 }
 
+/// Reads container-declared title/year out of a media file's own first byte
+/// window (NEN-072, ADR-0009 Karar 6, layer 3).
+///
+/// This is not a demuxer: it walks only far enough to find `Title`/`Tags`
+/// (Matroska) or `moov/udta/meta/ilst` (MP4) *when they sit inside the given
+/// window*. A container that puts its metadata later in the file — a large
+/// MP4 muxed without `+faststart`, for instance — simply yields
+/// [`ContainerMetadata::empty`]; that is a scope boundary, not a defect.
+///
+/// `window` is untrusted remote input (`docs/security-policy.md` §2): every
+/// read is bounds-checked against `window`'s own length, nesting depth and
+/// the number of elements visited are capped, and no arithmetic can
+/// overflow. Malformed, truncated, oversized-claimed-size or pathologically
+/// nested input all fall through to an empty result rather than a panic.
+pub fn parse_head_window(window: &[u8]) -> ContainerMetadata {
+    let (title, date) = if window.starts_with(&matroska::EBML_MAGIC) {
+        matroska::find_tags(window)
+    } else if mp4::looks_like_isobmff(window) {
+        mp4::find_tags(window)
+    } else {
+        (None, None)
+    };
+    from_tags(title.as_deref(), date.as_deref(), None, &[])
+}
+
+fn decode_utf8(bytes: &[u8]) -> Option<String> {
+    std::str::from_utf8(bytes).ok().map(str::to_owned)
+}
+
+/// A minimal, bounded EBML element walker — just enough of Matroska to find
+/// `\Segment\Info\Title` and `\Segment\Tags\Tag\SimpleTag`. IDs and sizes
+/// below follow the Matroska/EBML specification; element IDs used here never
+/// exceed 4 bytes and sizes are read up to 8 bytes per the VINT encoding.
+mod matroska {
+    pub(super) const EBML_MAGIC: [u8; 4] = [0x1A, 0x45, 0xDF, 0xA3];
+
+    const MAX_DEPTH: u32 = 6;
+    const MAX_ELEMENTS: usize = 4096;
+
+    const SEGMENT: u32 = 0x1853_8067;
+    const INFO: u32 = 0x1549_A966;
+    const TITLE: u32 = 0x7BA9;
+    const TAGS: u32 = 0x1254_C367;
+    const TAG: u32 = 0x7373;
+    const SIMPLE_TAG: u32 = 0x67C8;
+    const TAG_NAME: u32 = 0x45A3;
+    const TAG_STRING: u32 = 0x4487;
+
+    pub(super) fn find_tags(bytes: &[u8]) -> (Option<String>, Option<String>) {
+        let mut budget = MAX_ELEMENTS;
+        let mut title = None;
+        let mut date = None;
+        for (id, content) in ElementCursor::new(bytes) {
+            if budget == 0 {
+                break;
+            }
+            budget -= 1;
+            if id == SEGMENT {
+                find_in_segment(content, 1, &mut budget, &mut title, &mut date);
+                break;
+            }
+        }
+        (title, date)
+    }
+
+    fn find_in_segment(
+        bytes: &[u8],
+        depth: u32,
+        budget: &mut usize,
+        title: &mut Option<String>,
+        date: &mut Option<String>,
+    ) {
+        if depth > MAX_DEPTH {
+            return;
+        }
+        for (id, content) in ElementCursor::new(bytes) {
+            if *budget == 0 {
+                return;
+            }
+            *budget -= 1;
+            match id {
+                INFO if title.is_none() => find_in_info(content, depth + 1, budget, title),
+                TAGS if date.is_none() => find_in_tags(content, depth + 1, budget, date),
+                _ => {}
+            }
+            if title.is_some() && date.is_some() {
+                return;
+            }
+        }
+    }
+
+    fn find_in_info(bytes: &[u8], depth: u32, budget: &mut usize, title: &mut Option<String>) {
+        if depth > MAX_DEPTH {
+            return;
+        }
+        for (id, content) in ElementCursor::new(bytes) {
+            if *budget == 0 {
+                return;
+            }
+            *budget -= 1;
+            if id == TITLE && title.is_none() {
+                *title = super::decode_utf8(content);
+            }
+        }
+    }
+
+    fn find_in_tags(bytes: &[u8], depth: u32, budget: &mut usize, date: &mut Option<String>) {
+        if depth > MAX_DEPTH {
+            return;
+        }
+        for (id, content) in ElementCursor::new(bytes) {
+            if *budget == 0 {
+                return;
+            }
+            *budget -= 1;
+            if id == TAG && date.is_none() {
+                find_in_tag(content, depth + 1, budget, date);
+            }
+        }
+    }
+
+    fn find_in_tag(bytes: &[u8], depth: u32, budget: &mut usize, date: &mut Option<String>) {
+        if depth > MAX_DEPTH {
+            return;
+        }
+        for (id, content) in ElementCursor::new(bytes) {
+            if *budget == 0 {
+                return;
+            }
+            *budget -= 1;
+            if id == SIMPLE_TAG && date.is_none() {
+                find_in_simple_tag(content, depth + 1, budget, date);
+            }
+        }
+    }
+
+    fn find_in_simple_tag(bytes: &[u8], depth: u32, budget: &mut usize, date: &mut Option<String>) {
+        if depth > MAX_DEPTH {
+            return;
+        }
+        let mut name = None;
+        let mut value = None;
+        for (id, content) in ElementCursor::new(bytes) {
+            if *budget == 0 {
+                return;
+            }
+            *budget -= 1;
+            match id {
+                TAG_NAME if name.is_none() => name = super::decode_utf8(content),
+                TAG_STRING if value.is_none() => value = super::decode_utf8(content),
+                _ => {}
+            }
+        }
+        if let (Some(name), Some(value)) = (name, value) {
+            if matches!(name.to_ascii_uppercase().as_str(), "DATE" | "DATE_RELEASED") {
+                *date = Some(value);
+            }
+        }
+    }
+
+    /// Walks a byte range as a flat sequence of EBML elements, yielding
+    /// `(id, content)` for each. Stops (does not panic) on any structural
+    /// inconsistency — this is untrusted input, not a validated file.
+    struct ElementCursor<'a> {
+        bytes: &'a [u8],
+        offset: usize,
+    }
+
+    impl<'a> ElementCursor<'a> {
+        fn new(bytes: &'a [u8]) -> Self {
+            Self { bytes, offset: 0 }
+        }
+    }
+
+    impl<'a> Iterator for ElementCursor<'a> {
+        type Item = (u32, &'a [u8]);
+
+        fn next(&mut self) -> Option<Self::Item> {
+            let rest = self.bytes.get(self.offset..)?;
+            let (id, id_len) = read_id(rest)?;
+            let (size, size_len) = read_size(rest.get(id_len..)?)?;
+            let content_start = self.offset + id_len + size_len;
+            if content_start > self.bytes.len() {
+                return None;
+            }
+            let content_end = match size {
+                Some(size) => content_start
+                    .saturating_add(usize::try_from(size).unwrap_or(usize::MAX))
+                    .min(self.bytes.len()),
+                None => self.bytes.len(),
+            };
+            let content = self.bytes.get(content_start..content_end)?;
+            self.offset = content_end;
+            Some((id, content))
+        }
+    }
+
+    /// Length in bytes of an EBML VINT from its leading byte, per the number
+    /// of leading zero bits before the first set bit. `0` has none set and is
+    /// not a valid VINT lead byte.
+    fn vint_length(marker: u8) -> Option<u32> {
+        if marker == 0 {
+            return None;
+        }
+        Some(marker.leading_zeros() + 1)
+    }
+
+    /// Reads an EBML element ID, which (unlike a size) keeps its length
+    /// marker bits as part of the value.
+    fn read_id(bytes: &[u8]) -> Option<(u32, usize)> {
+        let len = vint_length(*bytes.first()?)? as usize;
+        if len > 4 {
+            return None;
+        }
+        let slice = bytes.get(..len)?;
+        let mut value: u32 = 0;
+        for &b in slice {
+            value = (value << 8) | u32::from(b);
+        }
+        Some((value, len))
+    }
+
+    /// Reads an EBML data-size VINT, masking out the length marker. An
+    /// all-data-bits-set value means "unknown size" (streamed muxers); the
+    /// caller treats that as "extends to the end of the given window".
+    fn read_size(bytes: &[u8]) -> Option<(Option<u64>, usize)> {
+        let len = vint_length(*bytes.first()?)? as usize;
+        if len > 8 {
+            return None;
+        }
+        let slice = bytes.get(..len)?;
+        let (&first, rest) = slice.split_first()?;
+        // `len` can be 8 (all bits are the marker, no data bits left in the
+        // first byte); `>>8` on a `u8` would panic, so shift defensively.
+        let marker_mask = 0xFFu8.checked_shr(len as u32).unwrap_or(0);
+        let mut value = u64::from(first & marker_mask);
+        let mut all_ones = first & marker_mask == marker_mask;
+        for &b in rest {
+            value = (value << 8) | u64::from(b);
+            all_ones &= b == 0xFF;
+        }
+        if all_ones {
+            Some((None, len))
+        } else {
+            Some((Some(value), len))
+        }
+    }
+}
+
+/// A minimal, bounded ISOBMFF (MP4) box walker — just enough to find
+/// `moov/udta/meta/ilst`'s `©nam`/`©day` atoms.
+mod mp4 {
+    const MAX_DEPTH: u32 = 6;
+    const MAX_BOXES: usize = 4096;
+
+    const NAME_ATOM: [u8; 4] = *b"\xa9nam";
+    const DAY_ATOM: [u8; 4] = *b"\xa9day";
+
+    pub(super) fn looks_like_isobmff(bytes: &[u8]) -> bool {
+        bytes.get(4..8).is_some_and(|fourcc| fourcc == b"ftyp")
+    }
+
+    pub(super) fn find_tags(bytes: &[u8]) -> (Option<String>, Option<String>) {
+        let mut budget = MAX_BOXES;
+        let mut title = None;
+        let mut date = None;
+        for (fourcc, content) in BoxCursor::new(bytes) {
+            if budget == 0 {
+                break;
+            }
+            budget -= 1;
+            if &fourcc == b"moov" {
+                find_udta(content, 1, &mut budget, &mut title, &mut date);
+                break;
+            }
+        }
+        (title, date)
+    }
+
+    fn find_udta(
+        bytes: &[u8],
+        depth: u32,
+        budget: &mut usize,
+        title: &mut Option<String>,
+        date: &mut Option<String>,
+    ) {
+        if depth > MAX_DEPTH {
+            return;
+        }
+        for (fourcc, content) in BoxCursor::new(bytes) {
+            if *budget == 0 {
+                return;
+            }
+            *budget -= 1;
+            if &fourcc == b"udta" {
+                find_meta(content, depth + 1, budget, title, date);
+                return;
+            }
+        }
+    }
+
+    fn find_meta(
+        bytes: &[u8],
+        depth: u32,
+        budget: &mut usize,
+        title: &mut Option<String>,
+        date: &mut Option<String>,
+    ) {
+        if depth > MAX_DEPTH {
+            return;
+        }
+        for (fourcc, content) in BoxCursor::new(bytes) {
+            if *budget == 0 {
+                return;
+            }
+            *budget -= 1;
+            if &fourcc == b"meta" {
+                // `meta` is a FullBox: 4-byte version+flags precede its children.
+                let children = content.get(4..).unwrap_or(&[]);
+                find_ilst(children, depth + 1, budget, title, date);
+                return;
+            }
+        }
+    }
+
+    fn find_ilst(
+        bytes: &[u8],
+        depth: u32,
+        budget: &mut usize,
+        title: &mut Option<String>,
+        date: &mut Option<String>,
+    ) {
+        if depth > MAX_DEPTH {
+            return;
+        }
+        for (fourcc, content) in BoxCursor::new(bytes) {
+            if *budget == 0 {
+                return;
+            }
+            *budget -= 1;
+            if &fourcc == b"ilst" {
+                find_tag_atoms(content, depth + 1, budget, title, date);
+                return;
+            }
+        }
+    }
+
+    fn find_tag_atoms(
+        bytes: &[u8],
+        depth: u32,
+        budget: &mut usize,
+        title: &mut Option<String>,
+        date: &mut Option<String>,
+    ) {
+        if depth > MAX_DEPTH {
+            return;
+        }
+        for (fourcc, content) in BoxCursor::new(bytes) {
+            if *budget == 0 {
+                return;
+            }
+            *budget -= 1;
+            if fourcc == NAME_ATOM && title.is_none() {
+                *title = find_data_string(content, budget);
+            } else if fourcc == DAY_ATOM && date.is_none() {
+                *date = find_data_string(content, budget);
+            }
+            if title.is_some() && date.is_some() {
+                return;
+            }
+        }
+    }
+
+    fn find_data_string(bytes: &[u8], budget: &mut usize) -> Option<String> {
+        for (fourcc, content) in BoxCursor::new(bytes) {
+            if *budget == 0 {
+                return None;
+            }
+            *budget -= 1;
+            if &fourcc == b"data" {
+                // 4-byte type + 4-byte locale precede the payload.
+                return super::decode_utf8(content.get(8..)?);
+            }
+        }
+        None
+    }
+
+    /// Walks a byte range as a flat sequence of ISOBMFF boxes, yielding
+    /// `(fourcc, content)` for each. Stops (does not panic) on any structural
+    /// inconsistency — this is untrusted input, not a validated file.
+    struct BoxCursor<'a> {
+        bytes: &'a [u8],
+        offset: usize,
+    }
+
+    impl<'a> BoxCursor<'a> {
+        fn new(bytes: &'a [u8]) -> Self {
+            Self { bytes, offset: 0 }
+        }
+    }
+
+    impl<'a> Iterator for BoxCursor<'a> {
+        type Item = ([u8; 4], &'a [u8]);
+
+        fn next(&mut self) -> Option<Self::Item> {
+            let rest = self.bytes.get(self.offset..)?;
+            let size32 = u32::from_be_bytes(rest.get(..4)?.try_into().ok()?);
+            let fourcc: [u8; 4] = rest.get(4..8)?.try_into().ok()?;
+            let (header_len, box_size): (usize, u64) = if size32 == 1 {
+                (16, u64::from_be_bytes(rest.get(8..16)?.try_into().ok()?))
+            } else if size32 == 0 {
+                (8, rest.len() as u64)
+            } else {
+                (8, u64::from(size32))
+            };
+            let content_start = self.offset + header_len;
+            let box_end = self
+                .offset
+                .saturating_add(usize::try_from(box_size).unwrap_or(usize::MAX))
+                .min(self.bytes.len());
+            if content_start > box_end {
+                return None;
+            }
+            let content = self.bytes.get(content_start..box_end)?;
+            self.offset = box_end;
+            Some((fourcc, content))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -226,6 +656,33 @@ mod tests {
         for title in ["\0", "\u{202e}", &"x".repeat(100_000), ""] {
             let metadata = from_tags(Some(title), Some(title), None, &[title.to_string()]);
             let _ = to_parsed(&metadata);
+        }
+    }
+
+    #[test]
+    fn parse_head_window_on_unrecognized_bytes_is_empty() {
+        let metadata = parse_head_window(b"just a plain file, not a container");
+        assert!(metadata.is_empty());
+    }
+
+    #[test]
+    fn parse_head_window_on_empty_input_is_empty() {
+        assert!(parse_head_window(&[]).is_empty());
+    }
+
+    #[test]
+    fn parse_head_window_on_truncated_matroska_magic_never_panics() {
+        let magic = [0x1A, 0x45, 0xDF, 0xA3];
+        for cut in 0..=magic.len() {
+            assert!(parse_head_window(&magic[..cut]).is_empty());
+        }
+    }
+
+    #[test]
+    fn parse_head_window_on_truncated_isobmff_header_never_panics() {
+        let header = b"\x00\x00\x00\x18ftypisom";
+        for cut in 0..=header.len() {
+            assert!(parse_head_window(&header[..cut]).is_empty());
         }
     }
 }

@@ -3,9 +3,10 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-08** (**`NEN-088` done** — gerçek Stremio 5.1.26
-> soğuk/sıcak handoff'u, `0` başlangıç davranışı, metadata yokluğu ve güvenli
-> log kapıları doğrulandı. M4 kapandı, M5 sırada.)
+> Son güncelleme: **2026-09-08** (**`NEN-072` done** — M5'in ilk task'ı: uzak
+> medyanın ilk 64 KiB'lık penceresinden Matroska/MP4 container title/year'ı
+> `MediaEvidence`'a taşındı, bounded/oversized/deep/malformed girdi negatif
+> testlerle kapatıldı.)
 
 ## Nerede duruyoruz
 
@@ -13,9 +14,41 @@
 |---|---|
 | **Mevcut milestone** | **M5 — Translation Core** (M4 2026-09-08'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-088`** — gerçek Stremio → Nen Player soğuk/sıcak kabulü tamamlandı; M4 kapandı. Ondan önce: `NEN-087` |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-072` |
-| **Task sayısı** | 88 · done 80 · active 0 · blocked 0 · canceled 2 · backlog 6 |
+| **Son tamamlanan** | **`NEN-072`** — uzak byte penceresinden container metadata ayrıştırma tamamlandı; M5'in ilk task'ı. Ondan önce: `NEN-088` |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064` |
+| **Task sayısı** | 88 · done 81 · active 0 · blocked 0 · canceled 2 · backlog 4 |
+
+**`NEN-072` kapandı — M5'in ilk task'ı, uzak medyanın ilk 64 KiB byte
+penceresinden Matroska/MP4 container title/year'ı artık `MediaEvidence`'a
+taşınıyor.** `MediaEvidence.container` alanı `NEN-036`'dan beri vardı ama hiçbir
+üretim yolu doldurmuyordu; `nen-identity/src/container.rs`'e yeni bağımlılık
+eklenmeden (kapsam zaten tam demux değil, ADR-0009 Karar 6'nın işaret ettiği
+dar bir okuma) elle yazılmış, sınırlı bir EBML/ISOBMFF walker eklendi ve
+`nen-app::remote_evidence::collect_with_policy`'nin zaten çektiği
+`head_window.body`'ye bağlandı.
+
+**Yol üstünde gerçek bir panik bulundu ve aynı task içinde düzeltildi:**
+EBML'in 8 baytlık size VINT kodlaması (`contract-clip.mkv`-tarzı her Matroska
+dosyasında sıradan) marker-mask hesaplamasında `u8` üzerinde 8-bit sağa
+kaydırma deniyordu — bu, adversarial girdi değil kendi golden fixture'ının
+kendisiyle ilk testte tetiklendi. Düzeltme `checked_shr`; crate'in zaten
+`#![deny(clippy::indexing_slicing)]` kuralı, elle indekslemenin tamamının
+`.get()` tabanlı, panik yapamayan erişime çevrilmesini de zorladı.
+
+**Kanıt hem format hem security kesişiminde.** Golden: gerçek ffmpeg-üretilmiş
+`fixtures/media/container/valid-title.{mkv,mp4}` title/year'ı uçtan uca
+doğru veriyor. Negatif (zorunlu), üç ayrı senaryo: oversized declared size
+(buffer'a clamp, panik yok), 2000 seviye iç içe geçmiş element (walker şema-
+sabit tek seviyeye iniyor, girdinin iddia ettiği derinliğe göre değil — panik
+yok, hızlı), NEN-022'nin `broken-clip.mkv`'si + elle kesilmiş header'lar
+(boş sonuç). `nen-app` tarafında tanınmayan pencerenin `MediaEvidence`'a hiç
+container eklemediği ayrıca test edildi.
+
+`cargo test --workspace`, `cargo fmt --check`, `cargo clippy --workspace
+--all-targets -- -D warnings`, `cargo deny check` (yeni bağımlılık yok),
+`bash scripts/test.sh`, `bash scripts/check-docs.sh` hepsi yeşil. Değişiklik
+yalnız `nen-identity`/`nen-app`; FFI ve macOS kabuğu dokunulmadı. Kanıt:
+`tasks/done/NEN-072-*.md`.
 
 **`NEN-088` M4'ü kapattı.** Gerçek Stremio 5.1.26 “MPV içinde oynat” eylemi,
 kurulu ve bütünlüğü doğrulanmış geri alınabilir köprü üzerinden taze Nen Player

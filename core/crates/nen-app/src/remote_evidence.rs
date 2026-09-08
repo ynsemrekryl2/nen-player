@@ -5,7 +5,7 @@
 //! before handing the resulting fields to `nen-identity`.
 
 use nen_identity::evidence::MediaEvidence;
-use nen_identity::{declared_name, os_hash, url_hints};
+use nen_identity::{container, declared_name, os_hash, url_hints};
 use nen_ports::http::{
     ByteRange, HttpClient, HttpError, HttpMethod, HttpRequest, HttpResponse, MAX_REDIRECTS,
     MAX_RESPONSE_BYTES,
@@ -122,6 +122,12 @@ pub fn collect_with_policy(
     }
     if let Some(size) = size {
         evidence = evidence.with_size(size);
+    }
+    if let Some(head) = head_window.as_ref() {
+        let metadata = container::parse_head_window(&head.body);
+        if !metadata.is_empty() {
+            evidence = evidence.with_container(metadata);
+        }
     }
     if let (Some(size), Some(head), Some(tail)) = (size, head_window, tail_window) {
         if let Ok(hash) = os_hash::of(size, &head.body, &tail.body) {
@@ -365,6 +371,13 @@ mod tests {
         )
     }
 
+    fn container_fixture(name: &str) -> Vec<u8> {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../fixtures/media/container")
+            .join(name);
+        std::fs::read(&path).unwrap_or_else(|err| panic!("cannot read {}: {err}", path.display()))
+    }
+
     #[test]
     fn range_windows_produce_the_same_hash_as_local_contents() {
         let contents: Vec<u8> = (0..131_072).map(|byte| (byte % 251) as u8).collect();
@@ -555,5 +568,100 @@ mod tests {
         let debug = format!("{evidence:?}");
         assert!(!debug.contains("secret"));
         assert_eq!(evidence.resolve().title, None);
+    }
+
+    #[test]
+    fn container_title_and_year_from_the_head_window_reach_evidence() {
+        let mut head = container_fixture("valid-title.mkv");
+        head.resize(os_hash::CHUNK_BYTES, 0);
+        let tail = vec![0u8; os_hash::CHUNK_BYTES];
+        let total = 2 * os_hash::CHUNK_BYTES;
+        let url = "https://media.invalid/opaque?token=secret";
+        let content_length = total.to_string();
+        let head_range = format!("bytes 0-{}/{total}", os_hash::CHUNK_BYTES - 1);
+        let tail_range = format!("bytes {}-{}/{total}", os_hash::CHUNK_BYTES, total - 1);
+        let fake = Fake::new(vec![
+            (
+                HttpRequest::head(url),
+                response(
+                    200,
+                    &[
+                        ("Content-Length", content_length.as_str()),
+                        ("Accept-Ranges", "bytes"),
+                    ],
+                    Vec::new(),
+                ),
+            ),
+            (
+                HttpRequest::range(
+                    url,
+                    ByteRange::Inclusive {
+                        start: 0,
+                        end: os_hash::CHUNK_BYTES as u64 - 1,
+                    },
+                ),
+                response(206, &[("Content-Range", head_range.as_str())], head),
+            ),
+            (
+                HttpRequest::range(
+                    url,
+                    ByteRange::Suffix {
+                        length: os_hash::CHUNK_BYTES as u64,
+                    },
+                ),
+                response(206, &[("Content-Range", tail_range.as_str())], tail),
+            ),
+        ]);
+
+        let evidence = collect_remote_evidence(&fake, url).expect("fake response is valid");
+        let container = evidence.container().expect("container metadata present");
+        assert_eq!(container.title.as_deref(), Some("Nen Container Fixture"));
+        assert_eq!(container.year, Some(2024));
+    }
+
+    #[test]
+    fn an_unrecognized_head_window_leaves_container_absent() {
+        let head = vec![0u8; os_hash::CHUNK_BYTES];
+        let tail = vec![0u8; os_hash::CHUNK_BYTES];
+        let total = 2 * os_hash::CHUNK_BYTES;
+        let url = "https://media.invalid/opaque?token=secret";
+        let content_length = total.to_string();
+        let head_range = format!("bytes 0-{}/{total}", os_hash::CHUNK_BYTES - 1);
+        let tail_range = format!("bytes {}-{}/{total}", os_hash::CHUNK_BYTES, total - 1);
+        let fake = Fake::new(vec![
+            (
+                HttpRequest::head(url),
+                response(
+                    200,
+                    &[
+                        ("Content-Length", content_length.as_str()),
+                        ("Accept-Ranges", "bytes"),
+                    ],
+                    Vec::new(),
+                ),
+            ),
+            (
+                HttpRequest::range(
+                    url,
+                    ByteRange::Inclusive {
+                        start: 0,
+                        end: os_hash::CHUNK_BYTES as u64 - 1,
+                    },
+                ),
+                response(206, &[("Content-Range", head_range.as_str())], head),
+            ),
+            (
+                HttpRequest::range(
+                    url,
+                    ByteRange::Suffix {
+                        length: os_hash::CHUNK_BYTES as u64,
+                    },
+                ),
+                response(206, &[("Content-Range", tail_range.as_str())], tail),
+            ),
+        ]);
+
+        let evidence = collect_remote_evidence(&fake, url).expect("fake response is valid");
+        assert!(evidence.container().is_none());
     }
 }

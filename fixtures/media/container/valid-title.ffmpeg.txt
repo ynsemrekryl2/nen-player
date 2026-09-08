@@ -1,0 +1,22 @@
+# fixtures/media/container/valid-title.mkv +
+# fixtures/media/container/valid-title.mp4 — NEN-072 golden fixtures
+#
+# Telif-temiz, tamamen sentetik, 1 saniye · 64x64 (docs/testing-strategy.md
+# -> "fixtures/ düzeni"). Yalnız container title/date tag'lerinin bounded ilk
+# 64 KiB pencereden okunabildiğini kanıtlamak için var; track sayısı/süre
+# önemsiz, bilerek en küçük dosya.
+#
+# Aşağıdaki blok depo kökünden çalıştırıldığında iki dosyayı da yeniden üretir.
+
+cd "$(git rev-parse --show-toplevel)"
+
+ffmpeg -y -loglevel error -f lavfi -i "testsrc=size=64x64:rate=1:duration=1" \
+  -metadata title="Nen Container Fixture" -metadata date="2024-03-15" \
+  -c:v libx264 -preset veryfast -crf 51 -pix_fmt yuv420p \
+  fixtures/media/container/valid-title.mkv
+
+ffmpeg -y -loglevel error -f lavfi -i "testsrc=size=64x64:rate=1:duration=1" \
+  -metadata title="Nen Container Fixture" -metadata date="2024-03-15" \
+  -c:v libx264 -preset veryfast -crf 51 -pix_fmt yuv420p \
+  -movflags +faststart \
+  fixtures/media/container/valid-title.mp4

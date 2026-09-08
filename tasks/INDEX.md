@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **88** task · ✅ done 80 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 6
+Toplam **88** task · ✅ done 81 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 5
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -118,7 +118,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | ID | Başlık | Boyut | Durum | Bağımlılık |
 |---|---|---|---|---|
 | [NEN-044](backlog/NEN-044-embedded-text-extraction.md) | Embedded subtitle text extraction | M | ⚪ backlog | NEN-023 |
-| [NEN-072](backlog/NEN-072-remote-container-metadata.md) | Parse container metadata from remote byte windows | M | ⚪ backlog | NEN-036 |
+| [NEN-072](done/NEN-072-remote-container-metadata.md) | Parse container metadata from remote byte windows | M | ✅ done | NEN-036 |
 
 ## M6 — Real Providers
 
@@ -138,4 +138,3 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-035** — Identity confidence scoring and candidate ranking
 - **NEN-044** — Embedded subtitle text extraction
 - **NEN-064** — Verified media identity in player chrome
-- **NEN-072** — Parse container metadata from remote byte windows
