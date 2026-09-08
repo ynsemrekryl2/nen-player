@@ -4,8 +4,9 @@
 //!
 //! `blocks` deterministically splits a [`SubtitleDocument`] into overlapping
 //! translation blocks (ADR-0015); `context` extracts a small, deterministic
-//! document-wide context from the same document. Neither module performs
-//! I/O or calls a provider — that starts at `NEN-090`.
+//! document-wide context; and `validation` checks untrusted provider DTOs
+//! locally (ADR-0016). None of these modules performs I/O or owns provider
+//! calls — orchestration starts after `NEN-091`.
 //!
 //! [`SubtitleDocument`]: nen_domain::subtitle::SubtitleDocument
 //!
@@ -28,3 +29,4 @@
 
 pub mod blocks;
 pub mod context;
+pub mod validation;

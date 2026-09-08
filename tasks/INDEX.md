@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **104** task · ✅ done 84 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 18
+Toplam **104** task · ✅ done 85 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 17
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -121,7 +121,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-072](done/NEN-072-remote-container-metadata.md) | Parse container metadata from remote byte windows | M | ✅ done | NEN-036 |
 | [NEN-089](done/NEN-089-translation-block-layout.md) | Translation block layout and whole-document context | M | ✅ done | NEN-016 |
 | [NEN-090](done/NEN-090-translation-provider-port-and-mock.md) | Translation provider port and deterministic mock | M | ✅ done | NEN-089 |
-| [NEN-091](backlog/NEN-091-strict-block-validation.md) | Strict local validation of a translated block | M | ⚪ backlog | NEN-090 |
+| [NEN-091](done/NEN-091-strict-block-validation.md) | Strict local validation of a translated block | M | ✅ done | NEN-090 |
 | [NEN-092](backlog/NEN-092-repair-and-retry-budget.md) | Targeted repair and full-block retry budget | M | ⚪ backlog | NEN-091 |
 | [NEN-093](backlog/NEN-093-checkpoint-and-cancellation.md) | Checkpoint only validated blocks and cancel without late commit | M | ⚪ backlog | NEN-092 |
 | [NEN-094](backlog/NEN-094-validated-subtitle-artifact.md) | ValidatedSubtitleArtifact and its WebVTT output | M | ⚪ backlog | NEN-093 NEN-014 |
@@ -154,4 +154,4 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-035** — Identity confidence scoring and candidate ranking
 - **NEN-044** — Embedded subtitle text extraction
 - **NEN-064** — Verified media identity in player chrome
-- **NEN-091** — Strict local validation of a translated block
+- **NEN-092** — Targeted repair and full-block retry budget

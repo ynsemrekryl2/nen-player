@@ -3,8 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-08** (**`NEN-090` kapandı** — translation provider
-> portu, caller-owned cancellation gate'i ve deterministic mock tamamlandı.)
+> Son güncelleme: **2026-09-08** (**`NEN-091` kapandı** — strict translation
+> block validation ve ADR-0016 politikası tamamlandı.)
 
 ## Nerede duruyoruz
 
@@ -12,9 +12,25 @@
 |---|---|
 | **Mevcut milestone** | **M5 — Translation Core** (M4 2026-09-08'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-090`** — translation provider portu ve deterministic mock. Ondan önce: `NEN-103` |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-091` |
-| **Task sayısı** | 104 · done 84 · active 0 · blocked 0 · canceled 2 · backlog 18 |
+| **Son tamamlanan** | **`NEN-091`** — strict local validation of a translated block. Ondan önce: `NEN-090` |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-092` |
+| **Task sayısı** | 104 · done 85 · active 0 · blocked 0 · canceled 2 · backlog 17 |
+
+**`NEN-091` kapandı — provider'ın typed blok cevabı artık yerel ve
+authoritative validation'dan geçmeden teslim edilmiyor.** ADR-0016 kabul edildi;
+`nen-translate::validation::validate_block`, exact cue count, izinli/tekil ID,
+boş olmayan metin ve kaynak sırasına normalizasyonu uyguluyor. Başarılı çıktı
+`SubtitleDocument`'in özgün `TimeSpan`'lerini koruyor; provider zaman
+taşıyamıyor. Eksik, tekrarlı veya boş metinli beklenen ID'ler deterministik
+repair kümesine giriyor; yalnız fazladan bilinmeyen ID full-block retry'a
+bırakılıyor. Hata ve başarı tiplerinin `Debug`/`Display` yüzeyleri cue metni
+taşımıyor.
+
+Kanıt: `cargo test -p nen-translate` **32 passed**; workspace **702 passed / 1
+ignored**; fmt, clippy, cargo-deny, `bash scripts/test.sh` **4/4** ve
+`bash scripts/check-docs.sh` yeşil. ADR commit'i `94c7e10`, CI run'ı
+`34265789758` yeşil. Ham structured-output parse hataları M6 provider adapter
+kararına bırakıldı.
 
 **`NEN-090` kapandı — provider sınırı runtime'sız ve caller-owned kaldı.**
 `nen-ports::translation::TranslationProvider`, yalnız `CueId + text`
