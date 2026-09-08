@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **88** task · ✅ done 81 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 5
+Toplam **104** task · ✅ done 81 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 21
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -117,8 +117,24 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 
 | ID | Başlık | Boyut | Durum | Bağımlılık |
 |---|---|---|---|---|
-| [NEN-044](backlog/NEN-044-embedded-text-extraction.md) | Embedded subtitle text extraction | M | ⚪ backlog | NEN-023 |
+| [NEN-044](backlog/NEN-044-embedded-text-extraction.md) | Embedded subtitle text extraction | M | ⚪ backlog | NEN-023 NEN-103 |
 | [NEN-072](done/NEN-072-remote-container-metadata.md) | Parse container metadata from remote byte windows | M | ✅ done | NEN-036 |
+| [NEN-089](backlog/NEN-089-translation-block-layout.md) | Translation block layout and whole-document context | M | ⚪ backlog | NEN-016 |
+| [NEN-090](backlog/NEN-090-translation-provider-port-and-mock.md) | Translation provider port and deterministic mock | M | ⚪ backlog | NEN-089 |
+| [NEN-091](backlog/NEN-091-strict-block-validation.md) | Strict local validation of a translated block | M | ⚪ backlog | NEN-090 |
+| [NEN-092](backlog/NEN-092-repair-and-retry-budget.md) | Targeted repair and full-block retry budget | M | ⚪ backlog | NEN-091 |
+| [NEN-093](backlog/NEN-093-checkpoint-and-cancellation.md) | Checkpoint only validated blocks and cancel without late commit | M | ⚪ backlog | NEN-092 |
+| [NEN-094](backlog/NEN-094-validated-subtitle-artifact.md) | ValidatedSubtitleArtifact and its WebVTT output | M | ⚪ backlog | NEN-093 NEN-014 |
+| [NEN-095](backlog/NEN-095-adr-persistence-adapter.md) | Decide the persistence adapter for translated artifacts | S | ⚪ backlog | NEN-094 |
+| [NEN-096](backlog/NEN-096-content-addressed-artifact-store.md) | Content-addressed artifact store with atomic commit | M | ⚪ backlog | NEN-095 |
+| [NEN-097](backlog/NEN-097-cache-identity-and-invalidation.md) | Cache identity and invalidation | M | ⚪ backlog | NEN-094 |
+| [NEN-098](backlog/NEN-098-sqlite-artifact-index.md) | Artifact metadata index and offline lookup | M | ⚪ backlog | NEN-096 NEN-097 |
+| [NEN-099](backlog/NEN-099-translation-session-orchestration.md) | Translation session orchestration without retarget | M | ⚪ backlog | NEN-098 NEN-019 |
+| [NEN-100](backlog/NEN-100-translation-ffi-surface.md) | Translation FFI surface with progress, cancel and log guard | M | ⚪ backlog | NEN-099 |
+| [NEN-101](backlog/NEN-101-macos-translate-command.md) | macOS translate command and target language setting | M | ⚪ backlog | NEN-100 NEN-037 |
+| [NEN-102](backlog/NEN-102-macos-translation-progress.md) | macOS translation progress and cancellation surface | M | ⚪ backlog | NEN-101 |
+| [NEN-103](backlog/NEN-103-adr-embedded-text-demux.md) | Decide the demux path for embedded subtitle text | S | ⚪ backlog | NEN-089 |
+| [NEN-104](backlog/NEN-104-m5-acceptance.md) | Translation core acceptance | S | ⚪ backlog | NEN-102 NEN-044 |
 
 ## M6 — Real Providers
 
@@ -136,5 +152,5 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 
 - **NEN-034** — AI-assisted release name normalization
 - **NEN-035** — Identity confidence scoring and candidate ranking
-- **NEN-044** — Embedded subtitle text extraction
 - **NEN-064** — Verified media identity in player chrome
+- **NEN-089** — Translation block layout and whole-document context

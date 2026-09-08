@@ -34,6 +34,11 @@ Süreç: [`0001-adr-process.md`](0001-adr-process.md) · Şablon:
 | [0042](0042-seek-during-loading.md) | Yüklenirken verilen seek reddedilmez, ertelenir | ✅ accepted | M3 |
 | [0043](0043-macos-handoff-surface.md) | macOS handoff alıcı yüzeyi — argv + open-with + custom scheme | ✅ accepted | M4 |
 | [0044](0044-stremio-mpv-bridge.md) | Stremio macOS MPV launcher için geri alınabilir Nen Player köprüsü | ✅ accepted | M4 |
+| [0015](0015-translation-block-strategy.md) | Çeviri blok stratejisi — boyut, overlap ve belge bağlamı | 🟡 proposed | M5 |
+| [0016](0016-translation-validation-and-repair.md) | Çeviri doğrulama ve onarım politikası — yerel doğrulama authoritative | 🟡 proposed | M5 |
+| [0017](0017-artifact-persistence-adapter.md) | Doğrulanmış artifact'lerin persistence adapter'ı | 🟡 proposed | M5 |
+| [0018](0018-cache-identity-and-invalidation.md) | Cache identity bileşenleri, versiyonlama ve invalidasyon | 🟡 proposed | M5 |
+| [0045](0045-embedded-text-demux-path.md) | Gömülü altyazı metninin demux yolu | 🟡 proposed | M5 |
 | [0002](0002-core-language.md) | Shared core dili — go/no-go kapısı | ✅ accepted | M1 |
 | [0027](0027-performance-budget.md) | Performans bütçeleri — M1 baseline'larından marjlı kabul | ✅ accepted | M1 sonrası |
 
@@ -51,10 +56,6 @@ karar verilmiş sayılmaz (bkz. `docs/architecture.md` → "Karar statüsü").
 | 0004 | Async / cancellation / progress kontratı ve late-commit yasağı | M1 |
 | 0005 | Typed error taksonomisi ve redaction kuralları | M1 |
 | 0014 | Stremio handoff kontratı — Android Intent tarafı ve log yasakları (macOS yarısı ADR-0043 ile kapandı) | M10 |
-| 0015 | Translation blok stratejisi: boyut, overlap, context analizi | M5 |
-| 0016 | Validation ve repair politikası; authoritative local validation | M5 |
-| 0017 | Persistence adapter (aday: SQLite index + content-addressed store), atomik commit | M5 |
-| 0018 | Cache identity bileşenleri ve versiyonlama/invalidasyon | M5 |
 | 0019 | Provider port soyutlaması ve capability preflight | M6 |
 | 0020 | Secure credential storage haritası | M6 |
 | 0021 | OpenSubtitles entegrasyon sınırları: opaque public ID, indirme güvenliği | M6 |

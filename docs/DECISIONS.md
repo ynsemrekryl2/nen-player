@@ -77,6 +77,9 @@ ADR metnini tekrarlamaz, onlara işaret eder.
 | **S6** | Auto-sync gizliliği *(kısmen)* | Varsayılan **localOnly**; remote audio analizi **açık izin** ister. Model seçimi ve kaynak bütçesi hâlâ açık | 2026-08-24 |
 | **S8** | Cihazlar arası tercih taşıma | **Cloud sync ilk ürün için non-goal** | 2026-08-24 |
 | **S10** | Telemetri / crash raporlama | **İlk ürün için yok** | 2026-08-24 |
+| **S3** | Çeviri kalite hedefi *(kısmen)* | **M5'in ölçütü yapısal doğruluk**: cue sayısı birebir, ID'ler izinli ve tekil, metin boş değil, sıra/zamanlar korunuyor. Dilsel kalite çıtası ("anlaşılır" mı, "yayın kalitesi" mi) gerçek model geldiğinde M6'da kapanır — M5 yalnız mock provider ile bitiyor | 2026-09-08 |
+| **S4** | Offline/uçak modu | Kaydedilmiş artifact **ağ olmadan** açılıp oynatılır; çeviri komutu ağ yokken tipli hata verir ve yarım iş bırakmaz. **Ayrı bir offline modu anahtarı yok** | 2026-09-08 |
+| **S9** | Çoklu AI çevirisi | Farklı provider/model/glossary ile üretilen artifact'ler **diskte yan yana** durur (cache identity zaten ayırıyor); M5'te hedef dil grubunda yalnız **en yeni** olan gösterilir. Tam sunum M6'da gerçek provider'larla kararlaşır | 2026-09-08 |
 
 ## 4. Ertelenmiş kararlar
 
@@ -84,7 +87,7 @@ ADR metnini tekrarlamaz, onlara işaret eder.
 |---|---|---|
 | Binding (aday: UniFFI + C ABI) | M1 | ADR-0003 |
 | Public dağıtım kanalı ve zamanı | M3 sonrası | S11 → [`licensing.md`](licensing.md) |
-| Persistence adapter (aday: SQLite + CAS) | M5 | ADR-0017 |
+| Persistence adapter (aday: SQLite + CAS) | M5 — `NEN-095` | ADR-0017 (`proposed`, 2026-09-08) |
 | Android motor (aday: Media3) | M10 | ADR-0025 |
 
 ## 5. Teknoloji karar statüsü
@@ -123,7 +126,7 @@ için **yalnız durum**, ADR içeriği değil.
 | Durum | Sayı | ADR'ler |
 |---|---|---|
 | ✅ accepted | 28 | 0001 · 0002 · 0006 · 0007 · 0008 · 0009 · 0010 · 0011 · 0012 · 0013 · 0026 · 0027 · 0028 · 0029 · 0030 · 0031 · 0032 · 0033 · 0034 · 0035 · 0037 · 0038 · 0039 · 0040 · 0041 · 0042 · 0043 · 0044 |
-| 🟡 proposed | 0 | — |
+| 🟡 proposed | 5 | 0015 · 0016 · 0017 · 0018 · 0045 (hepsi M5, 2026-09-08 kırılımıyla açıldı) |
 | ❌ rejected | 1 | 0036 |
 
 En kritik üçü: **0002** (core dili, M1 kapısı) · **0026** (playback ownership,

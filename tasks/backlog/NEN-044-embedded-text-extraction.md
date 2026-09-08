@@ -4,9 +4,9 @@ title: Embedded subtitle text extraction
 milestone: M5
 size: M
 state: backlog
-depends_on: [NEN-023]
-blocks: []
-adr: []
+depends_on: [NEN-023, NEN-103]
+blocks: [NEN-104]
+adr: [0045]
 ---
 
 # NEN-044 — Embedded subtitle text extraction
@@ -28,10 +28,11 @@ seçilince motor kendisi çiziyor.
 Tüketici M5'te ortaya çıkıyor: çeviri, kaynak altyazının metnini ister
 (şartname §9, §10). `NEN-027`'nin injection yolu harici belgeler içindir.
 
-## Ön koşul — ADR
+## Ön koşul — ADR-0045
 
 Demux yolu **kararlaştırılmamıştır** ve kod yazılmadan önce bir ADR ister.
-Bilinen adaylar:
+Karar `NEN-103`'ün konusudur (ADR-0045); bu task o ADR `accepted` olmadan
+başlatılmaz. Bilinen adaylar:
 
 - **libavformat/libavcodec** — Homebrew mpv'nin zaten getirdiği kütüphaneler,
   Swift'te yeni bir `systemLibrary` hedefi. Bedeli: ikinci bir yerel bağımlılık
@@ -60,7 +61,7 @@ I/O tarafını aynı demux'ün karşılayıp karşılamayacağını değerlendir
 
 ## Kanıt (DoD)
 
-- [ ] ADR `accepted`
+- [ ] ADR-0045 `accepted` (`NEN-103`)
 - [ ] Fixture'ın metin track'inin çıkarılan metni golden ile eşleşiyor
 - [ ] Bitmap track'te çıkarım tipli hata ile reddediliyor
 - [ ] `NEN-023`'ün lazy negatif kontrolü hâlâ yeşil — çıkarım yalnız açıkça

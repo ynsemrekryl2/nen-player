@@ -3,12 +3,17 @@
 Üst görünüm. Task ayrıntısı için `tasks/INDEX.md`, milestone ayrıntısı için
 `docs/milestones/`.
 
-**Şu anki konum: M4 kapandı (2026-09-08), M5 sırada.** macOS dilimi 46 task
-ile tamamlandı: gerçek `.app` dosyayı açıyor, oynatıyor, gömülü track'leri ve
-sidecar'ları gruplu menüde gösteriyor, seçileni ekrana çiziyor. Retro
-[`milestones/M3-macos-slice.md`](milestones/M3-macos-slice.md)'de.
-M4'ün gerçek Stremio → Nen Player akışı, geri alınabilir MPV köprüsü ve gerçek
-kabul koşusu (`NEN-087`/`NEN-088`) tamamlandı.
+**Şu anki konum: M5 — Translation Core.** Kırılımı 2026-09-08'de üretildi:
+18 task (`NEN-072` done · `NEN-089`…`NEN-104` · `NEN-044`) ve beş `proposed`
+ADR (0015 · 0016 · 0017 · 0018 · 0045) — kırılım
+[`milestones/M5-translation-core.md`](milestones/M5-translation-core.md)'de.
+
+Arkada bırakılanlar: macOS dilimi 46 task ile tamamlandı (gerçek `.app` dosyayı
+açıyor, oynatıyor, gömülü track'leri ve sidecar'ları gruplu menüde gösteriyor,
+seçileni ekrana çiziyor — retro
+[`milestones/M3-macos-slice.md`](milestones/M3-macos-slice.md)'de); M4'ün gerçek
+Stremio → Nen Player akışı, geri alınabilir MPV köprüsü ve kabul koşusu
+(`NEN-087`/`NEN-088`) kapandı.
 Güncel durum: [`docs/STATUS.md`](STATUS.md) ·
 Kararlar: [`docs/DECISIONS.md`](DECISIONS.md)
 
@@ -21,7 +26,7 @@ Kararlar: [`docs/DECISIONS.md`](DECISIONS.md)
 | **M2** | Subtitle Core | SRT strict parse, WebVTT yazımı, encoding, timeline fingerprint, indeksli cue lookup, media evidence, source catalog — headless test edilmiş. | ✅ kapandı |
 | **M3** | macOS Vertical Slice | Dosya aç → oynat → katalog (embedded + sidecar) → altyazı menüsü → seç → ekranda göster. **İlk gerçek ürün.** | ✅ kapandı |
 | **M4** | Stremio Handoff (macOS) | Stremio'dan açılan medya macOS'ta doğru pozisyondan oynuyor; argüman/URL loglanmıyor. | ✅ kapandı |
-| **M5** | Translation Core | Blok pipeline + strict validation + checkpoint/cancel + artifact/cache; mock provider ile uçtan uca doğrulanmış. | ⚪ |
+| **M5** | Translation Core | Blok pipeline + strict validation + checkpoint/cancel + artifact/cache; mock provider ile uçtan uca doğrulanmış. | 🔵 açık |
 | **M6** | Real Providers | OpenSubtitles resmi API + OpenAI + OpenRouter; secure credential storage; katalogda gerçek adaylar. | ⚪ |
 | **M7** | Manual Sync | Offset · replik-temelli anchor · iki-anchor drift; SyncProfile persistence, undo/reset/preview. | ⚪ |
 | **M8** | AI Audio-Assisted Sync | VAD + ASR + alignment + confidence + kullanıcı önizleme/onay; varsayılan localOnly. | ⚪ |
@@ -82,13 +87,13 @@ Yanıtlanan satır **silinmez** — durumu güncellenir ve kararı
 |---|---|---|---|
 | **S1** | Dağıtım modeli ne? | ✅ kısmen cevaplandı (2026-08-24) | Şimdilik **kişisel kullanım + side-loading**. Public dağıtım kararı ertelendi → **S11** |
 | **S2** | AI çeviri maliyetini kim karşılıyor? | ✅ cevaplandı (2026-08-24) | Kullanıcı **kendi** OpenSubtitles/OpenAI/OpenRouter anahtarını girer. **Hosted backend yok** |
-| **S3** | Çeviri kalite hedefi: "anlaşılır" mı, "yayın kalitesi" mi? | ❓ açık | Operasyonel **ölçüt** tanımlanmalı. Blok boyutu, context derinliği, repair bütçesi, model seçimi buna bağlı — M5 |
-| **S4** | Offline/uçak modu birinci sınıf senaryo mu? | ❓ açık | S8 ("cloud sync non-goal") bunu kısmen etkiliyor: sync yoksa offline davranış tamamen yerel cache'e bağlı — M5–M6 |
+| **S3** | Çeviri kalite hedefi: "anlaşılır" mı, "yayın kalitesi" mi? | 🟡 kısmen cevaplandı (2026-09-08) | **M5'in ölçütü yapısal doğruluk**: cue sayısı birebir, izinli ve tekil ID, boş olmayan metin, korunan sıra/zamanlar. Blok boyutu (40 · 30–60) ve repair bütçesi (2+1) şartnamede zaten sabit. Dilsel kalite çıtası ve model seçimi gerçek sağlayıcıyla **M6**'da kapanır — M5 yalnız mock provider ile bitiyor |
+| **S4** | Offline/uçak modu birinci sınıf senaryo mu? | ✅ cevaplandı (2026-09-08) | **Evet, ama ayrı bir mod yok.** Kaydedilmiş artifact ağ olmadan açılıp oynatılır (`NEN-098` DoD'unda negatif testle); çeviri komutu ağ yokken tipli hata verir ve yarım iş bırakmaz. Açık bir "offline modu" anahtarı eklenmez |
 | **S5** | Uzak medya ne kadar destekleniyor? | ✅ cevaplandı (2026-08-24) | Genel **file/http/https** açma desteklenir. Stremio önemli bir giriş kaynağı, **tek remote kaynak değil** |
 | **S6** | Auto-sync'te ASR yerel mi? | ⚠️ kısmen cevaplandı (2026-08-24) | Privacy net: varsayılan **localOnly**, remote audio analizi **açık izin** ister. **Model seçimi ve cihaz kaynak bütçesi açık** — M8 |
 | **S7** | Android TV minimum API seviyesi ve hedef cihaz sınıfı? | ❓ açık | Media3 sürümü, bellek bütçesi, cue pencereleme eşikleri — M10 |
 | **S8** | Kullanıcı tercihleri cihazlar arası taşınacak mı? | ✅ cevaplandı (2026-08-24) | **Cloud sync ilk ürün için non-goal** |
-| **S9** | Aynı medya için birden fazla AI çeviri saklanabilir mi? | ❓ açık | Asıl açık kısım: farklı provider/model/glossary ile üretilen artifact'ler **UI'da nasıl gösterilecek** — M5 |
+| **S9** | Aynı medya için birden fazla AI çeviri saklanabilir mi? | 🟡 kısmen cevaplandı (2026-09-08) | **Diskte evet, menüde en yeni.** Cache identity provider/model/glossary'yi zaten ayırdığı için artifact'ler yan yana durur; M5'te hedef dil grubunda yalnız en yeni gösterilir (ADR-0018 · `NEN-098`). Kullanıcıya seçtirme yüzeyi gerçek sağlayıcılarla **M6**'da kararlaşır |
 | **S10** | Telemetri / crash raporlama olacak mı? | ✅ cevaplandı (2026-08-24) | **İlk ürün için yok** |
 | **S11** | İleride public dağıtım — hangi kanal, ne zaman? | 🟡 daraldı (2026-09-07) | ADR-0012 lisansı **GPL-3.0-or-later** yaptı: **App Store kapalı** (GPL ile uyumsuz), açık kaynak side-loading / GitHub release açık. `NEN-043` libmpv gömme + `@rpath` kolunu kapattı (ad-hoc imzalı `.app` Homebrew olmadan çalışıyor — negatif kontrol kanıtlı). Kalan ön koşul: **Developer ID imzası, hardened runtime, notarization, `spctl`** — Apple Developer Program üyeliği gerektiriyor, bu makinede yok (`security find-identity` → 0 kimlik). Numaralandırılmış bir task S11 zamanlandığında açılacak |
 | **S12** | Gerçek lisans seçimi: open-source / source-available / private? | ✅ cevaplandı (2026-08-26) | **Açık kaynak, GPL-3.0-or-later.** Kökte `LICENSE`; gerekçe [ADR-0012](adr/0012-macos-playback-engine.md), anlatımı [`licensing.md`](licensing.md) |

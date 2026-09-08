@@ -3,10 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-08** (**`NEN-072` done** — M5'in ilk task'ı: uzak
-> medyanın ilk 64 KiB'lık penceresinden Matroska/MP4 container title/year'ı
-> `MediaEvidence`'a taşındı, bounded/oversized/deep/malformed girdi negatif
-> testlerle kapatıldı.)
+> Son güncelleme: **2026-09-08** (**M5 kırılımı üretildi** — M4 kapanış
+> ritüelinin eksik kalan son maddesi: 16 yeni task, beş `proposed` ADR, üç açık
+> soru (S3 · S4 · S9) kullanıcı kararıyla kapandı.)
 
 ## Nerede duruyoruz
 
@@ -15,8 +14,55 @@
 | **Mevcut milestone** | **M5 — Translation Core** (M4 2026-09-08'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
 | **Son tamamlanan** | **`NEN-072`** — uzak byte penceresinden container metadata ayrıştırma tamamlandı; M5'in ilk task'ı. Ondan önce: `NEN-088` |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064` |
-| **Task sayısı** | 88 · done 81 · active 0 · blocked 0 · canceled 2 · backlog 4 |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-064`, `NEN-089` |
+| **Task sayısı** | 104 · done 81 · active 0 · blocked 0 · canceled 2 · backlog 21 |
+
+**M5 — Translation Core kırılıma bağlandı; sıradaki iş `NEN-089`.** M4'ün
+kapanış ritüelinin son maddesi (`docs/roadmap.md` → "Milestone kapanış ritüeli":
+*"sonraki milestone'un task kırılımı"*) yapılmamıştı —
+`docs/milestones/M5-translation-core.md` hâlâ *"(henüz kırılmadı)"* diyordu ve
+M5'in gövdesi (blok pipeline, strict validation, checkpoint/cancel,
+artifact/cache, persistence, mock provider) için **sıfır task** vardı.
+`nen-translate` ve `nen-persist` bugün hâlâ üçer satırlık boş iskelet.
+
+**16 yeni task açıldı (`NEN-089`…`NEN-104`), `NEN-044` grafiğe bağlandı.**
+Zincir: blok düzeni (`089`) → provider portu + deterministic mock (`090`) →
+strict doğrulama (`091`) → repair bütçesi (`092`) → checkpoint/iptal (`093`) →
+artifact + WebVTT (`094`) → persistence kararı (`095`) → içerik adresli depo
+(`096`) → cache identity (`097`) → index + offline okuma (`098`) →
+orkestrasyon (`099`) → FFI (`100`) → macOS komut/ayar (`101`) → ilerleme/iptal
+(`102`) → acceptance (`104`). Ayrı kol: demux kararı (`103`) → gömülü metin
+çıkarımı (`044`) → `104`. Hiçbir task `L` değil; macOS yüzeyi ve persistence
+bilerek ikiye bölündü (`tasks/README.md` → bölme testi). Mevcut hiçbir ID
+yeniden numaralandırılmadı.
+
+**M5'in altı çıkış kriterinin her birinin kanıtlayan task'ı var** — eşleme
+`docs/milestones/M5-translation-core.md` → "Çıkış kriteri → kanıt eşlemesi".
+Altı task (`091` · `092` · `093` · `096` · `097` · `098`) `tasks/README.md`'nin
+security/validation satırına giriyor, yani **negatif test zorunlu**.
+
+**Beş ADR `proposed` olarak açıldı:** 0015 (blok stratejisi) · 0016 (doğrulama
+ve onarım) · 0017 (persistence adapter) · 0018 (cache identity) · 0045 (gömülü
+metin demux yolu). Numaralar kullanıcı kararıyla planlanan tablodan alındı
+(0015–0018), çünkü `docs/DECISIONS.md` ve `docs/architecture.md` persistence
+kararını zaten adıyla **ADR-0017** diye anıyordu. Kural 4 gereği hiçbiri
+`accepted` değil; ilgili ADR kabul edilmeden o task'ın implementasyonuna
+geçilmez ve SQLite/CAS gibi adlar **aday** kalır.
+
+**Üç açık soru kullanıcı kararıyla kapandı (2026-09-08).** **S3:** M5'in ölçütü
+dilsel değil **yapısal doğruluk** — M5 yalnız mock provider ile bittiği için
+dilsel çıta M6'ya bırakıldı. **S4:** kaydedilmiş artifact ağ olmadan açılır,
+ayrı bir offline modu anahtarı yok (`NEN-098`'in DoD'unda negatif test).
+**S9:** farklı provider/model/glossary ile üretilen artifact'ler diskte yan
+yana durur, M5'te menüde hedef dil başına yalnız en yeni görünür.
+
+**Yol üstünde bağımsız bir doküman kusuru bulundu ve ayrı commit'e ayrıldı
+(Kural 5).** `docs/adr/README.md` kendi "Yazılmış" tablosunda ADR-0034, ADR-0035
+ve ADR-0042'yi hiç listelemiyordu; `docs/DECISIONS.md`'nin sayımı da 22 accepted
+diyordu (gerçek: 28). Kırılıma katılmadı, kendi commit'ini aldı (`3dcfed2`).
+
+Kod değişmedi (planlama task'ı; Kural 1 gereği kırılım kodun ön koşulu).
+`bash scripts/task-index.sh` ve `bash scripts/check-docs.sh` çıkış 0.
 
 **`NEN-072` kapandı — M5'in ilk task'ı, uzak medyanın ilk 64 KiB byte
 penceresinden Matroska/MP4 container title/year'ı artık `MediaEvidence`'a
