@@ -3,8 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-08** (**`NEN-079` done** — macOS handoff alıcı
-> yüzeyi `ADR-0043` ile kabul edildi. Önceki: `NEN-078` ölçümü)
+> Son güncelleme: **2026-09-08** (**`NEN-080` done** — başka bir uygulamanın
+> verdiği medya artık `⌘O` ile aynı yoldan açılıyor. Önceki: `NEN-079` ADR)
 
 ## Nerede duruyoruz
 
@@ -12,12 +12,52 @@
 |---|---|
 | **Mevcut milestone** | **M4 — Stremio Handoff (macOS)** (M3 2026-09-07'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-079`** — macOS handoff alıcı yüzeyi (`argv` + open-with + `nenplayer://` scheme), başlangıç pozisyonunun taşıyıcısı ve handoff'un port olmadığı `ADR-0043` ile kabul edildi. Ondan önce: `NEN-078` ölçümü |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-072`, `NEN-080` |
-| **Task sayısı** | 84 · done 71 · active 0 · blocked 0 · canceled 2 · backlog 11 |
+| **Son tamamlanan** | **`NEN-080`** — macOS handoff alıcı yüzeyi (`argv` + open-with + `nenplayer://` scheme) uygulandı: başka bir uygulamanın verdiği `file`/`http`/`https` medyası, uygulama kapalıyken de açıkken de, `⌘O`'nun kullandığı yoldan açılıyor. Ondan önce: `NEN-079` ADR |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-072`, `NEN-081`, `NEN-082`, `NEN-083` |
+| **Task sayısı** | 84 · done 72 · active 0 · blocked 0 · canceled 2 · backlog 10 |
 
-**M4'ün sıradaki task'ı `NEN-080`** — `ADR-0043`'ün kararlarını uygulayıp
-başka bir uygulamanın verdiği medyayı `⌘O` ile aynı yoldan açacak.
+**M4'ün sıradaki task'ı `NEN-081`** — handoff'un taşıdığı başlangıç
+pozisyonunu (`NEN-080`'in şimdiden ayrıştırıp taşıdığı, henüz uygulamadığı
+`start_position_ms`) ADR-0042'nin `deferredSeekMs` kontratına bağlayacak.
+
+**`NEN-080` kapandı — başka bir uygulamanın Nen Player'a verdiği medya
+`⌘O` ile açılmış gibi aynı yoldan oynuyor.** ADR-0043'ün üç yüzeyi
+(`argv` + open-with + `nenplayer://` scheme) core'da tek bir ayrıştırıcıya
+(`nen_app::handoff::parse_argv`/`parse_url`) indirgendi — bayrak adları
+(`--start`/`--start-time`/`--start-position`, iki yazım), tanınmayan
+bayrağın sessizce atlanması (NEN-078 Bulgu 4'ün `--no-terminal`'i), `#t=`
+fragment'i, `file://`/`http`/`https` çözümü (uzak şema kapısı
+`remote_evidence::validate_url`'in **aynısı**, ikinci kopya açılmadı) ve
+pozisyonun saniye→ms dönüşümü. FFI gate aynı ayrımı gate'e taşıdı; locator
+bu kez gate'ten **çıktığı** için (subtitle path'lerinin tersine) `Debug` elle
+yazıldı. macOS'ta yeni `HandoffIntake`/`HandoffCoordinator`,
+`PlayerModel.openMedia(at:)`'in `http`/`https`'i de kabul etmesi ve
+`Info.plist`'e `CFBundleDocumentTypes`/`CFBundleURLTypes` eklenmesiyle
+tamamlandı.
+
+**Yol üstünde, handoff'tan bağımsız bir pencere yaşam döngüsü kusuru
+bulundu ve düzeltildi.** Gerçek `.app` kabulünün ilk denemesinde medya hiç
+açılmadı: `Window(id:)` + `.windowResizability` sahnesi her başlatmada,
+pencere görünür olmadan **önce**, kök view'ı bir kez tam söküp
+(`onDisappear` → `model.shutdown()`) ~100 ms içinde yeniden kuruyordu; video
+yüzeyi bu sarsıntıyı sağ çıkıyordu ama ikinci kuruluşta bir daha hiç
+`attach` edilmiyordu, yani oturum kalıcı `nil` kalıyordu. `Info.plist`'in
+yeni girdileri kaldırılınca da aynen gözlendi — sebep onlar değildi; `⌘O`
+bugüne kadar bu ~100 ms'lik pencereden çok sonra tetiklendiği için kusur
+hiç görünmemişti. Düzeltme tek satır: `PlayerRootView`'in `.onAppear`'ına
+`model.resume()` — `NEN-046`'nın Dock'tan yeniden açma için zaten kullandığı
+aynı kendini-onarma çağrısı.
+
+Rust workspace **646 passed / 1 ignored** (bu task'ın 39 yeni testi), macOS
+Swift paketi **221/221** (19 yeni test, biri gerçek `.app`'te bulunan sıralama
+kusurunun regresyon testi), `cargo fmt`/`clippy`/`cargo deny check` ve
+`bash scripts/test-macos.sh` iki ardışık koşuda yeşil. Gerçek `.app` kabulü
+dört senaryoda: uygulama kapalıyken `open -a` (open-with), uygulama açıkken
+ikinci `open -a`, gerçek Stremio mekanizmasıyla doğrudan argv exec
+(`--start=5 --no-terminal`), ve negatif (`ftp://` panik yaratmadan reddedildi).
+`nenplayer://` scheme'i ADR-0043 Bulgu 9 gereği bu makinede uçtan uca
+doğrulanamıyor (Developer ID yok), roadmap **S11**'e bağlı — kod yolu birim
+testleriyle kanıtlı. Kanıt: `evidence/M4/NEN-080-checklist.md`.
 
 **`NEN-079` kapandı — macOS handoff alıcı yüzeyi `accepted` bir ADR ile
 sabitlendi.** `NEN-078`'in ölçümü kesin bir öneri üretmemişti (adayları

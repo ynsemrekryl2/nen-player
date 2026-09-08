@@ -206,6 +206,20 @@ public struct PlayerRootView: View {
         }
         .onAppear {
             installEscapeMonitor()
+            // Measured on the real `.app`: at launch, AppKit/SwiftUI mount
+            // this view, tear it down, and mount it again — all within
+            // ~100 ms, before the window ever visibly changes — for reasons
+            // internal to `Window(id:)` + `.windowResizability` and outside
+            // this view's control. The video surface's own `NSView` survives
+            // that churn, but `onDisappear` below still fires and shuts the
+            // playback session down with it. `resume()` is exactly the
+            // self-heal `.nenPlayerWindowReopened` already uses for the
+            // Dock-reopen case (NEN-046): a no-op when a session already
+            // exists, and otherwise a straight `attach(to:)` on the surface
+            // that never actually went away. Without it, a handoff (NEN-080)
+            // — or in principle any load — arriving during that window would
+            // queue behind a session that nothing ever rebuilds.
+            model.resume()
         }
         .onDisappear {
             removeEscapeMonitor()

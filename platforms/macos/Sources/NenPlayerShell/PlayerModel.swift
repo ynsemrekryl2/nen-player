@@ -241,9 +241,16 @@ public final class PlayerModel: ObservableObject {
         }
     }
 
+    /// Opens a medium, whether it came from `⌘O`, a drop, the recents list,
+    /// or a handoff from another application (NEN-080).
+    ///
+    /// Accepts a local file or a remote `http`/`https` URL — the same two
+    /// shapes `nen_app::handoff` resolves a locator to. Everything else
+    /// (`⌘O`'s own panel, drag-and-drop) already only ever hands over a file
+    /// URL, so the remote branch is reached only from a handoff.
     public func openMedia(at url: URL) {
-        guard url.isFileURL else {
-            presentTransient("Bu medya kaynağı açılamıyor.")
+        guard url.isFileURL || Self.isSupportedRemoteURL(url) else {
+            presentTransient(PlaybackPresentation.unsupportedMediaSourceMessage)
             return
         }
         guard let session else {
@@ -252,15 +259,21 @@ public final class PlayerModel: ObservableObject {
         }
 
         releaseSecurityScope()
-        hasSecurityScope = url.startAccessingSecurityScopedResource()
-        accessedURL = url
+        if url.isFileURL {
+            hasSecurityScope = url.startAccessingSecurityScopedResource()
+            accessedURL = url
+        }
         mediaPresentationRevision &+= 1
 
         mediaName = url.lastPathComponent
         fatalMessage = nil
         transientMessage = nil
         resetSubtitleCatalog()
-        startSidecarScan(besides: url)
+        if url.isFileURL {
+            // A remote locator's `.path` is a URL path component, not a
+            // filesystem path — there is no directory beside it to list.
+            startSidecarScan(besides: url)
+        }
         playbackState = .buffering
         positionMilliseconds = 0
         durationMilliseconds = nil
@@ -276,6 +289,11 @@ public final class PlayerModel: ObservableObject {
         setControlsPinned(false)
 
         do {
+            // A remote locator is never written to history — its query string
+            // can carry a token (NEN-042 → YAPILMAYACAK). The store itself
+            // enforces this; the call stays unconditional so a file handed
+            // over by another application gets the same recents entry `⌘O`
+            // would give it.
             try recentStore.save(url)
             recentMedia = recentStore.entries
         } catch {
@@ -283,10 +301,39 @@ public final class PlayerModel: ObservableObject {
         }
 
         do {
-            try session.load(locator: url.path)
+            try session.load(locator: url.isFileURL ? url.path : url.absoluteString)
         } catch {
             playWhenReady = false
             presentFatal(error)
+        }
+    }
+
+    /// `http`/`https` only — the same scheme gate
+    /// `nen_app::remote_evidence::validate_url` enforces on the core side of a
+    /// handoff. Kept narrow rather than "not a file URL", so a scheme this
+    /// player has no engine support for does not reach `session.load`.
+    private static func isSupportedRemoteURL(_ url: URL) -> Bool {
+        guard let scheme = url.scheme?.lowercased() else { return false }
+        return scheme == "http" || scheme == "https"
+    }
+
+    /// Applies what `HandoffIntake` decided a launch input meant (NEN-080).
+    ///
+    /// `.none` does nothing — an ordinary launch (no positional argument) is
+    /// not a failure to react to. `.medium` opens exactly the way `⌘O` opens
+    /// one; `.rejected` uses the same transient surface `openMedia(at:)`
+    /// already shows for a source it refuses on its own.
+    ///
+    /// `startPositionMs` is intentionally unused here — NEN-081 is what turns
+    /// it into a seek once the medium has loaded.
+    public func handleHandoff(_ outcome: HandoffOutcome) {
+        switch outcome {
+        case .none:
+            break
+        case let .medium(url, startPositionMs: _):
+            openMedia(at: url)
+        case let .rejected(message):
+            presentTransient(message)
         }
     }
 

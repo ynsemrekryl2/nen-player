@@ -26,5 +26,41 @@
     <true/>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
+    <!-- ADR-0043 Karar 1: open-with handoff. `LSHandlerRank: Alternate` does
+         not claim the default-application role for these UTIs — a sender
+         (or the user, via Finder "Birlikte Aç") offers the file, it is not
+         taken over. -->
+    <key>CFBundleDocumentTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>Video</string>
+            <key>CFBundleTypeRole</key>
+            <string>Viewer</string>
+            <key>LSHandlerRank</key>
+            <string>Alternate</string>
+            <key>LSItemContentTypes</key>
+            <array>
+                <string>public.movie</string>
+                <string>public.audiovisual-content</string>
+            </array>
+        </dict>
+    </array>
+    <!-- ADR-0043 Karar 1: the `nenplayer` custom scheme. Format:
+         `nenplayer://<medya URL'si birebir>` — parsed in
+         `nen_app::handoff::parse_url`. Not verifiable on this machine
+         without a Developer ID signature (ADR-0043 Bulgu 9 / roadmap S11);
+         the code path exists and is unit-tested regardless. -->
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>player.nen.macos.handoff</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>nenplayer</string>
+            </array>
+        </dict>
+    </array>
 </dict>
 </plist>

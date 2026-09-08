@@ -227,7 +227,13 @@ fn map_http_error(error: HttpError) -> RemoteEvidenceError {
     }
 }
 
-fn validate_url(url: &str) -> Result<(), RemoteEvidenceError> {
+/// The scheme gate every remote locator passes.
+///
+/// `pub(crate)` rather than private because NEN-080's handoff parser needs the
+/// **same** answer this module gives: a second opinion about what an `http`
+/// URL is would be a second thing to keep correct, and the two would drift the
+/// first time either changed.
+pub(crate) fn validate_url(url: &str) -> Result<(), RemoteEvidenceError> {
     if url
         .chars()
         .any(|character| character.is_control() || character.is_whitespace())

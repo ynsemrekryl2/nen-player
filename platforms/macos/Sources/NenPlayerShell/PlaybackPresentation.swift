@@ -112,4 +112,11 @@ public enum PlaybackPresentation {
     /// resolved, whether because it resolved to nothing or because resolving
     /// it threw (NEN-050). Both cases clear the stored entry.
     public static let recentMediaUnavailableMessage = "Son açılan medya artık kullanılamıyor."
+
+    /// What the user is told when a source `PlayerModel.openMedia(at:)`
+    /// cannot open at all — a scheme with no engine support, or a locator a
+    /// handoff (NEN-080) could not resolve. One sentence, no scheme name, no
+    /// path: the surface is shared with `HandoffIntake` on purpose, so a
+    /// refused handoff and a refused drop read identically to the user.
+    public static let unsupportedMediaSourceMessage = "Bu medya kaynağı açılamıyor."
 }
