@@ -201,7 +201,7 @@ değil.
 | **Binding** | *Aday:* UniFFI (Swift + Kotlin tek tanımdan). Windows/Linux için *değerlendirme adayı* C ABI + generated header. `nen-ffi` **tek dış kapıdır**; başka crate FFI yüzeyi açmaz |
 | **Async** | Core `async`; Swift'te `async/await`, Kotlin'de `suspend` |
 | **Progress** | Callback interface: `onProgress(jobId, phase, done, total)`. **Cue içeriği FFI sınırından geçmez** — ilerleme yalnız sayıdır (redaction gereği) |
-| **Cancellation** | `JobHandle.cancel()` → checkpoint noktalarında kooperatif iptal. **İptalden sonra hiçbir callback gelmez, late commit yasaktır** |
+| **Cancellation** | `JobHandle.cancel()` → caller-owned delivery gate + checkpoint noktalarında kooperatif iptal. **`cancel()` döndükten sonra hiçbir callback veya sonuç gelmez, late commit yasaktır** ([ADR-0004](adr/0004-async-cancellation-progress.md)) |
 | **Typed error** | Rust enum → Swift `Error` / Kotlin `Exception` hiyerarşisi. String mesaj parse edilmez. Hata payload'ı redaction kurallarına uyar |
 | **Büyük listeler** | 50k cue tam liste olarak FFI'dan geçmez. UI'a **pencere/handle** verilir: `cues(range:)`, `activeCue(at:)`. Tam liste yalnız render adapter'ına zorunluysa geçer |
 

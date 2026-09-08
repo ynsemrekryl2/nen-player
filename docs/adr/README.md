@@ -8,6 +8,7 @@ Süreç: [`0001-adr-process.md`](0001-adr-process.md) · Şablon:
 | ADR | Başlık | Durum | Milestone |
 |---|---|---|---|
 | [0001](0001-adr-process.md) | ADR süreci | ✅ accepted | M0 |
+| [0004](0004-async-cancellation-progress.md) | Async iş sahipliği, ilerleme ve cancellation delivery gate'i | ✅ accepted | M1 |
 | [0006](0006-monorepo-and-crate-boundaries.md) | Monorepo yapısı ve crate sınırları | ✅ accepted | M1 |
 | [0026](0026-playback-renderer-ownership.md) | Playback/renderer ownership yönü | ✅ accepted | M1 |
 | [0028](0028-spike-ffi-surface.md) | Spike'ların geçici FFI yüzeyi | ✅ accepted | M1 |
@@ -53,7 +54,6 @@ karar verilmiş sayılmaz (bkz. `docs/architecture.md` → "Karar statüsü").
 | ADR | Konu | Ne zaman |
 |---|---|---|
 | 0003 | FFI binding stratejisi (aday: UniFFI + C ABI); büyük veri geçiş modeli | M1 |
-| 0004 | Async / cancellation / progress kontratı ve late-commit yasağı | M1 |
 | 0005 | Typed error taksonomisi ve redaction kuralları | M1 |
 | 0014 | Stremio handoff kontratı — Android Intent tarafı ve log yasakları (macOS yarısı ADR-0043 ile kapandı) | M10 |
 | 0019 | Provider port soyutlaması ve capability preflight | M6 |
