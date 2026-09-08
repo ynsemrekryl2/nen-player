@@ -3,8 +3,8 @@ id: NEN-085
 title: Stabilize the flaky spike-async-cancel completion test
 milestone: M1
 size: S
-state: backlog
-closed:
+state: done
+closed: 2026-09-08
 depends_on: []
 blocks: []
 adr: []
@@ -69,4 +69,26 @@ yeni backlog task'ı açılır"*).
 
 ## Kanıt kaydı
 
-<!-- done olurken doldurulacak -->
+**Kök neden:** `LIVE_JOBS` süreç-genel bir sayaçtır; Rust test harness'ı testleri
+paralel çalıştırırken başka bir testin worker'ı, `join()` tamamlanan testin
+`live_jobs() == 0` iddiasını geçici olarak `1` yapabiliyordu. `Ordering::SeqCst`
+değişmedi; eksik olan testler arası senkronizasyondur.
+
+**Düzeltme:** `#[cfg(test)]` altında tek bir `TEST_LOCK` ve zehirlenmeye dayanıklı
+`test_guard()` eklendi. Altı testin tamamı worker başlatmadan önce bu guard'ı
+alıyor; ürün/spike çalışma davranışı değişmedi, global leak sayacının testler
+arasında yarışması engellendi.
+
+- Düzeltme öncesi negatif yeniden üretim: geçici bağımsız worker enjeksiyonu ile
+  `tests::uncancelled_job_completes_and_commits_exactly_once` kırıldı;
+  `assertion left: 1 right: 0`.
+- Düzeltme sonrası seri koşu: `cargo test --manifest-path core/Cargo.toml
+  -p spike-async-cancel --lib -- --test-threads=1`, 25/25 koşu başarılı.
+- Düzeltme sonrası varsayılan paralel koşu: `cargo test --manifest-path
+  core/Cargo.toml -p spike-async-cancel --lib`, 25/25 koşu başarılı.
+- Negatif kontrol: geçici çakışma enjeksiyonu düzeltme mevcutken de aynı
+  global sayaç ihlalini yeniden üretti; bu, düzeltmenin gerçek test
+  izolasyonunu değil yalnızca üretim kodunu gizlemediğini doğruladı.
+- Workspace: `cargo test --manifest-path core/Cargo.toml --workspace` — tüm
+  testler başarılı; `spike-async-cancel` 6/6.
+- Biçim: `cargo fmt --manifest-path core/Cargo.toml --all -- --check` başarılı.

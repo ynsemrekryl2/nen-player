@@ -327,6 +327,20 @@ pub fn live_jobs() -> u64 {
 mod tests {
     use super::*;
     use std::sync::atomic::AtomicU32;
+    use std::sync::MutexGuard;
+
+    // `LIVE_JOBS` is intentionally process-global because the Swift harness
+    // uses it as a shutdown/leak check. Rust's test harness runs tests in
+    // parallel, so every test must share one guard before starting a worker;
+    // otherwise a different test can legitimately keep this diagnostic
+    // counter above zero when an assertion samples it after `join()`.
+    static TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    fn test_guard() -> MutexGuard<'static, ()> {
+        TEST_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
 
     #[derive(Default)]
     struct RecordingSink {
@@ -354,6 +368,7 @@ mod tests {
 
     #[test]
     fn uncancelled_job_completes_and_commits_exactly_once() {
+        let _test_guard = test_guard();
         let sink = Arc::new(RecordingSink::default());
         let handle = start_job(params(20, 5, false), sink.clone());
         let outcome = handle.join();
@@ -367,6 +382,7 @@ mod tests {
 
     #[test]
     fn cancel_before_start_yields_zero_delivered_and_no_commit() {
+        let _test_guard = test_guard();
         let sink = Arc::new(RecordingSink::default());
         let handle = start_job(params(1_000_000, 1, false), sink.clone());
         handle.cancel();
@@ -379,6 +395,7 @@ mod tests {
 
     #[test]
     fn late_commit_attempt_is_blocked_by_the_gate() {
+        let _test_guard = test_guard();
         let sink = Arc::new(RecordingSink::default());
         let handle = start_job(params(1_000_000, 1, true), sink.clone());
         handle.cancel();
@@ -397,6 +414,7 @@ mod tests {
 
     #[test]
     fn repeated_cancel_cycles_leave_no_live_jobs() {
+        let _test_guard = test_guard();
         for _ in 0..100 {
             let sink = Arc::new(RecordingSink::default());
             let handle = start_job(params(500, 3, false), sink);
@@ -408,6 +426,7 @@ mod tests {
 
     #[test]
     fn join_is_idempotent() {
+        let _test_guard = test_guard();
         let sink = Arc::new(RecordingSink::default());
         let handle = start_job(params(10, 2, false), sink);
         let first = handle.join();
@@ -418,6 +437,7 @@ mod tests {
 
     #[test]
     fn is_running_reflects_completion() {
+        let _test_guard = test_guard();
         let sink = Arc::new(RecordingSink::default());
         let handle = start_job(params(5, 1, false), sink);
         handle.join();

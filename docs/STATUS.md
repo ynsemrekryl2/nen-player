@@ -3,10 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-08** (**`NEN-084` done** — M4 handoff kabul koşusu
-> tamamlandı. Önceki: `NEN-083` done — handoff locator, request, metadata, hata ve
-> macOS FFI taşıyıcılarının hiçbir log/debug/reflection yüzeyi
-> özel URL/path taşıyamıyor. Önceki: `NEN-082` opsiyonel metadata kanıtı)
+> Son güncelleme: **2026-09-08** (**`NEN-085` done** — spike async-cancel testindeki
+> global `live_jobs()` yarışını test-only seri guard ile kapattı. Önceki: `NEN-084`
+> done — M4 handoff kabul koşusu tamamlandı.)
 
 ## Nerede duruyoruz
 
@@ -14,9 +13,9 @@
 |---|---|
 | **Mevcut milestone** | **M4 — Stremio Handoff (macOS)** (M3 2026-09-07'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-084`** — gerçek Stremio yüzeyi yeniden doğrulandı; aynı CLI sözleşmesiyle fixture tabanlı gerçek `.app` kabulü, metadata yokluğu ve log negatifleri kanıtlandı. Ondan önce: `NEN-083` |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-072`, `NEN-085` |
-| **Task sayısı** | 85 · done 76 · active 0 · blocked 0 · canceled 2 · backlog 7 |
+| **Son tamamlanan** | **`NEN-085`** — spike async-cancel testlerinde süreç-genel `live_jobs()` sayacını paralel test yarışından izole eden test guard'ı eklendi; 25 seri + 25 paralel koşu ve workspace yeşil. Ondan önce: `NEN-084` |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-072` |
+| **Task sayısı** | 85 · done 77 · active 0 · blocked 0 · canceled 2 · backlog 6 |
 
 **`NEN-084` kapandı — M4'ün üç çıkış kriteri kanıtlandı.** Gerçek Stremio
 5.1.26'da harici oynatıcı yüzeyi yeniden görüldü; ADR-0043 sınırı gereği
