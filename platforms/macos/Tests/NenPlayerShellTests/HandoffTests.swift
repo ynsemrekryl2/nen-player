@@ -30,7 +30,7 @@ struct HandoffIntakeTests {
             "/Applications/Nen Player.app/Contents/MacOS/NenPlayer",
             "ftp://example.test/a.mkv",
         ])
-        #expect(outcome == .rejected(PlaybackPresentation.unsupportedMediaSourceMessage))
+        #expect(outcome == .rejected)
     }
 
     @Test("an opened document's file URL becomes a local medium")
@@ -47,7 +47,104 @@ struct HandoffIntakeTests {
 
     @Test("a malformed opened-document URL is a rejection, not a crash")
     func malformedOpenedDocumentIsRejected() {
-        #expect(HandoffIntake.fromURL("not a url at all") == .rejected(PlaybackPresentation.unsupportedMediaSourceMessage))
+        #expect(HandoffIntake.fromURL("not a url at all") == .rejected)
+    }
+}
+
+@Suite("handoff log surfaces")
+struct HandoffLogSurfaceTests {
+    private static let privatePath = "/Users/gizli-kullanici/Videolar/Sevgilimle.Tatil.2019.mkv"
+    private static let privateURL = "https://example.test/stream.mkv?token=S3CR3T-TOKEN"
+    private static let forbidden = [
+        "gizli-kullanici",
+        "S3CR3T-TOKEN",
+        "Sevgilimle.Tatil",
+        "example.test",
+        "stream.mkv",
+        "token=",
+    ]
+
+    private static func render<T>(_ value: T) -> [String] {
+        var dumped = ""
+        dump(value, to: &dumped)
+        return [
+            String(describing: value),
+            String(reflecting: value),
+            dumped,
+        ]
+    }
+
+    @Test("handoff outcome redacts local paths across every Swift log surface")
+    func outcomeRedactsLocalPath() {
+        let outcome = HandoffIntake.fromArgv([
+            "/Applications/Nen Player.app/Contents/MacOS/NenPlayer",
+            Self.privatePath,
+        ])
+        let outputs = Self.render(outcome)
+        for output in outputs {
+            for forbidden in Self.forbidden {
+                #expect(!output.contains(forbidden), "\(forbidden) leaked: \(output)")
+            }
+            #expect(output.contains("local"), "\(output)")
+            #expect(output.contains("mkv"), "\(output)")
+            #expect(output.contains("<redacted>"), "\(output)")
+        }
+    }
+
+    @Test("FFI handoff carriers redact remote URLs and retain safe fields")
+    func ffiCarriersRedactRemoteURL() {
+        let locator = FfiHandoffLocator.remote(url: Self.privateURL)
+        let request = FfiHandoffRequest(locator: locator, startPositionMs: 42_000)
+        for output in Self.render(locator) {
+            for forbidden in Self.forbidden {
+                #expect(!output.contains(forbidden), "\(forbidden) leaked: \(output)")
+            }
+            #expect(output.contains("remote") || output.contains("Remote"), "\(output)")
+            #expect(output.contains("https"), "\(output)")
+            #expect(output.contains("<none>") || output.contains("<redacted>"), "\(output)")
+            #expect(output.contains("<redacted>"), "\(output)")
+        }
+        for output in Self.render(request) {
+            for forbidden in Self.forbidden {
+                #expect(!output.contains(forbidden), "\(forbidden) leaked: \(output)")
+            }
+            #expect(output.contains("remote") || output.contains("Remote"), "\(output)")
+            #expect(output.contains("https"), "\(output)")
+            #expect(output.contains("42000"), "\(output)")
+            #expect(output.contains("<redacted>"), "\(output)")
+        }
+    }
+
+    @Test("handoff errors and rejection outcomes carry only safe status")
+    func errorsCarryOnlySafeStatus() {
+        let values: [Any] = [
+            FfiHandoffRejection.UnsupportedScheme,
+            HandoffOutcome.rejected,
+        ]
+        for value in values {
+            for output in Self.render(value) {
+                for forbidden in Self.forbidden {
+                    #expect(!output.contains(forbidden), "\(forbidden) leaked: \(output)")
+                }
+                #expect(
+                    output.contains("UnsupportedScheme")
+                        || output.contains("unsupported_scheme")
+                        || output.contains("HandoffOutcome.rejected"),
+                    "\(output)"
+                )
+            }
+        }
+    }
+
+    @Test("the negative control proves a derived Swift carrier would leak")
+    func derivedCarrierLeaks() {
+        struct LeakyCarrier: CustomStringConvertible {
+            let path: String
+            var description: String { "LeakyCarrier(path: \(path))" }
+        }
+
+        let printed = String(describing: LeakyCarrier(path: Self.privatePath))
+        #expect(printed.contains(Self.privatePath), "\(printed)")
     }
 }
 
@@ -301,7 +398,7 @@ struct PlayerModelHandoffTests {
         )
         model.attach(to: MPVVideoView.makePlaybackSurface())
 
-        model.handleHandoff(.rejected(PlaybackPresentation.unsupportedMediaSourceMessage))
+        model.handleHandoff(.rejected)
 
         #expect(model.transientMessage == PlaybackPresentation.unsupportedMediaSourceMessage)
         #expect(fixture.loadedLocators.isEmpty)

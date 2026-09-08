@@ -363,8 +363,8 @@ public final class PlayerModel: ObservableObject {
         case let .medium(url, startPositionMs):
             startHandoffEvidenceCollection(for: url)
             openMedia(at: url, startPositionMs: startPositionMs)
-        case let .rejected(message):
-            presentTransient(message)
+        case .rejected:
+            presentTransient(HandoffIntake.rejectionMessage)
         }
     }
 

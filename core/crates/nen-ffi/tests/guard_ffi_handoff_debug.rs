@@ -1,4 +1,4 @@
-//! K23 guard for the handoff gate types (NEN-080, ADR-0043).
+//! K23 guard for the handoff gate types (NEN-080, NEN-083, ADR-0043).
 //!
 //! [`FfiHandoffLocator`] and [`FfiHandoffRequest`] are the one pair of types
 //! in this gate that hand a path or a URL back **out** to the caller
@@ -11,7 +11,7 @@ use nen_ffi::handoff::{FfiHandoffLocator, FfiHandoffRejection, FfiHandoffRequest
 
 const PRIVATE_PATH: &str = "/Users/gizli-kullanici/Videolar/Sevgilimle.Tatil.2019.mkv";
 const PRIVATE_URL: &str = "https://example.test/stream?token=S3CR3T-TOKEN";
-const FORBIDDEN: [&str; 2] = ["gizli-kullanici", "S3CR3T-TOKEN"];
+const FORBIDDEN: [&str; 4] = ["gizli-kullanici", "S3CR3T-TOKEN", "example.test", "token="];
 
 fn forbidden(output: &str) {
     for value in FORBIDDEN {
@@ -19,6 +19,14 @@ fn forbidden(output: &str) {
             !output.contains(value),
             "Debug output leaked a forbidden value ({value}): {output}"
         );
+    }
+}
+
+fn rejection_name(rejection: FfiHandoffRejection) -> &'static str {
+    match rejection {
+        FfiHandoffRejection::NoLocator => "no_locator",
+        FfiHandoffRejection::UnsupportedScheme => "unsupported_scheme",
+        FfiHandoffRejection::MalformedLocator => "malformed_locator",
     }
 }
 
@@ -57,13 +65,22 @@ fn a_request_never_prints_through_to_its_locator() {
 
 #[test]
 fn a_rejection_carries_no_input() {
-    let output = format!(
-        "{:?} {:?} {:?}",
+    let rejections = [
         FfiHandoffRejection::NoLocator,
         FfiHandoffRejection::UnsupportedScheme,
-        FfiHandoffRejection::MalformedLocator
-    );
+        FfiHandoffRejection::MalformedLocator,
+    ];
+    let output = rejections
+        .iter()
+        .map(|rejection| format!("{rejection:?} {rejection}"))
+        .collect::<Vec<_>>()
+        .join(" ");
     forbidden(&output);
+    assert!(output.contains("UnsupportedScheme"), "{output}");
+    assert!(output.contains("unsupported_scheme"), "{output}");
+    for rejection in rejections {
+        assert!(!rejection_name(rejection).is_empty());
+    }
 }
 
 #[test]

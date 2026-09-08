@@ -17,10 +17,119 @@ public enum HandoffOutcome: Equatable {
     case medium(URL, startPositionMs: UInt64?)
     /// No positional locator was present. Not an error.
     case none
-    /// A locator was present but could not be opened; the message to show
-    /// the user (ADR-0031 Karar 1/2's *geçici* pattern — no path, no scheme
-    /// name, one sentence).
-    case rejected(String)
+    /// A locator was present but could not be opened. The user-facing message
+    /// is the closed `HandoffIntake.rejectionMessage` value; no arbitrary
+    /// input-derived string is carried by this outcome (K23, NEN-083).
+    case rejected
+}
+
+extension HandoffOutcome: CustomStringConvertible, CustomDebugStringConvertible, CustomReflectable {
+    public var description: String {
+        switch self {
+        case let .medium(url, startPositionMs):
+            let kind = url.isFileURL ? "local" : "remote"
+            let scheme = url.isFileURL ? "<none>" : (url.scheme?.lowercased() ?? "<unknown>")
+            let fileExtension = url.isFileURL && !url.pathExtension.isEmpty
+                ? url.pathExtension
+                : "<none>"
+            let position = startPositionMs.map(String.init) ?? "<none>"
+            return "HandoffOutcome.medium(kind: \(kind), value: <redacted>, extension: \(fileExtension), scheme: \(scheme), startPositionMs: \(position))"
+        case .none:
+            return "HandoffOutcome.none"
+        case .rejected:
+            return "HandoffOutcome.rejected"
+        }
+    }
+
+    public var debugDescription: String { description }
+
+    public var customMirror: Mirror {
+        switch self {
+        case let .medium(url, startPositionMs):
+            let kind = url.isFileURL ? "local" : "remote"
+            let scheme = url.isFileURL ? "<none>" : (url.scheme?.lowercased() ?? "<unknown>")
+            let fileExtension = url.isFileURL && !url.pathExtension.isEmpty
+                ? url.pathExtension
+                : "<none>"
+            let position = startPositionMs.map(String.init) ?? "<none>"
+            return Mirror(
+                self,
+                children: [
+                    "kind": kind,
+                    "value": "<redacted>",
+                    "extension": fileExtension,
+                    "scheme": scheme,
+                    "startPositionMs": position,
+                ]
+            )
+        case .none, .rejected:
+            return Mirror(self, children: [:])
+        }
+    }
+}
+
+extension FfiHandoffLocator: @retroactive CustomStringConvertible,
+    @retroactive CustomDebugStringConvertible,
+    @retroactive CustomReflectable {
+    public var description: String {
+        switch self {
+        case let .localPath(path):
+            let fileExtension = URL(fileURLWithPath: path).pathExtension
+            return "FfiHandoffLocator.localPath(value: <redacted>, extension: \(fileExtension.isEmpty ? "<none>" : fileExtension))"
+        case let .remote(url):
+            let scheme = URL(string: url)?.scheme?.lowercased() ?? "<unknown>"
+            return "FfiHandoffLocator.remote(value: <redacted>, scheme: \(scheme))"
+        }
+    }
+
+    public var debugDescription: String { description }
+
+    public var customMirror: Mirror {
+        switch self {
+        case let .localPath(path):
+            let fileExtension = URL(fileURLWithPath: path).pathExtension
+            return Mirror(
+                self,
+                children: [
+                    "kind": "local",
+                    "value": "<redacted>",
+                    "extension": fileExtension.isEmpty ? "<none>" : fileExtension,
+                    "scheme": "<none>",
+                ]
+            )
+        case let .remote(url):
+            let scheme = URL(string: url)?.scheme?.lowercased() ?? "<unknown>"
+            return Mirror(
+                self,
+                children: [
+                    "kind": "remote",
+                    "value": "<redacted>",
+                    "extension": "<none>",
+                    "scheme": scheme,
+                ]
+            )
+        }
+    }
+}
+
+extension FfiHandoffRequest: @retroactive CustomStringConvertible,
+    @retroactive CustomDebugStringConvertible,
+    @retroactive CustomReflectable {
+    public var description: String {
+        "FfiHandoffRequest(locator: \(locator), startPositionMs: \(startPositionMs.map(String.init) ?? "<none>"))"
+    }
+
+    public var debugDescription: String { description }
+
+    public var customMirror: Mirror {
+        Mirror(
+            self,
+            children: [
+                "locator": locator,
+                "startPositionMs": startPositionMs.map(String.init) ?? "<none>",
+            ]
+        )
+    }
 }
 
 /// Turns a raw launch (`argv`, an opened document's URL, or a `nenplayer://`
@@ -49,7 +158,7 @@ public enum HandoffIntake {
         } catch FfiHandoffRejection.NoLocator {
             return .none
         } catch {
-            return .rejected(rejectionMessage)
+            return .rejected
         }
     }
 
@@ -66,13 +175,13 @@ public enum HandoffIntake {
             let request = try parseHandoffUrl(url: raw)
             return outcome(for: request)
         } catch {
-            return .rejected(rejectionMessage)
+            return .rejected
         }
     }
 
     private static func outcome(for request: FfiHandoffRequest) -> HandoffOutcome {
         guard let url = url(for: request.locator) else {
-            return .rejected(rejectionMessage)
+            return .rejected
         }
         return .medium(url, startPositionMs: request.startPositionMs)
     }

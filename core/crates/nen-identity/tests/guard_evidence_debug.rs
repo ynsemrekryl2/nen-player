@@ -69,9 +69,32 @@ fn full_evidence() -> MediaEvidence {
         .with_handoff(HandoffMetadata {
             title: Some("Inception".into()),
             year: Some(2010),
-            ..HandoffMetadata::default()
+            season: None,
+            episode: None,
         })
         .with_siblings(vec!["Inception.2010.1080p.BluRay.x264.mkv".into()])
+}
+
+#[test]
+fn handoff_metadata_debug_is_redacted_and_shape_only() {
+    let metadata = HandoffMetadata {
+        title: Some("Inception".into()),
+        year: Some(2010),
+        season: Some(1),
+        episode: Some(2),
+    };
+    let printed = format!("{metadata:?}");
+
+    for pattern in forbidden_patterns() {
+        assert!(
+            !printed.contains(pattern),
+            "handoff metadata leaked {pattern:?}: {printed}"
+        );
+    }
+    assert!(printed.contains("title: \"<present>\""), "{printed}");
+    assert!(printed.contains("year: \"<present>\""), "{printed}");
+    assert!(printed.contains("season: \"<present>\""), "{printed}");
+    assert!(printed.contains("episode: \"<present>\""), "{printed}");
 }
 
 /// Everything a caller could plausibly print, in one string.

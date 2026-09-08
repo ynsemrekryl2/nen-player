@@ -3,9 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-08** (**`NEN-082` done** — uzak handoff locator'ı
-> opsiyonel kimlik kanıtı olarak toplanıyor; playback kanıttan bağımsız. Önceki:
-> `NEN-081` başlangıç pozisyonu)
+> Son güncelleme: **2026-09-08** (**`NEN-083` done** — handoff locator, request,
+> metadata, hata ve macOS FFI taşıyıcılarının hiçbir log/debug/reflection yüzeyi
+> özel URL/path taşıyamıyor. Önceki: `NEN-082` opsiyonel metadata kanıtı)
 
 ## Nerede duruyoruz
 
@@ -13,12 +13,19 @@
 |---|---|
 | **Mevcut milestone** | **M4 — Stremio Handoff (macOS)** (M3 2026-09-07'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-082`** — uzak `http`/`https` handoff locator'ı mevcut remote-evidence akışına arka planda bağlanıyor; typed evidence hatası playback'i reddetmiyor. Ondan önce: `NEN-081` başlangıç pozisyonu |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-072`, `NEN-083`, `NEN-085` |
-| **Task sayısı** | 85 · done 74 · active 0 · blocked 0 · canceled 2 · backlog 9 |
+| **Son tamamlanan** | **`NEN-083`** — handoff locator/request/metadata/error ve Swift FFI taşıyıcılarının URL/path payload’ları log, Debug, Display veya reflection yüzeyine sızmıyor; redaction geri alma negatif kontrolleriyle kanıtlandı. Ondan önce: `NEN-082` |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-072`, `NEN-084`, `NEN-085` |
+| **Task sayısı** | 85 · done 75 · active 0 · blocked 0 · canceled 2 · backlog 8 |
 
-**M4'ün sıradaki task'ı `NEN-083`** — handoff locator'ının kanıt toplama/log
-denetimi kapsamını kapatacak.
+**M4'ün sıradaki task'ı `NEN-084`** — Stremio handoff kabul koşusunu kapatacak.
+
+**`NEN-083` kapandı — handoff girdisi hiçbir log yüzeyine ulaşamıyor.** Core ve
+FFI guard’ları argv’den çıkan request’i, locator’ları ve hata `Display`’ini
+yasak parçalarla tarıyor; `HandoffMetadata` doğrudan shape-only debug ile
+korunuyor. macOS’ta `HandoffOutcome.rejected` payload’sız hale getirildi ve
+handoff sonucu ile üretilen FFI locator/request için `String`/Debug/reflection
+gösterimleri güvenli türevlerle sınırlandı. 239 serial Swift testi ve workspace
+gate’leri yeşil. Kanıt: `evidence/M4/NEN-083-checklist.md`.
 
 **`NEN-082` kapandı — locator kanıtı opsiyonel kaldı.** `PlayerModel` uzak
 `http`/`https` handoff'u hemen yüklerken mevcut `collectRemoteEvidence`

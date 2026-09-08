@@ -1,4 +1,4 @@
-//! K23 guard for the handoff intake types (NEN-080, ADR-0043).
+//! K23 guard for the handoff intake types (NEN-080, NEN-083, ADR-0043).
 //!
 //! A handoff locator is exactly what §1 #1/#2/#3 forbid a log from carrying:
 //! a media URL (which can hold a token), a private full path, or a query
@@ -12,7 +12,13 @@ use std::path::PathBuf;
 
 const PRIVATE_PATH: &str = "/Users/gizli-kullanici/Videolar/Sevgilimle.Tatil.2019.mkv";
 const PRIVATE_URL: &str = "https://example.test/stream?token=S3CR3T-TOKEN&user=gizli-kullanici";
-const FORBIDDEN: [&str; 3] = ["gizli-kullanici", "S3CR3T-TOKEN", "Sevgilimle.Tatil"];
+const FORBIDDEN: [&str; 5] = [
+    "gizli-kullanici",
+    "S3CR3T-TOKEN",
+    "Sevgilimle.Tatil",
+    "example.test",
+    "token=",
+];
 
 fn forbidden(output: &str) {
     for value in FORBIDDEN {
@@ -20,6 +26,14 @@ fn forbidden(output: &str) {
             !output.contains(value),
             "Debug output leaked a forbidden value ({value}): {output}"
         );
+    }
+}
+
+fn rejection_name(rejection: HandoffRejection) -> &'static str {
+    match rejection {
+        HandoffRejection::NoLocator => "no-locator",
+        HandoffRejection::UnsupportedScheme => "unsupported-scheme",
+        HandoffRejection::MalformedLocator => "malformed-locator",
     }
 }
 
@@ -42,6 +56,19 @@ fn a_remote_locator_never_prints_its_url() {
 }
 
 #[test]
+fn a_parsed_argv_never_prints_its_input() {
+    let request = nen_app::handoff::parse_argv(&[
+        "NenPlayer".to_owned(),
+        "--start=42".to_owned(),
+        PRIVATE_URL.to_owned(),
+    ])
+    .expect("the fixture is a valid remote handoff");
+    let output = format!("{request:?}");
+    forbidden(&output);
+    assert!(output.contains("42000"), "{output}");
+}
+
+#[test]
 fn a_request_never_prints_through_to_its_locator() {
     let request = HandoffRequest {
         locator: HandoffLocator::LocalPath(PathBuf::from(PRIVATE_PATH)),
@@ -54,14 +81,22 @@ fn a_request_never_prints_through_to_its_locator() {
 
 #[test]
 fn a_rejection_never_carries_the_input_that_caused_it() {
-    let output = format!(
-        "{:?} {:?} {:?}",
+    let rejections = [
         HandoffRejection::NoLocator,
         HandoffRejection::UnsupportedScheme,
-        HandoffRejection::MalformedLocator
-    );
+        HandoffRejection::MalformedLocator,
+    ];
+    let output = rejections
+        .iter()
+        .map(|rejection| format!("{rejection:?} {rejection}"))
+        .collect::<Vec<_>>()
+        .join(" ");
     forbidden(&output);
     assert!(output.contains("UnsupportedScheme"), "{output}");
+    assert!(output.contains("unsupported media scheme"), "{output}");
+    for rejection in rejections {
+        assert!(!rejection_name(rejection).is_empty());
+    }
 }
 
 #[test]
