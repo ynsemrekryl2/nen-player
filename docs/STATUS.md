@@ -3,8 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-08** (**`NEN-091` kapandı** — strict translation
-> block validation ve ADR-0016 politikası tamamlandı.)
+> Son güncelleme: **2026-09-08** (**`NEN-092` kapandı** — targeted repair ve
+> full-block retry bütçesi tamamlandı.)
 
 ## Nerede duruyoruz
 
@@ -12,9 +12,9 @@
 |---|---|
 | **Mevcut milestone** | **M5 — Translation Core** (M4 2026-09-08'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-091`** — strict local validation of a translated block. Ondan önce: `NEN-090` |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-092` |
-| **Task sayısı** | 104 · done 85 · active 0 · blocked 0 · canceled 2 · backlog 17 |
+| **Son tamamlanan** | **`NEN-092`** — targeted repair ve full-block retry bütçesi. Ondan önce: `NEN-091` |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-093` |
+| **Task sayısı** | 104 · done 86 · active 0 · blocked 0 · canceled 2 · backlog 16 |
 
 **`NEN-091` kapandı — provider'ın typed blok cevabı artık yerel ve
 authoritative validation'dan geçmeden teslim edilmiyor.** ADR-0016 kabul edildi;
@@ -31,6 +31,16 @@ ignored**; fmt, clippy, cargo-deny, `bash scripts/test.sh` **4/4** ve
 `bash scripts/check-docs.sh` yeşil. ADR commit'i `94c7e10`, CI run'ı
 `34265789758` yeşil. Ham structured-output parse hataları M6 provider adapter
 kararına bırakıldı.
+
+**`NEN-092` kapandı — blok çevirisi artık validation bütçesiyle sonlanıyor.**
+İlk cevap geçersizse yalnız `repair_cue_ids` için en fazla iki targeted repair,
+ardından en fazla bir full-block retry deneniyor; sürekli bozuk cevapta toplam
+çağrı üst sınırı 4 ve kısmi `ValidatedBlock` teslimi yok. Repair istekleri
+özgün bağlamı koruyor, provider hataları validation retry'ından ayrılıyor.
+`TranslationCall::fork` retry progress toplamlarını bağımsız başlatırken
+cancellation geçidini paylaşıyor. Kanıt: `nen-translate` **38 passed**;
+workspace **712 passed / 1 ignored**; fmt, clippy, cargo-deny ve shell/doc
+kapıları yeşil.
 
 **`NEN-090` kapandı — provider sınırı runtime'sız ve caller-owned kaldı.**
 `nen-ports::translation::TranslationProvider`, yalnız `CueId + text`

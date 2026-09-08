@@ -150,12 +150,12 @@ impl std::error::Error for TranslationProviderError {}
 struct DeliveryState {
     cancelled: bool,
     sink: Option<Arc<dyn TranslationProgressSink>>,
-    last_progress: Option<TranslationProgress>,
 }
 
 #[derive(Clone)]
 pub struct TranslationCall {
     state: Arc<Mutex<DeliveryState>>,
+    last_progress: Arc<Mutex<Option<TranslationProgress>>>,
 }
 
 impl TranslationCall {
@@ -172,8 +172,19 @@ impl TranslationCall {
             state: Arc::new(Mutex::new(DeliveryState {
                 cancelled: false,
                 sink,
-                last_progress: None,
             })),
+            last_progress: Arc::new(Mutex::new(None)),
+        }
+    }
+
+    /// Create a retry call that shares cancellation and progress delivery but
+    /// starts a fresh per-provider progress sequence. A repair request may
+    /// contain fewer cue IDs than the original request, so its progress total
+    /// legitimately differs from the preceding attempt.
+    pub fn fork(&self) -> Self {
+        Self {
+            state: self.state.clone(),
+            last_progress: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -196,12 +207,16 @@ impl TranslationCall {
     }
 
     pub fn progress(&self, progress: TranslationProgress) -> Result<(), TranslationProviderError> {
-        let mut state = self.lock_fail_closed();
+        let state = self.lock_fail_closed();
         if state.cancelled {
             return Err(TranslationProviderError::Cancelled);
         }
+        let mut last_progress = self
+            .last_progress
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         if progress.done > progress.total
-            || state.last_progress.is_some_and(|previous| {
+            || last_progress.is_some_and(|previous| {
                 progress.total != previous.total
                     || progress.phase < previous.phase
                     || (progress.phase == previous.phase && progress.done < previous.done)
@@ -209,7 +224,7 @@ impl TranslationCall {
         {
             return Err(TranslationProviderError::Permanent);
         }
-        state.last_progress = Some(progress);
+        *last_progress = Some(progress);
         if let Some(sink) = state.sink.as_ref() {
             sink.on_progress(progress);
         }
@@ -312,6 +327,37 @@ mod tests {
                 total: 1,
             }),
             Err(TranslationProviderError::Permanent)
+        );
+    }
+
+    #[test]
+    fn fork_resets_progress_sequence_but_shares_cancellation() {
+        let call = TranslationCall::without_progress();
+        call.progress(TranslationProgress {
+            phase: TranslationProgressPhase::Finalizing,
+            done: 3,
+            total: 3,
+        })
+        .expect("initial call completes");
+
+        let retry = call.fork();
+        retry
+            .progress(TranslationProgress {
+                phase: TranslationProgressPhase::Preparing,
+                done: 0,
+                total: 1,
+            })
+            .expect("retry starts a fresh sequence");
+
+        call.cancel();
+        assert_eq!(retry.checkpoint(), Err(TranslationProviderError::Cancelled));
+        assert_eq!(
+            retry.progress(TranslationProgress {
+                phase: TranslationProgressPhase::Finalizing,
+                done: 1,
+                total: 1,
+            }),
+            Err(TranslationProviderError::Cancelled)
         );
     }
 

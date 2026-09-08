@@ -29,4 +29,5 @@
 
 pub mod blocks;
 pub mod context;
+pub mod repair;
 pub mod validation;
