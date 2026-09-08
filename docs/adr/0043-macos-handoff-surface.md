@@ -209,3 +209,22 @@ yeni bir ADR gerekir.
 
 Karar sonrası ortaya çıkan gözlemler buraya eklenir. Karar değişiyorsa bu ADR
 `superseded` yapılır ve **yeni bir ADR** yazılır — eski ADR düzenlenmez.
+
+**Karar 2'nin uygulama yolu `NEN-081`'de netleşti (2026-09-08).** Karar 2'nin
+son maddesi iki şeyi birden istiyor: pozisyon ADR-0042'nin erteleme
+mekanizmasından (`load` ile birlikte verilen seek, `FILE_LOADED` anında
+uygulanır) geçsin; aynı zamanda medyanın süresini aşan bir değer sessizce
+düşüp medya **baştan** açılsın. İkisi aynı anda tutulamıyor: `load` çağrıldığı
+anda süre bilinmiyor — mpv'nin kendisi de onu ancak `FILE_LOADED`'da
+biliyor — dolayısıyla `load` ile birlikte ertelenmiş, süreyi aşan bir seek
+medyayı sonda/`.ended` durumunda açardı, baştan değil.
+
+Kullanıcı kararıyla uygulama yolu netleşti: pozisyon kabukta tutulur, `.ready`
+olayında (yani `FILE_LOADED`'ın kabuğa ulaştığı an) — engine'in kendi
+`play()`'i çağrılmadan **önce** — uygulanır. Süre orada gerçekten okunabiliyor,
+kapı çalışıyor, medya hiçbir zaman "0'dan oynamaya başlayıp sonra sıçrama"
+biçiminde açılmıyor. ADR-0042'nin kendi kontratı (kullanıcının elle verdiği bir
+seek'in yükleme sırasında reddedilmemesi) değişmedi — bu, o mekanizmanın
+üstüne, kabuk seviyesinde ayrı bir adım. Gövde ve diğer kararlar aynen
+yürürlükte; bu ADR **supersede edilmedi**. Uygulama ve kanıt:
+`tasks/done/NEN-081-*.md`.
