@@ -6,10 +6,13 @@
 //! translation blocks (ADR-0015); `context` extracts a small, deterministic
 //! document-wide context; `validation` checks untrusted provider DTOs
 //! locally (ADR-0016); `repair` bounds how many times an invalid block is
-//! retried (`NEN-092`); and `checkpoint` drives blocks in sequence, committing
+//! retried (`NEN-092`); `checkpoint` drives blocks in sequence, committing
 //! each only under the provider port's cancellation gate so a cancelled or
-//! interrupted run never produces a late or partial result (`NEN-093`).
-//! None of these modules performs I/O.
+//! interrupted run never produces a late or partial result (`NEN-093`); and
+//! `artifact` assembles a fully checkpointed run into a
+//! `ValidatedSubtitleArtifact` and its WebVTT output, re-checking every cue
+//! against the source document rather than trusting the checkpointed blocks
+//! on their own (`NEN-094`). None of these modules performs I/O.
 //!
 //! [`SubtitleDocument`]: nen_domain::subtitle::SubtitleDocument
 //!
@@ -30,6 +33,7 @@
     )
 )]
 
+pub mod artifact;
 pub mod blocks;
 pub mod checkpoint;
 pub mod context;

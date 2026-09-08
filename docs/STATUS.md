@@ -3,8 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-08** (**`NEN-093` kapandı** — yalnız doğrulanmış
-> blok checkpoint'leniyor, iptal sonrası late commit yok.)
+> Son güncelleme: **2026-09-09** (**`NEN-094` kapandı** — doğrulanmış artifact
+> ve WebVTT çıktısı, sahte sonuçlar reddediliyor.)
 
 ## Nerede duruyoruz
 
@@ -12,9 +12,28 @@
 |---|---|
 | **Mevcut milestone** | **M5 — Translation Core** (M4 2026-09-08'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-093`** — checkpoint-only commit, cancel gate. Ondan önce: `NEN-092` |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-094` |
-| **Task sayısı** | 104 · done 87 · active 0 · blocked 0 · canceled 2 · backlog 15 |
+| **Son tamamlanan** | **`NEN-094`** — ValidatedSubtitleArtifact + WebVTT. Ondan önce: `NEN-093` |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-095`, `NEN-097` |
+| **Task sayısı** | 104 · done 88 · active 0 · blocked 0 · canceled 2 · backlog 14 |
+
+**`NEN-094` kapandı — çeviri sonucu artık yalnız belgenin tamamı doğrulandıktan
+sonra var olan bir `ValidatedSubtitleArtifact` ve onun UTF-8 WebVTT çıktısı.**
+Yeni `nen-translate::artifact` modülü şartname §11'in saydığı alanların
+tamamını birleştiriyor — kendi fingerprint'i veya WebVTT yazıcısı açmadan,
+`nen_subtitle::fingerprint`'i ve NEN-014'ün WebVTT yazıcısını yeniden
+kullanarak. `assemble()` yalnız `NEN-093`'ün ürettiği `CompletedBlocks`'u
+kabul ediyor (yarım bir çalışmadan bu tip zaten üretilemiyor), ama girdiye
+körü körüne güvenmiyor: her cue'nun ID'si ve zamanlaması kaynak belgeyle
+birebir karşılaştırılıyor, sahte/yanlış eşleşen bir sonuç sessizce
+birleştirilmek yerine reddediliyor. Artifact ID dışarıdan verilir (kullanıcı
+kararı — `NEN-096`/`NEN-097` henüz `accepted` değil, Kural 4), pipeline
+versiyonu bugün var olan iki alanla sınırlı tutuldu.
+
+**Yedi kapının her biri elle mutasyon testinden geçti** (kaldırılınca ilgili
+negatif test kırmızıya döndü); bir sekizinci planlanan kapı (`BlockOrder`)
+`BlockLayout` ve `BlockCheckpoints`'in kendi değişmezleri gereği hiçbir
+girdiyle tetiklenemeyeceği ölçülünce koddan tamamen çıkarıldı — sağır bir
+kontrol tutulmadı. Kanıt: `tasks/done/NEN-094-*.md`.
 
 **`NEN-093` kapandı — yalnız tamamen doğrulanmış bir blok checkpoint'leniyor,
 iptal edilen bir çeviri işi hiçbir koşulda sonradan bir şey commit etmiyor.**
@@ -2313,6 +2332,19 @@ kurmaz** — bu, `scripts/tests/doctor.test.sh` S7 ile mekanik olarak kanıtlan�
 Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
+
+2026-09-09'da `NEN-094` kapandı — `ValidatedSubtitleArtifact` ve WebVTT
+çıktısı `core/crates/nen-translate/src/artifact.rs`'e eklendi. `cargo test -p
+nen-translate` **62 passed** (lib 40 + `artifact_golden` 1 + `artifact_negative`
+7 + `block_layout_golden` 1 + `checkpoint_cancellation_negative` 4 +
+`guard_artifact_debug` 2 + `guard_context_debug` 3 + `validation_negative` 4);
+`cargo test --workspace` **738 passed / 1 ignored**, 0 failed. `cargo fmt
+--check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo deny
+check` (yeni bağımlılık yok), `bash scripts/test.sh`, `bash
+scripts/check-docs.sh` hepsi yeşil. `assemble()`'ın yedi doğrulama kapısının
+her biri elle kaldırılıp ilgili negatif testin kırmızıya döndüğü ölçüldü;
+planlanan sekizinci bir kapı (`BlockOrder`) hiçbir girdiyle tetiklenemeyeceği
+kanıtlanınca koddan çıkarıldı. Ayrıntılı kanıt kaydı: `tasks/done/NEN-094-*.md`.
 
 2026-09-08'de `NEN-088` kapandı — gerçek Stremio 5.1.26 soğuk/sıcak kabulü,
 transport ekran kanıtları ve negatif log taraması tamamlandı. `bash

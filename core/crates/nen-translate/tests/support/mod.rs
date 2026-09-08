@@ -10,9 +10,19 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use nen_domain::source::LanguageTag;
 use nen_domain::subtitle::SubtitleDocument;
+use nen_ports::translation::{
+    TranslatedCue, TranslationCall, TranslationProvider, TranslationProviderError,
+    TranslationProviderIdentity, TranslationRequest, TranslationResponse,
+};
 use nen_subtitle::srt;
+use nen_translate::artifact::{
+    self, ArtifactError, ArtifactId, ArtifactMetadata, ArtifactTimestamp, GlossaryIdentity,
+    ValidatedSubtitleArtifact,
+};
 use nen_translate::blocks::BlockLayout;
+use nen_translate::checkpoint::{translate_checkpointed, BlockCheckpoints, TranslationPlan};
 use nen_translate::context::DocumentContext;
 
 /// Root of the repository's translation-block fixture corpus.
@@ -88,4 +98,131 @@ pub fn render_golden(document: &SubtitleDocument) -> String {
     }
 
     out
+}
+
+/// Deterministic translation provider for artifact tests: echoes the source
+/// text of every requested cue, tagged with the target language, so a run's
+/// output is a pure function of `document`.
+pub struct EchoTranslationProvider;
+
+impl TranslationProvider for EchoTranslationProvider {
+    fn identity(&self) -> TranslationProviderIdentity {
+        TranslationProviderIdentity::new("nen-test", "echo-golden")
+            .expect("static test identity is valid")
+    }
+
+    fn translate(
+        &self,
+        request: &TranslationRequest,
+        call: &TranslationCall,
+    ) -> Result<TranslationResponse, TranslationProviderError> {
+        let cues = request
+            .output_cue_ids
+            .iter()
+            .map(|cue_id| {
+                let source = request
+                    .context_cues
+                    .iter()
+                    .find(|cue| cue.cue_id == *cue_id)
+                    .expect("output cue is always in the block's own context window");
+                TranslatedCue {
+                    cue_id: *cue_id,
+                    text: format!("[{}] {}", request.target_language.as_str(), source.text),
+                }
+            })
+            .collect();
+        call.finish(TranslationResponse { cues })
+    }
+}
+
+/// The en→tr plan every artifact-fixture test shares. Fixed so a golden
+/// snapshot and its assertions stay stable across runs.
+pub fn plan() -> TranslationPlan {
+    TranslationPlan {
+        source_language: LanguageTag::parse("en").expect("language"),
+        target_language: LanguageTag::parse("tr").expect("language"),
+        context_terms: Vec::new(),
+    }
+}
+
+/// Runs [`EchoTranslationProvider`] to completion over `document` and
+/// `layout`, returning the resulting [`nen_translate::checkpoint::CompletedBlocks`].
+/// Shared by the negative tests, which pair this with a *different* document
+/// to prove `assemble` re-checks rather than trusts it.
+pub fn build_completed(
+    document: &SubtitleDocument,
+    layout: &BlockLayout,
+) -> nen_translate::checkpoint::CompletedBlocks {
+    let mut checkpoints = BlockCheckpoints::for_layout(layout);
+    translate_checkpointed(
+        &EchoTranslationProvider,
+        document,
+        layout,
+        &plan(),
+        &TranslationCall::without_progress(),
+        &mut checkpoints,
+    )
+    .unwrap_or_else(|err| panic!("expected the run to complete, got {err}"));
+    checkpoints
+        .into_completed()
+        .unwrap_or_else(|err| panic!("expected every block to be checkpointed, got {err}"))
+}
+
+/// Runs [`EchoTranslationProvider`] to completion over `document`'s default
+/// block layout and assembles the resulting artifact — the fixture pipeline
+/// shared by the golden and guard tests.
+pub fn build_artifact(document: &SubtitleDocument) -> ValidatedSubtitleArtifact {
+    let layout = BlockLayout::of(document, Default::default())
+        .unwrap_or_else(|err| panic!("expected a valid layout, got {err}"));
+    let completed = build_completed(document, &layout);
+
+    artifact::assemble(document, &layout, &plan(), &completed, artifact_metadata())
+        .unwrap_or_else(|err| panic!("expected assembly to succeed, got {err}"))
+}
+
+/// Fixed, deterministic metadata so a golden snapshot never depends on wall
+/// clock time or an externally-minted ID.
+pub fn artifact_metadata() -> ArtifactMetadata {
+    ArtifactMetadata {
+        id: ArtifactId::parse("golden-artifact").expect("valid artifact id"),
+        provider: EchoTranslationProvider.identity(),
+        glossary: GlossaryIdentity::none(),
+        media_hash: None,
+        created_at: ArtifactTimestamp::from_unix_ms(0),
+    }
+}
+
+/// Canonical, deterministic rendering of a document's assembled artifact —
+/// the golden snapshot format for the artifact corpus (`NEN-094`).
+pub fn render_artifact_golden(document: &SubtitleDocument) -> String {
+    let artifact = build_artifact(document);
+
+    let mut out = String::new();
+    out.push_str(&format!(
+        "source_fingerprint\t{}\ntimeline_fingerprint\t{}\nsource_language\t{}\ntarget_language\t{}\nprovider\t{}\nmodel\t{}\npipeline_version\t{}\nblock_layout_version\t{}\ncue_count\t{}\n",
+        artifact.source_fingerprint(),
+        artifact.timeline_fingerprint(),
+        artifact.source_language().as_str(),
+        artifact.target_language().as_str(),
+        artifact.provider().provider(),
+        artifact.provider().model(),
+        artifact.pipeline_version(),
+        artifact.block_layout_version(),
+        artifact.translated_document().len(),
+    ));
+    out.push_str("--- webvtt ---\n");
+    out.push_str(artifact.webvtt());
+
+    out
+}
+
+/// Attempts to assemble an artifact and returns the [`ArtifactError`]
+/// instead of panicking — for the negative tests that expect assembly to be
+/// refused.
+pub fn try_build_artifact(
+    document: &SubtitleDocument,
+    layout: &BlockLayout,
+    completed: &nen_translate::checkpoint::CompletedBlocks,
+) -> Result<ValidatedSubtitleArtifact, ArtifactError> {
+    artifact::assemble(document, layout, &plan(), completed, artifact_metadata())
 }
