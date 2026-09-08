@@ -3,12 +3,17 @@ import Combine
 import Foundation
 import NenCore
 import NenPlaybackMPV
+import NenRemoteEvidenceHTTP
 import OSLog
 import UniformTypeIdentifiers
 
 @MainActor
 public final class PlayerModel: ObservableObject {
     public typealias SessionFactory = @MainActor (MPVVideoView) throws -> any PlaybackSessionClient
+    /// Collects optional evidence for a handoff without becoming part of the
+    /// playback critical path. The closure is injected so platform tests can
+    /// prove the call and its failure policy without making a network request.
+    public typealias HandoffEvidenceCollector = @Sendable (URL) throws -> Void
 
     @Published public private(set) var mediaName: String?
     @Published public private(set) var recentMedia: [RecentMediaEntry] = []
@@ -120,6 +125,7 @@ public final class PlayerModel: ObservableObject {
     /// A monotonic clock, injectable so a test can reach the expiry without waiting.
     private let now: () -> UInt64
     private let managesCursor: Bool
+    private let handoffEvidenceCollector: HandoffEvidenceCollector
     /// Where the two preferred languages live (NEN-037).
     ///
     /// Injected rather than read from `Locale` at the point of use: read
@@ -151,6 +157,7 @@ public final class PlayerModel: ObservableObject {
     private var pendingHandoffStartPositionMs: UInt64?
     private var pollTask: Task<Void, Never>?
     private var sidecarScanTask: Task<Void, Never>?
+    private var handoffEvidenceTask: Task<Void, Never>?
     /// ADR-0031 Karar 4.3: automatic selection runs **once**, at the start.
     /// A source discovered later never re-triggers it, however well it matches.
     private var hasAutoSelected = false
@@ -186,6 +193,7 @@ public final class PlayerModel: ObservableObject {
         now: @escaping () -> UInt64 = { DispatchTime.now().uptimeNanoseconds },
         managesCursor: Bool = true,
         preferenceStore: any SubtitlePreferenceStoring = UserDefaultsSubtitlePreferenceStore(),
+        handoffEvidenceCollector: HandoffEvidenceCollector? = nil,
         sessionFactory: @escaping SessionFactory = { view in
             let engine = try MPVPlaybackEngine(videoView: view)
             return FfiPlaybackSession(engine: engine)
@@ -203,6 +211,14 @@ public final class PlayerModel: ObservableObject {
         self.managesCursor = managesCursor
         self.preferenceStore = preferenceStore
         self.subtitlePreferences = preferenceStore.preferences
+        if let handoffEvidenceCollector {
+            self.handoffEvidenceCollector = handoffEvidenceCollector
+        } else {
+            let client = URLSessionRemoteEvidenceClient()
+            self.handoffEvidenceCollector = { url in
+                _ = try collectRemoteEvidence(client: client, url: url.absoluteString)
+            }
+        }
         if startsPolling {
             startPolling()
         }
@@ -345,10 +361,38 @@ public final class PlayerModel: ObservableObject {
         case .none:
             break
         case let .medium(url, startPositionMs):
+            startHandoffEvidenceCollection(for: url)
             openMedia(at: url, startPositionMs: startPositionMs)
         case let .rejected(message):
             presentTransient(message)
         }
+    }
+
+    /// Starts optional remote evidence collection after the handoff has been
+    /// accepted. The playback load is deliberately issued by the caller
+    /// without waiting for this task; a missing header, unknown identity or a
+    /// typed HTTP failure must never turn into a playback failure (NEN-082).
+    private func startHandoffEvidenceCollection(for url: URL) {
+        guard Self.isSupportedRemoteURL(url) else { return }
+        handoffEvidenceTask?.cancel()
+        let collector = handoffEvidenceCollector
+        handoffEvidenceTask = Task {
+            await Task.detached(priority: .utility) {
+                do {
+                    try collector(url)
+                } catch {
+                    // Evidence is optional. The typed error is intentionally
+                    // contained here so playback remains independent of the
+                    // remote metadata request (NEN-082).
+                }
+            }.value
+        }
+    }
+
+    /// Waits for the optional evidence task. This is internal so platform
+    /// tests can prove that the call happened without making playback await it.
+    func awaitHandoffEvidence() async {
+        await handoffEvidenceTask?.value
     }
 
     /// Asks the user for a subtitle file and loads it.
@@ -745,6 +789,8 @@ public final class PlayerModel: ObservableObject {
         pollTask = nil
         sidecarScanTask?.cancel()
         sidecarScanTask = nil
+        handoffEvidenceTask?.cancel()
+        handoffEvidenceTask = nil
         controlsTask?.cancel()
         controlsTask = nil
         controlsPinned = false

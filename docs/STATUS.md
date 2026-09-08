@@ -3,8 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-08** (**`NEN-081` done** — handoff'un taşıdığı
-> başlangıç pozisyonu artık uygulanıyor. Önceki: `NEN-080` alıcı yüzey)
+> Son güncelleme: **2026-09-08** (**`NEN-082` done** — uzak handoff locator'ı
+> opsiyonel kimlik kanıtı olarak toplanıyor; playback kanıttan bağımsız. Önceki:
+> `NEN-081` başlangıç pozisyonu)
 
 ## Nerede duruyoruz
 
@@ -12,13 +13,20 @@
 |---|---|
 | **Mevcut milestone** | **M4 — Stremio Handoff (macOS)** (M3 2026-09-07'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-081`** — handoff bir başlangıç pozisyonu taşıyorsa medya artık o andan açılıyor; taşımıyorsa veya süreyi aşıyorsa baştan açılıyor, hata gösterilmiyor. Ondan önce: `NEN-080` alıcı yüzey |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-072`, `NEN-082`, `NEN-083`, `NEN-085` |
-| **Task sayısı** | 85 · done 73 · active 0 · blocked 0 · canceled 2 · backlog 10 |
+| **Son tamamlanan** | **`NEN-082`** — uzak `http`/`https` handoff locator'ı mevcut remote-evidence akışına arka planda bağlanıyor; typed evidence hatası playback'i reddetmiyor. Ondan önce: `NEN-081` başlangıç pozisyonu |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-072`, `NEN-083`, `NEN-085` |
+| **Task sayısı** | 85 · done 74 · active 0 · blocked 0 · canceled 2 · backlog 9 |
 
-**M4'ün sıradaki task'ı `NEN-082`** — handoff'un taşıdığı locator'ı (uzak
-URL path segmentleri, sunucunun beyan ettiği ad) ADR-0009'un kanıt katmanına
-opsiyonel bir girdi olarak bağlayacak (ADR-0043 Karar 5).
+**M4'ün sıradaki task'ı `NEN-083`** — handoff locator'ının kanıt toplama/log
+denetimi kapsamını kapatacak.
+
+**`NEN-082` kapandı — locator kanıtı opsiyonel kaldı.** `PlayerModel` uzak
+`http`/`https` handoff'u hemen yüklerken mevcut `collectRemoteEvidence`
+adaptörünü detached task'ta çağırıyor. URL path'i, son yönlendirme URL'si ve
+`Content-Disposition` adı mevcut `MediaEvidence`/ADR-0009 sırasına bırakıldı;
+metadata yokluğu veya typed HTTP hatası fatal/transient playback yüzeyine
+taşınmıyor. Yerel handoff, `⌘O` ve recent media akışları evidence çağrısı
+yapmıyor. Kanıt: `evidence/M4/NEN-082-checklist.md`.
 
 **`NEN-081` kapandı — handoff'un taşıdığı başlangıç pozisyonu artık
 uygulanıyor.** `NEN-080` `start_position_ms`'i zaten ayrıştırıp taşıyordu,

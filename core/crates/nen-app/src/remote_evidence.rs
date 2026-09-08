@@ -431,6 +431,74 @@ mod tests {
     }
 
     #[test]
+    fn a_handoff_path_is_evidence_without_server_metadata() {
+        let url =
+            "https://media.invalid/shows/Handoff.Show.2010/S01E02/stream.mkv?token=secret#t=90";
+        let fake = Fake::new(vec![(
+            HttpRequest::head(url),
+            response(200, &[("Accept-Ranges", "none")], Vec::new()),
+        )]);
+
+        let evidence = collect_remote_evidence(&fake, url).expect("missing metadata is non-fatal");
+        let identity = evidence.resolve();
+        assert_eq!(identity.title.as_deref(), Some("Handoff Show"));
+        assert_eq!(identity.year, Some(2010));
+        assert_eq!(identity.season, Some(1));
+        assert_eq!(identity.episode, Some(2));
+
+        let debug = format!("{evidence:?} {identity:?}");
+        for forbidden in ["media.invalid", "token", "secret", "t=90"] {
+            assert!(
+                !debug.contains(forbidden),
+                "forbidden input leaked: {forbidden}"
+            );
+        }
+    }
+
+    #[test]
+    fn content_disposition_wins_over_a_url_hint() {
+        let url = "https://media.invalid/Url.Title.2000/stream.mkv";
+        let fake = Fake::new(vec![(
+            HttpRequest::head(url),
+            response(
+                200,
+                &[
+                    ("Accept-Ranges", "none"),
+                    (
+                        "Content-Disposition",
+                        "attachment; filename*=UTF-8''Header.Title.2010.mkv",
+                    ),
+                ],
+                Vec::new(),
+            ),
+        )]);
+
+        let identity = collect_remote_evidence(&fake, url)
+            .expect("content disposition is valid evidence")
+            .resolve();
+        assert_eq!(identity.title.as_deref(), Some("Header Title"));
+        assert_eq!(identity.year, Some(2010));
+    }
+
+    #[test]
+    fn an_opaque_locator_without_headers_resolves_to_unknown() {
+        let url = "https://media.invalid/opaque?token=secret#fragment";
+        let fake = Fake::new(vec![(
+            HttpRequest::head(url),
+            response(200, &[("Accept-Ranges", "none")], Vec::new()),
+        )]);
+
+        let identity = collect_remote_evidence(&fake, url)
+            .expect("an opaque locator is still valid evidence")
+            .resolve();
+        assert_eq!(
+            identity.kind,
+            nen_identity::release_name::MediaKind::Unknown
+        );
+        assert_eq!(identity.title, None);
+    }
+
+    #[test]
     fn unsafe_redirects_and_redirect_loops_are_rejected() {
         let downgrade = "https://media.invalid/a";
         let downgrade_fake = Fake::new(vec![(

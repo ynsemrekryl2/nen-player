@@ -165,6 +165,75 @@ struct HandoffCoordinatorTests {
 @Suite("handoff reaches the player")
 @MainActor
 struct PlayerModelHandoffTests {
+    @Test("a remote handoff collects optional evidence without delaying playback")
+    func remoteHandoffCollectsEvidenceOffThePlaybackPath() async {
+        let fixture = FakeSession()
+        let recorder = HandoffEvidenceRecorder()
+        let remote = URL(string: "https://media.invalid/movies/Film.2010/stream.mkv")!
+        let model = PlayerModel(
+            recentStore: MemoryRecentStore(),
+            startsPolling: false,
+            managesCursor: false,
+            handoffEvidenceCollector: { url in try recorder.collect(url) },
+            sessionFactory: { _ in fixture }
+        )
+        model.attach(to: MPVVideoView.makePlaybackSurface())
+
+        model.handleHandoff(.medium(remote, startPositionMs: nil))
+
+        // The load is synchronous and observable immediately; evidence is not
+        // allowed to become a prerequisite for playback.
+        #expect(fixture.loadedLocators == [remote.absoluteString])
+        await model.awaitHandoffEvidence()
+        #expect(recorder.urls == [remote])
+    }
+
+    @Test("a typed evidence failure leaves the handoff playable")
+    func evidenceFailureDoesNotBecomeAPlaybackFailure() async {
+        let fixture = FakeSession()
+        let recorder = HandoffEvidenceRecorder()
+        recorder.fails = true
+        let first = URL(string: "https://media.invalid/opaque/0")!
+        let second = URL(string: "https://media.invalid/opaque/1")!
+        let model = PlayerModel(
+            recentStore: MemoryRecentStore(),
+            startsPolling: false,
+            managesCursor: false,
+            handoffEvidenceCollector: { url in try recorder.collect(url) },
+            sessionFactory: { _ in fixture }
+        )
+        model.attach(to: MPVVideoView.makePlaybackSurface())
+
+        model.handleHandoff(.medium(first, startPositionMs: nil))
+        await model.awaitHandoffEvidence()
+        model.handleHandoff(.medium(second, startPositionMs: nil))
+        await model.awaitHandoffEvidence()
+
+        #expect(fixture.loadedLocators == [first.absoluteString, second.absoluteString])
+        #expect(model.fatalMessage == nil)
+        #expect(model.transientMessage == nil)
+    }
+
+    @Test("local handoffs and ordinary opens do not collect remote evidence")
+    func onlyRemoteHandoffsCollectEvidence() async {
+        let fixture = FakeSession()
+        let recorder = HandoffEvidenceRecorder()
+        let model = PlayerModel(
+            recentStore: MemoryRecentStore(),
+            startsPolling: false,
+            managesCursor: false,
+            handoffEvidenceCollector: { url in try recorder.collect(url) },
+            sessionFactory: { _ in fixture }
+        )
+        model.attach(to: MPVVideoView.makePlaybackSurface())
+
+        model.handleHandoff(.medium(URL(fileURLWithPath: "/Users/x/Film.mkv"), startPositionMs: nil))
+        model.openMedia(at: URL(string: "https://media.invalid/ordinary.mkv")!)
+        await model.awaitHandoffEvidence()
+
+        #expect(recorder.urls.isEmpty)
+    }
+
     @Test("a handoff arriving while the app is already open plays immediately")
     func handoffWhileOpenPlaysImmediately() {
         let fixture = FakeSession()

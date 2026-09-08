@@ -47,6 +47,7 @@ let package = Package(
             name: "NenPlayerShell",
             dependencies: [
                 "NenPlaybackMPV",
+                "NenRemoteEvidenceHTTP",
                 .product(name: "NenCore", package: "apple-shared")
             ]
         ),

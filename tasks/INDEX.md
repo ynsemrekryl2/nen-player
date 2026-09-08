@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **85** task · ✅ done 73 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 10
+Toplam **85** task · ✅ done 74 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 9
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -106,7 +106,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-079](done/NEN-079-adr-handoff-surface.md) | Decide the macOS handoff receiving surface | S | ✅ done | NEN-078 |
 | [NEN-080](done/NEN-080-receive-opened-medium.md) | Receive a medium opened by another application | M | ✅ done | NEN-079 |
 | [NEN-081](done/NEN-081-handoff-start-position.md) | Apply the start position a handoff carries | S | ✅ done | NEN-080 |
-| [NEN-082](backlog/NEN-082-handoff-metadata-evidence.md) | Treat handoff metadata as optional evidence | M | ⚪ backlog | NEN-080 |
+| [NEN-082](done/NEN-082-handoff-metadata-evidence.md) | Treat handoff metadata as optional evidence | M | ✅ done | NEN-080 |
 | [NEN-083](backlog/NEN-083-handoff-never-logged.md) | Handoff input never reaches a log surface | S | ⚪ backlog | NEN-080 |
 | [NEN-084](backlog/NEN-084-m4-acceptance.md) | Stremio handoff acceptance | S | ⚪ backlog | NEN-081 NEN-082 NEN-083 |
 
@@ -136,6 +136,5 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-044** — Embedded subtitle text extraction
 - **NEN-064** — Verified media identity in player chrome
 - **NEN-072** — Parse container metadata from remote byte windows
-- **NEN-082** — Treat handoff metadata as optional evidence
 - **NEN-083** — Handoff input never reaches a log surface
 - **NEN-085** — Stabilize the flaky spike-async-cancel completion test

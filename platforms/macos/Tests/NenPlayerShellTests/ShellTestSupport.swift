@@ -98,6 +98,35 @@ final class TestClock {
     var nanoseconds: UInt64 = 0
 }
 
+enum HandoffEvidenceFailure: Error, Sendable {
+    case unavailable
+}
+
+/// Thread-safe evidence collector probe. The production collector runs off
+/// the main actor, so tests must not inspect an unprotected array from the
+/// test task while the detached work is finishing.
+final class HandoffEvidenceRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedURLs: [URL] = []
+    var fails = false
+
+    var urls: [URL] {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedURLs
+    }
+
+    func collect(_ url: URL) throws {
+        lock.lock()
+        storedURLs.append(url)
+        let fails = self.fails
+        lock.unlock()
+        if fails {
+            throw HandoffEvidenceFailure.unavailable
+        }
+    }
+}
+
 /// The calls a test can make `MemoryRecentStore` fail.
 enum RecentStoreCall: Hashable { case save, resolve }
 
