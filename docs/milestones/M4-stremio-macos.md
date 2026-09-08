@@ -21,9 +21,31 @@ Stremio'dan external player olarak açılan medyanın macOS'ta doğru pozisyonda
 
 ## Çıkış kriterleri
 
-- [ ] Stremio'dan açılan medya doğru pozisyondan oynuyor
-- [ ] Negatif: argüman ve medya URL'si **loglanmıyor** (log denetimi)
-- [ ] Handoff metadata yoksa akış bozulmuyor (kanıt opsiyoneldir)
+- [x] Stremio'nun ölçülmüş CLI sözleşmesiyle açılan medya doğru pozisyondan
+      oynuyor (Stremio 5.1.26 doğrudan Nen Player'ı hedefleyemediği için kabul
+      koşusu aynı sözleşmenin gerçek Nen Player `.app` üzerindeki fixture
+      uygulamasıdır)
+- [x] Negatif: argüman ve medya URL'si **loglanmıyor** (log denetimi)
+- [x] Handoff metadata yoksa akış bozulmuyor (kanıt opsiyoneldir)
+
+## Kabul senaryosu (NEN-084)
+
+Kabul koşusu **2026-09-08** tarihinde Apple Silicon / macOS 27.0 üzerinde
+gerçek Stremio 5.1.26 ve gerçek Nen Player `.app` ile yapıldı. ADR-0043'ün
+ölçülmüş sınırı gereği Stremio'nun kapalı harici oynatıcı listesi Nen Player'ı
+doğrudan hedeflemiyor; bu nedenle Stremio'da canlı yüzey (VLC/MPV harici
+oynatıcı menüsü ve sürüm) yeniden görüldü, ardından aynı CLI sözleşmesi
+fixture tabanlı gerçek `.app` koşusuyla kabul edildi.
+
+1. `contract-clip.mkv`, `--start` ve bilinmeyen `--no-terminal` bayrağıyla
+   açıldı; Nen Player ekranında medya **00:12 / 00:30** konumunda oynuyordu.
+2. Aynı fixture, geçici loopback sunucusundan opak adla ve
+   `Content-Disposition` olmadan açıldı; metadata yokken medya **00:09 / 00:30**
+   konumunda oynadı, hata veya kesinti olmadı.
+3. Unified log ile stdout/stderr geçici olarak tarandı; locator, URL/query,
+   özel yol ve argv parçaları için eşleşme bulunmadı. Ham çıktı saklanmadı.
+
+Ekran ve ayrıntılı adım kaydı: `evidence/M4/NEN-084-checklist.md`.
 
 ## Task'lar
 

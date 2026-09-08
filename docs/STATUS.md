@@ -3,8 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-08** (**`NEN-083` done** — handoff locator, request,
-> metadata, hata ve macOS FFI taşıyıcılarının hiçbir log/debug/reflection yüzeyi
+> Son güncelleme: **2026-09-08** (**`NEN-084` done** — M4 handoff kabul koşusu
+> tamamlandı. Önceki: `NEN-083` done — handoff locator, request, metadata, hata ve
+> macOS FFI taşıyıcılarının hiçbir log/debug/reflection yüzeyi
 > özel URL/path taşıyamıyor. Önceki: `NEN-082` opsiyonel metadata kanıtı)
 
 ## Nerede duruyoruz
@@ -13,11 +14,17 @@
 |---|---|
 | **Mevcut milestone** | **M4 — Stremio Handoff (macOS)** (M3 2026-09-07'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-083`** — handoff locator/request/metadata/error ve Swift FFI taşıyıcılarının URL/path payload’ları log, Debug, Display veya reflection yüzeyine sızmıyor; redaction geri alma negatif kontrolleriyle kanıtlandı. Ondan önce: `NEN-082` |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-072`, `NEN-084`, `NEN-085` |
-| **Task sayısı** | 85 · done 75 · active 0 · blocked 0 · canceled 2 · backlog 8 |
+| **Son tamamlanan** | **`NEN-084`** — gerçek Stremio yüzeyi yeniden doğrulandı; aynı CLI sözleşmesiyle fixture tabanlı gerçek `.app` kabulü, metadata yokluğu ve log negatifleri kanıtlandı. Ondan önce: `NEN-083` |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-072`, `NEN-085` |
+| **Task sayısı** | 85 · done 76 · active 0 · blocked 0 · canceled 2 · backlog 7 |
 
-**M4'ün sıradaki task'ı `NEN-084`** — Stremio handoff kabul koşusunu kapatacak.
+**`NEN-084` kapandı — M4'ün üç çıkış kriteri kanıtlandı.** Gerçek Stremio
+5.1.26'da harici oynatıcı yüzeyi yeniden görüldü; ADR-0043 sınırı gereği
+doğrudan Nen Player hedefi iddia edilmedi. Aynı ölçülmüş CLI sözleşmesi gerçek
+`.app` üzerinde `contract-clip.mkv` ile 00:12'de oynadı; metadata'sız opak
+loopback fixture 00:09'da oynadı. Unified log ve stdout/stderr negatif
+taramasında locator, URL/query, özel yol ve argv parçaları için eşleşme 0.
+Ekran ve adım kaydı: `evidence/M4/NEN-084-checklist.md`.
 
 **`NEN-083` kapandı — handoff girdisi hiçbir log yüzeyine ulaşamıyor.** Core ve
 FFI guard’ları argv’den çıkan request’i, locator’ları ve hata `Display`’ini
