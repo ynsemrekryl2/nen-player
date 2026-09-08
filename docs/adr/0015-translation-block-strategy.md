@@ -43,29 +43,82 @@ yeniden üretilebilir** olmasını şart koşar.
 
 ## Karar
 
-<!-- Kullanıcı onayıyla doldurulacak. Yukarıdaki beş sorunun her biri için
-     tek cümlelik, emir kipinde karar. -->
+1. **Blok sınırı** sabit cue sayısıyla belirlenir; sahne veya sessizlik gibi
+   içerik sinyaline göre kaydırılmaz. Belgenin son penceresi
+   `cueCount - blockSize` konumuna sabitlenir, böylece son blok da her zaman
+   tam boy olur ve ayrı bir kısa-son-blok durumu oluşmaz.
+2. **Overlap'in sözü**, çağrıdan **önce** deterministik olarak bölünür: iki
+   komşu bloğun overlap penceresindeki cue'lar arasındaki sınır, pencerenin
+   orta noktasına (`floor` ile) sabitlenir. Her cue tam olarak bir bloğun
+   çıktı kümesine (`outputCueIds`) girer; overlap'teki diğer cue'lar yalnız
+   komşu bloğa **bağlam** olarak görünür ve hiçbir zaman iki kez çevrilmez.
+3. **Bağlam analizi**, belge genelinde tekrar eden özel isim ve terimleri
+   çıkaran, tamamen yerel ve deterministik bir çıkarımdır — provider'a gitmez.
+   Çıktısı küçük bir yapılandırılmış küme (tekrar eden terim listesi) olarak
+   her bloğa **aynen** girer. `NEN-091`'in doğrulaması bu çıktının içeriğiyle
+   ilgilenmez — çıktı model üretimi olmadığı için "provider ihlali" kapsamına
+   girmez.
+4. **Cue kimliği** provider'a doğrudan gerçek `CueId` değeri olarak gösterilir
+   (blok içi ayrı bir indeks türetilmez). Doğrulama (`NEN-091`) bunu doğrudan
+   domain tipiyle karşılaştırır, ek bir eşleme katmanı gerekmez.
+5. **`block-layout version`**, `nen-translate` içinde tek bir yerde elle
+   artırılan bir sabittir. Bu ADR'nin 1 ve 2. maddelerindeki kurallardan biri
+   değiştiğinde sabit artırılır; cache identity (`NEN-097`/ADR-0018) bunu
+   olduğu gibi tüketir.
 
 ## Gerekçe
 
-<!-- Ölçüm varsa sayı. Varsayım varsa açıkça. -->
+Madde 2 (overlap sahipliğinin çağrıdan önce bölünmesi), ADR'nin kendi 2.
+sorusunu ("overlap'teki cue iki blokta da çevriliyor, hangisi geçerli?")
+kökünden ortadan kaldırır: cue hiçbir zaman iki kez çevrilmediği için "hangisi
+kazanır" sorusu doğmaz. Aynı yaklaşım, çevrilmemiş halde bir referans
+implementasyonda (Stremio AISubtitle projesi, `src/translation/blocks.ts`)
+üretimde ölçülmüş biçimde çalıştı; ek fayda: overlap penceresi çift
+çevrilmediği için provider maliyeti de artmaz.
+
+Madde 3, M5'in S3 kararına (2026-09-08, yapısal doğruluk ölçütü) sıkı sıkıya
+bağlıdır: bağlam analizinin dilsel faydası M5'te iddia edilmiyor, dolayısıyla
+onu bir provider çağrısı yapmadan, tamamen yerel ve test edilebilir tutmak
+hem determinizmi hem de Kural 8'i (gerçek provider kredisi kullanılmaz)
+karşılar. Model tabanlı özet/karakter/glossary üretimi M6'ya (gerçek
+provider'larla) ertelenir; bu ADR o kapıyı kapatmaz, yalnız M5'in kapsamını
+netleştirir.
+
+Madde 4, doğrulamanın (`NEN-091`) provider cevabını doğrudan `CueId(u32)` ile
+karşılaştırmasına izin verir — ayrı bir blok-içi indeks, hem gereksiz bir
+çeviri katmanı hem de "hangi indeks hangi cue'ya karşılık geliyor" tipinde
+yeni bir ihlal sınıfı yaratırdı.
 
 ## Reddedilen alternatifler
 
 | Alternatif | Neden reddedildi |
 |---|---|
-| … | … |
+| Blok sınırının sahne/sessizlik sinyaline göre kayması | Belgeye bağlı, deterministik değil; `block-layout version`'ın anlamını belirsizleştirir (bu ADR'nin kendi bağlam bölümü) |
+| Overlap'teki cue'ların iki blokta da çevrilip sonradan birleştirilmesi | "Hangi bloğun çevirisi geçerli" tartışmasını doğurur; gereksiz çift provider maliyeti |
+| Cue kimliğinin blok-içi bir indeks olarak gösterilmesi | Doğrulama gerçek `CueId` yerine ek bir eşleme katmanına muhtaç kalır |
+| Bağlam analizinin bir provider çağrısı olması | M5 ölçütü yapısal doğruluk (S3); ikinci, belirsiz bir LLM çağrısı determinizm şartını karşılamaz ve Kural 8'i zorlar |
 
 ## Sonuçlar
 
-**Olumlu:** …
+**Olumlu:** blok düzeni tamamen deterministik ve golden testle doğrulanabilir;
+overlap cue'ları hiç çift çevrilmez; doğrulama katmanı ek eşleme gerektirmez.
 
-**Olumsuz / kabul edilen maliyet:** …
+**Olumsuz / kabul edilen maliyet:** M5'teki bağlam analizinin dilsel değeri
+yoktur — yalnız determinizm garantisi taşır; gerçek fayda M6'da gerçek
+provider'larla ölçülecek.
 
-**Geri dönüş maliyeti:** …
+**Geri dönüş maliyeti:** blok sınırı kuralı veya overlap bölünmesi
+değiştirilirse `block-layout version` artırılır ve bu bileşene bağlı tüm
+cache girişleri doğal olarak geçersiz kalır (ADR-0018).
 
 ## İlgili task'lar
 
 `NEN-089` · tüketiciler: `NEN-090`, `NEN-097`, `NEN-103`
 
 ## Notlar
+
+Karar taslağı, önceki bir projedeki (Stremio AISubtitle, TypeScript) çalışan
+bir çeviri hattının karşılaştırmalı incelemesinden türetildi — bkz. o hattın
+`blocks.ts` ve `structured-output.ts` dosyalarındaki overlap bölme ve
+strict-schema desenleri. Kod taşınmadı, yalnız buradaki üç karara giren
+fikirler değerlendirildi.
