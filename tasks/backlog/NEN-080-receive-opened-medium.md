@@ -7,7 +7,7 @@ state: backlog
 closed:
 depends_on: [NEN-079]
 blocks: [NEN-081, NEN-082, NEN-083]
-adr: []
+adr: [43]
 ---
 
 # NEN-080 — Receive a medium opened by another application

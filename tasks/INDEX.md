@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **84** task · ✅ done 70 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 12
+Toplam **84** task · ✅ done 71 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 11
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -102,7 +102,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | ID | Başlık | Boyut | Durum | Bağımlılık |
 |---|---|---|---|---|
 | [NEN-078](done/NEN-078-stremio-launch-measurement.md) | Measure how Stremio launches an external player on macOS | S | ✅ done | — |
-| [NEN-079](backlog/NEN-079-adr-handoff-surface.md) | Decide the macOS handoff receiving surface | S | ⚪ backlog | NEN-078 |
+| [NEN-079](done/NEN-079-adr-handoff-surface.md) | Decide the macOS handoff receiving surface | S | ✅ done | NEN-078 |
 | [NEN-080](backlog/NEN-080-receive-opened-medium.md) | Receive a medium opened by another application | M | ⚪ backlog | NEN-079 |
 | [NEN-081](backlog/NEN-081-handoff-start-position.md) | Apply the start position a handoff carries | S | ⚪ backlog | NEN-080 |
 | [NEN-082](backlog/NEN-082-handoff-metadata-evidence.md) | Treat handoff metadata as optional evidence | M | ⚪ backlog | NEN-080 |
@@ -135,4 +135,4 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-044** — Embedded subtitle text extraction
 - **NEN-064** — Verified media identity in player chrome
 - **NEN-072** — Parse container metadata from remote byte windows
-- **NEN-079** — Decide the macOS handoff receiving surface
+- **NEN-080** — Receive a medium opened by another application

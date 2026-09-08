@@ -3,8 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-07** (**`NEN-078` done** — Stremio'nun harici
-> oynatıcı çağırma mekanizması ölçüldü. Önceki: M3 kapanışı + M4 kırılımı)
+> Son güncelleme: **2026-09-08** (**`NEN-079` done** — macOS handoff alıcı
+> yüzeyi `ADR-0043` ile kabul edildi. Önceki: `NEN-078` ölçümü)
 
 ## Nerede duruyoruz
 
@@ -12,12 +12,45 @@
 |---|---|
 | **Mevcut milestone** | **M4 — Stremio Handoff (macOS)** (M3 2026-09-07'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-078`** — Stremio'nun macOS'ta harici oynatıcıyı nasıl çağırdığı gerçek Stremio 5.1.26 ile ölçüldü. Ondan önce: M3 kapanışı + M4 kırılımı |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-072`, `NEN-079` |
-| **Task sayısı** | 84 · done 70 · active 0 · blocked 0 · canceled 2 · backlog 12 |
+| **Son tamamlanan** | **`NEN-079`** — macOS handoff alıcı yüzeyi (`argv` + open-with + `nenplayer://` scheme), başlangıç pozisyonunun taşıyıcısı ve handoff'un port olmadığı `ADR-0043` ile kabul edildi. Ondan önce: `NEN-078` ölçümü |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-072`, `NEN-080` |
+| **Task sayısı** | 84 · done 71 · active 0 · blocked 0 · canceled 2 · backlog 11 |
 
-**M4'ün sıradaki task'ı `NEN-079`** (ADR) — `NEN-078`'in ölçümünü alıcı yüzey
-kararına bağlayacak; kırılımın geri kalanı bilinçli olarak onu bekliyor.
+**M4'ün sıradaki task'ı `NEN-080`** — `ADR-0043`'ün kararlarını uygulayıp
+başka bir uygulamanın verdiği medyayı `⌘O` ile aynı yoldan açacak.
+
+**`NEN-079` kapandı — macOS handoff alıcı yüzeyi `accepted` bir ADR ile
+sabitlendi.** `NEN-078`'in ölçümü kesin bir öneri üretmemişti (adayları
+karşılaştırıyordu); bu oturumda kullanıcıyla dört karar noktası netleştirildi
+ve `docs/adr/0043-macos-handoff-surface.md` beş numaralı Karar olarak yazıldı:
+(1) alıcı yüzey **üçü birden** — `CFBundleDocumentTypes` (open-with),
+`CFBundleURLTypes` (`nenplayer` scheme'i) ve argv; (2) başlangıç pozisyonu
+argv'de üç eşdeğer bayrak (`--start=`/`--start-time=`/`--start-position=`,
+`NEN-078` Bulgu 6'nın gösterdiği "sabitlenen CLI sözleşmesi, uygulama kimliği
+değil" bulgusuna dayanarak — taklit değil) veya scheme'de `#t=` fragment'i ile
+gelir, ADR-0042'nin `deferredSeekMs` kontratından geçer; (3) handoff'un kendi
+portu **yok** — inbound bir OS olayı sayılır, core çağırmaz OS kabuğa iter;
+(4) ayrıştırma core'da (`nen-app`), kabuk yalnız ham olayı taşır; (5) handoff
+metadata'sının ayrı bir alanı yok, locator'ın kendisi ADR-0009'un kanıt
+katmanına girer.
+
+**`docs/architecture.md`'nin kendi içindeki tutarsızlığı kapandı.** Sınır
+kuralı "Stremio handoff"u `port + platform adapter` sınıfına koyuyordu ama
+port tablosunda böyle bir port yoktu. "Stremio handoff" ve "lifecycle" sınır
+kuralı listesinden çıkarıldı; yerine "Inbound OS olayları port değildir" alt
+bölümü eklendi (ADR-0043 Karar 3'e referansla).
+
+**Dürüstçe kaydedilen iki sınır.** Stremio'nun kendi ayar listesi
+(`Etkisizleştirildi · MPV · IINA · Infuse · M3U Playlist`) ve oynatıcı
+ekranının `...` menüsü (sabit VLC/MPV) kapalı küme — Nen Player bunlara
+giremiyor, çünkü ADR bayrak-taklidini kabul edip bundle-kimliği taklidini
+reddediyor; `NEN-084`'ün kabul koşusu bu yüzden Stremio'nun bu iki yüzeyinden
+değil, kabul edilen sözleşmeyi konuşan bir gönderici üzerinden yapılacak.
+`nenplayer://` scheme'i bu makinede Developer ID eksikliği yüzünden
+(`NEN-078` Bulgu 9) kanıtlanamıyor, roadmap **S11**'e bağlı.
+
+Kod değişmedi (karar/doküman task'ı). `bash scripts/check-docs.sh` çıkış 0.
+Kanıt: `tasks/done/NEN-079-*.md`.
 
 **`NEN-078` kapandı — Stremio'nun macOS'ta harici oynatıcıyı hangi mekanizmayla
 çağırdığı gerçek Stremio 5.1.26 ile ölçüldü.** `NEN-025`/ADR-0034 emsali izlendi:
@@ -1955,6 +1988,14 @@ kurmaz** — bu, `scripts/tests/doctor.test.sh` S7 ile mekanik olarak kanıtlan�
 Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
+
+2026-09-08'de `NEN-079` kapandı — bu bir karar/doküman task'ı, kod
+değişmedi (Rust workspace ve macOS Swift paketine dokunulmadı), bu yüzden
+`cargo test`/`test-macos.sh` koşulmadı. Doğrulama `bash
+scripts/check-docs.sh` (çıkış 0: ADR referansı, `accepted` durumu, `closed`
+alanı, INDEX/STATUS tutarlılığı) ve `bash scripts/task-index.sh` ile
+yapıldı. Son gerçek toolchain/test koşusu aşağıdaki `NEN-071` kaydıdır ve
+hâlâ günceldir — bu closure onu geçersiz kılmadı.
 
 2026-09-07'de `NEN-071` kapanışı için gerçek `.app` fixture koşusu ve
 `PlayerModelTests.subtitlePanelResolvesAliasesExplicitly` geçti; panel
