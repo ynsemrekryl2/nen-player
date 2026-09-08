@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **104** task · ✅ done 81 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 21
+Toplam **104** task · ✅ done 82 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 20
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -119,7 +119,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 |---|---|---|---|---|
 | [NEN-044](backlog/NEN-044-embedded-text-extraction.md) | Embedded subtitle text extraction | M | ⚪ backlog | NEN-023 NEN-103 |
 | [NEN-072](done/NEN-072-remote-container-metadata.md) | Parse container metadata from remote byte windows | M | ✅ done | NEN-036 |
-| [NEN-089](backlog/NEN-089-translation-block-layout.md) | Translation block layout and whole-document context | M | ⚪ backlog | NEN-016 |
+| [NEN-089](done/NEN-089-translation-block-layout.md) | Translation block layout and whole-document context | M | ✅ done | NEN-016 |
 | [NEN-090](backlog/NEN-090-translation-provider-port-and-mock.md) | Translation provider port and deterministic mock | M | ⚪ backlog | NEN-089 |
 | [NEN-091](backlog/NEN-091-strict-block-validation.md) | Strict local validation of a translated block | M | ⚪ backlog | NEN-090 |
 | [NEN-092](backlog/NEN-092-repair-and-retry-budget.md) | Targeted repair and full-block retry budget | M | ⚪ backlog | NEN-091 |
@@ -153,4 +153,5 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-034** — AI-assisted release name normalization
 - **NEN-035** — Identity confidence scoring and candidate ranking
 - **NEN-064** — Verified media identity in player chrome
-- **NEN-089** — Translation block layout and whole-document context
+- **NEN-090** — Translation provider port and deterministic mock
+- **NEN-103** — Decide the demux path for embedded subtitle text

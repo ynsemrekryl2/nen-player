@@ -3,9 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-08** (**M5 kırılımı üretildi** — M4 kapanış
-> ritüelinin eksik kalan son maddesi: 16 yeni task, beş `proposed` ADR, üç açık
-> soru (S3 · S4 · S9) kullanıcı kararıyla kapandı.)
+> Son güncelleme: **2026-09-08** (**`NEN-089` kapandı** — M5'in ilk
+> implementasyon task'ı: deterministik çeviri blok düzeni ve belge bağlamı,
+> ADR-0015 `accepted`.)
 
 ## Nerede duruyoruz
 
@@ -13,9 +13,59 @@
 |---|---|
 | **Mevcut milestone** | **M5 — Translation Core** (M4 2026-09-08'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-072`** — uzak byte penceresinden container metadata ayrıştırma tamamlandı; M5'in ilk task'ı. Ondan önce: `NEN-088` |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-064`, `NEN-089` |
-| **Task sayısı** | 104 · done 81 · active 0 · blocked 0 · canceled 2 · backlog 21 |
+| **Son tamamlanan** | **`NEN-089`** — deterministik çeviri blok düzeni ve belge bağlamı (`nen-translate` dolduruldu, ADR-0015 `accepted`). Ondan önce: `NEN-072` |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-064`, `NEN-090`, `NEN-103` |
+| **Task sayısı** | 104 · done 82 · active 0 · blocked 0 · canceled 2 · backlog 20 |
+
+**`NEN-089` kapandı — `SubtitleDocument` artık her zaman aynı, yeniden
+üretilebilir overlapping bloklara ayrılıyor ve belgenin tamamından çıkarılan
+bağlam her bloğa aynı biçimde giriyor.** `core/crates/nen-translate/`
+üç satırlık iskeletten çıktı: `blocks.rs` (`BlockLayoutConfig`,
+`BlockLayoutError`, `TranslationBlock`, `BlockLayout`) ve `context.rs`
+(`ContextTerm`, `DocumentContext`). Ön koşulu olan **ADR-0015 `accepted`
+oldu** (aynı gün) — taslağın iki eksik maddesi (bağlam çıkarım kuralının
+somut tanımı, overlap'in blok boyutu gibi doğrulanan bir parametre olması)
+kullanıcı kararıyla tamamlandı.
+
+**Blok sınırı sabit cue sayısıyla belirleniyor, son pencere
+`cueCount − blockSize`'a sabitleniyor, overlap penceresinin sözü çağrıdan
+önce floor-orta noktasında bölünüyor** (ADR-0015 Karar 1/2) — bir cue hiçbir
+zaman iki blokta birden çevrilmiyor. **Overlap artık blok boyutu gibi
+doğrulanan bir parametre:** `1 ≤ overlap < blockSize / 2`; bu üst sınır,
+sabitlenmiş son pencerede bile bir bloğun çıktı kümesinin asla boş
+kalamayacağını garanti ediyor (task'ın kanıt kaydındaki matematik). **Bağlam
+analizi**, belge genelinde tekrar eden, büyük harfle başlayan ve en az bir
+kez cümle başı dışında görünen terimleri (üst sınır 32) çıkaran, tamamen
+yerel ve deterministik bir kural — provider'a hiç gitmiyor.
+
+**Kanıt golden + unit + iki zorunlu negatif katmanında, hepsi elle
+doğrulandı.** Golden fixture (`fixtures/subtitles/blocks/layout-sample.srt`,
+95 cue) için üretilen pencereler (`0..40`, `34..74`, `55..95`) ve çıktı
+sınırları (`37`, `64`) elle hesaplanıp ADR-0015'in kurallarıyla birebir
+eşleştiği doğrulandı; bağlam terimleri (`Killua 48 · Gon 29 · Kurapika 19`)
+elle sayıldı ve `Leorio`'nun — her zaman cümle başında geçtiği için — kural
+tarafından bilerek elendiği gösterildi. Negatif (zorunlu): aralık dışı blok
+boyutu (29, 61) ve aralık dışı overlap (0, `blockSize/2`) tipli hatayla
+reddediliyor; boş belge ayrı bir hata, bir bloktan küçük belge boş blok
+üretmeden tek blok oluyor.
+
+**K23 guard'ı (`docs/security-policy.md` §1) bağlam terimlerini kapsıyor** —
+çıkarılan terim altyazı diyaloğunun bir parçası. `ContextTerm`/
+`DocumentContext` `nen_domain::subtitle::Cue` emsaliyle elle `Debug` yazıyor,
+yalnız sayı basıyor. Üç negatif kontrol ayrık ölçüldü: overlap sınır kuralı
+sabit sınıra çekilince yalnız golden test kırmızı oldu (unit'in kendi aralığı
+gevşek olduğu için bunu yakalamadı — plandan farklı ama gerçek ölçülen
+sonuç), overlap doğrulama kapısı kaldırılınca 21 testten yalnız 1'i, K23
+guard'ı `#[derive(Debug)]`'a çevrilince yalnız o test kırmızıya döndü ve
+gerçek terim metnini bastığını gösterdi.
+
+`cargo test -p nen-translate`: **25 passed** (21 unit + 1 golden + 3 guard).
+`cargo test --workspace`: **688 passed / 1 ignored**. `cargo fmt --check`,
+`cargo clippy --workspace --all-targets -- -D warnings`, `cargo deny check`
+(yeni dış bağımlılık yok), `bash scripts/test.sh`, `bash
+scripts/check-docs.sh` hepsi yeşil. Değişiklik yalnız `nen-translate` ve
+doküman tarafı; `nen-ffi`, macOS kabuğu, `nen-persist` dokunulmadı. Kanıt:
+`tasks/done/NEN-089-*.md`.
 
 **M5 — Translation Core kırılıma bağlandı; sıradaki iş `NEN-089`.** M4'ün
 kapanış ritüelinin son maddesi (`docs/roadmap.md` → "Milestone kapanış ritüeli":

@@ -1,0 +1,12 @@
+version	1
+block_size	40
+overlap	6
+cue_count	95
+blocks	3
+block	0	window	0..40	output	0..37
+block	1	window	34..74	output	37..64
+block	2	window	55..95	output	64..95
+context_terms	3
+term	Killua	48
+term	Gon	29
+term	Kurapika	19
