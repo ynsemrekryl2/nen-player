@@ -80,8 +80,9 @@ kapandı (2026-09-08):
 | **0018** | Cache identity bileşenleri, versiyonlama, invalidasyon | `NEN-097` |
 | **0045** | Gömülü altyazı metninin demux yolu | `NEN-103` |
 
-Beşi de bugün `proposed`. Kural 4 gereği ilgili ADR `accepted` olmadan o
-task'ın implementasyonuna geçilmez ve teknoloji adları **aday** sayılır.
+Açılışta beşi de `proposed`; **0015** 2026-09-08'de (aynı gün, `NEN-089`
+kapanışıyla) `accepted` oldu. Kural 4 gereği kalan dördü `accepted` olmadan
+ilgili task'ın implementasyonuna geçilmez ve teknoloji adları **aday** sayılır.
 
 ## Bağımlılıklar
 
