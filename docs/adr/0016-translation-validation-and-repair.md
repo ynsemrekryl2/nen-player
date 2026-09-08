@@ -1,17 +1,17 @@
 ---
 adr: 0016
 title: Çeviri doğrulama ve onarım politikası — yerel doğrulama authoritative
-status: proposed
+status: accepted
 milestone: M5
 tasks: [NEN-091]
-date: —
+date: 2026-09-08
 ---
 
 # ADR-0016 — Çeviri doğrulama ve onarım politikası — yerel doğrulama authoritative
 
 ## Durum
 
-`proposed`
+`accepted` — 2026-09-08
 
 ## Bağlam
 
@@ -46,26 +46,29 @@ Kararlaştırılması gereken, sayıların arasında kalan boşluk:
    metnin hangi cue'ya ait olduğunu belirtmek için gönderilir. Nihai birleşme
    yerelde, orijinal `SubtitleDocument`'in kendi `TimeSpan`'leriyle yapılır.
    Bunun sonucu: "provider zamanı/ID'yi değiştirdi" diye bir ihlal sınıfı
-   **yapısal olarak var olamaz** — port tipi bunu ifade etmez.
-2. **İhlal taksonomisi**, madde 1'in sonucuyla daralır:
-   `count-mismatch` · `missing-cues` · `duplicate-cues` · `unknown-cues` ·
-   `empty-text` · `invalid-response` (ayrıştırılamayan/şekli bozuk cevap).
-   Altı sınıf da yalnız **şekil** taşır, hiçbiri cue metni içermez.
-3. **Onarılabilir ihlaller:** bir output cue ID'sinin sonuçta güvenilir,
-   tekil bir metne sahip olmaması — nedeni ister `missing-cues`, ister
-   `duplicate-cues` (o ID'nin bütün kopyaları elenir), ister `unknown-cues`
-   (bloğa ait olmayan ID'ler yok sayılır), ister `empty-text` olsun — o ID'yi
-   **targeted repair**'in isteyeceği kalan kümeye ekler. `count-mismatch` ve
-   `invalid-response`, hangi belirli cue'nun bozuk olduğu belirlenemediği
-   için targeted repair'e girmez, doğrudan full-block retry'a düşer.
+   **yapısal olarak var olamaz** — port tipi bunu ifade etmez. Değiştirilmiş
+   bir ID, bilinmeyen ID + eksik beklenen ID olarak reddedilir.
+2. **İhlal taksonomisi** `count-mismatch` · `missing-cues` · `duplicate-cues` ·
+   `unknown-cues` · `empty-text` sınıflarından oluşur. Typed
+   `TranslationResponse` dışındaki ham/ayrıştırılamayan structured output bu
+   task'ın yüzeyine gelemez; gerçek provider adapter'larının bunu nasıl
+   sınıflandıracağı M6'da kararlaştırılır.
+3. **Onarım yönlendirmesi ihlal adına değil, beklenen cue kümesine göre
+   yapılır:** eksik, tekrarlı veya boş metinli beklenen ID'ler, kaynak blok
+   sırasındaki `repair_cue_ids` listesine girer. Bilinmeyen ID'ler sonuçtan
+   atılır; beklenen bir ID eksikse targeted repair onu isteyebilir. Yalnızca
+   fazladan bilinmeyen ID varsa repair kümesi boştur ve tüketici full-block
+   retry yoluna düşer. `count-mismatch` yalnız tanısaldır; tek başına retry
+   türünü seçmez.
 4. **Normalizasyonun sınırı:** kabul edilen tek normalizasyon, geçerli
    cevabın `outputCueIds` sırasına yeniden dizilmesi ve metin kenarlarındaki
    boşluğun kırpılmasıdır. Tekrar eden ID ve boş/yalnızca-boşluk metin
-   **düzeltilmez** — o ID doğrudan repair listesine düşer (madde 3).
-5. **Hata mesajı** yalnız şekil taşır: ihlal sınıfı (enum varyantı) ·
-   `blockNumber` · `blockCount` · beklenen sayı · (varsa) alınan sayı. Sayısal
-   `CueId` değeri taşınabilir (K23 kapsamında değildir), cue metni hiçbir
-   biçimde taşınmaz.
+   **düzeltilmez**; o ID'nin güvenilir çıktısı yok sayılır.
+5. **Hata raporu** yalnız şekil taşır: ihlal sınıfı, sayısal `CueId`, blok
+   konumu ve beklenen/alınan sayılar. Doğrulayıcı, NEN-092'nin aynı crate
+   içindeki onarım akışı için geçerli kısmi cue'ları ayrı bir iç alanda
+   tutabilir; bunlar doğrulanmış blok olarak dışarı verilemez. Cue metni hiçbir
+   `Debug`/`Display` yüzeyinde taşınmaz.
 
 ## Gerekçe
 
@@ -77,12 +80,11 @@ diyaloğu hiçbir log yüzeyine düşemez" kısıtıyla da uyumlu: zaman zaten y
 kaldığı için ihlal raporunun taşıyabileceği en hassas alan zaten sayısal
 `CueId`'dir, metin değil.
 
-Madde 3'ün ayrımı (targeted-repair-edilebilir vs. doğrudan full-retry),
-onarım bütçesinin (`NEN-092`, en fazla 2 targeted + 1 full retry) amacını
-netleştirir: targeted repair yalnız "hangi cue eksik" belli olduğunda anlamlı
-bir istek üretebilir; `count-mismatch` ve `invalid-response` bu bilgiyi
-vermez, dolayısıyla targeted repair'i bu ikisinde denemek gereksiz bir
-provider çağrısı ekler.
+Madde 3'ün cue-kümesi yaklaşımı, onarım bütçesinin (`NEN-092`, en fazla 2
+targeted + 1 full retry) yalnız güvenilir biçimde belirlenebilen beklenen
+ID'lere uygulanmasını sağlar. `count-mismatch` tanı bilgisidir; eksik ID kümesi
+çıkarılabiliyorsa targeted repair hâlâ mümkündür, yalnız fazladan bilinmeyen
+ID varsa full-block retry gerekir.
 
 Madde 4, aynı referans hattın `inspectBlock` mantığından: tekrar eden ID'yi
 "ilk geçerli eşleşmeyi tut" diye sessizce çözmek yerine, o ID'yi tamamen
@@ -96,7 +98,7 @@ seçimden kaçınır.
 | Ayrı bir "bozuk `TimeSpan`" ihlal sınıfı | Zaman hiç gönderilmediği için (madde 1) bu sınıf yapısal olarak boş kalır |
 | Tekrar eden/bilinmeyen ID'lerin sessizce ilk geçerli eşleşmeye indirgenmesi | Hangi kopyanın doğru olduğuna dair keyfi, denetlenemez bir seçim; yerine tekrar isteme |
 | Hata mesajının cue metninin bir kısmını (debug amaçlı) taşıması | K23 #4 ihlali — negatif testle kapatılan bir kural |
-| `count-mismatch`/`invalid-response` için de targeted repair denemek | Hangi cue'nun bozuk olduğu bilinmiyor; anlamsız bir istek üretir, bütçeyi boşa harcar |
+| `count-mismatch`/ham parse hatası için körlemesine targeted repair denemek | Güvenilir beklenen ID kümesi yoksa anlamsız istek üretir; ham parse politikası M6 provider adapter'ına bırakılır |
 
 ## Sonuçlar
 
@@ -105,11 +107,11 @@ olarak yok edildiği için o sınıfın davranışsal testi gerekmez, yalnız po
 tipinin `TimeSpan` taşımadığı derleme zamanında sabittir; hata mesajı doğuştan
 redaction'a uyumlu.
 
-**Olumsuz / kabul edilen maliyet:** `NEN-091`'in bugünkü DoD ifadesi
+**Olumsuz / kabul edilen maliyet:** `NEN-091`'in eski DoD ifadesi
 ("provider'ın değiştirdiği bir `TimeSpan` veya cue ID reddediliyor") artık
-davranışsal bir negatif test değil, tipin bunu ifade edemediğini gösteren bir
-derleme-zamanı/şekil kontrolüne karşılık gelir — bu ADR kabul edildiğinde
-task'ın DoD ifadesi buna göre güncellenmelidir.
+`TimeSpan` için kaynak zamanının kopyalandığını, ID içinse unknown+missing
+olarak reddedildiğini doğrulayan testlere dönüşür; provider DTO'su zamanı zaten
+ifade edemez.
 
 **Geri dönüş maliyeti:** ileride provider'ın zaman öneren bir özelliği
 (ör. otomatik zaman kayması) gerekirse, yeni bir ihlal sınıfı ve `schema
