@@ -187,3 +187,15 @@ Bu ADR yalnız **çekirdek** yüzeyini karara bağlıyor. macOS'un video yüzeyi
 (mpv render API) ve `.app` paketlemesi `NEN-024`'ün kararlarıdır ve kendi
 ADR'sine yazılacaktır; ADR-0013 (`SubtitleRenderer` stratejisi) ise `NEN-027`'ye
 ait, ikisi de bu kararın kapsamı dışında.
+
+**Karar 3'ün kapsamı `NEN-100`'de netleşti (2026-09-10).** Karar 3'ün pull
+tercihi *playback olay akışı* içindir: ~30 Hz'lik pozisyon olayı, olay başına
+ölçülen ~77 µs hop ve — daha önemlisi — askıdaki bir tüketicide birikmenin
+dispatch kuyruğuna taşınması (yukarıdaki "Reddedilen alternatifler" tablosu).
+Bir çeviri işinin ilerlemesi bu profile girmiyor: blok başına birkaç olay,
+sürekli değil kesikli. `NEN-100` bu yüzden çeviri ilerlemesini bir foreign
+`ForeignTranslationProgressSink` ile **push** olarak taşıyor — `ADR-0004`
+Karar 1/2/5'in zaten tanımladığı `JobHandle` + tek delivery gate'in dış
+kabuğu. Bu, `EventSink`/`deliver_all`'ın FFI'da genel olarak yeniden
+açılması değil: playback oturumunun kendi olay yolu pull kalıyor, ADR-0033
+supersede edilmedi. Uygulama ve kanıt: `tasks/done/NEN-100-*.md`.

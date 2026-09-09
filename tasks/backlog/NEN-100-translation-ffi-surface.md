@@ -19,10 +19,18 @@ edilebiliyor; çevrilen metin bu sınırdan hiçbir log yüzeyine sızmıyor.
 
 ## Bağlam
 
-`nen-ffi` **tek dış kapıdır** (`docs/architecture.md` → crate tablosu) ve olay
-teslimat yönü `ADR-0033` ile sabitlenmiş: core sahibidir, kabuğa iter.
-`NEN-045`'in playback oturumu ve `NEN-080`'in handoff gate'i bu deseni zaten
-kuruyor — çeviri de aynı deseni izler, yeni bir yön açılmaz.
+`nen-ffi` **tek dış kapıdır** (`docs/architecture.md` → crate tablosu; ADR-0006
+kural 2). `ADR-0033` Karar 3, playback olay akışının teslimat yönünü **pull**
+olarak sabitliyor — core kabuğa itmiyor, kabuk `drain_events()` çağırıyor;
+push (`EventSink`) o kararda açıkça reddedilen alternatif. Bu, playback'in
+~30 Hz'lik sürekli olay akışına özgü bir tercih (ADR-0033 gerekçesi). Bir
+çeviri işinin ilerlemesi aynı profile girmiyor — blok başına birkaç kesikli
+olay — ve `ADR-0004` Karar 1/2/5 zaten kendi `JobHandle` + tek delivery gate
+desenini tanımlıyor (`tasks:` alanında bu task adıyla anılıyor). Planlama
+sırasında kullanıcı kararıyla netleşti: çeviri ilerlemesi bir foreign
+`ForeignTranslationProgressSink` ile **push** taşınır; ADR-0033'e bu ayrımı
+kaydeden bir Notlar girdisi eklenir, yeni bir ADR açılmaz (ADR-0043/`NEN-081`
+emsali).
 
 K23 #4 (subtitle diyaloğu) burada en yüksek riskli sınır: cue metni FFI'dan
 geçtiği için `Debug`/`Display` türevleri elle yazılmalı. Emsal: `NEN-083`'ün
@@ -31,14 +39,24 @@ handoff guard'ları ve `NEN-080`'in elle yazılmış locator `Debug`'ı.
 ## Kapsam
 
 - Çeviri işini başlatan, ilerlemesini ileten ve iptal eden FFI yüzeyi
-- Tipli hataların FFI taksonomisine bağlanması (`ADR-0005` deseni)
+- Yardımcıların (provider/store/index) `nen-app` tarafında bir kompozisyon
+  kökünde kurulması — `nen-ffi` yalnız ilkel değer alır, yeni crate'e
+  bağlanmaz (ADR-0006 kural 3)
+- Biten işin sonucunun `SubtitleLibrary::add_translation` ile kataloğa
+  eklenmesi için FFI çağrısı (`NEN-099`'un ayrı ve açık adımı)
+- Tipli hataların FFI taksonomisine bağlanması — bugün `nen-ffi`'de zaten var
+  olan kod deseni (ADR-0006 kural 2 + K23); `docs/adr/0005-*` henüz yazılmadı
+  (`docs/adr/README.md` → "Planlanan"), bu task onu kararlaştırmıyor
 - Cue metni taşıyan her tipin `Debug`'ının shape-only olması
 
 ## YAPILMAYACAK
 
 - macOS kabuğu — `NEN-101` · `NEN-102`
 - Kotlin/Android bağlaması — M10
-- İkinci bir olay kanalı; `ADR-0033`'ün yönü değişmez
+- Çeviri ilerlemesi için birden fazla teslimat yolu (yalnız push, drain
+  yok) — mevcut `TranslationCall` gate'i tek mekanizma kalır
+- Playback olay akışının pull yönü — `ADR-0033`'ün kendi kapsamı değişmez,
+  yalnız notla genişler
 
 ## Kanıt (DoD)
 
