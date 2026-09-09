@@ -3,9 +3,10 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-09** (**`NEN-106` kapandı** — çok bloklu bir
-> çeviri işi artık kendi sağlayıcısının bildirdiği ilerleme yüzünden
-> düşmüyor; `NEN-099`'u bloke eden tek engel kalktı.)
+> Son güncelleme: **2026-09-10** (**`NEN-099` kapandı** — kaynak seçmek artık
+> çeviri başlatmıyor; açık bir komut bir işi kendi worker thread'inde
+> başlatıyor ve iş kullanıcının araya giren seçimleriyle retarget edilmiyor.
+> `NEN-100`'ü bloke eden tek engel kalktı.)
 
 ## Nerede duruyoruz
 
@@ -13,9 +14,42 @@
 |---|---|
 | **Mevcut milestone** | **M5 — Translation Core** (M4 2026-09-08'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-106`** — blok sınırında bağımsız ilerleme dizisi. Ondan önce: `NEN-098` |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-099`, `NEN-105` |
-| **Task sayısı** | 106 · done 93 · active 0 · blocked 0 · canceled 2 · backlog 11 |
+| **Son tamamlanan** | **`NEN-099`** — çeviri oturumu orkestrasyonu, retarget'sız. Ondan önce: `NEN-106` |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-100`, `NEN-105` |
+| **Task sayısı** | 106 · done 94 · active 0 · blocked 0 · canceled 2 · backlog 10 |
+
+**`NEN-099` kapandı — kaynak seçmek çeviri başlatmıyor; açık bir komut bir işi
+başlatıyor ve iş kullanıcının araya giren seçimleriyle retarget edilmiyor.**
+Yeni `nen-app::translation` modülü `SubtitleLibrary`'yi `nen-translate`'in
+pipeline'ıyla ilk kez birleştiriyor — bugüne kadar ikisini aynı anda gören tek
+yer `artifact_store_roundtrip.rs`/`artifact_index_lookup.rs` test dosyalarıydı,
+ürün kodunda "kullanıcı açık komut verdi" diyen bir use-case yoktu.
+`prepare(...)` kaynağı okuyup değişmez bir `TranslationJob` snapshot'ı kurar
+(kaynak belgenin klonu, plan, blok düzeni, artifact metadata, önceden
+hesaplanmış cache anahtarı); `start(...)` işi kendi worker thread'inde
+başlatıp hemen bir `TranslationJobHandle` döner (ADR-0004 Karar 1, yeni bir
+runtime veya iptal mekanizması açılmadan).
+
+**Retarget bir çalışma zamanı reddi değil, var olmayan bir API.**
+`TranslationJob` kurulduktan sonra katalogla hiçbir bağı kalmıyor; worker
+yalnız kendi snapshot'ını sürüyor. Gerçek `PlaybackSession` + provider'ı havada
+tutan bir gate ile ölçülen testte iş sürerken kullanıcı ikinci bir kaynağa
+geçiyor — iş yine de başlangıç kaynağının fingerprint'inde tamamlanıyor ve
+sonucu kataloğa ekledikten sonra bile ekranda zorla görünmüyor, çünkü
+kataloglama (`SubtitleLibrary::add_translation`) ayrı ve açık bir adım.
+
+Cache isabeti worker'ın ilk adımı: isabet provider'a hiç gitmeden dönüyor,
+kaçırma normal pipeline'a düşüyor. İptal `NEN-093`'ün zaten kanıtlanmış
+`TranslationCall` gate'inin üstünde duruyor — ikinci bir mekanizma açılmadı.
+Dört kapı elle mutasyona uğratıldı (cache lookup atlatma, dil-eşitliği kapısı,
+katalog yazımı, cache identity'nin blok düzenini görmezden gelmesi), her
+birinde tam olarak beklenen test(ler) kırmızıya döndü. Kanıt:
+`tasks/done/NEN-099-*.md`.
+
+`cargo test --workspace` **818 passed / 1 ignored** (`NEN-106` baseline 809 +
+bu task'ın 9 testi); fmt, clippy, `cargo deny check` (yeni dış bağımlılık
+yok), `bash scripts/test.sh` **4/4** ve `bash scripts/check-docs.sh` yeşil.
+`nen-ffi`, macOS kabuğu, `nen-persist`/`nen-translate`/`nen-ports` dokunulmadı.
 
 **`NEN-106` kapandı — `NEN-096` yazılırken ölçülmüş ve Kural 5 ile ayrılmış
 bağımsız kusur giderildi: çok bloklu bir çeviri işi artık kendi
@@ -2548,6 +2582,18 @@ kurmaz** — bu, `scripts/tests/doctor.test.sh` S7 ile mekanik olarak kanıtlan�
 Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
+
+2026-09-10'da `NEN-099` kapandı — kaynak seçmek çeviri başlatmıyor, açık bir
+komut bir işi kendi worker thread'inde başlatıyor ve iş retarget edilmiyor.
+Yeni `nen-app::translation` modülü (`prepare`/`start`) ve
+`SubtitleLibrary::add_translation`. `cargo test --workspace` **818 passed / 1
+ignored** (`NEN-106` baseline 809 + 9 yeni test: `translation_session.rs` 4,
+`translation_retarget.rs` 2, `guard_translation_debug.rs` 3). `cargo fmt
+--check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo deny
+check` (yeni bağımlılık yok, `core/Cargo.lock` diff'i boş), `bash
+scripts/test.sh` **4/4**, `bash scripts/check-docs.sh` hepsi yeşil. Dört kapı
+elle mutasyona uğratılıp her birinde tam olarak beklenen test(ler) kırmızıya
+döndüğü ölçüldü. Ayrıntılı kanıt kaydı: `tasks/done/NEN-099-*.md`.
 
 2026-09-09'da `NEN-094` kapandı — `ValidatedSubtitleArtifact` ve WebVTT
 çıktısı `core/crates/nen-translate/src/artifact.rs`'e eklendi. `cargo test -p

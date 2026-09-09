@@ -284,6 +284,37 @@ impl SubtitleLibrary {
         crate::embedded::track_of(self.id_of(token)?)
     }
 
+    /// Catalogues a finished translation as a `SubtitleSourceKind::Ai` entry
+    /// (`NEN-099`, product-spec §9).
+    ///
+    /// A separate, explicit call — never something a translation job does
+    /// to itself. That split is what makes "kullanıcı başka source
+    /// izliyorsa zorla AI çıktısına geçilmez" structural: nothing in
+    /// `crate::translation` holds a `&mut SubtitleLibrary`, so a running or
+    /// even a finished job has no path into the menu until a caller makes
+    /// this call.
+    ///
+    /// `SubtitleSourceId::ai(origin, target)` is the same identity NEN-019
+    /// already defined; re-translating one source into a language it was
+    /// already translated to upserts the existing entry rather than adding
+    /// a second row (the identity's own dedup contract, exercised by
+    /// `nen-catalog`'s `dedup_covers_all_four_kinds`).
+    pub fn add_translation(
+        &mut self,
+        origin: &SubtitleSourceId,
+        outcome: &crate::translation::TranslationOutcome,
+    ) -> u32 {
+        let record = &outcome.record;
+        let id = SubtitleSourceId::ai(origin, &record.target_language);
+        let token = self.remember(&id);
+        let label = format!("AI çevirisi ({})", record.target_language);
+        let source = SubtitleSource::new(id.clone(), Some(record.target_language.clone()), label);
+        self.defects.remove(&id);
+        self.documents.insert(id, record.document.clone());
+        self.catalog.insert(source);
+        token
+    }
+
     fn view_of(&self, source: &SubtitleSource) -> MenuEntryView {
         MenuEntryView {
             // Every catalogued source was remembered on the way in, so the
