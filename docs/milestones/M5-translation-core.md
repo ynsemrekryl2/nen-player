@@ -14,7 +14,7 @@ AI çeviri pipeline'ının tamamı: bağlam analizi, overlapping blok çevirisi,
 - En fazla 2 targeted repair + 1 full-block retry
 - Yalnız doğrulanmış blok checkpoint
 - ValidatedSubtitleArtifact + cache identity + atomik commit
-- SQLite index + content-addressed store (ADR-0017)
+- Dosya sistemi tabanlı içerik adresli artifact deposu (ADR-0017)
 - Deterministic mock provider
 
 ## Kapsam dışı
@@ -76,13 +76,15 @@ kapandı (2026-09-08):
 |---|---|---|
 | **0015** | Blok stratejisi: sınır kuralı, overlap'in sözü, belge bağlamı, `block-layout version` | `NEN-089` |
 | **0016** | Doğrulama ve onarım politikası; yerel doğrulama authoritative | `NEN-091` |
-| **0017** | Persistence adapter (aday: SQLite index + content-addressed store), atomik commit | `NEN-095` |
+| **0017** | Persistence adapter (dosya sistemi + içerik adresli store), atomik commit | `NEN-095` |
 | **0018** | Cache identity bileşenleri, versiyonlama, invalidasyon | `NEN-097` |
 | **0045** | Gömülü altyazı metninin demux yolu | `NEN-103` |
 
-Açılışta beşi de `proposed`; **0015** 2026-09-08'de (aynı gün, `NEN-089`
-kapanışıyla) `accepted` oldu. Kural 4 gereği kalan dördü `accepted` olmadan
-ilgili task'ın implementasyonuna geçilmez ve teknoloji adları **aday** sayılır.
+Açılışta beşi de `proposed`; **0015** 2026-09-08'de (`NEN-089` kapanışıyla),
+**0016** 2026-09-08'de (`NEN-091` kapanışıyla), **0045** (`NEN-103` kapanışıyla)
+ve **0017** 2026-09-09'da (`NEN-095` kapanışıyla) `accepted` oldu. Kural 4
+gereği kalan **0018** `accepted` olmadan `NEN-097`'nin implementasyonuna
+geçilmez ve cache identity bileşenleri o task'a kadar **aday** sayılır.
 
 ## Bağımlılıklar
 

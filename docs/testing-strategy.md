@@ -102,11 +102,12 @@ Kit geçmiyorsa adapter eksiktir, kit değiştirilmez.
 
 Capability'si olmayan operasyonun typed error döndüğü de kitin parçasıdır.
 
-**`HttpClient` ve `Persistence` de contract kiti alır.** Bu iki portun
-implementasyonu bugün core-owned adaylar (rustls, SQLite + CAS), ama
-`docs/architecture.md` platform zorunluluğu halinde native adapter'a izin
-veriyor. Kit, güvenlik politikasının adapter değişse de aynı kalmasını mekanik
-olarak zorlar:
+**`HttpClient` ve `Persistence` de contract kiti alır.** `HttpClient`'ın
+implementasyonu bugün core-owned bir aday (rustls); `Persistence` artık aday
+değil — dosya sistemi tabanlı içerik adresli store ([ADR-0017](adr/0017-artifact-persistence-adapter.md)).
+`docs/architecture.md` her iki port için de platform zorunluluğu halinde
+native adapter'a izin veriyor. Kit, güvenlik politikasının adapter değişse de
+aynı kalmasını mekanik olarak zorlar:
 
 - **HttpClient kiti:** approved liste dışı host reddi · redirect bütçesi aşımı ·
   boyut sınırı aşımı · archive içerik reddi · düz HTTP reddi · redaction

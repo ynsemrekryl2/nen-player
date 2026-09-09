@@ -3,8 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-09** (**`NEN-094` kapandı** — doğrulanmış artifact
-> ve WebVTT çıktısı, sahte sonuçlar reddediliyor.)
+> Son güncelleme: **2026-09-09** (**`NEN-095` kapandı** — ADR-0017 accepted,
+> persistence adapter artık dosya sistemi tabanlı bir karar, aday değil.)
 
 ## Nerede duruyoruz
 
@@ -12,9 +12,44 @@
 |---|---|
 | **Mevcut milestone** | **M5 — Translation Core** (M4 2026-09-08'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-094`** — ValidatedSubtitleArtifact + WebVTT. Ondan önce: `NEN-093` |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-095`, `NEN-097` |
-| **Task sayısı** | 104 · done 88 · active 0 · blocked 0 · canceled 2 · backlog 14 |
+| **Son tamamlanan** | **`NEN-095`** — ADR-0017 accepted (persistence adapter). Ondan önce: `NEN-094` |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-096`, `NEN-097` |
+| **Task sayısı** | 105 · done 89 · active 0 · blocked 0 · canceled 2 · backlog 14 |
+
+**`NEN-095` kapandı — doğrulanmış artifact'lerin nerede ve nasıl saklanacağı
+`accepted` bir ADR ile sabitlendi.** `docs/architecture.md` → Portlar
+tablosunun `Persistence` satırı ve `docs/DECISIONS.md` → "Ertelenmiş
+kararlar" dünden beri "aday: SQLite + CAS" diyordu; bugün ADR-0017 üç
+kullanıcı kararıyla kapandı: **(1)** index teknolojisi yalnız dosya sistemi
+— SQLite/redb reddedildi, yeni dış bağımlılık yok (bir kullanıcının diskinde
+ömür boyu birkaç yüz artifact birikir; dizin taraması milisaniyeler sürer,
+SQLite'ın sorgu gücü bu ölçekte kullanılmaz ama `cargo deny` yüzeyi ve
+`NEN-043`'ün bundle kapanışı her zaman büyür); **(2)** artifact tek kanonik
+dosya — metadata + normalize cue'lar + WebVTT birlikte, adres dosyanın
+tamamının `blake3` hash'i, ayrı bir `.vtt` yazılmaz; **(3)** blok
+checkpoint'i (`NEN-093`) kalıcı olacak ama implementasyonu **M6**'ya
+bırakıldı — mock provider'la çalışan M5'te baştan başlamanın maliyeti bugün
+ölçülemeyecek kadar düşük, gerçek maliyet (kredi/kota kaybı) M6'da doğuyor.
+
+**"Aday" ifadeleri her geçtiği yerde karara çevrildi**: `docs/architecture.md`
+(giriş kutusu, ASCII diyagram, `Persistence`/`nen-persist` satırları,
+adaptör-seçim paragrafı), `docs/DECISIONS.md` ("Ertelenmiş kararlar"dan
+çıkarıldı, "Kararlı" tablosuna taşındı), `docs/testing-strategy.md`
+(`Persistence` kiti paragrafı), `docs/milestones/M5-translation-core.md`
+(bu vesileyle 0015/0016/0045'in de zaten `accepted` olduğu kapanış paragrafı
+da düzeltildi). `docs/product-spec.md` §11'e dokunulmadı — orijinal şartname
+metni, ADR-0016 kapanışında §10'un da değişmediği emsalle aynı.
+
+**Karardan doğan iki takip kaydı ayrı tutuldu (Kural 5).** Kalıcı checkpoint
+implementasyonu için yeni `tasks/backlog/NEN-105-resumable-checkpoint-store.md`
+(M6, `docs/milestones/M6-real-providers.md`'e eklendi); `NEN-098`'in dosya adı
+artık reddedilmiş bir teknolojiyi andığı için `NEN-098-sqlite-artifact-index.md`
+→ `NEN-098-artifact-metadata-index.md` yeniden adlandırıldı (içerik
+değişmedi).
+
+Kod değişmedi (karar/doküman task'ı; Kural 1 gereği implementasyon önce ADR
+ister). `bash scripts/task-index.sh` ve `bash scripts/check-docs.sh` çıkış 0.
+Kanıt: `tasks/done/NEN-095-*.md`.
 
 **`NEN-094` kapandı — çeviri sonucu artık yalnız belgenin tamamı doğrulandıktan
 sonra var olan bir `ValidatedSubtitleArtifact` ve onun UTF-8 WebVTT çıktısı.**

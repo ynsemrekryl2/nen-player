@@ -7,13 +7,15 @@
 > adları**, ilgili ADR'ler kabul edilene kadar **adaydır**, kabul edilmiş
 > karar değildir. **Rust artık aday değil** — shared core dili olarak
 > [ADR-0002](adr/0002-core-language.md) ile kilitlendi (2026-08-24).
+> **Persistence adapter de aday değil** — dosya sistemi tabanlı içerik-adresli
+> artifact deposu olarak [ADR-0017](adr/0017-artifact-persistence-adapter.md)
+> ile kilitlendi (2026-09-09).
 >
 > | Aday | Rol | Kararı verecek |
 > |---|---|---|
 > | UniFFI | Swift/Kotlin binding | ADR-0003 |
 > | SwiftUI | macOS UI | ADR-0011 dönemi |
 > | Rust HTTP / rustls | gelecekteki paylaşılan HTTP adapter | ADR-0019 dönemi |
-> | SQLite + content-addressed files | persistence adapter | ADR-0017 |
 > | C ABI | Windows/Linux binding | ADR-0003 |
 >
 > **Aday olmayanlar:** port sınırları, capability modeli, politika sahipliği ve
@@ -47,7 +49,7 @@
 │  HttpClient · Persistence · Clock · LogSink                  │
 ├─────────────────────────────────────────────────────────────┤
 │  Varsayılan adapter adayları                                 │
-│  HTTP (aday: rustls) · persistence (aday: SQLite + CAS)      │
+│  HTTP (aday: rustls) · persistence (dosya sistemi, ADR-0017) │
 └───────────────────────────┬─────────────────────────────────┘
                             │  platform adapters
 ┌───────────────────────────▼─────────────────────────────────┐
@@ -90,10 +92,13 @@ Core'un sahibi olduğu politikalar:
 - **Persistence:** artifact semantiği · cache identity · atomik commit ·
   schema/version davranışı · retention kuralları · migration gereksinimleri
 
-`HttpClient` ve `Persistence` **portları korunur.** Varsayılan güçlü adaylar:
-Rust HTTP/rustls adapter ve SQLite + content-addressed artifact store. Platform
-zorunluluğu ortaya çıkarsa (ör. bir iOS/Android ağ veya depolama kısıtı) aynı
-portlara platform-native adapter bağlanabilir — **politika değişmeden**.
+`HttpClient` ve `Persistence` **portları korunur.** `HttpClient`'ın
+varsayılan güçlü adayı Rust HTTP/rustls adapter'dır (ADR-0019 dönemi).
+`Persistence` artık aday değil: dosya sistemi tabanlı, içerik adresli artifact
+deposu ([ADR-0017](adr/0017-artifact-persistence-adapter.md), 2026-09-09).
+Platform zorunluluğu ortaya çıkarsa (ör. bir iOS/Android ağ veya depolama
+kısıtı) aynı portlara platform-native adapter bağlanabilir — **politika
+değişmeden**.
 
 ADR-0039 ile ilk uzak medya evidence adapter'ı macOS'ta Foundation
 `URLSession` olarak kabul edilmiştir. Bu, Rust HTTP/rustls adayını silmez;
@@ -126,7 +131,7 @@ motorudur. Core yalnız çıkan metni parse eder.
 | `EmbeddedTrackExtractor` | Playback motoru; macOS'ta libavformat/libavcodec kullanan adapter | Container I/O ve cue çıkarımı motorda; core yalnız metni parse eder |
 | `AudioSampleSource` | Platform decoder | M8 audio auto-sync için |
 | `HttpClient` | Core adapter (aday: rustls); gerekirse native | Politika core'da, implementasyon adapter'da |
-| `Persistence` | Core adapter (aday: SQLite + CAS) | Semantik core'da; yol platformdan enjekte edilir |
+| `Persistence` | Core adapter (dosya sistemi, ADR-0017) | Semantik core'da; yol platformdan enjekte edilir |
 | `Clock` | Core adapter / test fake | Deterministik test |
 | `LogSink` | Platform log sistemi | Redaction core'da uygulanır, yazma platformda |
 
@@ -245,7 +250,7 @@ ilgili kaynağı hatalı işaretler.
 | `nen-catalog` | Source catalog, gruplama, dedup | domain, subtitle, identity |
 | `nen-translate` | Blok pipeline, validation, checkpoint | domain, subtitle, ports |
 | `nen-sync` | Offset, drift, piecewise, SyncProfile | domain, subtitle |
-| `nen-persist` | persistence adapter (aday: SQLite + CAS) | domain, ports |
+| `nen-persist` | persistence adapter (dosya sistemi, ADR-0017) | domain, ports |
 | `nen-ports` | Trait tanımları + contract test kitleri | domain |
 | `nen-providers` | mock · OpenAI · OpenRouter · OpenSubtitles | domain, ports |
 | `nen-app` | Use-case katmanı | hepsi |

@@ -88,7 +88,6 @@ ADR metnini tekrarlamaz, onlara işaret eder.
 |---|---|---|
 | Binding (aday: UniFFI + C ABI) | M1 | ADR-0003 |
 | Public dağıtım kanalı ve zamanı | M3 sonrası | S11 → [`licensing.md`](licensing.md) |
-| Persistence adapter (aday: SQLite + CAS) | M5 — `NEN-095` | ADR-0017 (`proposed`, 2026-09-08) |
 | Android motor (aday: Media3) | M10 | ADR-0025 |
 
 ## 5. Teknoloji karar statüsü
@@ -101,6 +100,7 @@ ADR metnini tekrarlamaz, onlara işaret eder.
 | Whatlang 0.18 | offline subtitle dili tespiti | [ADR-0029](adr/0029-subtitle-language-detection.md) |
 | libmpv | macOS playback motoru | [ADR-0012](adr/0012-macos-playback-engine.md) |
 | URLSession | macOS uzak medya evidence HTTP adapter'ı | [ADR-0039](adr/0039-remote-media-http-boundary.md) |
+| Dosya sistemi + içerik adresli artifact deposu | persistence adapter | [ADR-0017](adr/0017-artifact-persistence-adapter.md) |
 | GPL-3.0-or-later | proje lisansı | [ADR-0012](adr/0012-macos-playback-engine.md) → [`licensing.md`](licensing.md) |
 
 **Aday** — ilgili ADR kabul edilene kadar karar sayılmaz:
@@ -111,7 +111,6 @@ ADR metnini tekrarlamaz, onlara işaret eder.
 | C ABI | Windows/Linux binding | ADR-0003 |
 | SwiftUI | macOS UI | M3 dönemi |
 | Rust HTTP / rustls | paylaşılan HTTP adapter | ADR-0019 dönemi |
-| SQLite + content-addressed files | persistence adapter | ADR-0017 |
 | Media3 | Android playback motoru | ADR-0025 |
 
 **Aday olmayan** (mimari yönün kendisi, spike'tan bağımsız): port sınırları ·
