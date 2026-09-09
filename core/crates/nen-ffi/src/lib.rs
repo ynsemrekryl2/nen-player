@@ -13,6 +13,7 @@ pub mod playback;
 pub mod remote_evidence;
 pub mod session;
 pub mod subtitles;
+pub mod translation;
 
 /// Human-readable identifier of this core build.
 ///

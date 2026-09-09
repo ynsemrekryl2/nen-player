@@ -3,10 +3,11 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-10** (**`NEN-099` kapandı** — kaynak seçmek artık
-> çeviri başlatmıyor; açık bir komut bir işi kendi worker thread'inde
-> başlatıyor ve iş kullanıcının araya giren seçimleriyle retarget edilmiyor.
-> `NEN-100`'ü bloke eden tek engel kalktı.)
+> Son güncelleme: **2026-09-10** (**`NEN-100` kapandı** — bir çeviri işi artık
+> `nen-ffi` sınırından başlatılabiliyor, ilerlemesi izlenebiliyor, iptal
+> edilebiliyor ve sonucu kataloğa eklenebiliyor; hiçbir cue metni, depo kök
+> yolu bu sınırdan bir `Debug`/`Display` çıktısına sızmıyor. `NEN-101`'i
+> bloke eden tek engel kalktı.)
 
 ## Nerede duruyoruz
 
@@ -14,9 +15,60 @@
 |---|---|
 | **Mevcut milestone** | **M5 — Translation Core** (M4 2026-09-08'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-099`** — çeviri oturumu orkestrasyonu, retarget'sız. Ondan önce: `NEN-106` |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-100`, `NEN-105` |
-| **Task sayısı** | 106 · done 94 · active 0 · blocked 0 · canceled 2 · backlog 10 |
+| **Son tamamlanan** | **`NEN-100`** — çeviri FFI yüzeyi: başlat/ilerle/iptal/katalogla + K23 guard. Ondan önce: `NEN-099` |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-101`, `NEN-105` |
+| **Task sayısı** | 106 · done 95 · active 0 · blocked 0 · canceled 2 · backlog 9 |
+
+**`NEN-100` kapandı — `nen-ffi::translation` çeviri işini açan tek dış kapı
+oldu.** Bir iş artık FFI sınırından başlatılabiliyor, ilerlemesi izlenebiliyor,
+iptal edilebiliyor ve sonucu kataloğa eklenebiliyor; `nen_app::translation`'ın
+(`NEN-099`) hiçbir iç tipi bu sınırı geçmiyor. `nen-app`'e yeni bir
+kompozisyon kökü — `TranslationEnvironment` — eklendi: `nen-ffi` hâlâ yalnız
+`nen-app`'e bağımlı (ADR-0006 kural 3, `Cargo.toml` değişmedi), ama
+`nen-persist::FilesystemArtifactStore`'u M5'in mock provider'ıyla burada
+eşliyor. Gate yalnız ilkel değer alıp veriyor — depo kök yolu, token, hedef
+dil dizgesi — hiçbir `nen-translate` tipi FFI'ya hiç adlandırılmadı.
+
+**İlerleme push ile taşınıyor; bu ADR-0033'ün pull yönünün istisnası değil,
+kapsamı dışı bir karar.** ADR-0033'e bunu kaydeden bir Notlar girdisi ayrı
+commit'te eklendi: Karar 3'ün pull tercihi playback'in ~30 Hz'lik sürekli
+akışına özgü, bir çeviri işinin ilerlemesi ise blok başına birkaç kesikli
+olay ve zaten `TranslationCall`'ın (ADR-0004 Karar 2/5) tek delivery gate'i
+bir push'un ihtiyaç duyduğu şey. Yeni `ForeignTranslationProgressSink`
+(`#[uniffi::export(with_foreign)]`) bunu taşıyor, ikinci bir kuyruk açılmadı.
+
+**İptal, gerçek bir çok-thread'li testle ölçüldü.** Sink kendi callback'i
+içinde — delivery gate'in kilidini tutarken — duraklatılıyor, başka bir
+thread `cancel()` çağırıyor, callback serbest bırakılıyor. Ölçülen değişmez:
+`cancel()` döndüğü an kaydedilen olay sayısı, işçi thread'i tamamen bitene
+kadar **artmıyor** — ADR-0004 Karar 2'nin kendisinden doğan bir garanti. İlk
+yazımda bu test 31 koşudan birinde yanlış geçti (aynı işçi thread'i kilidi
+bırakır bırakmaz "barge" edip kalan işi bitirebiliyordu); düzeltme
+`nen-ports`'un kendi eşdeğer testinin uyguladığı aynı çare
+(`thread::sleep(50ms)` ile canceller'a kilide ulaşma payı) — sonrasında
+100/100 koşu yeşil.
+
+**Beş kapı elle mutasyona uğratıldı, her birinde tam olarak beklenen
+test(ler) kırmızıya döndü:** `catalog_into`'nun `Done`-only şartı,
+`join()`'ün ikinci çağrıda `AlreadyJoined` döndürmesi, `StartRefusal →
+FfiTranslationStartError` eşlemesindeki bir varyant, `FfiTranslationSummary`'ye
+eklenen bir diyalog-sızdıran alan (yalnız K23 guard testi kırmızı oldu, diğer
+üç guard testi yeşil kaldı — sağır değil), ve `TranslationProgress`'in
+`done`/`total` alan eşlemesi. K23 guard'ı (`guard_ffi_translation_debug.rs`)
+gerçek bir koşuyla ölçüyor — bu sınırdaki hiçbir tipin elle yazılmış `Debug`'ı
+yok, hepsi kapalı enum/sayı/dil etiketinden ibaret; sentinel diyalog + depo
+kök yolu ile koşturulan gerçek işin topladığı her olay ve nihai özet taranıyor.
+
+**`bash scripts/build-apple.sh` binding üretimini kırmadan tamamladı** ve
+üretilen `nen_ffi.swift`, `FfiTranslationEngine`, `FfiTranslationJob`,
+`ForeignTranslationProgressSink` ve her iki hata tipini gerçek Swift tipleri
+olarak içeriyor — `NEN-101` bugünden çağrılabilir bir yüzey buluyor.
+
+`cargo test --workspace` **831 passed / 1 ignored** (`NEN-099` baseline 818 +
+bu task'ın 13 testi); fmt, clippy, `cargo deny check` (yeni dış bağımlılık
+yok — `Cargo.lock` diff'i boş), `bash scripts/test.sh` **4/4** ve `bash
+scripts/check-docs.sh` yeşil. `nen-persist`, `nen-translate`, `nen-providers`,
+macOS kabuğu dokunulmadı. Kanıt: `tasks/done/NEN-100-*.md`.
 
 **`NEN-099` kapandı — kaynak seçmek çeviri başlatmıyor; açık bir komut bir işi
 başlatıyor ve iş kullanıcının araya giren seçimleriyle retarget edilmiyor.**

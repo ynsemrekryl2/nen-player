@@ -343,6 +343,14 @@ impl FfiSubtitleLibrary {
     pub(crate) fn with<T>(&self, body: impl FnOnce(&SubtitleLibrary) -> T) -> T {
         body(&lock(&self.inner))
     }
+
+    /// The mutating twin of [`Self::with`] — for a caller that needs to
+    /// change the catalog rather than only read it, such as
+    /// [`crate::translation::FfiTranslationJob::catalog_into`] adding a
+    /// finished job's result as a new `Ai` row.
+    pub(crate) fn with_mut<T>(&self, body: impl FnOnce(&mut SubtitleLibrary) -> T) -> T {
+        body(&mut lock(&self.inner))
+    }
 }
 
 impl Default for FfiSubtitleLibrary {

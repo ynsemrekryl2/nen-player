@@ -52,8 +52,11 @@ use nen_translate::context::DocumentContext;
 use nen_translate::identity::{CacheIdentity, CacheIdentityInput};
 use nen_translate::repair::BlockTranslationError;
 use std::fmt;
+use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// What a caller supplies for the fields `prepare` cannot derive from the
 /// library or the document (`nen_translate::artifact::assemble`'s own
@@ -298,11 +301,22 @@ impl fmt::Debug for TranslationOutcome {
 /// worker's checkpoint boundaries check (ADR-0004 Karar 2/3) — there is no
 /// second cancellation flag to keep in sync with it.
 pub struct TranslationJobHandle {
+    origin: SubtitleSourceId,
     call: TranslationCall,
     worker: Option<JoinHandle<Result<TranslationOutcome, TranslationError>>>,
 }
 
 impl TranslationJobHandle {
+    /// The source this job was translated from — what
+    /// [`SubtitleLibrary::add_translation`] needs to name the resulting
+    /// `SubtitleSourceKind::Ai` entry once [`Self::join`] returns `Ok`.
+    ///
+    /// Captured at [`start`] time from the [`TranslationJob`] it was built
+    /// from, since `start` consumes the job into the worker's closure.
+    pub fn origin(&self) -> &SubtitleSourceId {
+        &self.origin
+    }
+
     /// Closes the job's delivery gate. Idempotent; safe to call after the
     /// job has already finished.
     pub fn cancel(&self) {
@@ -336,6 +350,7 @@ pub fn start(
     index: Arc<dyn ArtifactIndex>,
     sink: Option<Arc<dyn TranslationProgressSink>>,
 ) -> TranslationJobHandle {
+    let origin = job.origin().clone();
     let call = match sink {
         Some(sink) => TranslationCall::new(sink),
         None => TranslationCall::without_progress(),
@@ -351,6 +366,7 @@ pub fn start(
         )
     });
     TranslationJobHandle {
+        origin,
         call,
         worker: Some(worker),
     }
@@ -421,4 +437,115 @@ fn run_job(
         address,
         from_cache: false,
     })
+}
+
+/// Distinguishes artifact ids minted in the same process within the same
+/// millisecond; irrelevant across process restarts, where the millisecond
+/// component alone already orders them.
+static ARTIFACT_ID_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+/// Mints an opaque [`ArtifactId`] for a job [`TranslationEnvironment::start`]
+/// is about to build.
+///
+/// Deliberately **not** derived from the source's own identity: a user
+/// file's [`SubtitleSourceId`] is a path digest (K23 #8), and an artifact id
+/// is handed back across the FFI gate as a plain value that must carry
+/// nothing identifying a private file. `nen:<unix_ms>-<counter>` means
+/// nothing beyond "later than the last one minted here".
+fn mint_artifact_id() -> ArtifactId {
+    let unix_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_millis())
+        .unwrap_or(0);
+    let counter = ARTIFACT_ID_COUNTER.fetch_add(1, Ordering::Relaxed);
+    ArtifactId::parse(&format!("nen:{unix_ms}-{counter}")).expect(
+        "a decimal timestamp and counter joined by ':' and '-' are always a valid ArtifactId",
+    )
+}
+
+/// Everything a translation job needs besides the library and the language
+/// pair: the provider, the artifact store and its index.
+///
+/// This is `nen-app`'s composition root for `NEN-100`'s FFI surface —
+/// `nen-ffi` may only depend on this crate (ADR-0006 kural 3), so wiring a
+/// concrete `nen-persist` store and `nen-providers` provider together has to
+/// happen on this side of the gate. The gate itself receives and returns
+/// nothing more exotic than a store root path, a token and a language tag;
+/// it never names `FilesystemArtifactStore` or `MockTranslationProvider`.
+///
+/// M5's only provider is the deterministic mock (`docs/milestones/
+/// M5-translation-core.md` → Kapsam); M6 replaces it **only here**.
+pub struct TranslationEnvironment {
+    provider: Arc<dyn TranslationProvider>,
+    store: Arc<dyn ArtifactStore>,
+    index: Arc<dyn ArtifactIndex>,
+}
+
+impl TranslationEnvironment {
+    /// Opens (creating it if needed) a content-addressed artifact store
+    /// under `root` and pairs it with M5's deterministic mock provider.
+    ///
+    /// `FilesystemArtifactStore` implements both [`ArtifactStore`] and
+    /// [`ArtifactIndex`] (`nen-persist`'s single adapter over one directory)
+    /// — one object, stored here under both trait names because a running
+    /// job only ever needs one of the two at a time.
+    pub fn new(root: &Path) -> Result<Self, ArtifactStoreError> {
+        let store = Arc::new(nen_persist::FilesystemArtifactStore::new(root)?);
+        Ok(Self {
+            provider: Arc::new(nen_providers::translation_mock::MockTranslationProvider::new()),
+            store: store.clone() as Arc<dyn ArtifactStore>,
+            index: store as Arc<dyn ArtifactIndex>,
+        })
+    }
+
+    /// Builds and starts a job for `library`'s `token`, in one call.
+    ///
+    /// Fills in everything [`prepare`] cannot derive from the library or the
+    /// document itself: a fresh [`ArtifactId`], no glossary and no media
+    /// hash (neither has a producer yet — M6), the current wall-clock time,
+    /// and M5's fixed default block layout (`NEN-101` offers no block-size
+    /// setting). A caller across the FFI gate supplies only what a person
+    /// actually chooses: which source, which target language, and whether
+    /// to watch progress.
+    pub fn start(
+        &self,
+        library: &SubtitleLibrary,
+        token: u32,
+        target_language: LanguageTag,
+        sink: Option<Arc<dyn TranslationProgressSink>>,
+    ) -> Result<TranslationJobHandle, StartRefusal> {
+        let seed = TranslationMetadataSeed {
+            id: mint_artifact_id(),
+            glossary: GlossaryIdentity::none(),
+            media_hash: None,
+            created_at: ArtifactTimestamp::from_unix_ms(unix_ms_now()),
+        };
+        let job = prepare(
+            library,
+            token,
+            target_language,
+            BlockLayoutConfig::default(),
+            self.provider.identity(),
+            seed,
+        )?;
+        Ok(start(
+            job,
+            Arc::clone(&self.provider),
+            Arc::clone(&self.store),
+            Arc::clone(&self.index),
+            sink,
+        ))
+    }
+}
+
+/// Milliseconds since the Unix epoch, saturating rather than panicking on a
+/// clock that reads before the epoch — the same defensive posture
+/// [`ArtifactTimestamp`] itself takes no view on, since `nen-translate`
+/// performs no I/O and reads no clock at all.
+fn unix_ms_now() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .and_then(|elapsed| u64::try_from(elapsed.as_millis()).ok())
+        .unwrap_or(0)
 }
