@@ -176,7 +176,15 @@ while IFS= read -r f; do
   [ "$(fm_get "$f" state)" = "done" ] || continue
   for a in $(list_items "$(fm_get "$f" adr)"); do
     [ -z "$a" ] && continue
-    num="$(printf '%04d' "$a" 2>/dev/null || echo "$a")"
+    # `10#$a` forces base-10 evaluation before padding — without it, bash's
+    # `printf %d` reads a leading-zero operand (an already-padded "0015",
+    # "0017", "0018"...) as octal, silently checking the wrong ADR file (or,
+    # for a digit outside 0-7 like "0018", failing outright and leaking a
+    # garbled number into the fallback). Found while closing NEN-097
+    # (ADR-0018 became unresolvable as "ADR-00000018"); every zero-padded
+    # `adr:` reference before it was silently checking a different, only
+    # coincidentally-accepted ADR.
+    num="$(printf '%04d' "$((10#$a))" 2>/dev/null || echo "$a")"
     adr_file="$(ls "$ADRS"/${num}-*.md 2>/dev/null | head -1)"
     if [ -z "$adr_file" ]; then
       err "${f#$ROOT/}: ADR-$num referans ediliyor ama docs/adr/ altında yok."
