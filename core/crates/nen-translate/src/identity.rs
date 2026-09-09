@@ -150,6 +150,17 @@ impl CacheIdentity {
     }
 }
 
+/// The port side (`nen-ports`, `NEN-098`) cannot see this crate's
+/// [`CacheIdentity`] (ADR-0006 confines `nen-persist` above `nen-ports`), so
+/// an [`ArtifactRecord`](nen_ports::persistence::ArtifactRecord) carries the
+/// newtype [`nen_ports::persistence::CacheKey`] instead. This is the one
+/// place the two are connected — the raw bytes, nothing decided twice.
+impl From<CacheIdentity> for nen_ports::persistence::CacheKey {
+    fn from(identity: CacheIdentity) -> Self {
+        Self::from_bytes(identity.0)
+    }
+}
+
 /// Matches `nen_ports::persistence::ContentAddress::to_hex`'s convention —
 /// this module cannot see that private helper, so the four-line encoder is
 /// duplicated rather than the two crates growing a shared dependency for it.

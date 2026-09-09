@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **106** task · ✅ done 91 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 13
+Toplam **106** task · ✅ done 92 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 12
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -128,7 +128,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-095](done/NEN-095-adr-persistence-adapter.md) | Decide the persistence adapter for translated artifacts | S | ✅ done | NEN-094 |
 | [NEN-096](done/NEN-096-content-addressed-artifact-store.md) | Content-addressed artifact store with atomic commit | M | ✅ done | NEN-095 |
 | [NEN-097](done/NEN-097-cache-identity-and-invalidation.md) | Cache identity and invalidation | M | ✅ done | NEN-094 |
-| [NEN-098](backlog/NEN-098-artifact-metadata-index.md) | Artifact metadata index and offline lookup | M | ⚪ backlog | NEN-096 NEN-097 |
+| [NEN-098](done/NEN-098-artifact-metadata-index.md) | Artifact metadata index and offline lookup | M | ✅ done | NEN-096 NEN-097 |
 | [NEN-099](backlog/NEN-099-translation-session-orchestration.md) | Translation session orchestration without retarget | M | ⚪ backlog | NEN-098 NEN-019 |
 | [NEN-100](backlog/NEN-100-translation-ffi-surface.md) | Translation FFI surface with progress, cancel and log guard | M | ⚪ backlog | NEN-099 |
 | [NEN-101](backlog/NEN-101-macos-translate-command.md) | macOS translate command and target language setting | M | ⚪ backlog | NEN-100 NEN-037 |
@@ -156,6 +156,6 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-035** — Identity confidence scoring and candidate ranking
 - **NEN-044** — Embedded subtitle text extraction
 - **NEN-064** — Verified media identity in player chrome
-- **NEN-098** — Artifact metadata index and offline lookup
+- **NEN-099** — Translation session orchestration without retarget
 - **NEN-105** — Resumable checkpoint store for interrupted translation runs
 - **NEN-106** — A multi-block run rejects its own provider's progress

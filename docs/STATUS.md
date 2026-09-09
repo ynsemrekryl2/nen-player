@@ -3,9 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-09** (**`NEN-097` kapandı** — bir artifact'in
-> kimliği şartname §11'in bütün bileşenlerinden türüyor; bileşenlerden biri
-> değişince eski artifact artık eşleşmiyor.)
+> Son güncelleme: **2026-09-09** (**`NEN-098` kapandı** — daha önce üretilmiş
+> bir çeviri, uygulama yeniden başlatıldıktan sonra ve ağ olmadan kendi cache
+> identity'siyle bulunup açılıyor.)
 
 ## Nerede duruyoruz
 
@@ -13,9 +13,61 @@
 |---|---|
 | **Mevcut milestone** | **M5 — Translation Core** (M4 2026-09-08'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-097`** — cache identity. Ondan önce: `NEN-096` |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-098`, `NEN-105`, `NEN-106` |
-| **Task sayısı** | 106 · done 91 · active 0 · blocked 0 · canceled 2 · backlog 13 |
+| **Son tamamlanan** | **`NEN-098`** — artifact metadata index. Ondan önce: `NEN-097` |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-099`, `NEN-105`, `NEN-106` |
+| **Task sayısı** | 106 · done 92 · active 0 · blocked 0 · canceled 2 · backlog 12 |
+
+**`NEN-098` kapandı — bir artifact artık kendi ADR-0018 cache identity'sini
+taşıyor, ve `nen-persist`'in dizin taramasından türeyen bir index bu kimliğe
+göre arama yapabiliyor; şartname §11'in "restart sonrası reuse" cümlesi ve S4
+(ağsız okuma) kararı ölçülür hale geldi.** Kimlik artifact'in kendi bilgisi
+oldu — `ValidatedSubtitleArtifact` `assemble`'ın kendisine verdiği
+`BlockLayout` config'ini saklıyor ve yeni `cache_identity()` metodu
+`CacheIdentity::of`'u yalnız kendi alanlarından çağırıyor; yanlış kimlikli bir
+artifact üretmek yapısal olarak mümkün değil. `nen-ports::persistence`'e
+`ContentAddress`'in birebir deseniyle yeni `CacheKey` newtype'ı,
+`ArtifactIndexEntry` ve ayrı bir `ArtifactIndex` trait'i (`entries` · `find` ·
+`latest_for_target`) eklendi — sorgu yüzeyi de port'ta durduğu için ADR-0017'nin
+"SQLite'a geçiş port sınırında soğurulur" iddiası bugün de geçerli.
+
+**Index, ayrı bir dosya değil — ADR-0017 Karar 1'in dediği gibi dizinden
+türüyor.** `FilesystemArtifactStore` `artifacts/`'i tarayıp her `<64hex>.json`
+adayını **mevcut `get()` yolundan** (hash doğrulaması, boyut sınırı, sembolik
+bağ reddi dahil) geçiriyor; kullanıcı kararı gereği okunamayan/bozuk bir dosya
+taramayı durdurmuyor, sessizce atlanıyor. S9'un "hedef dil başına en yeni"
+projeksiyonu kullanıcı kararıyla `source fingerprint + hedef dil` ile
+gruplanıyor; her iki artifact de diskte kalıyor, yalnız hangisinin gösterileceği
+seçiliyor.
+
+**Dört kapı elle mutasyona uğratıldı, her birinde tam olarak beklenen test(ler)
+kırmızıya döndü.** Taramanın hex/uzantı filtresi kaldırılınca 7 test (her
+index-bağımlı senaryo) kırmızı oldu; `get()` hatasının atlanması yerine
+yayılması yalnız corrupt-skip testini; `latest_for_target`'ın en yeni yerine en
+eskiyi seçmesi yalnız projeksiyon + kontrat testini; `find()`'ın istenen
+anahtarı yok sayması nen-persist'te iki testi **ve** nen-app'te gerçek pipeline
+üzerinden çalışan değişen-bileşen testini kırdı — kontrol sağır değil.
+
+**Ağsız okuma iddiaya değil ölçüme dayanıyor.** Yeni
+`nen-persist/tests/offline_lookup.rs` sayaçlı bir `HttpClient` tutarken tam bir
+yaz/tara/bul/oku döngüsü çalıştırıp sayacın `0` kaldığını, ardından doğrudan bir
+`send()` çağrısıyla sayacın gerçekten `1`'e çıktığını (sağırlık kontrolü)
+gösteriyor. Yeni `nen-app/tests/artifact_index_lookup.rs`, "cache identity
+bileşeni değişince eski artifact bulunmuyor" iddiasını `nen-translate`'in saf
+`HashMap` testinin (`NEN-097`) ötesinde gerçek `MockTranslationProvider` ve
+gerçek dosya sistemi deposu üzerinden kanıtlıyor.
+
+K23 guard'ları (`nen-ports/tests/guard_persistence_index_debug.rs`, 3 test)
+`CacheKey`/`ArtifactIndexEntry`'nin `Debug`/`Display`'inde hex/hash sızmadığını
+ve kasıtlı `#[derive(Debug)]` ikizinin sızdırdığını gösteriyor;
+`guard_persist_debug.rs` `ArtifactRecord.cache_identity`'i de kapsayacak
+şekilde genişletildi. Dosya formatı 1→2'ye bindi (`cache_identity` alanı); eski
+format sessizce yanlış okunmak yerine `Corrupt` ile reddediliyor.
+
+`cargo test --workspace` **806 passed / 1 ignored** (`NEN-097` baseline 793 +
+bu task'ın 13 testi); fmt, clippy, `cargo deny check` (yeni dış bağımlılık
+yok — `Cargo.lock` diff'i boş), `bash scripts/test.sh` **4/4** ve `bash
+scripts/check-docs.sh` yeşil. `nen-ffi`, macOS kabuğu dokunulmadı. Kanıt:
+`tasks/done/NEN-098-*.md`.
 
 **`NEN-097` kapandı — cache identity artık şartname §11'in saydığı her
 bileşenden mekanik olarak türüyor, "prompt/schema/pipeline semantiği

@@ -8,7 +8,9 @@
 //! leaves a second copy on disk is a filesystem-level question the adapter's
 //! own tests answer; it is not observable through this port.
 
-use super::{ArtifactRecord, ArtifactStore, ArtifactStoreError, ContentAddress};
+use super::{
+    ArtifactIndex, ArtifactRecord, ArtifactStore, ArtifactStoreError, CacheKey, ContentAddress,
+};
 use crate::translation::TranslationProviderIdentity;
 use nen_domain::source::LanguageTag;
 use nen_domain::subtitle::{Cue, CueId, SubtitleDocument, TimeSpan};
@@ -25,10 +27,35 @@ pub enum ContractViolation {
     MissingNotFound,
     /// The store refused an operation the contract requires it to accept.
     Unavailable,
+    /// A stored artifact's own cache identity did not find it through
+    /// [`ArtifactIndex::find`].
+    IndexMiss,
+    /// [`ArtifactIndex::latest_for_target`] did not choose the entry with
+    /// the greatest `created_at_unix_ms` among matching entries.
+    IndexProjection,
 }
 
-/// Builds the kit's fixture record. `marker` varies the translated text, so
-/// two calls with different markers are two genuinely different artifacts.
+/// A fixture cache identity, deterministic in `marker` but not a real
+/// BLAKE3 digest -- the kit only needs distinct markers to produce distinct
+/// keys, and pulling in a hash dependency for that would be its own,
+/// unrelated cost.
+fn cache_key_for(marker: &str) -> CacheKey {
+    let mut bytes = [0u8; 32];
+    let marker_bytes = marker.as_bytes();
+    for (index, byte) in bytes.iter_mut().enumerate() {
+        let source = if marker_bytes.is_empty() {
+            0
+        } else {
+            marker_bytes[index % marker_bytes.len()]
+        };
+        *byte = source ^ (index as u8);
+    }
+    CacheKey::from_bytes(bytes)
+}
+
+/// Builds the kit's fixture record. `marker` varies the translated text and
+/// the cache identity, so two calls with different markers are two
+/// genuinely different artifacts.
 ///
 /// `expect` here follows `playback::fake`'s precedent: the inputs are
 /// literals this function owns, so a failure is a defect in the kit itself
@@ -58,6 +85,7 @@ fn record(marker: &str) -> ArtifactRecord {
         glossary: None,
         media_hash: None,
         created_at_unix_ms: 1_700_000_000_000,
+        cache_identity: cache_key_for(marker),
         document,
         webvtt,
     }
@@ -108,6 +136,65 @@ pub fn check(store: &dyn ArtifactStore) -> Result<(), Vec<ContractViolation>> {
             Err(_) => violations.push(ContractViolation::Unavailable),
         },
         Err(_) => violations.push(ContractViolation::Unavailable),
+    }
+
+    if violations.is_empty() {
+        Ok(())
+    } else {
+        Err(violations)
+    }
+}
+
+/// Builds a fixture record for the index kit, so a call can vary the target
+/// language and creation time independently of `marker`'s translated text
+/// and cache identity.
+fn indexed_record(marker: &str, target_language: &str, created_at_unix_ms: u64) -> ArtifactRecord {
+    let mut record = record(marker);
+    record.target_language = LanguageTag::parse(target_language).expect("a valid tag");
+    record.created_at_unix_ms = created_at_unix_ms;
+    record
+}
+
+/// Exercises what ADR-0018/`NEN-098` make true of *any* [`ArtifactIndex`]
+/// paired with the [`ArtifactStore`] it derives from: a stored artifact is
+/// found by its own cache identity, and among several entries sharing a
+/// source fingerprint and target language, the projection chooses the one
+/// with the greatest `created_at_unix_ms` — every candidate stays on disk
+/// regardless of which one the projection picks.
+pub fn check_index(
+    index: &dyn ArtifactIndex,
+    store: &dyn ArtifactStore,
+) -> Result<(), Vec<ContractViolation>> {
+    let mut violations = Vec::new();
+
+    let earlier = indexed_record("alpha", "tr", 1_700_000_000_000);
+    let later = indexed_record("beta", "tr", 1_700_000_100_000);
+    let other_language = indexed_record("gamma", "en", 1_700_000_200_000);
+    let earlier_key = earlier.cache_identity;
+    let source_fingerprint = earlier.source_fingerprint;
+    let target_language = earlier.target_language.clone();
+
+    let Ok(earlier_address) = store.put(&earlier) else {
+        violations.push(ContractViolation::Unavailable);
+        return Err(violations);
+    };
+    let Ok(later_address) = store.put(&later) else {
+        violations.push(ContractViolation::Unavailable);
+        return Err(violations);
+    };
+    if store.put(&other_language).is_err() {
+        violations.push(ContractViolation::Unavailable);
+        return Err(violations);
+    }
+
+    match index.find(earlier_key) {
+        Ok(Some(entry)) if entry.address == earlier_address => {}
+        _ => violations.push(ContractViolation::IndexMiss),
+    }
+
+    match index.latest_for_target(&source_fingerprint, &target_language) {
+        Ok(Some(entry)) if entry.address == later_address => {}
+        _ => violations.push(ContractViolation::IndexProjection),
     }
 
     if violations.is_empty() {

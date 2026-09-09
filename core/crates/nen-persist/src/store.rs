@@ -22,7 +22,8 @@ use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use nen_ports::persistence::{
-    ArtifactRecord, ArtifactStore, ArtifactStoreError, ContentAddress, MAX_ARTIFACT_BYTES,
+    ArtifactIndex, ArtifactIndexEntry, ArtifactRecord, ArtifactStore, ArtifactStoreError,
+    ContentAddress, MAX_ARTIFACT_BYTES,
 };
 
 use crate::wire;
@@ -225,6 +226,51 @@ impl ArtifactStore for FilesystemArtifactStore {
     }
 }
 
+/// Derives the metadata index by scanning `artifacts/` (ADR-0017 Karar 1: a
+/// query layer, not a second, hand-maintained source of truth). One scan is
+/// one directory read plus one `get` per candidate file — the same trust
+/// rules a direct read by address already applies (content-address
+/// verification, the size bound, symlink rejection), so a scan can never
+/// treat a file as an artifact that a direct `get` would refuse.
+impl ArtifactIndex for FilesystemArtifactStore {
+    fn entries(&self) -> Result<Vec<ArtifactIndexEntry>, ArtifactStoreError> {
+        let read_dir = fs::read_dir(&self.artifacts_dir).map_err(|_| ArtifactStoreError::Io)?;
+        let suffix = format!(".{ARTIFACT_EXTENSION}");
+        let mut entries = Vec::new();
+
+        for candidate in read_dir {
+            let Ok(candidate) = candidate else {
+                continue;
+            };
+            let file_name = candidate.file_name();
+            let Some(name) = file_name.to_str() else {
+                continue;
+            };
+            let Some(stem) = name.strip_suffix(&suffix) else {
+                continue;
+            };
+            let Ok(address) = ContentAddress::from_hex(stem) else {
+                continue;
+            };
+            // Unreadable/corrupt/oversized artifacts are skipped, not
+            // reported — one bad file must not make every other translation
+            // unreachable through the index (`NEN-098`'s own DoD).
+            let Ok(record) = self.get(address) else {
+                continue;
+            };
+            entries.push(ArtifactIndexEntry {
+                address,
+                cache_identity: record.cache_identity,
+                source_fingerprint: record.source_fingerprint,
+                target_language: record.target_language,
+                created_at_unix_ms: record.created_at_unix_ms,
+            });
+        }
+
+        Ok(entries)
+    }
+}
+
 /// A deliberately defective twin of [`FilesystemArtifactStore::put`], used
 /// only to prove that the atomicity assertions below are not deaf: it writes
 /// straight to the target address the way a naive implementation would.
@@ -250,7 +296,7 @@ mod tests {
     use nen_domain::source::LanguageTag;
     use nen_domain::subtitle::{Cue, CueId, SubtitleDocument, TimeSpan};
     use nen_ports::identity::MediaHash;
-    use nen_ports::persistence::contract;
+    use nen_ports::persistence::{contract, CacheKey};
     use nen_ports::translation::TranslationProviderIdentity;
     use std::sync::atomic::AtomicU32;
 
@@ -314,6 +360,7 @@ mod tests {
             glossary: None,
             media_hash: None,
             created_at_unix_ms: 1_700_000_000_000,
+            cache_identity: CacheKey::from_bytes(*blake3::hash(marker.as_bytes()).as_bytes()),
             document: SubtitleDocument::new(cues),
             webvtt: format!("WEBVTT\n\n1\n00:00:00.000 --> 00:00:00.900\n{marker}\n"),
         }
@@ -600,5 +647,160 @@ mod tests {
         let (_dir, store) = store("contract-lossy");
         let violations = contract::check(&LossyStore(store)).expect_err("the kit must object");
         assert!(violations.contains(&contract::ContractViolation::RoundTrip));
+    }
+
+    #[test]
+    fn the_shared_index_contract_kit_passes() {
+        let (_dir, store) = store("index-contract");
+        assert_eq!(contract::check_index(&store, &store), Ok(()));
+    }
+
+    /// DoD: restart reuse. `put` happens through one store instance; `find`
+    /// is answered by a **second**, independently opened instance over the
+    /// same root — nothing about the lookup depends on in-process state
+    /// surviving a restart.
+    #[test]
+    fn an_artifact_is_found_by_its_cache_identity_after_a_restart() {
+        let (dir, first_store) = store("restart-write");
+        let written = record("alpha");
+        let address = first_store.put(&written).expect("a committed artifact");
+
+        let second_store = FilesystemArtifactStore::new(dir.path()).expect("reopen the same root");
+        let found = second_store
+            .find(written.cache_identity)
+            .expect("the index scan succeeds")
+            .expect("the artifact is found by its own cache identity");
+
+        assert_eq!(found.address, address);
+        assert_eq!(found.cache_identity, written.cache_identity);
+    }
+
+    /// DoD: a changed cache identity component misses. Two artifacts
+    /// produced with different content (and therefore, per the fixture,
+    /// different cache identities) — a lookup keyed on one's identity never
+    /// finds the other.
+    #[test]
+    fn a_query_under_a_different_identity_misses() {
+        let (_dir, store) = store("identity-miss");
+        let alpha = record("alpha");
+        let beta = record("beta");
+        store.put(&alpha).expect("first commit");
+        let beta_address = store.put(&beta).expect("second commit");
+
+        let found = store
+            .find(beta.cache_identity)
+            .expect("the index scan succeeds")
+            .expect("beta is still found by its own identity");
+        assert_eq!(found.address, beta_address);
+
+        assert_ne!(
+            alpha.cache_identity, beta.cache_identity,
+            "the fixture must actually vary the cache identity"
+        );
+        // `alpha`'s identity must not resolve to `beta`'s address — the only
+        // way that could happen is the index conflating two distinct
+        // artifacts.
+        let via_alpha_identity = store
+            .find(alpha.cache_identity)
+            .expect("the index scan succeeds")
+            .expect("alpha is found by its own identity");
+        assert_ne!(via_alpha_identity.address, beta_address);
+    }
+
+    /// DoD: "kayıt var, içerik yok" is a typed error, not an empty/partial
+    /// document. The scan finds the entry (the file is still there when the
+    /// index runs), but the content is removed before the artifact is read
+    /// back by address — simulating a store whose file vanished between the
+    /// scan and the read.
+    #[test]
+    fn a_deleted_artifacts_address_reads_as_not_found_after_being_indexed() {
+        let (_dir, store) = store("deleted-after-index");
+        let written = record("alpha");
+        let address = store.put(&written).expect("a committed artifact");
+
+        let entry = store
+            .find(written.cache_identity)
+            .expect("the index scan succeeds")
+            .expect("the artifact is indexed before deletion");
+        assert_eq!(entry.address, address);
+
+        let path = store.path_for(address).expect("an in-root address");
+        fs::remove_file(&path).expect("remove the artifact out from under the store");
+
+        assert_eq!(store.get(entry.address), Err(ArtifactStoreError::NotFound));
+    }
+
+    /// DoD: S9 projection. Two artifacts share `source_fingerprint` (the
+    /// fixture's fixed value) and target language; the later `created_at`
+    /// wins, and **both** stay on disk — the projection only chooses which
+    /// one a caller sees, it does not remove the other.
+    #[test]
+    fn latest_for_target_picks_the_newest_and_leaves_both_stored() {
+        let (dir, store) = store("projection");
+        let mut older = record("alpha");
+        older.created_at_unix_ms = 1_700_000_000_000;
+        let mut newer = record("beta");
+        newer.created_at_unix_ms = 1_700_000_100_000;
+        assert_eq!(older.source_fingerprint, newer.source_fingerprint);
+        assert_eq!(older.target_language, newer.target_language);
+
+        store.put(&older).expect("first commit");
+        let newer_address = store.put(&newer).expect("second commit");
+
+        let latest = store
+            .latest_for_target(&older.source_fingerprint, &older.target_language)
+            .expect("the index scan succeeds")
+            .expect("a matching entry exists");
+        assert_eq!(latest.address, newer_address);
+        assert_eq!(artifact_files(dir.path()).len(), 2, "an artifact was lost");
+    }
+
+    /// DoD guard behaviour: a directory scan skips a corrupt/unreadable file
+    /// rather than failing the whole query — one bad artifact must not make
+    /// every other translation unreachable.
+    #[test]
+    fn a_corrupt_artifact_is_skipped_rather_than_failing_the_scan() {
+        let (_dir, store) = store("skip-corrupt");
+        let good = record("alpha");
+        let good_address = store.put(&good).expect("a committed artifact");
+
+        // A file that looks like an artifact by name but is not valid
+        // content at all — bytes that do not hash to their own file name.
+        let corrupt_address = ContentAddress::from_bytes([0x42; 32]);
+        let corrupt_path = store.path_for(corrupt_address).expect("an in-root address");
+        fs::write(&corrupt_path, b"not a real artifact").expect("write a corrupt fixture file");
+
+        let entries = store.entries().expect("the scan itself does not fail");
+        let addresses: Vec<_> = entries.iter().map(|entry| entry.address).collect();
+        assert!(
+            addresses.contains(&good_address),
+            "the good artifact was lost"
+        );
+        assert!(
+            !addresses.contains(&corrupt_address),
+            "the corrupt file was reported as an entry"
+        );
+        assert_eq!(entries.len(), 1, "the corrupt file leaked into the index");
+    }
+
+    /// Mutation control: a stray non-artifact file (wrong extension, or a
+    /// leftover temporary write) sitting in `artifacts/` must not be
+    /// mistaken for an artifact by the directory scan.
+    #[test]
+    fn a_stray_file_that_is_not_an_artifact_name_is_not_an_entry() {
+        let (dir, store) = store("stray-file");
+        let good = record("alpha");
+        store.put(&good).expect("a committed artifact");
+
+        let artifacts_dir = dir.path().join(ARTIFACTS_DIR);
+        fs::write(artifacts_dir.join("notes.txt"), b"not an artifact").expect("a stray file");
+        fs::write(
+            artifacts_dir.join(format!(".tmp-{}-999", std::process::id())),
+            b"leftover temp write",
+        )
+        .expect("a stray temp file");
+
+        let entries = store.entries().expect("the scan succeeds");
+        assert_eq!(entries.len(), 1, "a stray file was counted as an artifact");
     }
 }

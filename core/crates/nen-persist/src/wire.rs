@@ -16,7 +16,7 @@
 use nen_domain::source::LanguageTag;
 use nen_domain::subtitle::{Cue, CueId, SubtitleDocument, TimeSpan};
 use nen_ports::identity::MediaHash;
-use nen_ports::persistence::{ArtifactRecord, ArtifactStoreError};
+use nen_ports::persistence::{ArtifactRecord, ArtifactStoreError, CacheKey};
 use nen_ports::translation::TranslationProviderIdentity;
 use serde::{Deserialize, Serialize};
 
@@ -24,7 +24,10 @@ use serde::{Deserialize, Serialize};
 /// which is about a provider's structured-output contract and is
 /// `NEN-097`'s subject. This exists so a future format change is refused
 /// (`ArtifactStoreError::Corrupt`) rather than misread as the current one.
-const FORMAT_VERSION: u32 = 1;
+///
+/// `2` (`NEN-098`) added `cache_identity`; a `1`-tagged file predates cache
+/// identity and is refused rather than read back with a fabricated key.
+const FORMAT_VERSION: u32 = 2;
 
 #[derive(Serialize, Deserialize)]
 struct WireRecord {
@@ -42,6 +45,7 @@ struct WireRecord {
     created_at_unix_ms: u64,
     cues: Vec<WireCue>,
     webvtt: String,
+    cache_identity: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -79,6 +83,7 @@ pub(crate) fn serialize(record: &ArtifactRecord) -> Result<Vec<u8>, ArtifactStor
             })
             .collect(),
         webvtt: record.webvtt.clone(),
+        cache_identity: to_hex(record.cache_identity.as_bytes()),
     };
 
     serde_json::to_vec(&wire).map_err(|_| ArtifactStoreError::Corrupt)
@@ -122,6 +127,7 @@ pub(crate) fn deserialize(bytes: &[u8]) -> Result<ArtifactRecord, ArtifactStoreE
         created_at_unix_ms: wire.created_at_unix_ms,
         document: SubtitleDocument::new(cues),
         webvtt: wire.webvtt,
+        cache_identity: CacheKey::from_bytes(from_hex_32(&wire.cache_identity)?),
     })
 }
 
@@ -198,6 +204,7 @@ mod tests {
                 vec!["satır".to_owned()],
             )]),
             webvtt: "WEBVTT\n\n".to_owned(),
+            cache_identity: CacheKey::from_bytes([3u8; 32]),
         }
     }
 

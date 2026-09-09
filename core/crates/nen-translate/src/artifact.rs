@@ -18,8 +18,9 @@
 //! is not. WebVTT rendering reuses [`nen_subtitle::webvtt::write`] — this
 //! module does not write subtitle text twice.
 
-use crate::blocks::BlockLayout;
+use crate::blocks::{BlockLayout, BlockLayoutConfig};
 use crate::checkpoint::{CompletedBlocks, TranslationPlan};
+use crate::identity::{CacheIdentity, CacheIdentityInput};
 use nen_domain::source::LanguageTag;
 use nen_domain::subtitle::{Cue, CueId, SubtitleDocument};
 use nen_ports::identity::MediaHash;
@@ -174,6 +175,10 @@ pub struct ValidatedSubtitleArtifact {
     provider: TranslationProviderIdentity,
     pipeline_version: u32,
     block_layout_version: u32,
+    /// The block layout `assemble` was given — kept so
+    /// [`Self::cache_identity`] can derive ADR-0018's identity from the
+    /// artifact's own fields rather than asking a caller for it again.
+    block_layout: BlockLayoutConfig,
     glossary: GlossaryIdentity,
     media_hash: Option<MediaHash>,
     created_at: ArtifactTimestamp,
@@ -238,6 +243,23 @@ impl ValidatedSubtitleArtifact {
         &self.webvtt
     }
 
+    /// This artifact's own ADR-0018 cache identity (`NEN-097`/`NEN-098`),
+    /// derived entirely from fields the artifact already carries — a
+    /// [`CacheIdentityInput`] built here can never disagree with the
+    /// artifact it describes, because there is nowhere else for the values
+    /// to come from.
+    pub fn cache_identity(&self) -> CacheIdentity {
+        CacheIdentity::of(&CacheIdentityInput {
+            source_fingerprint: self.source_fingerprint,
+            source_language: &self.source_language,
+            target_language: &self.target_language,
+            provider: &self.provider,
+            media_hash: self.media_hash,
+            glossary: &self.glossary,
+            block_layout: self.block_layout,
+        })
+    }
+
     /// Projects this artifact into the shape the persistence port stores
     /// (`NEN-096`, ADR-0017 Karar 2).
     ///
@@ -245,8 +267,9 @@ impl ValidatedSubtitleArtifact {
     /// confines `nen-persist` to `nen-domain` + `nen-ports`; it cannot see
     /// this type. Every field below is one of the getters above, so the
     /// stored file is exactly what a validated artifact already knows about
-    /// itself — no storage layer invents a field, and nothing about cache
-    /// identity (ADR-0018, `NEN-097`) is decided here.
+    /// itself — no storage layer invents a field. `cache_identity` is
+    /// [`Self::cache_identity`]'s own computed value (ADR-0018, `NEN-098`),
+    /// not a second, independently supplied one.
     ///
     /// **There is deliberately no inverse.** Reading a store yields an
     /// [`ArtifactRecord`], never a `ValidatedSubtitleArtifact`: [`assemble`]
@@ -274,6 +297,7 @@ impl ValidatedSubtitleArtifact {
             created_at_unix_ms: self.created_at.unix_ms(),
             document: self.translated.clone(),
             webvtt: self.webvtt.clone(),
+            cache_identity: self.cache_identity().into(),
         }
     }
 }
@@ -471,6 +495,7 @@ pub fn assemble(
         provider: metadata.provider,
         pipeline_version: PIPELINE_VERSION,
         block_layout_version: layout.version(),
+        block_layout: layout.config(),
         glossary: metadata.glossary,
         media_hash: metadata.media_hash,
         created_at: metadata.created_at,

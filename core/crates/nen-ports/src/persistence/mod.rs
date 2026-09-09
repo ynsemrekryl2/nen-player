@@ -20,10 +20,18 @@
 //! true at the type level, and bytes read back off a disk this process does
 //! not own can never impersonate one.
 //!
-//! Nothing here carries cache identity semantics: that is ADR-0018's subject
-//! and `NEN-097`'s task, and ADR-0018 is not `accepted` yet (Kural 4). The
-//! record's fields are exactly the projection of the getters
-//! `ValidatedSubtitleArtifact` already exposes today.
+//! The record's fields are exactly the projection of the getters
+//! `ValidatedSubtitleArtifact` already exposes today, plus `cache_identity`
+//! (ADR-0018, `NEN-097`/`NEN-098`) — the artifact computes its own identity
+//! from its own fields, so a record can never be stored under one that does
+//! not actually describe it.
+//!
+//! [`CacheKey`] and the [`ArtifactIndex`] trait are `NEN-098`'s: a
+//! record carries its own cache identity (ADR-0018, computed by
+//! `nen_translate::artifact::ValidatedSubtitleArtifact::cache_identity`)
+//! so a store can be searched by it without a second, hand-maintained
+//! index file — ADR-0017 Karar 1 keeps the index a query layer derived
+//! from the directory, not a second source of truth.
 
 pub mod contract;
 
@@ -145,6 +153,83 @@ impl fmt::Display for ContentAddressError {
 
 impl std::error::Error for ContentAddressError {}
 
+/// Length of a [`CacheKey`] in hex characters — same width as
+/// [`ContentAddress`], both being 32-byte BLAKE3 digests.
+const CACHE_KEY_HEX_LEN: usize = 64;
+
+/// The port-side form of `nen_translate::identity::CacheIdentity` (ADR-0018,
+/// `NEN-097`) — this crate cannot see that type (ADR-0006 confines
+/// `nen-translate` above `nen-ports`), so a record and an index entry carry
+/// this newtype instead. `nen-translate` converts with `From<CacheIdentity>
+/// for CacheKey`.
+///
+/// `Debug`/`Display` print `<redacted>`, matching [`ContentAddress`] and
+/// [`nen_ports::identity::MediaHash`]: a cache identity is derived in part
+/// from a media hash and a provider/model identity (K23 #8), and it doubles
+/// as a lookup key an index compares — a stray `{}` in a log line must not
+/// leak it.
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct CacheKey([u8; 32]);
+
+impl CacheKey {
+    pub const fn from_bytes(bytes: [u8; 32]) -> Self {
+        Self(bytes)
+    }
+
+    pub const fn as_bytes(&self) -> &[u8; 32] {
+        &self.0
+    }
+
+    /// Parses exactly 64 lowercase hex characters and nothing else — the
+    /// same rule [`ContentAddress::from_hex`] applies, for the same reason:
+    /// a malformed value must never silently become a usable key.
+    pub fn from_hex(value: &str) -> Result<Self, ContentAddressError> {
+        if value.len() != CACHE_KEY_HEX_LEN {
+            return Err(ContentAddressError::Length);
+        }
+        let mut bytes = [0u8; 32];
+        for (index, byte) in bytes.iter_mut().enumerate() {
+            let pair = value
+                .get(index * 2..index * 2 + 2)
+                .ok_or(ContentAddressError::Length)?;
+            let mut value = 0u8;
+            for digit in pair.bytes() {
+                let nibble = match digit {
+                    b'0'..=b'9' => digit - b'0',
+                    b'a'..=b'f' => digit - b'a' + 10,
+                    _ => return Err(ContentAddressError::NotHex),
+                };
+                value = (value << 4) | nibble;
+            }
+            *byte = value;
+        }
+        Ok(Self(bytes))
+    }
+
+    /// Lowercase hex, 64 characters. Named rather than `Display` on purpose —
+    /// see this type's own `Debug`/`Display` docs.
+    pub fn to_hex(&self) -> String {
+        let mut out = String::with_capacity(CACHE_KEY_HEX_LEN);
+        for byte in self.0 {
+            out.push(hex_digit(byte >> 4));
+            out.push(hex_digit(byte & 0x0f));
+        }
+        out
+    }
+}
+
+impl fmt::Debug for CacheKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("CacheKey(<redacted>)")
+    }
+}
+
+impl fmt::Display for CacheKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("<redacted>")
+    }
+}
+
 /// One stored artifact: everything ADR-0017 Karar 2 keeps in a single file.
 ///
 /// Every field is the projection of a getter
@@ -168,6 +253,11 @@ pub struct ArtifactRecord {
     /// The translated document: source cue IDs and timings, translated text.
     pub document: SubtitleDocument,
     pub webvtt: String,
+    /// The artifact's own ADR-0018 cache identity (`NEN-098`), computed by
+    /// `ValidatedSubtitleArtifact::cache_identity` from this record's own
+    /// fields — never supplied independently, so a record can never carry an
+    /// identity that does not describe it.
+    pub cache_identity: CacheKey,
 }
 
 impl fmt::Debug for ArtifactRecord {
@@ -188,6 +278,7 @@ impl fmt::Debug for ArtifactRecord {
             .field("created_at_unix_ms", &self.created_at_unix_ms)
             .field("cue_count", &self.document.len())
             .field("webvtt_len", &self.webvtt.len())
+            .field("cache_identity", &self.cache_identity)
             .finish()
     }
 }
@@ -244,6 +335,85 @@ pub trait ArtifactStore: Send + Sync {
 
     /// Whether an artifact is stored at `address`.
     fn contains(&self, address: ContentAddress) -> Result<bool, ArtifactStoreError>;
+}
+
+/// One artifact as it appears in a metadata index scan (`NEN-098`) — the
+/// small, non-sensitive-shaped subset of an [`ArtifactRecord`] an index needs
+/// to answer a lookup without reading every artifact's full content.
+///
+/// `Debug` prints no hex and no fingerprint (K23 #3, #8) — the same
+/// hand-written-redaction rule every other identity/address type in this
+/// module already follows.
+#[derive(Clone, PartialEq, Eq)]
+pub struct ArtifactIndexEntry {
+    pub address: ContentAddress,
+    pub cache_identity: CacheKey,
+    pub source_fingerprint: [u8; 32],
+    pub target_language: LanguageTag,
+    pub created_at_unix_ms: u64,
+}
+
+impl fmt::Debug for ArtifactIndexEntry {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ArtifactIndexEntry")
+            .field("address", &self.address)
+            .field("cache_identity", &self.cache_identity)
+            .field("source_fingerprint", &"<redacted>")
+            .field("target_language", &self.target_language)
+            .field("created_at_unix_ms", &self.created_at_unix_ms)
+            .finish()
+    }
+}
+
+/// A metadata index derived from an [`ArtifactStore`]'s own contents
+/// (ADR-0017 Karar 1: a query layer, not a second, hand-maintained source of
+/// truth). An implementation is free to scan the store's backing storage on
+/// every call — at the scale ADR-0017's own rationale names (a few hundred
+/// artifacts in a user's lifetime), this is the point, not a shortcut: there
+/// is no separate index file that could fall out of sync with the store.
+pub trait ArtifactIndex: Send + Sync {
+    /// Every artifact the index can currently see. An entry whose content is
+    /// unreadable or corrupt (mismatched hash, malformed bytes, a future
+    /// format version) is silently omitted rather than failing the whole
+    /// scan — one bad file must not make every other translation
+    /// unreachable.
+    fn entries(&self) -> Result<Vec<ArtifactIndexEntry>, ArtifactStoreError>;
+
+    /// The entry whose cache identity is exactly `key`, if any is currently
+    /// stored.
+    fn find(&self, key: CacheKey) -> Result<Option<ArtifactIndexEntry>, ArtifactStoreError> {
+        Ok(self
+            .entries()?
+            .into_iter()
+            .find(|entry| entry.cache_identity == key))
+    }
+
+    /// S9's projection: among every entry sharing `source_fingerprint` and
+    /// `target_language`, the one with the greatest `created_at_unix_ms`.
+    /// Every entry stays on disk regardless — this only chooses which one a
+    /// caller is shown. Ties (identical timestamps) are broken by the
+    /// greater [`ContentAddress`] byte value, so the choice is deterministic
+    /// rather than dependent on scan order.
+    fn latest_for_target(
+        &self,
+        source_fingerprint: &[u8; 32],
+        target_language: &LanguageTag,
+    ) -> Result<Option<ArtifactIndexEntry>, ArtifactStoreError> {
+        let mut candidates: Vec<ArtifactIndexEntry> = self
+            .entries()?
+            .into_iter()
+            .filter(|entry| {
+                &entry.source_fingerprint == source_fingerprint
+                    && &entry.target_language == target_language
+            })
+            .collect();
+        candidates.sort_by(|a, b| {
+            a.created_at_unix_ms
+                .cmp(&b.created_at_unix_ms)
+                .then_with(|| a.address.as_bytes().cmp(b.address.as_bytes()))
+        });
+        Ok(candidates.pop())
+    }
 }
 
 #[cfg(test)]

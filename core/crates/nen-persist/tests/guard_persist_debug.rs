@@ -14,7 +14,8 @@ use nen_domain::subtitle::{Cue, CueId, SubtitleDocument, TimeSpan};
 use nen_persist::FilesystemArtifactStore;
 use nen_ports::identity::MediaHash;
 use nen_ports::persistence::{
-    ArtifactRecord, ArtifactStore, ArtifactStoreError, ContentAddress, ContentAddressError,
+    ArtifactRecord, ArtifactStore, ArtifactStoreError, CacheKey, ContentAddress,
+    ContentAddressError,
 };
 use nen_ports::translation::TranslationProviderIdentity;
 use std::fs;
@@ -73,6 +74,7 @@ fn record_with_sentinel() -> ArtifactRecord {
         created_at_unix_ms: 1_700_000_000_000,
         document: SubtitleDocument::new(cues),
         webvtt: format!("WEBVTT\n\n1\n00:00:00.000 --> 00:00:00.900\n{SENTINEL}\n"),
+        cache_identity: CacheKey::from_bytes([0xef; 32]),
     }
 }
 
@@ -99,6 +101,12 @@ fn no_record_debug_output_leaks_dialogue_or_a_fingerprint() {
         !debug.contains("abab") && !debug.contains("cdcd"),
         "ArtifactRecord::Debug leaked a fingerprint — {debug}"
     );
+    // The cache identity is a lookup key over sensitive components
+    // (ADR-0018, `NEN-098`) and doubles as file-name-adjacent metadata.
+    assert!(
+        !debug.contains("efef"),
+        "ArtifactRecord::Debug leaked the cache identity — {debug}"
+    );
 }
 
 #[test]
@@ -109,6 +117,7 @@ fn a_derived_debug_really_would_leak_the_sentinel() {
     #[allow(dead_code)]
     struct DerivedTwin {
         source_fingerprint: [u8; 32],
+        cache_identity: [u8; 32],
         glossary: Option<String>,
         lines: Vec<String>,
         webvtt: String,
@@ -117,6 +126,7 @@ fn a_derived_debug_really_would_leak_the_sentinel() {
     let record = record_with_sentinel();
     let twin = DerivedTwin {
         source_fingerprint: record.source_fingerprint,
+        cache_identity: *record.cache_identity.as_bytes(),
         glossary: record.glossary.clone(),
         lines: record
             .document
@@ -134,7 +144,11 @@ fn a_derived_debug_really_would_leak_the_sentinel() {
     );
     assert!(
         debug.contains("171, 171"),
-        "the derived twin hid the digest"
+        "the derived twin hid the fingerprint digest"
+    );
+    assert!(
+        debug.contains("239, 239"),
+        "the derived twin hid the cache identity digest"
     );
 }
 
