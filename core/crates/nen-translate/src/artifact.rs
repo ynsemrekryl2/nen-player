@@ -28,11 +28,11 @@ use nen_ports::translation::TranslationProviderIdentity;
 use nen_subtitle::fingerprint::{SourceFingerprint, TimelineFingerprint};
 use std::fmt;
 
-/// Bumped by hand whenever the artifact-assembly pipeline's own step order or
-/// meaning changes (not the block layout, provider schema or prompt — those
-/// get their own versions, ADR-0018). Cache identity (`NEN-097`) reads this
-/// as one of its components.
-pub const PIPELINE_VERSION: u32 = 1;
+/// Re-exported from [`crate::versions`], where every hand-bumped pipeline
+/// version constant lives together (ADR-0018 Karar 4, `NEN-097`). Kept at
+/// this path too so the call site below and any existing caller need no
+/// change.
+pub use crate::versions::PIPELINE_VERSION;
 
 /// Longest allowed [`ArtifactId`] value, in bytes.
 const MAX_ARTIFACT_ID_LEN: usize = 200;

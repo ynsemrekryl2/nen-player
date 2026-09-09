@@ -8,11 +8,16 @@
 //! locally (ADR-0016); `repair` bounds how many times an invalid block is
 //! retried (`NEN-092`); `checkpoint` drives blocks in sequence, committing
 //! each only under the provider port's cancellation gate so a cancelled or
-//! interrupted run never produces a late or partial result (`NEN-093`); and
+//! interrupted run never produces a late or partial result (`NEN-093`);
 //! `artifact` assembles a fully checkpointed run into a
 //! `ValidatedSubtitleArtifact` and its WebVTT output, re-checking every cue
 //! against the source document rather than trusting the checkpointed blocks
-//! on their own (`NEN-094`). None of these modules performs I/O.
+//! on their own (`NEN-094`); `versions` collects every hand-bumped pipeline
+//! version constant in one place; and `identity` derives a single
+//! deterministic [`identity::CacheIdentity`] from every component
+//! `docs/product-spec.md` §11 names, so that changing any one of them makes
+//! an old artifact unreachable (ADR-0018, `NEN-097`). None of these modules
+//! performs I/O.
 //!
 //! [`SubtitleDocument`]: nen_domain::subtitle::SubtitleDocument
 //!
@@ -37,5 +42,7 @@ pub mod artifact;
 pub mod blocks;
 pub mod checkpoint;
 pub mod context;
+pub mod identity;
 pub mod repair;
 pub mod validation;
+pub mod versions;

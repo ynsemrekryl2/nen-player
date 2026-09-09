@@ -13,11 +13,11 @@ use std::ops::Range;
 
 use nen_domain::subtitle::{CueId, SubtitleDocument};
 
-/// Bumped by hand whenever the block-boundary or overlap-split rule in
-/// ADR-0015 Karar 1/2 changes. Cache identity (`NEN-097`/ADR-0018) reads this
-/// as one of its components; a bump makes every cache entry keyed on the old
-/// rule unreachable.
-pub const BLOCK_LAYOUT_VERSION: u32 = 1;
+/// Re-exported from [`crate::versions`], where every hand-bumped pipeline
+/// version constant lives together (ADR-0018 Karar 4, `NEN-097`). Kept at
+/// this path too so the call site below and any existing caller need no
+/// change.
+pub use crate::versions::BLOCK_LAYOUT_VERSION;
 
 /// `docs/product-spec.md` §10.
 pub const DEFAULT_BLOCK_SIZE: usize = 40;

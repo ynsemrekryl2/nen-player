@@ -3,8 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-09** (**`NEN-096` kapandı** — doğrulanmış artifact
-> artık diske yazılıyor: içerik adresli, atomik, kök dışına çıkamayan bir depo.)
+> Son güncelleme: **2026-09-09** (**`NEN-097` kapandı** — bir artifact'in
+> kimliği şartname §11'in bütün bileşenlerinden türüyor; bileşenlerden biri
+> değişince eski artifact artık eşleşmiyor.)
 
 ## Nerede duruyoruz
 
@@ -12,9 +13,58 @@
 |---|---|
 | **Mevcut milestone** | **M5 — Translation Core** (M4 2026-09-08'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-096`** — içerik adresli artifact deposu. Ondan önce: `NEN-095` |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-097`, `NEN-105`, `NEN-106` |
-| **Task sayısı** | 106 · done 90 · active 0 · blocked 0 · canceled 2 · backlog 14 |
+| **Son tamamlanan** | **`NEN-097`** — cache identity. Ondan önce: `NEN-096` |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-098`, `NEN-105`, `NEN-106` |
+| **Task sayısı** | 106 · done 91 · active 0 · blocked 0 · canceled 2 · backlog 13 |
+
+**`NEN-097` kapandı — cache identity artık şartname §11'in saydığı her
+bileşenden mekanik olarak türüyor, "prompt/schema/pipeline semantiği
+değişince uyumsuz cache kullanılmamalıdır" cümlesi kod düzeyinde zorlanıyor.**
+Yeni `nen-translate::identity` modülü, `nen_subtitle::fingerprint`'in
+(ADR-0007) desenini birebir izleyen açık, sabit sıralı byte kodlaması +
+BLAKE3 ile bir `CacheIdentity` üretiyor — `serde_json`/`JSON.stringify` yok,
+çünkü alan sırası derive detayıdır, platformlar arası garanti değil. Yeni
+`nen-translate::versions` beş versiyon sabitini (`pipeline` · `prompt` ·
+`schema` · `block-layout` · `translation-session`) tek yerde topluyor;
+`artifact::PIPELINE_VERSION` ve `blocks::BLOCK_LAYOUT_VERSION` eski
+yollarında `pub use` re-export olarak kaldı, mevcut çağrı yerleri değişmedi.
+
+**ADR-0018 önce kabul edildi (2026-09-09), ayrı commit'te.** Beş kararın
+tamamı taslakta olduğu gibi kaldı; kullanıcı iki noktayı netleştirdi:
+`media context` yalnız `MediaHash` (başlık/yıl/dosya yolu kimliğe girmiyor —
+`SourceFingerprint` zaten tam diyalog+zaman eşleşmesi istiyor), ve hesaplanan
+kimlik bu task'ta `ArtifactRecord`'a **yazılmıyor** — nereye yazılacağı
+`NEN-098`'in kapsamı, `NEN-096`'nın yeni kapanmış port yüzeyi dokunulmadı.
+**Yol üstünde ADR-0017'nin kendi kusuru bulundu:** `NEN-095` (`8b145ef`)
+ADR'yi kabul etmişti ama `docs/adr/README.md`'nin durum sütununu ve
+`docs/DECISIONS.md`'nin ADR sayacını hiç güncellememişti; Kural 5 gereği ayrı
+bir doküman-düzeltme commit'i aldı (`3dcfed2`'nin aynı deseni). M5'in beş
+ADR'sinin tamamı artık `accepted`.
+
+**Negatif test, ADR-0018 Karar 2'nin 13 adlı bileşeninden 14 mutasyona
+ayrıldı** (`provider/model` iki ayrı kodlanmış alan olduğu için iki ayrı
+test): 11'i `tests/cache_identity_negative.rs`'te (source fingerprint ·
+source/target language · provider · model · media hash ×2 · glossary ×2 ·
+block size · overlap, her biri hem `assert_ne!` hem eski kimlikle kurulmuş
+bir `HashMap` lookup'ının yenisiyle **miss** verdiğini iddia ediyor), 5'i
+version bump'ları için `src/identity.rs`'in kendi `#[cfg(test)]` modülünde
+(crate-private `of_with_versions` gerektirdiğinden dışarıdan görülemiyor).
+**14 mutasyonun hepsi elle ölçüldü** — `encode`'daki ilgili satır/blok
+kaldırılınca tam olarak beklenen test(ler) kırmızıya döndü, başkası
+etkilenmedi; kontrol sağır değil (NEN-094'ün yedi kapısı, NEN-096'nın on
+mutasyonu emsali).
+
+K23 guard'ları (`tests/guard_cache_identity_debug.rs`, 4 test) glossary adının
+ve provider/model kimliğinin `CacheIdentityInput::Debug`'a sızmadığını,
+`CacheIdentity`'nin kendi hex'inin kendi `Debug`/`Display`'inde geçmediğini
+(`ContentAddress` emsali) ve kasıtlı `#[derive(Debug)]` ikizinin aynı
+sentinel'ı sızdırdığını (guard sağır değil) gösteriyor.
+
+`cargo test -p nen-translate` **89 passed**; workspace **793 passed / 1
+ignored** (NEN-096 baseline 768 + bu task'ın 25 testi); fmt, clippy, `cargo
+deny check` (yeni paket yok — `Cargo.lock` diff'i tek satır), `bash
+scripts/test.sh` **4/4** ve `bash scripts/check-docs.sh` yeşil. `nen-ffi`,
+macOS kabuğu, `nen-persist` dokunulmadı. Kanıt: `tasks/done/NEN-097-*.md`.
 
 **`NEN-096` kapandı — bir çeviri artık uygulamadan çıkınca kaybolmuyor.**
 `core/crates/nen-persist/` üç satırlık iskelet olmaktan çıktı: yeni

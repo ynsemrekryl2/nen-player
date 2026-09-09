@@ -10,3 +10,8 @@ publish.workspace = true
 nen-domain.workspace = true
 nen-subtitle.workspace = true
 nen-ports.workspace = true
+
+# Cache identity encoding (ADR-0018 Karar 1, NEN-097). Already a workspace
+# dependency for NEN-016's fingerprints and NEN-096's content addressing; no
+# new crate.
+blake3.workspace = true
