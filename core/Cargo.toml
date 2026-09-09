@@ -47,6 +47,13 @@ whatlang = "0.18"
 # Bounded parsing of untrusted provider responses (NEN-033, ADR-0040).
 serde_json = "1"
 
+# serde — NEN-096, ADR-0017 Karar 2'nin artifact serileştirmesi. ADR "yeni dış
+# bağımlılık getirilmez" diyor ve bu satır onu bozmuyor: serde ve serde_derive
+# zaten Cargo.lock'ta (serde_json ve uniffi üzerinden). Burada olan tek şey,
+# grafikte hâlihazırda duran bir crate'in beyan edilmesi — cargo deny yüzeyi
+# ve NEN-043'ün bundle kapanışı büyümüyor.
+serde = { version = "1", features = ["derive"] }
+
 [profile.release]
 lto = true
 codegen-units = 1

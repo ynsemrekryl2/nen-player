@@ -23,6 +23,7 @@ use crate::checkpoint::{CompletedBlocks, TranslationPlan};
 use nen_domain::source::LanguageTag;
 use nen_domain::subtitle::{Cue, CueId, SubtitleDocument};
 use nen_ports::identity::MediaHash;
+use nen_ports::persistence::ArtifactRecord;
 use nen_ports::translation::TranslationProviderIdentity;
 use nen_subtitle::fingerprint::{SourceFingerprint, TimelineFingerprint};
 use std::fmt;
@@ -235,6 +236,45 @@ impl ValidatedSubtitleArtifact {
     /// (`nen_subtitle::webvtt::write`, not re-implemented here).
     pub fn webvtt(&self) -> &str {
         &self.webvtt
+    }
+
+    /// Projects this artifact into the shape the persistence port stores
+    /// (`NEN-096`, ADR-0017 Karar 2).
+    ///
+    /// The record lives in `nen-ports` rather than here because ADR-0006
+    /// confines `nen-persist` to `nen-domain` + `nen-ports`; it cannot see
+    /// this type. Every field below is one of the getters above, so the
+    /// stored file is exactly what a validated artifact already knows about
+    /// itself — no storage layer invents a field, and nothing about cache
+    /// identity (ADR-0018, `NEN-097`) is decided here.
+    ///
+    /// **There is deliberately no inverse.** Reading a store yields an
+    /// [`ArtifactRecord`], never a `ValidatedSubtitleArtifact`: [`assemble`]
+    /// stays the only way to obtain one, so bytes off a disk this process
+    /// does not own cannot impersonate a validated translation.
+    ///
+    /// [`Self::id`] is **not** part of the record. The stored artifact's
+    /// identity is its content address, which the store mints from the
+    /// serialized bytes; carrying an externally assigned id inside those
+    /// bytes would give the same translation two addresses under two ids.
+    pub fn to_record(&self) -> ArtifactRecord {
+        ArtifactRecord {
+            source_fingerprint: *self.source_fingerprint.as_bytes(),
+            timeline_fingerprint: *self.timeline_fingerprint.as_bytes(),
+            source_language: self.source_language.clone(),
+            target_language: self.target_language.clone(),
+            provider: self.provider.clone(),
+            pipeline_version: self.pipeline_version,
+            block_layout_version: self.block_layout_version,
+            glossary: match &self.glossary {
+                GlossaryIdentity::None => None,
+                GlossaryIdentity::Named(name) => Some(name.clone()),
+            },
+            media_hash: self.media_hash,
+            created_at_unix_ms: self.created_at.unix_ms(),
+            document: self.translated.clone(),
+            webvtt: self.webvtt.clone(),
+        }
     }
 }
 
@@ -580,6 +620,56 @@ mod tests {
             cue_lines("line one\r\nline two"),
             vec!["line one", "line two"]
         );
+    }
+
+    #[test]
+    fn to_record_projects_every_field_and_drops_the_id() {
+        let document = document(95);
+        let layout = layout(&document);
+        let completed = completed_blocks_for(&document, &layout);
+        let mut metadata = metadata();
+        metadata.glossary = GlossaryIdentity::named("hunter-x-hunter");
+        metadata.media_hash = Some(MediaHash::from_bytes([1, 2, 3, 4, 5, 6, 7, 8]));
+        metadata.created_at = ArtifactTimestamp::from_unix_ms(1_700_000_000_000);
+
+        let artifact =
+            assemble(&document, &layout, &plan(), &completed, metadata).expect("assembly succeeds");
+        let record = artifact.to_record();
+
+        assert_eq!(
+            record.source_fingerprint,
+            *artifact.source_fingerprint().as_bytes()
+        );
+        assert_eq!(
+            record.timeline_fingerprint,
+            *artifact.timeline_fingerprint().as_bytes()
+        );
+        assert_eq!(record.source_language, *artifact.source_language());
+        assert_eq!(record.target_language, *artifact.target_language());
+        assert_eq!(record.provider, *artifact.provider());
+        assert_eq!(record.pipeline_version, artifact.pipeline_version());
+        assert_eq!(record.block_layout_version, artifact.block_layout_version());
+        assert_eq!(record.glossary.as_deref(), Some("hunter-x-hunter"));
+        assert_eq!(record.media_hash, artifact.media_hash());
+        assert_eq!(record.created_at_unix_ms, 1_700_000_000_000);
+        assert_eq!(record.document, *artifact.translated_document());
+        assert_eq!(record.webvtt, artifact.webvtt());
+
+        // The store mints the stored identity from the content; the
+        // externally-assigned id is deliberately not carried into it.
+        assert!(!record.webvtt.contains(artifact.id().as_str()));
+    }
+
+    #[test]
+    fn to_record_maps_an_absent_glossary_to_none() {
+        let document = document(50);
+        let layout = layout(&document);
+        let completed = completed_blocks_for(&document, &layout);
+
+        let artifact = assemble(&document, &layout, &plan(), &completed, metadata())
+            .expect("assembly succeeds");
+
+        assert_eq!(artifact.to_record().glossary, None);
     }
 
     #[test]

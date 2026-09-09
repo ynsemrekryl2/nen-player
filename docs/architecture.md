@@ -112,7 +112,8 @@ kural bunu kapatır:
    nesnesidir; adapter onu tüketir, kendi kopyasını taşımaz.
 2. **`HttpClient` ve `Persistence` de contract test kiti alır.** İleride
    bağlanacak herhangi bir native adapter, aynı güvenlik negatif testlerini
-   geçmek zorundadır (bkz. `docs/testing-strategy.md`).
+   geçmek zorundadır (bkz. `docs/testing-strategy.md`). Persistence kiti
+   `nen-ports::persistence::contract` olarak yazıldı (`NEN-096`).
 
 Platform ayrıca iki şeyi enjekte eder: **yazılabilir dizin yolu** (sandbox
 kuralları böyle karşılanır) ve **secure storage'dan gelen credential**.
@@ -131,7 +132,7 @@ motorudur. Core yalnız çıkan metni parse eder.
 | `EmbeddedTrackExtractor` | Playback motoru; macOS'ta libavformat/libavcodec kullanan adapter | Container I/O ve cue çıkarımı motorda; core yalnız metni parse eder |
 | `AudioSampleSource` | Platform decoder | M8 audio auto-sync için |
 | `HttpClient` | Core adapter (aday: rustls); gerekirse native | Politika core'da, implementasyon adapter'da |
-| `Persistence` | Core adapter (dosya sistemi, ADR-0017) | Semantik core'da; yol platformdan enjekte edilir |
+| `ArtifactStore` (`nen-ports::persistence`) | `nen-persist::FilesystemArtifactStore` (içerik adresli, ADR-0017) | Semantik core'da; depo kökü platformdan enjekte edilir, core kökün dışına çıkmaz |
 | `Clock` | Core adapter / test fake | Deterministik test |
 | `LogSink` | Platform log sistemi | Redaction core'da uygulanır, yazma platformda |
 
@@ -250,7 +251,7 @@ ilgili kaynağı hatalı işaretler.
 | `nen-catalog` | Source catalog, gruplama, dedup | domain, subtitle, identity |
 | `nen-translate` | Blok pipeline, validation, checkpoint | domain, subtitle, ports |
 | `nen-sync` | Offset, drift, piecewise, SyncProfile | domain, subtitle |
-| `nen-persist` | persistence adapter (dosya sistemi, ADR-0017) | domain, ports |
+| `nen-persist` | İçerik adresli artifact deposu, atomik commit (ADR-0017) | domain, ports |
 | `nen-ports` | Trait tanımları + contract test kitleri | domain |
 | `nen-providers` | mock · OpenAI · OpenRouter · OpenSubtitles | domain, ports |
 | `nen-app` | Use-case katmanı | hepsi |

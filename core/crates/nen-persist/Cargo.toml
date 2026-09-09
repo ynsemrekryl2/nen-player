@@ -9,3 +9,12 @@ publish.workspace = true
 [dependencies]
 nen-domain.workspace = true
 nen-ports.workspace = true
+
+# Content addressing (ADR-0017 Karar 2). Already a workspace dependency for
+# NEN-016's fingerprints; no new crate.
+blake3.workspace = true
+
+# Artifact serialization (ADR-0017 Karar 2). Both were already in the
+# dependency graph before this crate declared them.
+serde.workspace = true
+serde_json.workspace = true

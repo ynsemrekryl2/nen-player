@@ -3,8 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-09** (**`NEN-095` kapandı** — ADR-0017 accepted,
-> persistence adapter artık dosya sistemi tabanlı bir karar, aday değil.)
+> Son güncelleme: **2026-09-09** (**`NEN-096` kapandı** — doğrulanmış artifact
+> artık diske yazılıyor: içerik adresli, atomik, kök dışına çıkamayan bir depo.)
 
 ## Nerede duruyoruz
 
@@ -12,9 +12,63 @@
 |---|---|
 | **Mevcut milestone** | **M5 — Translation Core** (M4 2026-09-08'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-095`** — ADR-0017 accepted (persistence adapter). Ondan önce: `NEN-094` |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-096`, `NEN-097` |
-| **Task sayısı** | 105 · done 89 · active 0 · blocked 0 · canceled 2 · backlog 14 |
+| **Son tamamlanan** | **`NEN-096`** — içerik adresli artifact deposu. Ondan önce: `NEN-095` |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-097`, `NEN-105`, `NEN-106` |
+| **Task sayısı** | 106 · done 90 · active 0 · blocked 0 · canceled 2 · backlog 14 |
+
+**`NEN-096` kapandı — bir çeviri artık uygulamadan çıkınca kaybolmuyor.**
+`core/crates/nen-persist/` üç satırlık iskelet olmaktan çıktı: yeni
+`nen-ports::persistence` portu (`ContentAddress` · `ArtifactRecord` ·
+`ArtifactStore` · payload'sız `ArtifactStoreError` · contract kiti) ve onu
+implemente eden `nen-persist::FilesystemArtifactStore`. Bir artifact tek bir
+kanonik JSON dosyası (`<root>/artifacts/<64hex>.json`), adresi kendi tam
+içeriğinin `blake3` hash'i — ADR-0017 Karar 2'nin tarifi birebir.
+
+**İzdüşüm tek yönlü, ve bu kasıtlı.** `ValidatedSubtitleArtifact::to_record()`
+eklendi; tersi yok. Okuma bir `ArtifactRecord` üretir, hiçbir zaman bir
+`ValidatedSubtitleArtifact` — `NEN-094`'ün *"yalnız `assemble` doğrulanmış
+artifact üretir"* değişmezi tip düzeyinde duruyor, diskten gelen baytlar
+doğrulanmış bir çeviri gibi davranamıyor. `ArtifactId` de kayda girmiyor:
+depodaki kimlik içerik adresidir. Kayıt yalnız `NEN-094`'ün zaten açtığı
+getter'ların izdüşümü — ADR-0018 kabul edilmediği için hiçbir cache identity
+semantiği kararlaştırılmadı (Kural 4).
+
+**Atomiklik ve kök kapısı, on ayrı mutasyonla ölçüldü — her birinde tam olarak
+bir test kırmızıya döndü.** Yazım ADR-0017 Karar 3'ün tam dizisi (geçici ad →
+`fsync` → `rename` → dizin `fsync`); kesilen bir commit adreste hiçbir şey
+bırakmıyor, ve **kalıcı** bir karşı-kontrol (`a_plain_write_leaves_a_readable_
+partial_artifact`) aynı kesintiyi naif biçimde yaparak yasaklanan durumun
+gerçekten oluştuğunu her koşuda gösteriyor. Kök dışına çıkma iki katmanda
+kapalı: `ContentAddress::from_hex` yalnız tam 64 küçük-harf hex kabul ediyor
+(`..` bir adres olamıyor, bir yola hiç ulaşamıyor), `resolve()` ise sözdizimsel
+tek-bileşen şartından sonra hedefin dizinini `canonicalize` edip kökün altında
+kaldığını doğruluyor — sembolik bağla kaçırılmış bir dizini yalnız bu ikinci
+katman yakalıyor.
+
+**Dedup testi ölçüm sonucu güçlendirildi.** İlk hâli yalnız dosya sayıyordu ve
+dedup erken dönüşü kaldırıldığında yeşil kalıyordu — çünkü atomik `rename`
+yeniden yazımı zaten idempotent yapıyor. Test artık dosyanın **aynı dosya**
+kaldığını (inode değişmemiş) iddia ediyor; kapı gerçekten bağlayıcı.
+
+**`serde` workspace dep'i oldu ama yeni dış bağımlılık gelmedi.** `Cargo.lock`
+diff'i tek bir yeni `[[package]]` göstermiyor; `serde` ve `serde_derive`
+grafikte `serde_json` ve `uniffi` üzerinden zaten duruyordu. `cargo deny`
+yüzeyi ve `NEN-043`'ün bundle kapanışı büyümedi — ADR-0017 Karar 2'nin şartı
+sağlandı.
+
+**Yol üstünde bağımsız bir kusur ölçüldü ve `NEN-106` olarak ayrıldı (Kural 5).**
+`translate_checkpointed` bütün bloklar için tek bir `TranslationCall`
+kullanıyor; `TranslationCall::progress` ise aynı çağrı içinde `total`'ın
+değişmesini haklı olarak `Permanent` ile reddediyor. Ama bir sağlayıcı yalnız
+kendi bloğunu görür ve `total` olarak blok cue sayısını bildirir — 50 cue'luk
+bir belge (`37` + `13`) ikinci blokta düşüyor, **aynı kod** 30 cue'da (tek blok)
+geçiyor. `nen-translate`'in kendi testleri bunu görmemişti çünkü fixture
+sağlayıcısı hiç `progress` çağırmıyor. `NEN-099`'u blokluyor.
+
+`cargo test -p nen-persist` **21 passed**; workspace **768 passed / 1 ignored**;
+fmt, clippy, `cargo deny check`, `bash scripts/test.sh` **4/4** ve
+`bash scripts/check-docs.sh` yeşil. `nen-ffi` ve macOS kabuğu dokunulmadı.
+Kanıt: `tasks/done/NEN-096-*.md`.
 
 **`NEN-095` kapandı — doğrulanmış artifact'lerin nerede ve nasıl saklanacağı
 `accepted` bir ADR ile sabitlendi.** `docs/architecture.md` → Portlar

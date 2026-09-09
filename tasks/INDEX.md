@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **105** task · ✅ done 89 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 14
+Toplam **106** task · ✅ done 90 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 14
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -126,7 +126,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-093](done/NEN-093-checkpoint-and-cancellation.md) | Checkpoint only validated blocks and cancel without late commit | M | ✅ done | NEN-092 |
 | [NEN-094](done/NEN-094-validated-subtitle-artifact.md) | ValidatedSubtitleArtifact and its WebVTT output | M | ✅ done | NEN-093 NEN-014 |
 | [NEN-095](done/NEN-095-adr-persistence-adapter.md) | Decide the persistence adapter for translated artifacts | S | ✅ done | NEN-094 |
-| [NEN-096](backlog/NEN-096-content-addressed-artifact-store.md) | Content-addressed artifact store with atomic commit | M | ⚪ backlog | NEN-095 |
+| [NEN-096](done/NEN-096-content-addressed-artifact-store.md) | Content-addressed artifact store with atomic commit | M | ✅ done | NEN-095 |
 | [NEN-097](backlog/NEN-097-cache-identity-and-invalidation.md) | Cache identity and invalidation | M | ⚪ backlog | NEN-094 |
 | [NEN-098](backlog/NEN-098-artifact-metadata-index.md) | Artifact metadata index and offline lookup | M | ⚪ backlog | NEN-096 NEN-097 |
 | [NEN-099](backlog/NEN-099-translation-session-orchestration.md) | Translation session orchestration without retarget | M | ⚪ backlog | NEN-098 NEN-019 |
@@ -135,6 +135,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-102](backlog/NEN-102-macos-translation-progress.md) | macOS translation progress and cancellation surface | M | ⚪ backlog | NEN-101 |
 | [NEN-103](done/NEN-103-adr-embedded-text-demux.md) | Decide the demux path for embedded subtitle text | S | ✅ done | NEN-089 |
 | [NEN-104](backlog/NEN-104-m5-acceptance.md) | Translation core acceptance | S | ⚪ backlog | NEN-102 NEN-044 |
+| [NEN-106](backlog/NEN-106-per-block-progress-totals.md) | A multi-block run rejects its own provider's progress | S | ⚪ backlog | NEN-090 NEN-093 |
 
 ## M6 — Real Providers
 
@@ -155,5 +156,6 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-035** — Identity confidence scoring and candidate ranking
 - **NEN-044** — Embedded subtitle text extraction
 - **NEN-064** — Verified media identity in player chrome
-- **NEN-096** — Content-addressed artifact store with atomic commit
 - **NEN-097** — Cache identity and invalidation
+- **NEN-105** — Resumable checkpoint store for interrupted translation runs
+- **NEN-106** — A multi-block run rejects its own provider's progress

@@ -111,9 +111,14 @@ aynı kalmasını mekanik olarak zorlar:
 
 - **HttpClient kiti:** approved liste dışı host reddi · redirect bütçesi aşımı ·
   boyut sınırı aşımı · archive içerik reddi · düz HTTP reddi · redaction
-- **Persistence kiti:** atomik commit (yarım dosya asla görünmez) · iptal sonrası
-  late commit reddi · cache identity bileşeni değişince eski artifact'in
-  kullanılmaması · schema sürüm uyumsuzluğu davranışı
+- **Persistence kiti** (`nen-ports::persistence::contract`, `NEN-096`): içerik
+  round-trip · aynı içeriğin her zaman aynı adrese gitmesi · farklı içeriğin
+  gitmemesi · yazılmamış bir adresin `NotFound` okunması. Atomik commit'in
+  kendisi ve depo kökü dışına çıkma reddi **porttan gözlenemez** (dosya sistemi
+  seviyesi), bu yüzden adapter'ın kendi negatif testlerinde ölçülür — kaldırılan
+  her kapı için ayrı bir kırmızı test. Cache identity bileşeni değişince eski
+  artifact'in kullanılmaması `NEN-097`/`NEN-098`'e, iptal sonrası late commit
+  reddi `NEN-093`'e ait
 
 ## Negatif test zorunluluğu
 
