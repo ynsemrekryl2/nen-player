@@ -81,10 +81,9 @@ kapandı (2026-09-08):
 | **0045** | Gömülü altyazı metninin demux yolu | `NEN-103` |
 
 Açılışta beşi de `proposed`; **0015** 2026-09-08'de (`NEN-089` kapanışıyla),
-**0016** 2026-09-08'de (`NEN-091` kapanışıyla), **0045** (`NEN-103` kapanışıyla)
-ve **0017** 2026-09-09'da (`NEN-095` kapanışıyla) `accepted` oldu. Kural 4
-gereği kalan **0018** `accepted` olmadan `NEN-097`'nin implementasyonuna
-geçilmez ve cache identity bileşenleri o task'a kadar **aday** sayılır.
+**0016** 2026-09-08'de (`NEN-091` kapanışıyla), **0045** (`NEN-103`
+kapanışıyla), **0017** 2026-09-09'da (`NEN-095` kapanışıyla) ve **0018**
+aynı gün (`NEN-097`'nin ön koşulu olarak) `accepted` oldu — beşi de kapandı.
 
 ## Bağımlılıklar
 

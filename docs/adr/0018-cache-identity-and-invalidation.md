@@ -1,17 +1,17 @@
 ---
 adr: 0018
 title: Cache identity bileşenleri, versiyonlama ve invalidasyon
-status: proposed
+status: accepted
 milestone: M5
 tasks: [NEN-097]
-date: —
+date: 2026-09-09
 ---
 
 # ADR-0018 — Cache identity bileşenleri, versiyonlama ve invalidasyon
 
 ## Durum
 
-`proposed`
+`accepted` — 2026-09-09
 
 ## Bağlam
 
