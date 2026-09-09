@@ -3,9 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-09** (**`NEN-098` kapandı** — daha önce üretilmiş
-> bir çeviri, uygulama yeniden başlatıldıktan sonra ve ağ olmadan kendi cache
-> identity'siyle bulunup açılıyor.)
+> Son güncelleme: **2026-09-09** (**`NEN-106` kapandı** — çok bloklu bir
+> çeviri işi artık kendi sağlayıcısının bildirdiği ilerleme yüzünden
+> düşmüyor; `NEN-099`'u bloke eden tek engel kalktı.)
 
 ## Nerede duruyoruz
 
@@ -13,9 +13,34 @@
 |---|---|
 | **Mevcut milestone** | **M5 — Translation Core** (M4 2026-09-08'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-098`** — artifact metadata index. Ondan önce: `NEN-097` |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-099`, `NEN-105`, `NEN-106` |
-| **Task sayısı** | 106 · done 92 · active 0 · blocked 0 · canceled 2 · backlog 12 |
+| **Son tamamlanan** | **`NEN-106`** — blok sınırında bağımsız ilerleme dizisi. Ondan önce: `NEN-098` |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-099`, `NEN-105` |
+| **Task sayısı** | 106 · done 93 · active 0 · blocked 0 · canceled 2 · backlog 11 |
+
+**`NEN-106` kapandı — `NEN-096` yazılırken ölçülmüş ve Kural 5 ile ayrılmış
+bağımsız kusur giderildi: çok bloklu bir çeviri işi artık kendi
+sağlayıcısının bildirdiği ilerleme yüzünden düşmüyor, `NEN-099`'u bloke eden
+tek engel kalktı.** `translate_checkpointed`
+(`core/crates/nen-translate/src/checkpoint.rs`) bütün bloklar için tek bir
+`TranslationCall` kullanıyordu; bir sağlayıcı yalnız kendi bloğunu görüp
+`total` olarak blok cue sayısını bildirdiğinde, `TranslationCall::progress`'in
+ADR-0004 Karar 4'ün doğru koruduğu monoton-`total` kuralı ikinci bloğu
+`Permanent` ile düşürüyordu — 50 cue'luk bir belge (`37`+`13`) düşerken aynı
+kod 30 cue'da (tek blok) geçiyordu. Kusur sağlayıcıda değil orkestrasyondaydı:
+`NEN-092`'nin retry için zaten kullandığı `TranslationCall::fork` deseni —
+bağımsız ilerleme dizisi, paylaşılan iptal geçidi — artık blok sınırında da
+uygulanıyor; blok sınırı `checkpoint()` ve `commit()` dışarıdaki paylaşılan
+`call`'da kalıyor, yalnız sağlayıcı işi `&call.fork()` üzerinden sürülüyor.
+`nen-ports`'un monotonluk kuralı gevşetilmedi, yeni tip veya ADR açılmadı.
+
+`nen-app`'te bu kusur yüzünden konmuş iki geçici fixture kalktı: iterleme
+bildirmeyen `SilentEchoProvider` (`artifact_store_roundtrip.rs`) silindi ve
+çok bloklu test gerçek `MockTranslationProvider`'a geçirildi; `layout.blocks()
+== 1` iddiası (`artifact_index_lookup.rs`) kaldırıldı. Kırmızı-önce
+doğrulaması: düzeltmeden önce üç yeni test `Block(Provider(Permanent))` ile
+düştü, düzeltmeden sonra `cargo test --workspace` 809 passed / 1 ignored;
+fmt, clippy, `cargo deny check`, `bash scripts/test.sh` 4/4 yeşil. Kanıt:
+`tasks/done/NEN-106-*.md`.
 
 **`NEN-098` kapandı — bir artifact artık kendi ADR-0018 cache identity'sini
 taşıyor, ve `nen-persist`'in dizin taramasından türeyen bir index bu kimliğe

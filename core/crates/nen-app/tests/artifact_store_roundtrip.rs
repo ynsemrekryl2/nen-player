@@ -15,10 +15,7 @@ use nen_domain::source::LanguageTag;
 use nen_domain::subtitle::{Cue, CueId, SubtitleDocument, TimeSpan};
 use nen_persist::FilesystemArtifactStore;
 use nen_ports::persistence::ArtifactStore;
-use nen_ports::translation::{
-    TranslatedCue, TranslationCall, TranslationProvider, TranslationProviderError,
-    TranslationProviderIdentity, TranslationRequest, TranslationResponse,
-};
+use nen_ports::translation::{TranslationCall, TranslationProvider};
 use nen_providers::translation_mock::MockTranslationProvider;
 use nen_translate::artifact::{
     self, ArtifactId, ArtifactMetadata, ArtifactTimestamp, GlossaryIdentity,
@@ -73,46 +70,6 @@ fn plan() -> TranslationPlan {
     }
 }
 
-/// Deterministic and silent: echoes each requested cue tagged with the
-/// target language and reports no progress at all.
-///
-/// Needed because `MockTranslationProvider` cannot drive a multi-block
-/// document today — a provider only sees its own block, so it reports that
-/// block's cue count as its progress `total`, and `TranslationCall` rightly
-/// refuses a changed `total` within one call. That seam is `NEN-106`; it is
-/// not this task's, and it is not worked around here beyond keeping the
-/// multi-block case on a provider that does not report progress.
-struct SilentEchoProvider;
-
-impl TranslationProvider for SilentEchoProvider {
-    fn identity(&self) -> TranslationProviderIdentity {
-        TranslationProviderIdentity::new("nen-test", "silent-echo").expect("a valid identity")
-    }
-
-    fn translate(
-        &self,
-        request: &TranslationRequest,
-        call: &TranslationCall,
-    ) -> Result<TranslationResponse, TranslationProviderError> {
-        let cues = request
-            .output_cue_ids
-            .iter()
-            .map(|cue_id| {
-                let source = request
-                    .context_cues
-                    .iter()
-                    .find(|cue| cue.cue_id == *cue_id)
-                    .ok_or(TranslationProviderError::Permanent)?;
-                Ok(TranslatedCue {
-                    cue_id: *cue_id,
-                    text: format!("[{}] {}", request.target_language.as_str(), source.text),
-                })
-            })
-            .collect::<Result<Vec<_>, TranslationProviderError>>()?;
-        call.finish(TranslationResponse { cues })
-    }
-}
-
 /// Runs `provider` over `document` and assembles the artifact — the same path
 /// `NEN-099` will drive for real.
 fn translated_artifact(
@@ -150,9 +107,7 @@ fn an_assembled_artifact_survives_a_trip_through_the_store() {
     let dir = TempDir::new("roundtrip");
     let store = FilesystemArtifactStore::new(dir.path()).expect("a store");
 
-    // One block: `MockTranslationProvider` is the real M5 provider, and a
-    // multi-block run through it is blocked by `NEN-106`. The multi-block
-    // path is covered by the test below.
+    // One block; the multi-block path is covered by the test below.
     let source = document(30);
     let assembled = translated_artifact(&MockTranslationProvider::new(), &source);
     let record = assembled.to_record();
@@ -230,7 +185,7 @@ fn a_multi_block_artifact_survives_the_store() {
         "the fixture must actually span several blocks"
     );
 
-    let assembled = translated_artifact(&SilentEchoProvider, &source);
+    let assembled = translated_artifact(&MockTranslationProvider::new(), &source);
     let record = assembled.to_record();
     let address = store.put(&record).expect("a committed artifact");
     let read_back = store.get(address).expect("the artifact reads back");

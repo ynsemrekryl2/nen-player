@@ -79,11 +79,6 @@ fn translated_artifact(
 ) -> ValidatedSubtitleArtifact {
     let provider = MockTranslationProvider::new();
     let layout = BlockLayout::of(document, config).expect("a valid layout");
-    assert_eq!(
-        layout.blocks().len(),
-        1,
-        "the fixture must stay single-block — multi-block progress reporting is NEN-106"
-    );
     let mut checkpoints = BlockCheckpoints::for_layout(&layout);
     translate_checkpointed(
         &provider,

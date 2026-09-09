@@ -16,6 +16,14 @@
 //! to obtain a [`CompletedBlocks`], and it refuses unless every block in the
 //! layout is checkpointed: a partially translated document cannot be turned
 //! into something a caller could publish.
+//!
+//! Each block's provider work runs under its own [`TranslationCall::fork`]
+//! (NEN-106): a provider only ever sees one block's request, so it reports
+//! that block's own cue count as its progress `total`, which legitimately
+//! differs from block to block. A fork shares the run's single cancellation
+//! gate and progress sink but starts a fresh per-provider progress
+//! sequence, so [`TranslationCall::progress`]'s monotonic-`total` rule
+//! (ADR-0004 Karar 4) applies within a block, never across blocks.
 
 use crate::blocks::{BlockLayout, TranslationBlock};
 use crate::repair::{self, BlockTranslationError};
@@ -234,8 +242,15 @@ pub fn translate_checkpointed(
             .map_err(|_error| TranslationRunError::Cancelled)?;
 
         let request = request_for_block(document, block, plan);
+        // Each block gets its own forked progress sequence: a provider only
+        // sees its own block's request and honestly reports that block's own
+        // cue count as `total`, which legitimately differs block to block.
+        // `TranslationCall::progress` rightly rejects a changed `total`
+        // within one sequence, so blocks must not share one (NEN-106). The
+        // fork shares cancellation and progress delivery — only the
+        // per-provider progress sequence starts fresh.
         let validated =
-            repair::translate_block_with_repair(provider, document, block, &request, call)
+            repair::translate_block_with_repair(provider, document, block, &request, &call.fork())
                 .map_err(TranslationRunError::Block)?;
 
         checkpoints
@@ -273,7 +288,10 @@ mod tests {
     use super::*;
     use crate::blocks::BlockLayoutConfig;
     use nen_domain::subtitle::{Cue, CueId, TimeSpan};
-    use nen_ports::translation::{TranslatedCue, TranslationProviderIdentity, TranslationResponse};
+    use nen_ports::translation::{
+        TranslatedCue, TranslationProgress, TranslationProgressPhase, TranslationProgressSink,
+        TranslationProviderIdentity, TranslationResponse,
+    };
     use std::sync::{Arc, Mutex};
 
     fn document(cue_count: u32) -> SubtitleDocument {
@@ -585,5 +603,210 @@ mod tests {
             sorted
         };
         assert_eq!(indices, sorted, "blocks are kept in block order");
+    }
+
+    /// Reports progress honestly for its own request (`total` = the
+    /// request's own output cue count) and echoes each cue back, so it
+    /// validates on the first attempt — the shape of `MockTranslationProvider`
+    /// that `NEN-106` measured as failing on a second block.
+    struct ProgressReportingProvider;
+
+    impl TranslationProvider for ProgressReportingProvider {
+        fn identity(&self) -> TranslationProviderIdentity {
+            TranslationProviderIdentity::new("test", "progress").expect("identity")
+        }
+
+        fn translate(
+            &self,
+            request: &TranslationRequest,
+            call: &TranslationCall,
+        ) -> Result<TranslationResponse, TranslationProviderError> {
+            let total = u32::try_from(request.output_cue_ids.len()).expect("small fixture");
+            call.progress(TranslationProgress {
+                phase: TranslationProgressPhase::Preparing,
+                done: 0,
+                total,
+            })?;
+            let mut cues = Vec::with_capacity(request.output_cue_ids.len());
+            for (position, cue_id) in request.output_cue_ids.iter().copied().enumerate() {
+                cues.push(TranslatedCue {
+                    cue_id,
+                    text: format!("translated {}", cue_id.get()),
+                });
+                call.progress(TranslationProgress {
+                    phase: TranslationProgressPhase::Translating,
+                    done: u32::try_from(position + 1).expect("small fixture"),
+                    total,
+                })?;
+            }
+            call.finish(TranslationResponse { cues })
+        }
+    }
+
+    /// Records every delivered `TranslationProgress`, in delivery order.
+    #[derive(Default)]
+    struct RecordingSink {
+        events: Mutex<Vec<TranslationProgress>>,
+    }
+
+    impl TranslationProgressSink for RecordingSink {
+        fn on_progress(&self, progress: TranslationProgress) {
+            self.events.lock().expect("lock").push(progress);
+        }
+    }
+
+    impl RecordingSink {
+        fn events(&self) -> Vec<TranslationProgress> {
+            self.events.lock().expect("lock").clone()
+        }
+    }
+
+    /// `NEN-106`: a provider that honestly reports its own block's cue count
+    /// as `total` must not have its second block rejected as a `Permanent`
+    /// provider error just because the first block's `total` differed.
+    #[test]
+    fn a_provider_reporting_its_own_block_total_completes_a_multi_block_run() {
+        let document = document(95);
+        let layout = layout(&document);
+        assert!(layout.blocks().len() >= 2, "fixture needs multiple blocks");
+
+        let mut checkpoints = BlockCheckpoints::for_layout(&layout);
+        let sink = Arc::new(RecordingSink::default());
+        let call = TranslationCall::new(sink.clone());
+
+        translate_checkpointed(
+            &ProgressReportingProvider,
+            &document,
+            &layout,
+            &plan(),
+            &call,
+            &mut checkpoints,
+        )
+        .expect("a provider that honestly reports its own block total must not be rejected");
+
+        assert!(checkpoints.is_complete());
+    }
+
+    /// Each block's progress sequence starts fresh at its own `total` and is
+    /// monotonic within itself — no event carries over a previous block's
+    /// `total` or `done`.
+    #[test]
+    fn each_blocks_progress_sequence_is_independently_monotonic() {
+        let document = document(95);
+        let layout = layout(&document);
+        let block_totals: Vec<u32> = layout
+            .blocks()
+            .iter()
+            .map(|block| {
+                u32::try_from(block.output_cue_ids(&document).len()).expect("small fixture")
+            })
+            .collect();
+        assert!(block_totals.len() >= 2, "fixture needs multiple blocks");
+
+        let mut checkpoints = BlockCheckpoints::for_layout(&layout);
+        let sink = Arc::new(RecordingSink::default());
+        let call = TranslationCall::new(sink.clone());
+
+        translate_checkpointed(
+            &ProgressReportingProvider,
+            &document,
+            &layout,
+            &plan(),
+            &call,
+            &mut checkpoints,
+        )
+        .expect("run completes");
+
+        let events = sink.events();
+        // Split the flat event stream back into per-block runs by watching
+        // `done` reset to 0 (`Preparing`) at each block boundary, and check
+        // each run's own total matches that block's own cue count, and its
+        // `done` values are monotonically non-decreasing within the run.
+        let mut block_index = 0usize;
+        let mut previous_done: Option<u32> = None;
+        for event in &events {
+            if event.phase == TranslationProgressPhase::Preparing {
+                if previous_done.is_some() {
+                    block_index += 1;
+                }
+                previous_done = None;
+            }
+            assert_eq!(
+                event.total, block_totals[block_index],
+                "block {block_index}'s progress must carry its own total"
+            );
+            if let Some(previous) = previous_done {
+                assert!(
+                    event.done >= previous,
+                    "done must not regress within a block"
+                );
+            }
+            previous_done = Some(event.done);
+        }
+        assert_eq!(
+            block_index + 1,
+            block_totals.len(),
+            "every block must have reported its own progress run"
+        );
+    }
+
+    /// The gate closing mid-run still stops the run at the block boundary
+    /// (ADR-0004 Karar 2/5) even though each block now runs its own forked
+    /// progress sequence — cancellation is shared state, not per-fork.
+    /// Mirrors `interrupted_run_resumes_from_its_checkpoints_without_retranslating_them`
+    /// but through a provider that also reports progress, so a forked
+    /// progress sequence is actually exercised on both the committed and the
+    /// cancelled block.
+    #[test]
+    fn cancellation_still_stops_the_run_when_blocks_fork_their_progress() {
+        let document = document(95);
+        let layout = layout(&document);
+        assert!(layout.blocks().len() >= 2, "fixture needs multiple blocks");
+
+        struct CancelAfterNCalls {
+            remaining_before_cancel: Mutex<usize>,
+        }
+
+        impl TranslationProvider for CancelAfterNCalls {
+            fn identity(&self) -> TranslationProviderIdentity {
+                TranslationProviderIdentity::new("test", "cancel-after-n").expect("identity")
+            }
+
+            fn translate(
+                &self,
+                request: &TranslationRequest,
+                call: &TranslationCall,
+            ) -> Result<TranslationResponse, TranslationProviderError> {
+                let response = ProgressReportingProvider.translate(request, call)?;
+                let mut remaining = self.remaining_before_cancel.lock().expect("lock");
+                if *remaining == 0 {
+                    call.cancel();
+                } else {
+                    *remaining -= 1;
+                }
+                Ok(response)
+            }
+        }
+
+        let mut checkpoints = BlockCheckpoints::for_layout(&layout);
+        let provider = CancelAfterNCalls {
+            remaining_before_cancel: Mutex::new(1),
+        };
+        let sink = Arc::new(RecordingSink::default());
+        let call = TranslationCall::new(sink);
+
+        let error = translate_checkpointed(
+            &provider,
+            &document,
+            &layout,
+            &plan(),
+            &call,
+            &mut checkpoints,
+        )
+        .expect_err("run is cancelled mid-way");
+
+        assert_eq!(error, TranslationRunError::Cancelled);
+        assert_eq!(checkpoints.checkpointed_count(), 1);
+        assert!(!checkpoints.is_complete());
     }
 }
