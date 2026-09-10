@@ -233,3 +233,11 @@ Gövde ADR-0001 gereği olduğu gibi bırakıldı.
 bir kullanıcı altyazısı olarak yüklenir. Bu, ADR-0031 Karar 5'teki uygulamanın
 keşfettiği veya doğrudan güvenlik kapısına ulaşan symlink'in reddedilmesiyle
 çelişmez: iki yüzeyin kullanıcı niyeti ve tehdit modeli farklıdır.
+
+**Karar 6'nın kapsamı `NEN-101` ile genişledi (2026-09-10).** Karar 6'nın
+"M3'te tek ayar yüzeyi" ifadesi kapsamı adıyla **M3'e** koyuyordu; M5'in
+`NEN-101`'i aynı Settings penceresine üçüncü bir satır — AI çeviri hedef
+dili — ekliyor. Bu, Karar 6'nın kendisini ihlal etmiyor: yasaklanan şey genel
+bir ayarlar ekranı, pencere hâlâ yalnız dil seçicilerinden ibaret ve
+`NEN-024`'ün yasağı aynı biçimde yürürlükte. Gövde ADR-0001 gereği olduğu gibi
+bırakıldı.
