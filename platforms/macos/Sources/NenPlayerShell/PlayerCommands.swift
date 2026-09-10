@@ -75,6 +75,21 @@ public struct PlayerCommands: Commands {
                 .keyboardShortcut(KeyEquivalent("\u{1b}"), modifiers: [])
                 .disabled(focusedModel == nil)
         }
+
+        // §9's explicit command. Gated on model state, not focus — the same
+        // idiom as "Son Açılanları Temizle" above: whether a translation can
+        // start does not depend on which window has keyboard focus, it
+        // depends on what is selected and whether a job is already running
+        // (`PlayerModel.canTranslateSelectedSubtitle`).
+        CommandMenu("Altyazı") {
+            Button(translateLabel, action: model.translateSelectedSubtitle)
+                .disabled(!model.canTranslateSelectedSubtitle)
+        }
+    }
+
+    private var translateLabel: String {
+        guard let target = model.translationTargetLanguage else { return "AI ile Çevir" }
+        return "AI ile \(SubtitleMenuPresentation.endonym(for: target)) Çevir"
     }
 
     private func chooseMedia() {

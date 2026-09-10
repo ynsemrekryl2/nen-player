@@ -48,6 +48,14 @@ public final class PlayerModel: ObservableObject {
     @Published public private(set) var selectedSubtitleToken: UInt32?
     /// Whether the sidecar scan is still running (ADR-0031 Karar 4).
     @Published public private(set) var isScanningSubtitles = false
+    /// The AI translation target language (§9, `NEN-101`), a plain primary
+    /// subtag on the same terms as `subtitlePreferences` — published so the
+    /// Settings picker and the "Altyazı" command stay in the same frame.
+    @Published public private(set) var translationTargetLanguage: String?
+    /// Whether a translation job started by `translateSelectedSubtitle()` is
+    /// still running. The command's own gate — `NEN-102` adds progress and
+    /// cancellation on top, not a second flag.
+    @Published public private(set) var isTranslating = false
     /// The display size of the picture being played, or `nil` when there is no
     /// picture (ADR-0038).
     ///
@@ -71,6 +79,23 @@ public final class PlayerModel: ObservableObject {
         subtitleMenu
             .first { SubtitleMenuGroupID($0.group) == browsedSubtitleGroup }?
             .entries ?? []
+    }
+
+    /// The one gate `translateSelectedSubtitle()` and the "Altyazı" command
+    /// share — no source, a source already in the target language, a
+    /// non-translatable or broken row, no target language chosen, or a job
+    /// already running all disable it (§9, ADR-0031 Karar 4.3's family: a
+    /// selection never fires a translation on its own, only this explicit
+    /// command does).
+    public var canTranslateSelectedSubtitle: Bool {
+        guard !isTranslating, let target = translationTargetLanguage else { return false }
+        guard let token = selectedSubtitleToken, let entry = subtitleMenuEntry(for: token) else {
+            return false
+        }
+        guard entry.defect == nil, entry.translatable, let sourceLanguage = entry.language else {
+            return false
+        }
+        return Self.primarySubtag(of: sourceLanguage) != Self.primarySubtag(of: target)
     }
     public var durationText: String {
         PlaybackPresentation.duration(
@@ -108,6 +133,16 @@ public final class PlayerModel: ObservableObject {
         panel.resolvesAliases = true
     }
 
+    /// The artifact store's default root (`NEN-101`) — the application's own
+    /// Application Support directory, on the same terms as `ADR-0034`'s
+    /// sandbox-free distribution: no security-scoped bookmark, because
+    /// nothing outside the app's own directory is being touched.
+    public static func defaultTranslationStoreRoot() -> URL {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        return base.appendingPathComponent("NenPlayer", isDirectory: true)
+    }
+
     private static let logger = Logger(subsystem: "player.nen.macos", category: "playback")
 
     private let recentStore: any RecentMediaStoring
@@ -139,12 +174,24 @@ public final class PlayerModel: ObservableObject {
     /// same frame — a picker that only wrote to the store would need its own
     /// mechanism to notice a change made elsewhere.
     @Published public private(set) var subtitlePreferences: SubtitleLanguagePreferences
+    /// Where the AI translation target language lives (`NEN-101`), on the
+    /// same "injected, not read from `Locale` at the point of use" terms as
+    /// `preferenceStore`.
+    private let translationPreferenceStore: any TranslationPreferenceStoring
+    /// The artifact store's root directory (`ADR-0034`'s sandbox-free
+    /// application — no security-scoped bookmark needed for a location the
+    /// app itself owns). Not created until the first translation command:
+    /// `FfiTranslationEngine(storeRoot:)` is only constructed inside
+    /// `translateSelectedSubtitle()`.
+    private let translationStoreRoot: URL
     /// The catalog and the documents behind it, owned by the core (NEN-025).
     ///
     /// Not behind a protocol, unlike `PlaybackSessionClient`: that one exists
     /// because a real playback session needs a real libmpv process. This one
     /// needs a filesystem and nothing else, so the tests drive the real thing
-    /// and prove the real gates.
+    /// and prove the real gates. `FfiTranslationEngine`/`FfiTranslationJob`
+    /// follow the same reasoning — a filesystem and the deterministic mock
+    /// provider, no process to fake.
     private let subtitles = FfiSubtitleLibrary()
     private var session: (any PlaybackSessionClient)?
     /// A medium (and its handoff start position, if any) that arrived before
@@ -158,6 +205,7 @@ public final class PlayerModel: ObservableObject {
     private var pollTask: Task<Void, Never>?
     private var sidecarScanTask: Task<Void, Never>?
     private var handoffEvidenceTask: Task<Void, Never>?
+    private var translationTask: Task<Void, Never>?
     /// ADR-0031 Karar 4.3: automatic selection runs **once**, at the start.
     /// A source discovered later never re-triggers it, however well it matches.
     private var hasAutoSelected = false
@@ -193,6 +241,8 @@ public final class PlayerModel: ObservableObject {
         now: @escaping () -> UInt64 = { DispatchTime.now().uptimeNanoseconds },
         managesCursor: Bool = true,
         preferenceStore: any SubtitlePreferenceStoring = UserDefaultsSubtitlePreferenceStore(),
+        translationPreferenceStore: any TranslationPreferenceStoring = UserDefaultsTranslationPreferenceStore(),
+        translationStoreRoot: URL = PlayerModel.defaultTranslationStoreRoot(),
         handoffEvidenceCollector: HandoffEvidenceCollector? = nil,
         sessionFactory: @escaping SessionFactory = { view in
             let engine = try MPVPlaybackEngine(videoView: view)
@@ -211,6 +261,9 @@ public final class PlayerModel: ObservableObject {
         self.managesCursor = managesCursor
         self.preferenceStore = preferenceStore
         self.subtitlePreferences = preferenceStore.preferences
+        self.translationPreferenceStore = translationPreferenceStore
+        self.translationTargetLanguage = translationPreferenceStore.targetLanguage
+        self.translationStoreRoot = translationStoreRoot
         if let handoffEvidenceCollector {
             self.handoffEvidenceCollector = handoffEvidenceCollector
         } else {
@@ -530,6 +583,129 @@ public final class PlayerModel: ObservableObject {
         refreshSubtitleMenu()
     }
 
+    // MARK: - Translation (§9, NEN-101)
+
+    /// Changes the AI translation target language (`NEN-101`'s Settings row).
+    ///
+    /// Same shape as `updateSubtitlePreferences`: writes through to the
+    /// store and does not touch anything already on screen or already
+    /// selected — only `translateSelectedSubtitle()`'s own explicit command
+    /// starts a job.
+    public func updateTranslationTargetLanguage(_ code: String?) {
+        translationPreferenceStore.save(code)
+        translationTargetLanguage = code
+    }
+
+    /// How a translation job that finished or failed reports back to the
+    /// main actor. Carries the finished `FfiTranslationJob` rather than its
+    /// summary so `catalogInto` can be called only after re-checking the
+    /// medium has not changed underneath it — `FfiTranslationJob`,
+    /// `FfiTranslationSummary` and both error types are all `Sendable`
+    /// (generated bindings), so nothing here needs a manual `@unchecked`.
+    private enum TranslationJoinOutcome: Sendable {
+        case succeeded(FfiTranslationJob)
+        case startFailed(FfiTranslationStartError)
+        case joinFailed(FfiTranslationError)
+    }
+
+    /// §9's explicit command: "AI ile <hedef dile> çevir."
+    ///
+    /// Starts a job, blocks on its result off the main actor (the same
+    /// `Task.detached` shape as `startSidecarScan`), and on success catalogues
+    /// the outcome — but **never selects it**: the row the user is reading
+    /// stays exactly what it was (ADR-0031 Karar 4.3's family, §9's "zorla AI
+    /// çıktısına geçilmez"). `NEN-102` adds progress and cancellation on top
+    /// of this same job; this task's job runs to completion or failure with
+    /// no way to interrupt it once started.
+    public func translateSelectedSubtitle() {
+        guard canTranslateSelectedSubtitle,
+            let target = translationTargetLanguage,
+            let token = selectedSubtitleToken
+        else { return }
+
+        isTranslating = true
+        let library = subtitles
+        let storeRoot = translationStoreRoot
+        // A medium switch must not let a job started against the previous
+        // medium's catalog silently add a row to the new one's menu — the
+        // same revision guard `mediaPresentationRevision`'s own doc comment
+        // describes for in-window presentation state.
+        let revision = mediaPresentationRevision
+
+        translationTask?.cancel()
+        translationTask = Task { [weak self] in
+            let outcome = await Task.detached(priority: .utility) { () -> TranslationJoinOutcome in
+                do {
+                    // `FfiTranslationEngine` opens the root with `canonicalize`
+                    // (`nen-persist`'s `FilesystemArtifactStore::new`), which
+                    // fails if the root itself does not exist yet — unlike its
+                    // own `artifacts/` subdirectory, the root is this shell's
+                    // to create, on the first command a fresh install ever
+                    // runs (measured on the real .app, NEN-101).
+                    guard (try? FileManager.default.createDirectory(
+                        at: storeRoot,
+                        withIntermediateDirectories: true
+                    )) != nil else {
+                        return .startFailed(.StoreUnavailable)
+                    }
+                    let engine = try FfiTranslationEngine(storeRoot: storeRoot.path)
+                    let job = try engine.start(
+                        library: library,
+                        token: token,
+                        targetLanguage: target,
+                        sink: nil
+                    )
+                    do {
+                        _ = try job.join()
+                        return .succeeded(job)
+                    } catch let joinError as FfiTranslationError {
+                        return .joinFailed(joinError)
+                    } catch {
+                        return .joinFailed(.Failed)
+                    }
+                } catch let startError as FfiTranslationStartError {
+                    return .startFailed(startError)
+                } catch {
+                    return .startFailed(.Unusable)
+                }
+            }.value
+
+            guard !Task.isCancelled, let self else { return }
+            self.isTranslating = false
+            guard self.mediaPresentationRevision == revision else { return }
+            switch outcome {
+            case let .succeeded(job):
+                _ = job.catalogInto(library: library)
+                self.refreshSubtitleMenu()
+            case let .startFailed(error):
+                self.presentTransient(PlaybackPresentation.translationStartMessage(for: error))
+            case let .joinFailed(error):
+                self.presentTransient(PlaybackPresentation.translationJoinMessage(for: error))
+            }
+        }
+    }
+
+    /// Waits for the running translation job. For tests only, and internal
+    /// on the same terms as `awaitSidecarScan`.
+    func awaitTranslation() async {
+        await translationTask?.value
+    }
+
+    private func subtitleMenuEntry(for token: UInt32) -> FfiMenuEntry? {
+        subtitleMenu
+            .first { $0.entries.contains { $0.token == token } }?
+            .entries
+            .first { $0.token == token }
+    }
+
+    /// Reduces a BCP-47-ish tag to its primary subtag — `en` for `en-us` —
+    /// the same granularity `nen_domain::source::LanguageTag::primary_tag`
+    /// groups on (ADR-0030), applied on the shell side the way
+    /// `UserDefaultsSubtitlePreferenceStore`'s seed already does.
+    private static func primarySubtag(of tag: String) -> String {
+        String(tag.split(separator: "-", maxSplits: 1).first ?? Substring(tag)).lowercased()
+    }
+
     // MARK: - Menu actions
 
     /// Points column two at a heading. Shows nothing, changes nothing.
@@ -791,6 +967,9 @@ public final class PlayerModel: ObservableObject {
         sidecarScanTask = nil
         handoffEvidenceTask?.cancel()
         handoffEvidenceTask = nil
+        translationTask?.cancel()
+        translationTask = nil
+        isTranslating = false
         controlsTask?.cancel()
         controlsTask = nil
         controlsPinned = false

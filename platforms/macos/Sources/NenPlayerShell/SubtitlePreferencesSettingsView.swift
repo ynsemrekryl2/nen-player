@@ -1,11 +1,12 @@
 import SwiftUI
 
-/// M3's one Settings surface.
+/// M3's one Settings surface, since widened once by `NEN-101`.
 ///
 /// ADR-0031 Karar 6 narrows `NEN-024`'s "no settings screen before a later
-/// milestone" ban to exactly this: **only** the two preferred-language
-/// pickers live here. Anything else belongs to its own task and its own
-/// widening of that decision.
+/// milestone" ban to exactly this window: no *general* settings screen, only
+/// named preference pickers. `NEN-101`'s target-language picker is the third
+/// row under that same narrowing (ADR-0031 Notlar, 2026-09-10) — a fourth row
+/// belongs to its own task and its own widening of that decision.
 public struct SubtitlePreferencesSettingsView: View {
     @ObservedObject private var model: PlayerModel
 
@@ -17,6 +18,7 @@ public struct SubtitlePreferencesSettingsView: View {
         Form {
             picker("Birinci tercih edilen dil", selection: primaryBinding)
             picker("İkinci tercih edilen dil", selection: secondaryBinding)
+            picker("AI çeviri hedef dili", selection: translationTargetBinding)
         }
         .padding()
         .frame(width: 360)
@@ -56,6 +58,13 @@ public struct SubtitlePreferencesSettingsView: View {
                     )
                 )
             }
+        )
+    }
+
+    private var translationTargetBinding: Binding<String?> {
+        Binding(
+            get: { model.translationTargetLanguage },
+            set: { model.updateTranslationTargetLanguage($0) }
         )
     }
 }

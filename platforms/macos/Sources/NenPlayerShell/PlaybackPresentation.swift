@@ -119,4 +119,35 @@ public enum PlaybackPresentation {
     /// path: the surface is shared with `HandoffIntake` on purpose, so a
     /// refused handoff and a refused drop read identically to the user.
     public static let unsupportedMediaSourceMessage = "Bu medya kaynağı açılamıyor."
+
+    /// What the user is told when "AI ile çevir" could not even start
+    /// (`NEN-101`). One sentence per variant, ADR-0031 Karar 1 *geçici*
+    /// sınıf — no path, no counts, no provider name: `FfiTranslationStartError`
+    /// itself carries none of those (its own doc comment).
+    public static func translationStartMessage(for error: FfiTranslationStartError) -> String {
+        switch error {
+        case .Unusable: return "Bu kaynak kullanılamıyor."
+        case .NotTranslatable: return "Bu kaynak çevrilemiyor."
+        case .UnknownSourceLanguage: return "Bu kaynağın dili belirlenemedi."
+        case .AlreadyTargetLanguage: return "Bu kaynak zaten hedef dilde."
+        case .NoDocument: return "Bu kaynağın içeriği henüz okunamadı."
+        case .LayoutRefused: return "Bu altyazı çeviri için uygun değil."
+        case .InvalidTargetLanguage: return "Hedef dil geçersiz."
+        case .StoreUnavailable: return "Çeviri deposu kullanılamıyor."
+        }
+    }
+
+    /// What the user is told when a started translation job did not produce
+    /// an outcome (`NEN-101`). Same rule: variant only, no cue text, no path.
+    public static func translationJoinMessage(for error: FfiTranslationError) -> String {
+        switch error {
+        case .Cancelled: return "Çeviri iptal edildi."
+        case .Failed: return "Çeviri tamamlanamadı."
+        case .Incomplete: return "Çeviri tamamlanamadı."
+        case .AssemblyRejected: return "Çeviri sonucu doğrulanamadı."
+        case .StoreFailed: return "Çeviri sonucu kaydedilemedi."
+        case .WorkerPanicked: return "Çeviri tamamlanamadı."
+        case .AlreadyJoined: return "Çeviri tamamlanamadı."
+        }
+    }
 }

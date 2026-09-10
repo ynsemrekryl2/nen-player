@@ -3,11 +3,11 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-10** (**`NEN-100` kapandı** — bir çeviri işi artık
-> `nen-ffi` sınırından başlatılabiliyor, ilerlemesi izlenebiliyor, iptal
-> edilebiliyor ve sonucu kataloğa eklenebiliyor; hiçbir cue metni, depo kök
-> yolu bu sınırdan bir `Debug`/`Display` çıktısına sızmıyor. `NEN-101`'i
-> bloke eden tek engel kalktı.)
+> Son güncelleme: **2026-09-10** (**`NEN-101` kapandı** — kullanıcı macOS'ta
+> hedef çeviri dilini Settings'ten seçebiliyor ve seçili bir altyazı kaynağı
+> için yeni `Altyazı` menüsündeki "AI ile çevir" komutuyla açıkça çeviri
+> başlatabiliyor; komut işi başlatıp kataloglar ama ekrandaki altyazıyı
+> asla zorla değiştirmiyor. `NEN-102`'yi bloke eden tek engel kalktı.)
 
 ## Nerede duruyoruz
 
@@ -15,9 +15,64 @@
 |---|---|
 | **Mevcut milestone** | **M5 — Translation Core** (M4 2026-09-08'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-100`** — çeviri FFI yüzeyi: başlat/ilerle/iptal/katalogla + K23 guard. Ondan önce: `NEN-099` |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-101`, `NEN-105` |
-| **Task sayısı** | 106 · done 95 · active 0 · blocked 0 · canceled 2 · backlog 9 |
+| **Son tamamlanan** | **`NEN-101`** — macOS çeviri komutu + hedef dil ayarı. Ondan önce: `NEN-100` |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-102`, `NEN-105` |
+| **Task sayısı** | 106 · done 96 · active 0 · blocked 0 · canceled 2 · backlog 8 |
+
+**`NEN-101` kapandı — kullanıcı macOS'ta hedef çeviri dilini bir ayardan
+seçebiliyor ve seçili altyazı kaynağı için menü çubuğundaki yeni `Altyazı ▸
+AI ile <hedef dile> Çevir` komutuyla açıkça çeviri başlatabiliyor.** Rust
+çekirdeğine hiç dokunulmadı — `NEN-100`'ün ürettiği `FfiTranslationEngine` /
+`FfiTranslationJob` yüzeyi olduğu gibi çağrıldı. Yeni
+`TranslationPreferenceStore.swift`, `SubtitlePreferenceStore.swift`'in
+birebir deseni: hedef dil sistem dilinden **bir kez** tohumlanıyor, ikinci
+bir dil tablosu açılmadı — seçici `LanguageCatalog.allCodes` +
+`SubtitleMenuPresentation.endonym(for:)`'u kullanıyor.
+
+**Komutun tek kapısı `PlayerModel.canTranslateSelectedSubtitle`** — kaynak
+seçili değilse, zaten hedef dildeyse (birincil subtag karşılaştırması,
+ADR-0030 granülerliği) ya da iş zaten koşuyorsa devre dışı. `translate
+SelectedSubtitle()` işi ana actor dışında başlatıp `join()` eder, yalnız
+medya o sırada değişmediyse (`mediaPresentationRevision` guard'ı) sonucu
+kataloglar — **`selectSubtitle` hiçbir zaman çağrılmıyor**, §9'un "zorla AI
+çıktısına geçilmez" kuralı. Kaynak seçmek tek başına hiçbir işi tetiklemiyor.
+
+**Her iki kapı elle mutasyona uğratıldı, her birinde tam olarak beklenen
+test(ler) kırmızıya döndü.** Dil-eşitliği koşulu kaldırılınca yalnız iki
+negatif test; `translateSelectedSubtitle()`'ın kendi guard'ı kaldırılınca
+yalnız "hiçbir `artifacts/` dizini oluşmadı" iddiası kırmızı oldu — Swift'in
+kendi kapısının Rust'un `AlreadyTargetLanguage` reddine güvenmediğini
+kanıtlıyor.
+
+**Gerçek `.app` koşusunda yol üstünde gerçek bir kusur bulundu ve aynı
+task'ta düzeltildi.** `nen-persist::FilesystemArtifactStore::new` kökü
+`fs::canonicalize` ile açıyor — kökün **zaten var olmasını** şart koşuyor.
+`~/Library/Application Support/NenPlayer/` hiçbir yerde yaratılmıyordu;
+temiz bir kurulumda ilk komut her zaman `StoreUnavailable` ile düşerdi.
+Swift testleri bunu yakalayamadı çünkü test fixture'ı kendi kökünü zaten
+yaratıyor. Düzeltme: `translateSelectedSubtitle()` motoru kurmadan önce
+dizini yaratıyor.
+
+**Gerçek `.app` kabulü** (`evidence/M5/NEN-101-checklist.md`):
+`fixtures/media/contract-clip.mkv` (gömülü Türkçe altyazı) ve
+`fixtures/subtitles/languages/english.srt` ile — hedef dil Almanca'ya
+değiştirildi, İngilizce kaynak seçildi, komut verildi; menüde `Deutsch ▸ AI
+çevirisi (de)` belirdi, seçili altyazı **değişmeden** kaldı. Negatif: hedef
+dil Türkçe'ye çevrilip gömülü Türkçe altyazı seçilince komut soluk/devre dışı
+görüldü. Diskte tek bir içerik-adresli artifact dosyası oluştu (ADR-0017
+Karar 2); kanıt toplandıktan sonra geliştirme dizini temizlendi.
+
+**ADR-0031'e ayrı, önceden push edilen bir Notlar girdisi eklendi
+(`8d0fc77`).** Karar 6'nın "M3'te tek ayar yüzeyi" kapsamının M5'te üçüncü
+bir satırla genişlediği kayıt altına alındı; yasaklanan genel ayarlar ekranı
+değil, gövde değişmedi (ADR-0043/`NEN-081` emsali).
+
+`bash scripts/test-macos.sh` **249 passed / 30 suites** (bu task'ın 10
+testi dahil — `TranslationPreferenceStoreTests` 4, `TranslationCommandTests`
+6); `cargo test --workspace` **831 passed / 1 ignored** (`NEN-100`
+baseline'la aynı — Rust'a dokunulmadı); fmt, clippy, `bash scripts/test.sh`
+**4/4** yeşil. `nen-persist`, `nen-translate`, `nen-app`, `nen-ffi`
+dokunulmadı — yalnız macOS kabuğu. Kanıt: `tasks/done/NEN-101-*.md`.
 
 **`NEN-100` kapandı — `nen-ffi::translation` çeviri işini açan tek dış kapı
 oldu.** Bir iş artık FFI sınırından başlatılabiliyor, ilerlemesi izlenebiliyor,

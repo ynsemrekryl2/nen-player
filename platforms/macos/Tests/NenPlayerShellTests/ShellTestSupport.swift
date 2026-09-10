@@ -203,6 +203,20 @@ final class MemoryPreferenceStore: SubtitlePreferenceStoring {
     }
 }
 
+/// No seeding, unlike `UserDefaultsTranslationPreferenceStore` — same
+/// reasoning as `MemoryPreferenceStore` (`NEN-101`).
+final class MemoryTranslationPreferenceStore: TranslationPreferenceStoring {
+    var targetLanguage: String?
+
+    init(targetLanguage: String? = nil) {
+        self.targetLanguage = targetLanguage
+    }
+
+    func save(_ targetLanguage: String?) {
+        self.targetLanguage = targetLanguage
+    }
+}
+
 /// The session calls a test can make fail, so the shell's refusal paths run.
 enum FakeSessionCall: Hashable {
     case load, play, pause, stop, seek, position, duration, state, tracks, showSubtitle,
