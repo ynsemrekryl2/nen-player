@@ -3,7 +3,7 @@ id: NEN-102
 title: macOS translation progress and cancellation surface
 milestone: M5
 size: M
-state: backlog
+state: active
 closed:
 depends_on: [NEN-101]
 blocks: [NEN-104]

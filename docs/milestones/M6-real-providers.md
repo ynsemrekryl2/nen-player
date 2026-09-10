@@ -17,6 +17,7 @@ OpenSubtitles, OpenAI ve OpenRouter'ın gerçek entegrasyonu ve kullanıcı API 
 - SecureCredentialStore: Keychain (bu milestone'da macOS)
 - İndirme güvenliği: approved HTTPS host, bounded redirect, boyut sınırı, archive reddi
 - Kalıcı blok checkpoint'i — yarıda kalan bir çeviri kaldığı yerden devam eder (ADR-0017 Karar 5, `NEN-095`'te ertelendi)
+- Belge-geneli çeviri ilerleme yüzdesi — `NEN-102`'nin blok-yerel göstergesinin yerini alır (`NEN-095`/`NEN-102`'de ertelendi)
 
 ## Kapsam dışı
 
@@ -36,7 +37,7 @@ OpenSubtitles, OpenAI ve OpenRouter'ın gerçek entegrasyonu ve kullanıcı API 
 
 ## Task'lar
 
-`NEN-033` · `NEN-034` · `NEN-035` · `NEN-038` · `NEN-064` · `NEN-105`
+`NEN-033` · `NEN-034` · `NEN-035` · `NEN-038` · `NEN-064` · `NEN-105` · `NEN-107`
 
 ## Bağımlılıklar
 

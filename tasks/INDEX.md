@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **106** task · ✅ done 96 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 8
+Toplam **107** task · ✅ done 96 · 🔵 active 1 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 8
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -132,7 +132,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-099](done/NEN-099-translation-session-orchestration.md) | Translation session orchestration without retarget | M | ✅ done | NEN-098 NEN-019 |
 | [NEN-100](done/NEN-100-translation-ffi-surface.md) | Translation FFI surface with progress, cancel and log guard | M | ✅ done | NEN-099 |
 | [NEN-101](done/NEN-101-macos-translate-command.md) | macOS translate command and target language setting | M | ✅ done | NEN-100 NEN-037 |
-| [NEN-102](backlog/NEN-102-macos-translation-progress.md) | macOS translation progress and cancellation surface | M | ⚪ backlog | NEN-101 |
+| [NEN-102](active/NEN-102-macos-translation-progress.md) | macOS translation progress and cancellation surface | M | 🔵 active | NEN-101 |
 | [NEN-103](done/NEN-103-adr-embedded-text-demux.md) | Decide the demux path for embedded subtitle text | S | ✅ done | NEN-089 |
 | [NEN-104](backlog/NEN-104-m5-acceptance.md) | Translation core acceptance | S | ⚪ backlog | NEN-102 NEN-044 |
 | [NEN-106](done/NEN-106-per-block-progress-totals.md) | A multi-block run rejects its own provider's progress | S | ✅ done | NEN-090 NEN-093 |
@@ -147,6 +147,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-038](backlog/NEN-038-preferred-language-auto-download.md) | Auto-download subtitles for the preferred language | M | ⚪ backlog | NEN-019 NEN-033 NEN-035 NEN-036 |
 | [NEN-064](backlog/NEN-064-verified-media-identity-strip.md) | Verified media identity in player chrome | L | ⚪ backlog | NEN-033 NEN-061 |
 | [NEN-105](backlog/NEN-105-resumable-checkpoint-store.md) | Resumable checkpoint store for interrupted translation runs | M | ⚪ backlog | NEN-096 |
+| [NEN-107](backlog/NEN-107-document-wide-translation-progress.md) | Document-wide translation progress across the FFI boundary | M | ⚪ backlog | NEN-102 |
 
 ## Sıradaki uygun task'lar
 
@@ -156,5 +157,4 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-035** — Identity confidence scoring and candidate ranking
 - **NEN-044** — Embedded subtitle text extraction
 - **NEN-064** — Verified media identity in player chrome
-- **NEN-102** — macOS translation progress and cancellation surface
 - **NEN-105** — Resumable checkpoint store for interrupted translation runs

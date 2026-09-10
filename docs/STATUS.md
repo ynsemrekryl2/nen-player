@@ -14,10 +14,10 @@
 | | |
 |---|---|
 | **Mevcut milestone** | **M5 — Translation Core** (M4 2026-09-08'de kapandı; toolchain kapısı **açık**) |
-| **Aktif task** | — |
+| **Aktif task** | `NEN-102` — macOS translation progress and cancellation surface |
 | **Son tamamlanan** | **`NEN-101`** — macOS çeviri komutu + hedef dil ayarı. Ondan önce: `NEN-100` |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-102`, `NEN-105` |
-| **Task sayısı** | 106 · done 96 · active 0 · blocked 0 · canceled 2 · backlog 8 |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-105` |
+| **Task sayısı** | 107 · done 96 · active 1 · blocked 0 · canceled 2 · backlog 8 |
 
 **`NEN-101` kapandı — kullanıcı macOS'ta hedef çeviri dilini bir ayardan
 seçebiliyor ve seçili altyazı kaynağı için menü çubuğundaki yeni `Altyazı ▸
