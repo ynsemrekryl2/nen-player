@@ -37,6 +37,8 @@ public final class URLSessionRemoteEvidenceClient: NSObject, ForeignHttpClient, 
             urlRequest.httpMethod = "HEAD"
         case .get:
             urlRequest.httpMethod = "GET"
+        case .post:
+            urlRequest.httpMethod = "POST"
         }
 
         for header in request.headers {
@@ -50,6 +52,22 @@ public final class URLSessionRemoteEvidenceClient: NSObject, ForeignHttpClient, 
             case let .suffix(length):
                 urlRequest.setValue("bytes=-\(length)", forHTTPHeaderField: "Range")
             }
+        }
+
+        if let body = request.body {
+            urlRequest.httpBody = body
+        }
+
+        // A caller-supplied timeout (ADR-0019: 60_000 ms for provider calls)
+        // overrides both URLSession's own deadline and the local wait below;
+        // requests that carry none keep today's fixed 30 s wait.
+        let waitTimeout: DispatchTime
+        if let timeoutMs = request.timeoutMs {
+            let seconds = TimeInterval(timeoutMs) / 1000
+            urlRequest.timeoutInterval = seconds
+            waitTimeout = .now() + seconds
+        } else {
+            waitTimeout = .now() + 30
         }
 
         let box = ResponseBox()
@@ -78,7 +96,7 @@ public final class URLSessionRemoteEvidenceClient: NSObject, ForeignHttpClient, 
         }
         task.resume()
 
-        guard box.wait(timeout: .now() + 30) else {
+        guard box.wait(timeout: waitTimeout) else {
             task.cancel()
             throw FfiHttpError.Transport
         }

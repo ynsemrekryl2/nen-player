@@ -16,6 +16,7 @@ pub const MAX_RESPONSE_BYTES: usize = 64 * 1024;
 pub enum HttpMethod {
     Head,
     Get,
+    Post,
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -38,6 +39,7 @@ impl fmt::Debug for HttpMethod {
         f.write_str(match self {
             Self::Head => "Head",
             Self::Get => "Get",
+            Self::Post => "Post",
         })
     }
 }
@@ -62,7 +64,8 @@ impl fmt::Debug for ByteRange {
 }
 
 /// One request made by an adapter. The URL is intentionally hidden from
-/// `Debug` because it can contain a private host or a token-bearing query.
+/// `Debug` because it can contain a private host or a token-bearing query;
+/// the body is a provider payload (ADR-0019) and is hidden the same way.
 #[derive(Clone, PartialEq, Eq)]
 pub struct HttpRequest {
     pub method: HttpMethod,
@@ -70,6 +73,8 @@ pub struct HttpRequest {
     pub range: Option<ByteRange>,
     pub headers: Vec<HttpHeader>,
     pub max_body_bytes: usize,
+    pub body: Option<Vec<u8>>,
+    pub timeout_ms: Option<u64>,
 }
 
 impl HttpRequest {
@@ -80,6 +85,8 @@ impl HttpRequest {
             range: None,
             headers: Vec::new(),
             max_body_bytes: 0,
+            body: None,
+            timeout_ms: None,
         }
     }
 
@@ -90,6 +97,8 @@ impl HttpRequest {
             range: Some(range),
             headers: Vec::new(),
             max_body_bytes: MAX_RESPONSE_BYTES,
+            body: None,
+            timeout_ms: None,
         }
     }
 
@@ -100,6 +109,33 @@ impl HttpRequest {
             range: None,
             headers,
             max_body_bytes,
+            body: None,
+            timeout_ms: None,
+        }
+    }
+
+    /// Builds a `POST` request carrying a JSON body (ADR-0019). A
+    /// `Content-Type: application/json` header is added automatically;
+    /// serializing `body` into JSON bytes stays the caller's responsibility.
+    pub fn post_json(
+        url: &str,
+        mut headers: Vec<HttpHeader>,
+        body: Vec<u8>,
+        max_body_bytes: usize,
+        timeout_ms: u64,
+    ) -> Self {
+        headers.push(HttpHeader {
+            name: "Content-Type".to_owned(),
+            value: "application/json".to_owned(),
+        });
+        Self {
+            method: HttpMethod::Post,
+            url: url.to_owned(),
+            range: None,
+            headers,
+            max_body_bytes,
+            body: Some(body),
+            timeout_ms: Some(timeout_ms),
         }
     }
 }
@@ -112,6 +148,8 @@ impl fmt::Debug for HttpRequest {
             .field("range", &self.range)
             .field("header_count", &self.headers.len())
             .field("max_body_bytes", &self.max_body_bytes)
+            .field("body_length", &self.body.as_ref().map(Vec::len))
+            .field("timeout_ms", &self.timeout_ms)
             .finish()
     }
 }
@@ -218,6 +256,96 @@ mod tests {
         assert!(!request_debug.contains("secret"));
         assert!(!response_debug.contains("private.mkv"));
         assert!(response_debug.contains("body_length"));
+    }
+
+    #[test]
+    fn post_json_builds_a_post_request_with_body_content_type_and_timeout() {
+        let request = HttpRequest::post_json(
+            "https://api.openai.com/v1/responses",
+            vec![HttpHeader {
+                name: "Authorization".into(),
+                value: "Bearer secret".into(),
+            }],
+            br#"{"model":"gpt-5.6-luna"}"#.to_vec(),
+            1024 * 1024,
+            60_000,
+        );
+
+        assert_eq!(request.method, HttpMethod::Post);
+        assert_eq!(request.url, "https://api.openai.com/v1/responses");
+        assert_eq!(
+            request.body.as_deref(),
+            Some(br#"{"model":"gpt-5.6-luna"}"#.as_slice())
+        );
+        assert_eq!(request.max_body_bytes, 1024 * 1024);
+        assert_eq!(request.timeout_ms, Some(60_000));
+        assert!(request
+            .headers
+            .iter()
+            .any(|header| header.name.eq_ignore_ascii_case("content-type")
+                && header.value == "application/json"));
+        assert!(request
+            .headers
+            .iter()
+            .any(|header| header.name == "Authorization"));
+    }
+
+    #[test]
+    fn existing_head_range_and_get_constructors_carry_no_body_or_timeout() {
+        assert_eq!(HttpRequest::head("https://x").body, None);
+        assert_eq!(HttpRequest::head("https://x").timeout_ms, None);
+        assert_eq!(
+            HttpRequest::range("https://x", ByteRange::Suffix { length: 1 }).body,
+            None
+        );
+        assert_eq!(HttpRequest::get("https://x", Vec::new(), 0).body, None);
+    }
+
+    #[test]
+    fn fake_http_client_matches_post_requests_by_method_url_and_body() {
+        let request = HttpRequest::post_json(
+            "https://api.openai.com/v1",
+            Vec::new(),
+            b"{}".to_vec(),
+            64,
+            1_000,
+        );
+        let mismatched_body = HttpRequest::post_json(
+            "https://api.openai.com/v1",
+            Vec::new(),
+            b"{\"x\":1}".to_vec(),
+            64,
+            1_000,
+        );
+        let response = HttpResponse {
+            status_code: 200,
+            headers: Vec::new(),
+            body: Vec::new(),
+        };
+        let client = FakeHttpClient::new(vec![(request.clone(), Ok(response.clone()))]);
+
+        assert_eq!(client.send(mismatched_body), Err(HttpError::Transport));
+        assert_eq!(client.send(request), Ok(response));
+    }
+
+    #[test]
+    fn request_debug_shows_body_length_and_timeout_but_never_body_content() {
+        let request = HttpRequest::post_json(
+            "https://api.openai.com/v1",
+            vec![HttpHeader {
+                name: "Authorization".into(),
+                value: "Bearer super-secret-token".into(),
+            }],
+            b"super-secret-provider-payload".to_vec(),
+            64,
+            60_000,
+        );
+
+        let debug = format!("{request:?}");
+        assert!(!debug.contains("super-secret-provider-payload"));
+        assert!(!debug.contains("super-secret-token"));
+        assert!(debug.contains("body_length"));
+        assert!(debug.contains("60000"));
     }
 
     #[test]

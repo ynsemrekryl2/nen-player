@@ -15,6 +15,7 @@ use std::sync::Arc;
 pub enum FfiHttpMethod {
     Head,
     Get,
+    Post,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, uniffi::Enum)]
@@ -30,6 +31,8 @@ pub struct FfiHttpRequest {
     pub range: Option<FfiByteRange>,
     pub headers: Vec<FfiHttpHeader>,
     pub max_body_bytes: u64,
+    pub body: Option<Vec<u8>>,
+    pub timeout_ms: Option<u64>,
 }
 
 impl From<HttpRequest> for FfiHttpRequest {
@@ -47,6 +50,8 @@ impl From<HttpRequest> for FfiHttpRequest {
                 })
                 .collect(),
             max_body_bytes: value.max_body_bytes as u64,
+            body: value.body,
+            timeout_ms: value.timeout_ms,
         }
     }
 }
@@ -111,6 +116,7 @@ impl From<FfiHttpMethod> for nen_app::ports::http::HttpMethod {
         match value {
             FfiHttpMethod::Head => Self::Head,
             FfiHttpMethod::Get => Self::Get,
+            FfiHttpMethod::Post => Self::Post,
         }
     }
 }
@@ -120,6 +126,7 @@ impl From<nen_app::ports::http::HttpMethod> for FfiHttpMethod {
         match value {
             nen_app::ports::http::HttpMethod::Head => Self::Head,
             nen_app::ports::http::HttpMethod::Get => Self::Get,
+            nen_app::ports::http::HttpMethod::Post => Self::Post,
         }
     }
 }
@@ -225,6 +232,8 @@ impl fmt::Debug for FfiHttpRequest {
             .field("range", &self.range)
             .field("header_count", &self.headers.len())
             .field("max_body_bytes", &self.max_body_bytes)
+            .field("body_length", &self.body.as_ref().map(Vec::len))
+            .field("timeout_ms", &self.timeout_ms)
             .finish()
     }
 }
@@ -255,14 +264,16 @@ mod tests {
     #[test]
     fn ffi_http_debug_never_prints_url_query_host_or_filename() {
         let request = FfiHttpRequest {
-            method: FfiHttpMethod::Head,
+            method: FfiHttpMethod::Post,
             url: "https://private.example/opaque?token=secret".into(),
             range: None,
             headers: vec![FfiHttpHeader {
-                name: "Api-Key".into(),
-                value: "secret-key".into(),
+                name: "Authorization".into(),
+                value: "Bearer secret-key".into(),
             }],
             max_body_bytes: 0,
+            body: Some(b"super-secret-provider-payload".to_vec()),
+            timeout_ms: Some(60_000),
         };
         let response = FfiHttpResponse {
             status_code: 200,
@@ -277,6 +288,8 @@ mod tests {
         let response_debug = format!("{response:?}");
         assert!(!request_debug.contains("private.example"));
         assert!(!request_debug.contains("secret"));
+        assert!(!request_debug.contains("super-secret-provider-payload"));
+        assert!(request_debug.contains("body_length"));
         assert!(!response_debug.contains("private.mkv"));
         assert!(response_debug.contains("body_length"));
     }

@@ -3,8 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-11** (**`NEN-105` kapandı** — yarıda kesilen
-> çeviriler cache identity ile atomik resume alanından devam ediyor.)
+> Son güncelleme: **2026-09-11** (**`NEN-115` kapandı** — `HttpClient` portu
+> artık JSON gövdeli `POST` ve istek zaman aşımı taşıyor.)
 
 ## Nerede duruyoruz
 
@@ -12,9 +12,55 @@
 |---|---|
 | **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı; kırılım aynı gün üretildi — `docs/milestones/M6-real-providers.md`) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-105`** — Kalıcı, atomik çeviri checkpoint resume deposu. Ondan önce: `NEN-114` |
-| **Sıradaki READY** | `NEN-107`, `NEN-109`, `NEN-112`, `NEN-115`, `NEN-119`, `NEN-120`, `NEN-124` |
-| **Task sayısı** | 126 · done 105 · active 0 · blocked 0 · canceled 2 · backlog 19 |
+| **Son tamamlanan** | **`NEN-115`** — HttpClient portu JSON gövdeli POST taşıyor. Ondan önce: `NEN-105` |
+| **Sıradaki READY** | `NEN-107`, `NEN-109`, `NEN-112`, `NEN-116`, `NEN-119`, `NEN-120`, `NEN-124` |
+| **Task sayısı** | 126 · done 106 · active 0 · blocked 0 · canceled 2 · backlog 18 |
+
+**`NEN-115` kapandı — `nen-ports::http::HttpRequest` artık JSON gövdeli bir
+`POST` ve istek zaman aşımı taşıyabiliyor; `nen-ffi`'nin `FfiHttpRequest`'i ve
+macOS `URLSessionRemoteEvidenceClient` adapter'ı bunu uçtan uca geçiriyor.**
+`HttpMethod::Post` ve yeni `HttpRequest::post_json(url, headers, body,
+max_body_bytes, timeout_ms)` yapıcısı `Content-Type: application/json`'ı
+otomatik ekliyor; serialization (struct → JSON byte'ları) ADR-0019 Karar 2
+gereği çağıranın (gelecek `NEN-116`/`NEN-117` provider adapter'larının)
+sorumluluğunda kalıyor. Mevcut `head`/`range`/`get` yapıcıları davranış
+değiştirmeden yeni `body`/`timeout_ms` alanlarını `None` bırakıyor;
+`FakeHttpClient` zaten tam istek eşitliğiyle karşılaştırdığından POST
+isteklerini kod değişmeden eşliyor.
+
+**macOS adapter'ında caller-supplied timeout, hem `URLSession`'ın kendi
+`timeoutInterval`'ını hem yerel tamamlanma beklemesini kontrol ediyor.**
+Önceki sabit 30 saniyelik yerel bekleme yalnız `timeoutMs` verilmeyen
+(mevcut HEAD/GET/range) istekler için korundu; verilmişse (ADR-0019'un
+sağlayıcı çağrıları için istediği 60.000 ms gibi) gerçek ağ beklemesi artık
+o süreyle sınırlı — önceki sabit 30 sn bunu erken keserdi.
+
+**Elle yazılmış `Debug`, gövdeyi ve `Authorization` gibi header değerlerini
+hiçbir zaman yazdırmıyor** — yalnız `body_length` (`Option<usize>`) ve
+`timeout_ms` görünür. İki yeni K23 guard testi
+(`nen-ports/tests/guard_http_debug.rs`, `nen-ffi/tests/guard_ffi_http_debug.rs`)
+sentinel gövde + `Authorization` header'ının `HttpRequest`/`FfiHttpRequest`/
+`HttpError`/`FfiHttpError` `Debug`'ında yokluğunu, ve kasıtlı
+`#[derive(Debug)]` ikizinin aynı sentinelleri sızdırdığını kanıtlıyor (guard
+sağır değil).
+
+**Üç ayrı mutasyon elle uygulanıp geri alındı, her birinde tam olarak
+beklenen test(ler) kırmızıya döndü.** `post_json`'daki `Content-Type` ekleme
+satırı kaldırılınca yalnız kendi unit testi; `HttpRequest::Debug`'ı gövdeyi
+doğrudan basacak şekilde değiştirilince hem ilgili unit test hem
+`guard_http_debug.rs`'in K23 testi; Swift adapter'da `urlRequest.httpBody`
+ataması kaldırılınca yalnız yeni POST testi kırmızı oldu (`swift test`
+exit 1). Yeni zorunlu negatif Swift testi, 100 ms `timeoutMs` ile hiç yanıt
+vermeyen bir istek gerçek 0.1 sn'lik beklemenin ardından `FfiHttpError
+.Transport`'u payload'sız fırlattığını canlı ölçüyor.
+
+`cargo test --workspace` tamamı yeşil (0 failed); `NEN-036`/`NEN-072`'nin
+mevcut remote evidence testleri (14 test) değişmeden yeşil kaldı.
+`bash scripts/test-macos.sh` **267 passed / 33 suites** (`NEN-104` baseline
+264 + bu task'ın 3 testi). fmt, clippy (`-D warnings`), `cargo deny check`
+(yeni dış bağımlılık yok), `bash scripts/test.sh` **4/4** ve `bash
+scripts/build-apple.sh` (binding üretimi kırılmadı) hepsi yeşil. Kanıt:
+`tasks/done/NEN-115-*.md`.
 
 **`NEN-105` kapandı — yarıda kesilen bir çevirinin tamamen doğrulanmış blokları
 artık artifact deposundan ayrı `resume/` alanına cache identity ile atomik
