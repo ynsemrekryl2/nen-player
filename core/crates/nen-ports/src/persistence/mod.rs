@@ -34,6 +34,11 @@
 //! from the directory, not a second source of truth.
 
 pub mod contract;
+mod resume;
+
+pub use resume::{
+    ResumeBlock, ResumeCue, ResumeRecord, ResumeStore, ResumeStoreError, MAX_RESUME_BYTES,
+};
 
 use nen_domain::source::LanguageTag;
 use nen_domain::subtitle::SubtitleDocument;

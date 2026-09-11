@@ -179,7 +179,14 @@ fn a_running_job_keeps_the_start_fingerprint_and_the_ai_output_is_never_forced_o
     let concrete_store = store(store_dir.path());
     let artifact_store: Arc<dyn ArtifactStore> = concrete_store.clone();
     let index: Arc<dyn ArtifactIndex> = concrete_store.clone();
-    let handle = translation::start(job, provider.clone(), artifact_store, index, None);
+    let handle = translation::start(
+        job,
+        provider.clone(),
+        artifact_store,
+        index,
+        concrete_store,
+        None,
+    );
 
     // The provider call is now in flight — this is the moment a real
     // translation job would be running while the user keeps interacting.
@@ -248,7 +255,14 @@ fn cancelling_a_running_job_leaves_no_artifact_and_no_catalog_entry() {
     let concrete_store = store(store_dir.path());
     let artifact_store: Arc<dyn ArtifactStore> = concrete_store.clone();
     let index: Arc<dyn ArtifactIndex> = concrete_store.clone();
-    let handle = translation::start(job, provider.clone(), artifact_store, index.clone(), None);
+    let handle = translation::start(
+        job,
+        provider.clone(),
+        artifact_store,
+        index.clone(),
+        concrete_store,
+        None,
+    );
 
     gate.wait_until_arrived();
     handle.cancel();

@@ -18,8 +18,9 @@
 //! the job's cache identity against the [`ArtifactIndex`] — a hit returns
 //! the stored [`nen_ports::persistence::ArtifactRecord`] without ever
 //! calling the provider (§11) — and only on a miss drives
-//! [`nen_translate::checkpoint::translate_checkpointed`] and persists the
-//! result. Cancellation is [`nen_ports::translation::TranslationCall`]'s own
+//! [`nen_translate::checkpoint::translate_resumable`], atomically persists
+//! every validated block, and persists the final result. Cancellation is
+//! [`nen_ports::translation::TranslationCall`]'s own
 //! gate (ADR-0004 Karar 2); this module adds no second one.
 //!
 //! **What this module deliberately does not do:** it never adds its result
@@ -35,6 +36,7 @@ use nen_domain::subtitle::SubtitleDocument;
 use nen_ports::identity::MediaHash;
 use nen_ports::persistence::{
     ArtifactIndex, ArtifactRecord, ArtifactStore, ArtifactStoreError, CacheKey, ContentAddress,
+    ResumeStore, ResumeStoreError,
 };
 use nen_ports::translation::{
     TranslationCall, TranslationProgressSink, TranslationProvider, TranslationProviderError,
@@ -45,9 +47,7 @@ use nen_translate::artifact::{
     self, ArtifactError, ArtifactId, ArtifactMetadata, ArtifactTimestamp, GlossaryIdentity,
 };
 use nen_translate::blocks::{BlockLayout, BlockLayoutConfig, BlockLayoutError};
-use nen_translate::checkpoint::{
-    translate_checkpointed, BlockCheckpoints, TranslationPlan, TranslationRunError,
-};
+use nen_translate::checkpoint::{translate_resumable, ResumableTranslationError, TranslationPlan};
 use nen_translate::context::DocumentContext;
 use nen_translate::identity::{CacheIdentity, CacheIdentityInput};
 use nen_translate::repair::BlockTranslationError;
@@ -254,6 +254,8 @@ pub enum TranslationError {
     Assembly(ArtifactError),
     /// The artifact store or its index refused a read or a write.
     Store(ArtifactStoreError),
+    /// The separate incomplete-run store refused a read, write or cleanup.
+    Resume(ResumeStoreError),
     /// The worker thread panicked before it could produce a result.
     WorkerPanicked,
 }
@@ -266,6 +268,7 @@ impl fmt::Display for TranslationError {
             Self::Incomplete => f.write_str("translation run did not complete every block"),
             Self::Assembly(error) => error.fmt(f),
             Self::Store(error) => error.fmt(f),
+            Self::Resume(error) => error.fmt(f),
             Self::WorkerPanicked => f.write_str("translation worker panicked"),
         }
     }
@@ -382,6 +385,7 @@ pub fn start(
     provider: Arc<dyn TranslationProvider>,
     store: Arc<dyn ArtifactStore>,
     index: Arc<dyn ArtifactIndex>,
+    resume_store: Arc<dyn ResumeStore>,
     sink: Option<Arc<dyn TranslationProgressSink>>,
 ) -> TranslationJobHandle {
     let origin = job.origin().clone();
@@ -396,6 +400,7 @@ pub fn start(
             provider.as_ref(),
             store.as_ref(),
             index.as_ref(),
+            resume_store.as_ref(),
             &worker_call,
         )
     });
@@ -411,6 +416,7 @@ fn run_job(
     provider: &dyn TranslationProvider,
     store: &dyn ArtifactStore,
     index: &dyn ArtifactIndex,
+    resume_store: &dyn ResumeStore,
     call: &TranslationCall,
 ) -> Result<TranslationOutcome, TranslationError> {
     if call.is_cancelled() {
@@ -419,6 +425,9 @@ fn run_job(
 
     if let Some(entry) = index.find(job.cache_key).map_err(TranslationError::Store)? {
         let record = store.get(entry.address).map_err(TranslationError::Store)?;
+        resume_store
+            .delete(job.cache_key)
+            .map_err(TranslationError::Resume)?;
         return Ok(TranslationOutcome {
             record,
             address: entry.address,
@@ -426,33 +435,31 @@ fn run_job(
         });
     }
 
-    let mut checkpoints = BlockCheckpoints::for_layout(&job.layout);
-    translate_checkpointed(
+    let completed = translate_resumable(
         provider,
         &job.document,
         &job.layout,
         &job.plan,
         call,
-        &mut checkpoints,
+        job.cache_key,
+        resume_store,
     )
     .map_err(|error| match error {
-        TranslationRunError::Cancelled => TranslationError::Cancelled,
+        ResumableTranslationError::Cancelled => TranslationError::Cancelled,
         // A cancellation observed *inside* an in-flight provider call
         // (ADR-0004 Karar 3's cooperative checkpoint) surfaces from
-        // `translate_checkpointed` as an ordinary block failure, not its own
+        // `translate_resumable` as an ordinary block failure, not its own
         // `Cancelled` variant — `repair::translate_block_with_repair`
         // propagates whatever the provider returned. From this layer's own
         // vocabulary that is still a cancellation, not a translation
         // failure, so it is normalized here rather than reported as one.
-        TranslationRunError::Block(BlockTranslationError::Provider(
+        ResumableTranslationError::Block(BlockTranslationError::Provider(
             TranslationProviderError::Cancelled,
         )) => TranslationError::Cancelled,
-        TranslationRunError::Block(inner) => TranslationError::Failed(inner),
+        ResumableTranslationError::Block(inner) => TranslationError::Failed(inner),
+        ResumableTranslationError::Store(inner) => TranslationError::Resume(inner),
+        ResumableTranslationError::Incomplete => TranslationError::Incomplete,
     })?;
-
-    let completed = checkpoints
-        .into_completed()
-        .map_err(|_incomplete| TranslationError::Incomplete)?;
 
     let artifact = artifact::assemble(
         &job.document,
@@ -465,6 +472,9 @@ fn run_job(
 
     let record = artifact.to_record();
     let address = store.put(&record).map_err(TranslationError::Store)?;
+    resume_store
+        .delete(job.cache_key)
+        .map_err(TranslationError::Resume)?;
 
     Ok(TranslationOutcome {
         record,
@@ -513,6 +523,7 @@ pub struct TranslationEnvironment {
     provider: Arc<dyn TranslationProvider>,
     store: Arc<dyn ArtifactStore>,
     index: Arc<dyn ArtifactIndex>,
+    resume_store: Arc<dyn ResumeStore>,
 }
 
 impl TranslationEnvironment {
@@ -547,7 +558,8 @@ impl TranslationEnvironment {
         Ok(Self {
             provider,
             store: store.clone() as Arc<dyn ArtifactStore>,
-            index: store as Arc<dyn ArtifactIndex>,
+            index: store.clone() as Arc<dyn ArtifactIndex>,
+            resume_store: store as Arc<dyn ResumeStore>,
         })
     }
 
@@ -586,6 +598,7 @@ impl TranslationEnvironment {
             Arc::clone(&self.provider),
             Arc::clone(&self.store),
             Arc::clone(&self.index),
+            Arc::clone(&self.resume_store),
             sink,
         ))
     }

@@ -22,16 +22,18 @@ use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use nen_ports::persistence::{
-    ArtifactIndex, ArtifactIndexEntry, ArtifactRecord, ArtifactStore, ArtifactStoreError,
-    ContentAddress, MAX_ARTIFACT_BYTES,
+    ArtifactIndex, ArtifactIndexEntry, ArtifactRecord, ArtifactStore, ArtifactStoreError, CacheKey,
+    ContentAddress, ResumeRecord, ResumeStore, ResumeStoreError, MAX_ARTIFACT_BYTES,
+    MAX_RESUME_BYTES,
 };
 
-use crate::wire;
+use crate::{resume_wire, wire};
 
 /// Subdirectory of the injected root that holds artifact files. Keeping them
 /// under a named subdirectory leaves the root free for the separate area
 /// ADR-0017 Karar 5 reserves for resumable checkpoints (`NEN-105`, M6).
 const ARTIFACTS_DIR: &str = "artifacts";
+const RESUME_DIR: &str = "resume";
 
 /// Extension of an artifact file. Honest about the format, and it gives
 /// `NEN-098`'s scan something to filter on so a stray temporary file is never
@@ -41,13 +43,14 @@ const ARTIFACT_EXTENSION: &str = "json";
 /// Distinguishes concurrent temporary files within one process.
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
-/// A content-addressed artifact store backed by a directory.
+/// A content-addressed artifact store and separate resume store backed by a directory.
 ///
 /// `Debug` prints no path (K23 #3): a store's root is a private full path,
 /// and the file names under it are private hashes (K23 #8).
 pub struct FilesystemArtifactStore {
     root: PathBuf,
     artifacts_dir: PathBuf,
+    resume_dir: PathBuf,
 }
 
 impl std::fmt::Debug for FilesystemArtifactStore {
@@ -69,9 +72,16 @@ impl FilesystemArtifactStore {
         if !artifacts_dir.starts_with(&root) {
             return Err(ArtifactStoreError::OutsideRoot);
         }
+        let resume_dir = root.join(RESUME_DIR);
+        fs::create_dir_all(&resume_dir).map_err(|_| ArtifactStoreError::Io)?;
+        let resume_dir = fs::canonicalize(&resume_dir).map_err(|_| ArtifactStoreError::Io)?;
+        if !resume_dir.starts_with(&root) {
+            return Err(ArtifactStoreError::OutsideRoot);
+        }
         Ok(Self {
             root,
             artifacts_dir,
+            resume_dir,
         })
     }
 
@@ -180,6 +190,42 @@ impl FilesystemArtifactStore {
         }
         Ok(bytes)
     }
+
+    fn resume_path_for(&self, key: CacheKey) -> Result<PathBuf, ResumeStoreError> {
+        let path = self.resume_dir.join(format!("{}.json", key.to_hex()));
+        let parent = path.parent().ok_or(ResumeStoreError::OutsideRoot)?;
+        let canonical_parent =
+            fs::canonicalize(parent).map_err(|_| ResumeStoreError::OutsideRoot)?;
+        if !canonical_parent.starts_with(&self.root) {
+            return Err(ResumeStoreError::OutsideRoot);
+        }
+        Ok(path)
+    }
+
+    fn commit_resume_with(
+        &self,
+        path: &Path,
+        bytes: &[u8],
+        write: impl Fn(&mut File, &[u8]) -> std::io::Result<()>,
+    ) -> Result<(), ResumeStoreError> {
+        let counter = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let temp_path = self
+            .resume_dir
+            .join(format!(".tmp-{}-{counter}", std::process::id()));
+        let outcome = (|| -> std::io::Result<()> {
+            let mut file = File::create(&temp_path)?;
+            write(&mut file, bytes)?;
+            file.sync_all()?;
+            drop(file);
+            fs::rename(&temp_path, path)?;
+            File::open(&self.resume_dir)?.sync_all()
+        })();
+        if outcome.is_err() {
+            let _ = fs::remove_file(&temp_path);
+            return Err(ResumeStoreError::Io);
+        }
+        Ok(())
+    }
 }
 
 /// The production write step: the whole buffer, once.
@@ -271,6 +317,57 @@ impl ArtifactIndex for FilesystemArtifactStore {
     }
 }
 
+impl ResumeStore for FilesystemArtifactStore {
+    fn load(&self, key: CacheKey) -> Result<Option<ResumeRecord>, ResumeStoreError> {
+        let path = self.resume_path_for(key)?;
+        let metadata = match fs::symlink_metadata(&path) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(_) => return Err(ResumeStoreError::Io),
+        };
+        if !metadata.file_type().is_file() {
+            return Err(ResumeStoreError::Corrupt);
+        }
+        if metadata.len() > MAX_RESUME_BYTES as u64 {
+            return Err(ResumeStoreError::TooLarge);
+        }
+        let mut file = File::open(path).map_err(|_| ResumeStoreError::Io)?;
+        let mut bytes = Vec::with_capacity(metadata.len() as usize);
+        std::io::Read::by_ref(&mut file)
+            .take(MAX_RESUME_BYTES as u64 + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|_| ResumeStoreError::Io)?;
+        if bytes.len() > MAX_RESUME_BYTES {
+            return Err(ResumeStoreError::TooLarge);
+        }
+        let record = resume_wire::deserialize(&bytes)?;
+        if record.cache_key != key {
+            return Err(ResumeStoreError::Corrupt);
+        }
+        Ok(Some(record))
+    }
+
+    fn save(&self, record: &ResumeRecord) -> Result<(), ResumeStoreError> {
+        let path = self.resume_path_for(record.cache_key)?;
+        let bytes = resume_wire::serialize(record)?;
+        if bytes.len() > MAX_RESUME_BYTES {
+            return Err(ResumeStoreError::TooLarge);
+        }
+        self.commit_resume_with(&path, &bytes, write_all)
+    }
+
+    fn delete(&self, key: CacheKey) -> Result<(), ResumeStoreError> {
+        let path = self.resume_path_for(key)?;
+        match fs::remove_file(path) {
+            Ok(()) => File::open(&self.resume_dir)
+                .and_then(|directory| directory.sync_all())
+                .map_err(|_| ResumeStoreError::Io),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(_) => Err(ResumeStoreError::Io),
+        }
+    }
+}
+
 /// A deliberately defective twin of [`FilesystemArtifactStore::put`], used
 /// only to prove that the atomicity assertions below are not deaf: it writes
 /// straight to the target address the way a naive implementation would.
@@ -288,6 +385,17 @@ impl FilesystemArtifactStore {
         write(&mut file, &bytes).map_err(|_| ArtifactStoreError::Io)?;
         Ok(address)
     }
+
+    fn save_resume_non_atomic(
+        &self,
+        record: &ResumeRecord,
+        write: impl Fn(&mut File, &[u8]) -> std::io::Result<()>,
+    ) -> Result<(), ResumeStoreError> {
+        let bytes = resume_wire::serialize(record)?;
+        let path = self.resume_path_for(record.cache_key)?;
+        let mut file = File::create(path).map_err(|_| ResumeStoreError::Io)?;
+        write(&mut file, &bytes).map_err(|_| ResumeStoreError::Io)
+    }
 }
 
 #[cfg(test)]
@@ -296,7 +404,9 @@ mod tests {
     use nen_domain::source::LanguageTag;
     use nen_domain::subtitle::{Cue, CueId, SubtitleDocument, TimeSpan};
     use nen_ports::identity::MediaHash;
-    use nen_ports::persistence::{contract, CacheKey};
+    use nen_ports::persistence::{
+        contract, CacheKey, ResumeBlock, ResumeCue, ResumeRecord, ResumeStore,
+    };
     use nen_ports::translation::TranslationProviderIdentity;
     use std::sync::atomic::AtomicU32;
 
@@ -369,6 +479,20 @@ mod tests {
     fn address_of(record: &ArtifactRecord) -> ContentAddress {
         let bytes = wire::serialize(record).expect("a serializable record");
         ContentAddress::from_bytes(*blake3::hash(&bytes).as_bytes())
+    }
+
+    fn resume_record(marker: &str) -> ResumeRecord {
+        ResumeRecord {
+            cache_key: CacheKey::from_bytes(*blake3::hash(marker.as_bytes()).as_bytes()),
+            total_blocks: 3,
+            blocks: vec![ResumeBlock {
+                block_index: 0,
+                cues: vec![ResumeCue {
+                    cue_id: CueId::new(1),
+                    text: format!("translated {marker}"),
+                }],
+            }],
+        }
     }
 
     /// Every committed artifact in the store, by file name.
@@ -503,6 +627,53 @@ mod tests {
             Vec::<String>::new(),
             "an interrupted commit left a readable artifact behind"
         );
+    }
+
+    #[test]
+    fn a_resume_snapshot_round_trips_and_deletes() {
+        let (_dir, store) = store("resume-roundtrip");
+        let record = resume_record("resume-secret");
+
+        store.save(&record).expect("resume snapshot committed");
+        assert_eq!(store.load(record.cache_key), Ok(Some(record.clone())));
+
+        store.delete(record.cache_key).expect("resume deleted");
+        assert_eq!(store.load(record.cache_key), Ok(None));
+        store
+            .delete(record.cache_key)
+            .expect("delete is idempotent");
+    }
+
+    /// NEN-105 negative: a failed atomic resume write publishes neither a
+    /// resume record nor an artifact.
+    #[test]
+    fn an_interrupted_resume_commit_leaves_nothing_readable() {
+        let (dir, store) = store("resume-interrupted");
+        let record = resume_record("resume-secret");
+        let path = store
+            .resume_path_for(record.cache_key)
+            .expect("an in-root key");
+        let bytes = resume_wire::serialize(&record).expect("serializable resume");
+
+        assert_eq!(
+            store.commit_resume_with(&path, &bytes, interrupted_write),
+            Err(ResumeStoreError::Io)
+        );
+        assert_eq!(store.load(record.cache_key), Ok(None));
+        assert_eq!(artifact_files(dir.path()), Vec::<String>::new());
+    }
+
+    /// Deliberately defective twin proving the atomicity negative is audible.
+    #[test]
+    fn a_plain_resume_write_exposes_the_partial_file() {
+        let (_dir, store) = store("resume-non-atomic");
+        let record = resume_record("resume-secret");
+
+        assert_eq!(
+            store.save_resume_non_atomic(&record, interrupted_write),
+            Err(ResumeStoreError::Io)
+        );
+        assert_eq!(store.load(record.cache_key), Err(ResumeStoreError::Corrupt));
     }
 
     /// Negative — the control above is not deaf. Written the naive way, the

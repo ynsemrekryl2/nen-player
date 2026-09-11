@@ -30,6 +30,9 @@ use crate::repair::{self, BlockTranslationError};
 use crate::validation::ValidatedBlock;
 use nen_domain::source::LanguageTag;
 use nen_domain::subtitle::SubtitleDocument;
+use nen_ports::persistence::{
+    CacheKey, ResumeBlock, ResumeCue, ResumeRecord, ResumeStore, ResumeStoreError,
+};
 use nen_ports::translation::{
     TranslationCall, TranslationCue, TranslationProvider, TranslationProviderError,
     TranslationRequest,
@@ -61,6 +64,7 @@ impl fmt::Debug for TranslationPlan {
 /// validated [`ValidatedBlock`] can occupy a slot, and only
 /// [`TranslationCall::commit`] can fill one — see the module docs for why
 /// that closes the late-commit gap.
+#[derive(Clone)]
 pub struct BlockCheckpoints {
     slots: Vec<Option<ValidatedBlock>>,
 }
@@ -109,6 +113,103 @@ impl BlockCheckpoints {
         call.commit(|| {
             *slot = Some(block);
         })
+    }
+
+    fn record(&self, cache_key: CacheKey) -> Result<ResumeRecord, ResumeStoreError> {
+        let total_blocks =
+            u32::try_from(self.slots.len()).map_err(|_| ResumeStoreError::Corrupt)?;
+        let mut blocks = Vec::with_capacity(self.checkpointed_count());
+        for block in self.slots.iter().flatten() {
+            let block_index =
+                u32::try_from(block.block_index()).map_err(|_| ResumeStoreError::Corrupt)?;
+            blocks.push(ResumeBlock {
+                block_index,
+                cues: block
+                    .cues()
+                    .iter()
+                    .map(|cue| ResumeCue {
+                        cue_id: cue.cue_id(),
+                        text: cue.text().to_owned(),
+                    })
+                    .collect(),
+            });
+        }
+        Ok(ResumeRecord {
+            cache_key,
+            total_blocks,
+            blocks,
+        })
+    }
+
+    fn restore(
+        record: ResumeRecord,
+        cache_key: CacheKey,
+        document: &SubtitleDocument,
+        layout: &BlockLayout,
+    ) -> Result<Self, ResumeStoreError> {
+        let total_blocks =
+            u32::try_from(layout.blocks().len()).map_err(|_| ResumeStoreError::Corrupt)?;
+        if record.cache_key != cache_key
+            || record.total_blocks != total_blocks
+            || record.blocks.len() > layout.blocks().len()
+        {
+            return Err(ResumeStoreError::Corrupt);
+        }
+
+        let mut checkpoints = Self::for_layout(layout);
+        for (expected_index, stored) in record.blocks.into_iter().enumerate() {
+            let expected_u32 =
+                u32::try_from(expected_index).map_err(|_| ResumeStoreError::Corrupt)?;
+            if stored.block_index != expected_u32 {
+                return Err(ResumeStoreError::Corrupt);
+            }
+            let block = layout
+                .blocks()
+                .get(expected_index)
+                .ok_or(ResumeStoreError::Corrupt)?;
+            let response = nen_ports::translation::TranslationResponse {
+                cues: stored
+                    .cues
+                    .into_iter()
+                    .map(|cue| nen_ports::translation::TranslatedCue {
+                        cue_id: cue.cue_id,
+                        text: cue.text,
+                    })
+                    .collect(),
+            };
+            let validated = crate::validation::validate_block(document, block, &response)
+                .map_err(|_| ResumeStoreError::Corrupt)?;
+            let slot = checkpoints
+                .slots
+                .get_mut(expected_index)
+                .ok_or(ResumeStoreError::Corrupt)?;
+            *slot = Some(validated);
+        }
+        Ok(checkpoints)
+    }
+
+    fn commit_persistent(
+        &mut self,
+        call: &TranslationCall,
+        block: ValidatedBlock,
+        cache_key: CacheKey,
+        store: &dyn ResumeStore,
+    ) -> Result<(), ResumableTranslationError> {
+        call.commit(|| {
+            let mut candidate = self.clone();
+            let index = block.block_index();
+            let slot = candidate
+                .slots
+                .get_mut(index)
+                .ok_or(ResumeStoreError::Corrupt)?;
+            *slot = Some(block);
+            let record = candidate.record(cache_key)?;
+            store.save(&record)?;
+            *self = candidate;
+            Ok::<(), ResumeStoreError>(())
+        })
+        .map_err(|_| ResumableTranslationError::Cancelled)?
+        .map_err(ResumableTranslationError::Store)
     }
 
     /// Consume this checkpoint set. Succeeds only when every block in the
@@ -215,6 +316,66 @@ impl std::error::Error for TranslationRunError {
             Self::Block(error) => Some(error),
         }
     }
+}
+
+/// Why a disk-resumable translation could not produce complete blocks.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ResumableTranslationError {
+    Cancelled,
+    Block(BlockTranslationError),
+    Store(ResumeStoreError),
+    Incomplete,
+}
+
+impl fmt::Display for ResumableTranslationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Cancelled => f.write_str("translation run cancelled"),
+            Self::Block(error) => error.fmt(f),
+            Self::Store(error) => error.fmt(f),
+            Self::Incomplete => f.write_str("translation run did not complete every block"),
+        }
+    }
+}
+
+impl std::error::Error for ResumableTranslationError {}
+
+/// Load the validated prefix for `cache_key`, translate only missing blocks,
+/// and atomically persist the whole prefix after every newly validated block.
+pub fn translate_resumable(
+    provider: &dyn TranslationProvider,
+    document: &SubtitleDocument,
+    layout: &BlockLayout,
+    plan: &TranslationPlan,
+    call: &TranslationCall,
+    cache_key: CacheKey,
+    store: &dyn ResumeStore,
+) -> Result<CompletedBlocks, ResumableTranslationError> {
+    let mut checkpoints = match store
+        .load(cache_key)
+        .map_err(ResumableTranslationError::Store)?
+    {
+        Some(record) => BlockCheckpoints::restore(record, cache_key, document, layout)
+            .map_err(ResumableTranslationError::Store)?,
+        None => BlockCheckpoints::for_layout(layout),
+    };
+
+    for block in layout.blocks() {
+        if checkpoints.is_checkpointed(block.index()) {
+            continue;
+        }
+        call.checkpoint()
+            .map_err(|_| ResumableTranslationError::Cancelled)?;
+        let request = request_for_block(document, block, plan);
+        let validated =
+            repair::translate_block_with_repair(provider, document, block, &request, &call.fork())
+                .map_err(ResumableTranslationError::Block)?;
+        checkpoints.commit_persistent(call, validated, cache_key, store)?;
+    }
+
+    checkpoints
+        .into_completed()
+        .map_err(|_| ResumableTranslationError::Incomplete)
 }
 
 /// Translate every not-yet-checkpointed block of `layout` in order and
@@ -384,6 +545,55 @@ mod tests {
                 })
                 .collect();
             call.finish(TranslationResponse { cues })
+        }
+    }
+
+    fn one_block_resume(
+        document: &SubtitleDocument,
+        layout: &BlockLayout,
+        key: CacheKey,
+    ) -> ResumeRecord {
+        ResumeRecord {
+            cache_key: key,
+            total_blocks: u32::try_from(layout.blocks().len()).expect("small layout"),
+            blocks: vec![ResumeBlock {
+                block_index: 0,
+                cues: layout.blocks()[0]
+                    .output_cue_ids(document)
+                    .into_iter()
+                    .map(|cue_id| ResumeCue {
+                        cue_id,
+                        text: format!("translated {}", cue_id.get()),
+                    })
+                    .collect(),
+            }],
+        }
+    }
+
+    #[test]
+    fn resume_restore_rejects_wrong_identity_shape_order_and_cues() {
+        let document = document(70);
+        let layout = layout(&document);
+        let key = CacheKey::from_bytes([1; 32]);
+        let valid = one_block_resume(&document, &layout, key);
+        let restored = BlockCheckpoints::restore(valid.clone(), key, &document, &layout)
+            .expect("the validated prefix restores");
+        assert_eq!(restored.checkpointed_count(), 1);
+
+        let mut wrong_key = valid.clone();
+        wrong_key.cache_key = CacheKey::from_bytes([2; 32]);
+        let mut wrong_total = valid.clone();
+        wrong_total.total_blocks += 1;
+        let mut gap = valid.clone();
+        gap.blocks[0].block_index = 1;
+        let mut wrong_cue = valid;
+        wrong_cue.blocks[0].cues[0].cue_id = CueId::new(u32::MAX);
+
+        for corrupt in [wrong_key, wrong_total, gap, wrong_cue] {
+            assert!(matches!(
+                BlockCheckpoints::restore(corrupt, key, &document, &layout),
+                Err(ResumeStoreError::Corrupt)
+            ));
         }
     }
 

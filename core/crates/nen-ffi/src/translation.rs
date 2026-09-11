@@ -228,6 +228,7 @@ impl From<TranslationError> for FfiTranslationError {
             TranslationError::Incomplete => Self::Incomplete,
             TranslationError::Assembly(_) => Self::AssemblyRejected,
             TranslationError::Store(_) => Self::StoreFailed,
+            TranslationError::Resume(_) => Self::StoreFailed,
             TranslationError::WorkerPanicked => Self::WorkerPanicked,
         }
     }

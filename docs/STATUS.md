@@ -3,8 +3,8 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-11** (**`NEN-114` kapandı** — ADR-0019 kabul edildi;
-> OpenRouter/Luna varsayılanlı gerçek çeviri sağlayıcı sınırı belgelendi.)
+> Son güncelleme: **2026-09-11** (**`NEN-105` kapandı** — yarıda kesilen
+> çeviriler cache identity ile atomik resume alanından devam ediyor.)
 
 ## Nerede duruyoruz
 
@@ -12,9 +12,23 @@
 |---|---|
 | **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı; kırılım aynı gün üretildi — `docs/milestones/M6-real-providers.md`) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-114`** — OpenRouter/Luna varsayılanlı gerçek çeviri provider sınırı ve ADR-0019 kabul edildi. Ondan önce: `NEN-035` |
-| **Sıradaki READY** | `NEN-105`, `NEN-107`, `NEN-109`, `NEN-112`, `NEN-115`, `NEN-119`, `NEN-120`, `NEN-124` |
-| **Task sayısı** | 126 · done 104 · active 0 · blocked 0 · canceled 2 · backlog 20 |
+| **Son tamamlanan** | **`NEN-105`** — Kalıcı, atomik çeviri checkpoint resume deposu. Ondan önce: `NEN-114` |
+| **Sıradaki READY** | `NEN-107`, `NEN-109`, `NEN-112`, `NEN-115`, `NEN-119`, `NEN-120`, `NEN-124` |
+| **Task sayısı** | 126 · done 105 · active 0 · blocked 0 · canceled 2 · backlog 19 |
+
+**`NEN-105` kapandı — yarıda kesilen bir çevirinin tamamen doğrulanmış blokları
+artık artifact deposundan ayrı `resume/` alanına cache identity ile atomik
+yazılıyor ve yeni süreçte yeniden doğrulanarak yükleniyor.** 70 cue / 2 bloklu
+entegrasyon koşusunda ilk süreç blok 0'dan sonra kesildi; yeniden açılan
+filesystem adapter'ı provider'a yalnız kalan tek bloğu gönderdi. Diskten gelen
+kayıt cache key, blok şekli/sırası ve cue içeriği açısından yeniden doğrulanıyor;
+bozuk kayıt provider çağrısı yapmadan tipli hatayla duruyor. Artifact commit'i
+resume kaydını temizliyor, cache-hit yolu commit/silme arasındaki kesintiden
+kalan kaydı da topluyor. Kesintili atomik yazım hiçbir okunabilir resume veya
+artifact bırakmadı; düz-yazım mutasyonu aynı testi beklenen `Err(Corrupt)` ile
+kırmızıya çevirdi. K23 sentinel guard'ı yol/key/diyalog sızıntısı bulmadı.
+Workspace testleri, fmt, clippy, cargo-deny, Apple binding üretimi ve shell
+testlerinin 4/4'ü yeşil. Kanıt: `tasks/done/NEN-105-*.md`.
 
 **`NEN-035` kapandı —** `MediaEvidence::assess_identity` artık ADR-0009 kanıt
 katmanlarından redaction-safe skorlar ve deterministik sıralı adaylar üretiyor.

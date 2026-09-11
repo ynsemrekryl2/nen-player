@@ -131,9 +131,16 @@ fn a_translation_outcome_debug_output_leaks_neither_the_translated_dialogue_nor_
     let concrete_store = Arc::new(FilesystemArtifactStore::new(store_dir.path()).expect("a store"));
     let artifact_store: Arc<dyn ArtifactStore> = concrete_store.clone();
     let index: Arc<dyn ArtifactIndex> = concrete_store.clone();
-    let outcome = translation::start(job, provider.clone(), artifact_store, index, None)
-        .join()
-        .expect("the job completes");
+    let outcome = translation::start(
+        job,
+        provider.clone(),
+        artifact_store,
+        index,
+        concrete_store,
+        None,
+    )
+    .join()
+    .expect("the job completes");
 
     let debug = format!("{outcome:?}");
     assert!(

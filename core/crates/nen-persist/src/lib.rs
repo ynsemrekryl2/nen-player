@@ -28,6 +28,7 @@
     )
 )]
 
+mod resume_wire;
 pub mod store;
 mod wire;
 

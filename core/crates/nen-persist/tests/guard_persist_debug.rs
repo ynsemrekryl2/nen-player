@@ -15,7 +15,7 @@ use nen_persist::FilesystemArtifactStore;
 use nen_ports::identity::MediaHash;
 use nen_ports::persistence::{
     ArtifactRecord, ArtifactStore, ArtifactStoreError, CacheKey, ContentAddress,
-    ContentAddressError,
+    ContentAddressError, ResumeBlock, ResumeCue, ResumeRecord, ResumeStoreError,
 };
 use nen_ports::translation::TranslationProviderIdentity;
 use std::fs;
@@ -190,6 +190,34 @@ fn no_store_debug_output_prints_the_store_root() {
 }
 
 #[test]
+fn no_resume_debug_surface_leaks_dialogue_or_its_file_key() {
+    let record = ResumeRecord {
+        cache_key: CacheKey::from_bytes([0xef; 32]),
+        total_blocks: 2,
+        blocks: vec![ResumeBlock {
+            block_index: 0,
+            cues: vec![ResumeCue {
+                cue_id: CueId::new(1),
+                text: SENTINEL.to_owned(),
+            }],
+        }],
+    };
+    assert!(record.blocks[0].cues[0].text.contains(SENTINEL));
+
+    for debug in [
+        format!("{record:?}"),
+        format!("{:?}", record.blocks[0]),
+        format!("{:?}", record.blocks[0].cues[0]),
+    ] {
+        assert!(
+            !debug.contains(SENTINEL),
+            "resume dialogue leaked — {debug}"
+        );
+        assert!(!debug.contains("efef"), "resume key leaked — {debug}");
+    }
+}
+
+#[test]
 fn no_error_variant_carries_a_path_a_name_or_dialogue() {
     let dir = TempDir::new("errors");
     let store = FilesystemArtifactStore::new(dir.path()).expect("a store");
@@ -217,6 +245,19 @@ fn no_error_variant_carries_a_path_a_name_or_dialogue() {
         for rendered in [format!("{error:?}"), format!("{error}")] {
             assert!(!rendered.contains(SENTINEL), "{rendered}");
             assert!(!rendered.contains(&hex), "{rendered}");
+        }
+    }
+
+    for error in [
+        ResumeStoreError::Io,
+        ResumeStoreError::Corrupt,
+        ResumeStoreError::OutsideRoot,
+        ResumeStoreError::TooLarge,
+    ] {
+        for rendered in [format!("{error:?}"), format!("{error}")] {
+            assert!(!rendered.contains(SENTINEL), "{rendered}");
+            assert!(!rendered.contains(&hex), "{rendered}");
+            assert!(!rendered.contains(&root), "{rendered}");
         }
     }
 

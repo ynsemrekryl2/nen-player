@@ -22,14 +22,19 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use nen_app::subtitles::{AddOutcome, SubtitleLibrary};
 use nen_app::translation::{self, StartRefusal, TranslationMetadataSeed};
 use nen_domain::source::{LanguageTag, SubtitleSourceKind};
 use nen_persist::FilesystemArtifactStore;
-use nen_ports::persistence::{ArtifactIndex, ArtifactStore};
+use nen_ports::persistence::{ArtifactIndex, ArtifactStore, ResumeRecord, ResumeStore};
 use nen_ports::translation::TranslationProvider;
+use nen_ports::translation::{
+    TranslationCall, TranslationProviderError, TranslationProviderIdentity, TranslationRequest,
+    TranslationResponse,
+};
 use nen_providers::translation_mock::MockTranslationProvider;
 use nen_translate::artifact::{ArtifactId, ArtifactTimestamp, GlossaryIdentity};
 use nen_translate::blocks::BlockLayoutConfig;
@@ -124,6 +129,53 @@ fn store(directory: &Path) -> Arc<FilesystemArtifactStore> {
     Arc::new(FilesystemArtifactStore::new(directory).expect("a store"))
 }
 
+struct FailAfterOneProvider {
+    inner: MockTranslationProvider,
+    calls: AtomicUsize,
+}
+
+impl FailAfterOneProvider {
+    fn new() -> Self {
+        Self {
+            inner: MockTranslationProvider::new(),
+            calls: AtomicUsize::new(0),
+        }
+    }
+
+    fn calls(&self) -> usize {
+        self.calls.load(Ordering::Relaxed)
+    }
+}
+
+impl TranslationProvider for FailAfterOneProvider {
+    fn identity(&self) -> TranslationProviderIdentity {
+        self.inner.identity()
+    }
+
+    fn translate(
+        &self,
+        request: &TranslationRequest,
+        call: &TranslationCall,
+    ) -> Result<TranslationResponse, TranslationProviderError> {
+        let call_index = self.calls.fetch_add(1, Ordering::Relaxed);
+        if call_index == 1 {
+            return Err(TranslationProviderError::Permanent);
+        }
+        self.inner.translate(request, call)
+    }
+}
+
+fn files_in(directory: &Path) -> Vec<PathBuf> {
+    let mut files: Vec<PathBuf> = fs::read_dir(directory)
+        .expect("store subdirectory")
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.path())
+        .filter(|path| path.is_file())
+        .collect();
+    files.sort();
+    files
+}
+
 #[test]
 fn selecting_a_source_alone_never_calls_the_provider() {
     let media = TempDir::new("select-only");
@@ -179,7 +231,14 @@ fn a_new_translation_completes_and_becomes_an_ai_catalog_entry() {
     let concrete_store = store(store_dir.path());
     let artifact_store: Arc<dyn ArtifactStore> = concrete_store.clone();
     let index: Arc<dyn ArtifactIndex> = concrete_store.clone();
-    let handle = translation::start(job, provider.clone(), artifact_store, index, None);
+    let handle = translation::start(
+        job,
+        provider.clone(),
+        artifact_store,
+        index,
+        concrete_store,
+        None,
+    );
     let outcome = handle.join().expect("the job completes");
 
     assert!(!outcome.from_cache);
@@ -226,9 +285,16 @@ fn a_cache_hit_never_calls_the_provider_while_a_changed_block_layout_does() {
         .expect("a valid job");
         let artifact_store: Arc<dyn ArtifactStore> = store.clone();
         let index: Arc<dyn ArtifactIndex> = store.clone();
-        translation::start(job, provider.clone(), artifact_store, index, None)
-            .join()
-            .expect("the job completes")
+        translation::start(
+            job,
+            provider.clone(),
+            artifact_store,
+            index,
+            store.clone(),
+            None,
+        )
+        .join()
+        .expect("the job completes")
     };
 
     let first = run(
@@ -239,6 +305,15 @@ fn a_cache_hit_never_calls_the_provider_while_a_changed_block_layout_does() {
     );
     assert!(!first.from_cache);
     assert_eq!(provider.calls(), 1);
+
+    // Model a process death after artifact commit but before resume cleanup.
+    concrete_store
+        .save(&ResumeRecord {
+            cache_key: first.record.cache_identity,
+            total_blocks: 1,
+            blocks: Vec::new(),
+        })
+        .expect("stale resume fixture");
 
     // Same everything a second time: a real cache hit, not a re-translation.
     let second = run(
@@ -254,6 +329,11 @@ fn a_cache_hit_never_calls_the_provider_while_a_changed_block_layout_does() {
         1,
         "a cache hit must not call the provider again"
     );
+    assert_eq!(
+        concrete_store.load(first.record.cache_identity),
+        Ok(None),
+        "a cache hit left its stale resume record behind"
+    );
 
     // Not deaf: a genuinely different cache-identity component (the block
     // layout, ADR-0018 Karar 2) must still miss and call the provider.
@@ -266,4 +346,124 @@ fn a_cache_hit_never_calls_the_provider_while_a_changed_block_layout_does() {
         2,
         "a changed block layout must miss the cache and call the provider"
     );
+}
+
+#[test]
+fn a_new_process_resumes_from_disk_without_retranslating_the_validated_prefix() {
+    let media = TempDir::new("resume-media");
+    let store_dir = TempDir::new("resume-store");
+    let (library, token) = library_with_file(media.path(), "Movie.en.srt", &srt(70, "resume"));
+    let first_provider = Arc::new(FailAfterOneProvider::new());
+    let first_job = translation::prepare(
+        &library,
+        token,
+        tag("tr"),
+        BlockLayoutConfig::default(),
+        first_provider.identity(),
+        metadata_seed("resume-first"),
+    )
+    .expect("a valid multi-block job");
+    let first_store = store(store_dir.path());
+    let first = translation::start(
+        first_job,
+        first_provider.clone(),
+        first_store.clone(),
+        first_store.clone(),
+        first_store,
+        None,
+    )
+    .join();
+    assert!(matches!(
+        first,
+        Err(translation::TranslationError::Failed(_))
+    ));
+    assert_eq!(first_provider.calls(), 2);
+    assert_eq!(files_in(&store_dir.path().join("resume")).len(), 1);
+    assert!(files_in(&store_dir.path().join("artifacts")).is_empty());
+
+    // Reopen the filesystem adapter to model an application process restart.
+    let second_provider = Arc::new(MockTranslationProvider::new());
+    let second_job = translation::prepare(
+        &library,
+        token,
+        tag("tr"),
+        BlockLayoutConfig::default(),
+        second_provider.identity(),
+        metadata_seed("resume-second"),
+    )
+    .expect("the same run identity");
+    let second_store = store(store_dir.path());
+    let outcome = translation::start(
+        second_job,
+        second_provider.clone(),
+        second_store.clone(),
+        second_store.clone(),
+        second_store,
+        None,
+    )
+    .join()
+    .expect("the resumed run completes");
+
+    assert!(!outcome.from_cache);
+    assert_eq!(second_provider.calls(), 1, "the first block was sent again");
+    assert!(files_in(&store_dir.path().join("resume")).is_empty());
+    assert_eq!(files_in(&store_dir.path().join("artifacts")).len(), 1);
+}
+
+#[test]
+fn a_corrupt_resume_stops_before_any_provider_call() {
+    let media = TempDir::new("corrupt-resume-media");
+    let store_dir = TempDir::new("corrupt-resume-store");
+    let (library, token) = library_with_file(media.path(), "Movie.en.srt", &srt(70, "corrupt"));
+    let first_provider = Arc::new(FailAfterOneProvider::new());
+    let first_job = translation::prepare(
+        &library,
+        token,
+        tag("tr"),
+        BlockLayoutConfig::default(),
+        first_provider.identity(),
+        metadata_seed("corrupt-first"),
+    )
+    .expect("a valid job");
+    let first_store = store(store_dir.path());
+    let _ = translation::start(
+        first_job,
+        first_provider,
+        first_store.clone(),
+        first_store.clone(),
+        first_store,
+        None,
+    )
+    .join();
+    let resume_files = files_in(&store_dir.path().join("resume"));
+    assert_eq!(resume_files.len(), 1);
+    fs::write(&resume_files[0], b"not a resume record").expect("corrupt stored bytes");
+
+    let provider = Arc::new(MockTranslationProvider::new());
+    let job = translation::prepare(
+        &library,
+        token,
+        tag("tr"),
+        BlockLayoutConfig::default(),
+        provider.identity(),
+        metadata_seed("corrupt-second"),
+    )
+    .expect("same identity");
+    let reopened = store(store_dir.path());
+    let result = translation::start(
+        job,
+        provider.clone(),
+        reopened.clone(),
+        reopened.clone(),
+        reopened,
+        None,
+    )
+    .join();
+
+    assert!(matches!(
+        result,
+        Err(translation::TranslationError::Resume(_))
+    ));
+    assert_eq!(provider.calls(), 0);
+    assert_eq!(files_in(&store_dir.path().join("resume")).len(), 1);
 }
