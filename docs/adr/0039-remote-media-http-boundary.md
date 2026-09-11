@@ -81,3 +81,9 @@ ve security testleri birlikte güncellenmelidir.
 Medyadan dönen URL, query, host, Content-Disposition filename ve hash hiçbir
 log veya `Debug` çıktısında gösterilmez. `NEN-072`, ilk 64 KiB'dan container
 metadata çıkarmanın ayrı kabul kriterlerini taşıyacaktır.
+
+`NEN-114` ile provider HTTP portu medya sınırından ayrı olarak POST, redakte
+body, timeout ve response boyutu sözleşmesiyle genişletilmiştir. Provider
+approved-host listesi (`api.openai.com` · `openrouter.ai`), sıfır otomatik
+redirect ve retry politikası ADR-0019'a aittir; bu ADR'nin kullanıcı medya
+URL'leri için `http/https` ve bounded redirect kararını değiştirmez.

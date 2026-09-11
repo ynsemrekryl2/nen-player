@@ -3,8 +3,8 @@ id: NEN-114
 title: Decide the real translation provider boundary
 milestone: M6
 size: S
-state: backlog
-closed:
+state: done
+closed: 2026-09-11
 depends_on: [NEN-090]
 blocks: [NEN-115]
 adr: [19]
@@ -14,8 +14,9 @@ adr: [19]
 
 ## Sonuç
 
-ADR-0019 `accepted`: gerçek bir çeviri sağlayıcısının (OpenAI Responses API ·
-OpenRouter) `TranslationProvider` portunu nasıl doldurduğu — HTTP taşıması,
+ADR-0019 `accepted`: OpenRouter varsayılanlı gerçek çeviri sağlayıcılarının
+(OpenAI Responses API · OpenRouter) `TranslationProvider` portunu nasıl
+doldurduğu — HTTP taşıması,
 istek/cevap şeması, prompt/schema versiyonları, retry sınırı, capability
 preflight, model seçimi — ve M6'ya bırakılan **S3** (kalite çıtası) ile
 **S9** (çoklu artifact sunumu) sorularının cevabı karara bağlanmış.
@@ -28,8 +29,9 @@ ve mock ile kanıtlı; `nen-translate::versions` beş versiyon sabitini
 `HttpClient` portu yalnız `HEAD`/`GET` taşıyor — bir LLM çağrısı POST + JSON
 gövde ister. Roadmap S3 ("anlaşılır" mı "yayın kalitesi" mi) ve S9 (aynı
 medya için birden fazla AI çevirisinin sunumu) açıkça "gerçek sağlayıcıyla
-M6'da kapanır" diyor. Kullanıcı kararı (2026-09-11): kalite çıtası **ölçümle**
-bu ADR'de kararlaştırılır; varsayılan "anlaşılır".
+M6'da kapanır" diyor. Kullanıcı kararı (2026-09-11): varsayılan sağlayıcı
+OpenRouter, profil Ekonomik (`openai/gpt-5.6-luna`) ve upstream yalnız OpenAI;
+kalite çıtası **EN→TR yayın kalitesi** olarak `NEN-126`'da ölçülür.
 
 ## Kapsam
 
@@ -52,9 +54,8 @@ ADR-0019 en az şunları kararlaştırır:
 - Provider/model ayarı: kullanıcı seçer; varsayılan sağlayıcı ve model ADR'de
   yazılır; model kimliği `TranslationProviderIdentity`'ye (cache identity'ye)
   girer
-- **S3:** kalite çıtası "anlaşılır" varsayılan; ölçüm yöntemi (kabul
-  checklist'inde `NEN-126`'nın dilsel inceleme maddesi) ve "yayın kalitesi"
-  iddiasının ne zaman/nasıl yazılabileceği
+- **S3:** yalnız EN→TR için "yayın kalitesi" çıtası; `NEN-126`'nın 24 cue
+  dilsel incelemesi ve Luna başarısızlığındaki Terra yükseltme kapısı
 - **S9:** hedef dil grubunda birden fazla AI artifact'i olduğunda sunum —
   en yeni (mevcut `NEN-098` projeksiyonu) mı, provider/model etiketli seçim mi
 - Anahtarın adapter'a enjeksiyonu: `NEN-111` credential portundan, adapter
@@ -66,18 +67,31 @@ ADR-0019 en az şunları kararlaştırır:
 - Adapter'lar — `NEN-116`, `NEN-117`; ortam kurulumu — `NEN-118`
 - Glossary (§10 user glossary) — M6 kapsamı dışı, `GlossaryIdentity::none()`
   kalır; ADR bunu açıkça erteler
-- Belirli bir model adının "yayın kalitesi" verdiğini ölçmeden iddia etmek
+- EN→TR dışındaki bir dil çifti veya kabul ölçümünü geçmemiş bir model için
+  "yayın kalitesi" iddia etmek
 
 ## Kanıt (DoD)
 
-- [ ] `docs/adr/0019-*.md` yazıldı, kullanıcı onayıyla `accepted`
-- [ ] `docs/roadmap.md` S3 ve S9 satırları ve `docs/DECISIONS.md` §3 karara
+- [x] `docs/adr/0019-*.md` yazıldı, kullanıcı onayıyla `accepted`
+- [x] `docs/roadmap.md` S3 ve S9 satırları ve `docs/DECISIONS.md` §3 karara
       bağlandı (tarihli); `docs/adr/README.md`, ADR sayacı tutarlı
-- [ ] ADR-0039'a Notlar girdisi (POST genişlemesi)
-- [ ] `docs/architecture.md` → Provider portları tablosuna OpenAI/OpenRouter
+- [x] ADR-0039'a Notlar girdisi (POST genişlemesi)
+- [x] `docs/architecture.md` → Provider portları tablosuna OpenAI/OpenRouter
       adapter satırları (aday değil, karar)
-- [ ] `bash scripts/check-docs.sh` çıkış 0
+- [x] `bash scripts/check-docs.sh` çıkış 0
 
 ## Kanıt kaydı
 
-<!-- done olurken doldurulacak -->
+2026-09-11 doğrulaması:
+
+- [ADR-0019](../../docs/adr/0019-real-translation-provider-boundary.md)
+  kullanıcı onayı sonrası `accepted` yapıldı.
+- S3/S9 satırları [roadmap](../../docs/roadmap.md), [DECISIONS](../../docs/DECISIONS.md)
+  ve [M6 milestone](../../docs/milestones/M6-real-providers.md)'a; provider
+  tablosu [architecture](../../docs/architecture.md)'a; POST ayrımı
+  [ADR-0039 Notlar](../../docs/adr/0039-remote-media-http-boundary.md)'a
+  işlendi. [NEN-126](../backlog/NEN-126-m6-acceptance.md) credential ve 24-cue EN→TR
+  kabul şartlarıyla hizalandı.
+- `bash scripts/task-index.sh` ve `bash scripts/check-docs.sh` çıkış 0;
+  `git diff --check` temiz. Bu task doküman/ADR task'ıdır; kod değişmediği
+  için Cargo/Swift testleri kapanış kanıtı değildir.

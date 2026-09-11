@@ -13,6 +13,8 @@ OpenSubtitles, OpenAI ve OpenRouter'ın gerçek entegrasyonu ve kullanıcı API 
 - Kesin hash eşleşmesinden gelen doğrulanmış medya kimliğinin macOS üst
   şeridinde sunulması
 - OpenAI Responses API ve OpenRouter provider port implementasyonları
+- Varsayılan gerçek çeviri yolu OpenRouter `openai/gpt-5.6-luna`; upstream
+  yalnız OpenAI, doğrudan OpenAI adapter'ı ayrıca desteklenir
 - OpenRouter structured-output capability preflight
 - SecureCredentialStore: Keychain (bu milestone'da macOS)
 - İndirme güvenliği: approved HTTPS host, bounded redirect, boyut sınırı, archive reddi
@@ -27,8 +29,9 @@ OpenSubtitles, OpenAI ve OpenRouter'ın gerçek entegrasyonu ve kullanıcı API 
 
 - Scraping — **yasak**
 - Seçilmeden indirme — **yasak**
-- Testlerde gerçek kredi/kota kullanımı — **yasak** (kabul task'ının
-  kullanıcı onaylı **tek** gerçek koşusu test değil, checklist'tir)
+- Testlerde gerçek kredi/kota kullanımı — **yasak** (kabul task'ının kullanıcı
+  onaylı gerçek koşusu test değil, checklist'tir; credential önkoşulu
+  OpenSubtitles + seçili gerçek çeviri sağlayıcısıdır)
 - Diğer platformların secure storage'ı → M9–M11
 - User glossary (§10) — ADR-0019 erteler; `GlossaryIdentity::none()` kalır
 - Altyazı yükleme (upload), kalıcı indirilen-altyazı önbelleği
@@ -50,9 +53,9 @@ Kırılım üretilmeden önce dört soru kullanıcı kararıyla kapandı (2026-0
 
 | Soru | Karar | M6'ya etkisi |
 |---|---|---|
-| **S3** — dilsel kalite çıtası ve model seçimi | ADR-0019'da (`NEN-114`) karar; varsayılan "anlaşılır", "yayın kalitesi" iddiası ölçülmeden yazılmaz | `NEN-126` checklist'inde dilsel inceleme maddesi; model varsayılanı ADR'de |
-| **S9** — çoklu AI çevirisinin sunumu | ADR-0019'da karar (en yeni mi, etiketli seçim mi) | `NEN-118` projeksiyona yansıtır |
-| Gerçek sağlayıcıyla manuel kabul | Kabul task'ında kullanıcının kendi anahtarıyla **tek** gerçek koşu; testler yalnız redakte fixture | `NEN-126`'nın kapsamı; Kural 8 testler için değişmedi |
+| **S3** — dilsel kalite çıtası ve model seçimi | Yalnız EN→TR için yayın kalitesi: telif-temiz 24 cue; 24/24 zorunlu düzeltmesiz, anlam tersine dönmesi/atlama/ekleme/isim-terim tutarsızlığı 0. Varsayılan OpenRouter/Luna; başarısızlıkta ayrı task Terra yükseltmesi | `NEN-126` checklist'inde ölçümlü dilsel inceleme maddesi; [ADR-0019](../adr/0019-real-translation-provider-boundary.md) |
+| **S9** — çoklu AI çevirisinin sunumu | Doğrulanmış artifact'ler hedef dil grubunda `AI · sağlayıcı · model profili` etiketiyle ayrı; en yeni başlangıçta seçili | `NEN-118` projeksiyona yansıtır; [ADR-0019](../adr/0019-real-translation-provider-boundary.md) |
+| Gerçek sağlayıcıyla manuel kabul | Kullanıcının kendi anahtarıyla OpenRouter/Luna gerçek koşusu; credential yalnız OpenSubtitles + seçili çeviri sağlayıcısı; Luna geçmezse aynı korpusla ayrı Terra kabul koşusu | `NEN-126`'nın kapsamı; Kural 8 testler için değişmedi |
 | `NEN-034` · `NEN-035` · `NEN-038` · `NEN-109` | Dördü de M6'da kalır | 034/038'in ön koşul ADR'leri ayrı task (`NEN-124`, `NEN-125`) |
 
 ## Task'lar

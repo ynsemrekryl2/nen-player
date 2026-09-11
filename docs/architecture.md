@@ -15,7 +15,6 @@
 > |---|---|---|
 > | UniFFI | Swift/Kotlin binding | ADR-0003 |
 > | SwiftUI | macOS UI | ADR-0011 dönemi |
-> | Rust HTTP / rustls | gelecekteki paylaşılan HTTP adapter | ADR-0019 dönemi |
 > | C ABI | Windows/Linux binding | ADR-0003 |
 >
 > **Aday olmayanlar:** port sınırları, capability modeli, politika sahipliği ve
@@ -28,6 +27,11 @@
 > **Kabul edilmiş teknoloji:** Secure credential storage macOS'ta login
 > keychain + generic password kullanır, adapter Swift'te ve core'a reverse-FFI
 > ile bağlanır ([ADR-0020](adr/0020-secure-credential-storage.md)).
+
+> **Kabul edilmiş teknoloji:** Gerçek çeviri provider HTTP adapter'ı Rust
+> HTTP/rustls'tir ([ADR-0019](adr/0019-real-translation-provider-boundary.md)).
+> Varsayılan OpenRouter modeli `openai/gpt-5.6-luna`, upstream yalnız
+> OpenAI'dir; doğrudan OpenAI Responses adapter'ı da aynı portu doldurur.
 
 ## Katmanlar
 
@@ -52,8 +56,8 @@
 │  MediaFileAccess · EmbeddedTrackExtractor · AudioSampleSource│
 │  HttpClient · Persistence · Clock · LogSink                  │
 ├─────────────────────────────────────────────────────────────┤
-│  Varsayılan adapter adayları                                 │
-│  HTTP (aday: rustls) · persistence (dosya sistemi, ADR-0017) │
+│  Kabul edilmiş adapter'lar                                  │
+│  Provider HTTP (Rust/rustls, ADR-0019) · persistence (ADR-0017)│
 └───────────────────────────┬─────────────────────────────────┘
                             │  platform adapters
 ┌───────────────────────────▼─────────────────────────────────┐
@@ -96,8 +100,8 @@ Core'un sahibi olduğu politikalar:
 - **Persistence:** artifact semantiği · cache identity · atomik commit ·
   schema/version davranışı · retention kuralları · migration gereksinimleri
 
-`HttpClient` ve `Persistence` **portları korunur.** `HttpClient`'ın
-varsayılan güçlü adayı Rust HTTP/rustls adapter'dır (ADR-0019 dönemi).
+`HttpClient` ve `Persistence` **portları korunur.** Gerçek provider çağrılarının
+ilk adapter'ı Rust HTTP/rustls'tir ([ADR-0019](adr/0019-real-translation-provider-boundary.md)).
 `Persistence` artık aday değil: dosya sistemi tabanlı, içerik adresli artifact
 deposu ([ADR-0017](adr/0017-artifact-persistence-adapter.md), 2026-09-09).
 Platform zorunluluğu ortaya çıkarsa (ör. bir iOS/Android ağ veya depolama
@@ -105,8 +109,8 @@ kısıtı) aynı portlara platform-native adapter bağlanabilir — **politika
 değişmeden**.
 
 ADR-0039 ile ilk uzak medya evidence adapter'ı macOS'ta Foundation
-`URLSession` olarak kabul edilmiştir. Bu, Rust HTTP/rustls adayını silmez;
-yalnız ilk platform tesliminin adapter'ını sabitler.
+`URLSession` olarak kabul edilmiştir. Bu, provider HTTP adapter'ından ayrı bir
+media sınırıdır; yalnız ilk platform tesliminin adapter'ını sabitler.
 
 Bu esnekliğin bedeli, platform başına ayrışan güvenlik politikası riskidir. İki
 kural bunu kapatır:
@@ -135,7 +139,7 @@ motorudur. Core yalnız çıkan metni parse eder.
 | `MediaFileAccess` | Platform dosya seçici + sandbox/bookmark | İzin modeli platforma özgü |
 | `EmbeddedTrackExtractor` | Playback motoru; macOS'ta libavformat/libavcodec kullanan adapter | Container I/O ve cue çıkarımı motorda; core yalnız metni parse eder |
 | `AudioSampleSource` | Platform decoder | M8 audio auto-sync için |
-| `HttpClient` | Core adapter (aday: rustls); gerekirse native | Politika core'da, implementasyon adapter'da |
+| `HttpClient` | Rust HTTP/rustls provider adapter'ı (ADR-0019); gerekirse native | Politika core'da, implementasyon adapter'da |
 | `ArtifactStore` (`nen-ports::persistence`) | `nen-persist::FilesystemArtifactStore` (içerik adresli, ADR-0017) | Semantik core'da; depo kökü platformdan enjekte edilir, core kökün dışına çıkmaz |
 | `Clock` | Core adapter / test fake | Deterministik test |
 | `LogSink` | Platform log sistemi | Redaction core'da uygulanır, yazma platformda |
@@ -266,6 +270,8 @@ ilgili kaynağı hatalı işaretler.
 | Port | Sorumluluk | İlk adapter |
 |---|---|---|
 | `TranslationProvider` | Cue ID + metin tabanlı untrusted blok cevabı; caller-owned cancellation/progress gate; payload'sız transient/permanent hata sınıfı | `nen-providers::translation_mock::MockTranslationProvider` (deterministic, ağsız) |
+| `TranslationProvider` · OpenAI | Responses API `/v1/responses`; `store: false`; strict `text.format.json_schema`; ortak payload ve local validation | `nen-providers` OpenAI adapter'ı (`NEN-116`); credential `SecureCredentialStore`'dan gelir |
+| `TranslationProvider` · OpenRouter | Chat Completions `/api/v1/chat/completions`; strict `response_format.json_schema`; `OpenAI` upstream sabitlemesi; `structured_outputs` preflight | `nen-providers` OpenRouter adapter'ı (`NEN-117`); varsayılan `openai/gpt-5.6-luna` |
 
 Translation provider portu senkron ve object-safe'tir; worker/job yaşam
 döngüsü caller'a aittir ([ADR-0004](adr/0004-async-cancellation-progress.md)).

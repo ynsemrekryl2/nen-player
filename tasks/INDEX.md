@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **126** task · ✅ done 103 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 21
+Toplam **126** task · ✅ done 104 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 20
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -154,7 +154,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-111](done/NEN-111-secure-credential-store-port.md) | SecureCredentialStore port with contract kit and in-memory fake | M | ✅ done | NEN-110 |
 | [NEN-112](backlog/NEN-112-macos-keychain-credential-adapter.md) | macOS Keychain credential adapter | M | ⚪ backlog | NEN-111 |
 | [NEN-113](backlog/NEN-113-macos-api-key-settings.md) | macOS API key entry in settings | M | ⚪ backlog | NEN-112 |
-| [NEN-114](backlog/NEN-114-adr-real-translation-provider-boundary.md) | Decide the real translation provider boundary | S | ⚪ backlog | NEN-090 |
+| [NEN-114](done/NEN-114-adr-real-translation-provider-boundary.md) | Decide the real translation provider boundary | S | ✅ done | NEN-090 |
 | [NEN-115](backlog/NEN-115-http-post-json-body.md) | HttpClient port carries POST with a JSON body | M | ⚪ backlog | NEN-114 NEN-036 |
 | [NEN-116](backlog/NEN-116-openai-translation-provider.md) | OpenAI Responses API translation provider | M | ⚪ backlog | NEN-115 NEN-111 |
 | [NEN-117](backlog/NEN-117-openrouter-provider-and-preflight.md) | OpenRouter translation provider with structured-output preflight | M | ⚪ backlog | NEN-116 |
@@ -176,7 +176,7 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-107** — Document-wide translation progress across the FFI boundary
 - **NEN-109** — Remote embedded text extraction
 - **NEN-112** — macOS Keychain credential adapter
-- **NEN-114** — Decide the real translation provider boundary
+- **NEN-115** — HttpClient port carries POST with a JSON body
 - **NEN-119** — Decide the OpenSubtitles integration boundaries
 - **NEN-120** — Verified identity lookup runs from the app
 - **NEN-124** — Decide filename privacy for AI-assisted normalization
