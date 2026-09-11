@@ -6,7 +6,7 @@ size: M
 state: backlog
 closed:
 depends_on: [NEN-102]
-blocks: []
+blocks: [NEN-118]
 adr: []
 ---
 

@@ -4,9 +4,9 @@ title: Auto-download subtitles for the preferred language
 milestone: M6
 size: M
 state: backlog
-depends_on: [NEN-019, NEN-033, NEN-035, NEN-036]
+depends_on: [NEN-019, NEN-033, NEN-035, NEN-036, NEN-125, NEN-122]
 blocks: []
-adr: []
+adr: [47]
 ---
 
 # NEN-038 — Auto-download subtitles for the preferred language
@@ -17,6 +17,9 @@ Tercih edilen dilde yerel kaynak yoksa OpenSubtitles adayı otomatik indirilir �
 ancak kimlik çıkarımının doğruluğu **ölçülmüş** biçimde yeterliyse.
 
 ## Kapsam
+
+> **M6 kırılımı (2026-09-11):** "kendi ADR'si" ön koşulu `NEN-125`
+> (ADR-0047); indirme mekanizması `NEN-122`'de — ikisi de bağımlılık.
 
 - ADR-0010 Karar 9'un tür önceliğindeki **üçüncü basamağın** açılması:
   `embedded` → `user` → `opensubtitles`

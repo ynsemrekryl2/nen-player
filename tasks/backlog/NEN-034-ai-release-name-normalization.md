@@ -4,9 +4,9 @@ title: AI-assisted release name normalization
 milestone: M6
 size: M
 state: backlog
-depends_on: [NEN-018]
+depends_on: [NEN-018, NEN-124, NEN-116]
 blocks: []
-adr: []
+adr: [46]
 ---
 
 # NEN-034 — AI-assisted release name normalization
@@ -18,6 +18,10 @@ normalize ettirilerek başlık/yıl/sezon/bölüm çıkarılmaya çalışılır 
 soru sormadan önceki kanıt katmanlarından biri olarak.
 
 ## Kapsam
+
+> **M6 kırılımı (2026-09-11):** "Gizlilik ADR'si" ön koşulu `NEN-124`
+> (ADR-0046) olarak ayrı task; LLM çağrısı `NEN-116`'nın OpenAI adapter'ının
+> HTTP/credential yolunu paylaşır — ikisi de bağımlılık.
 
 - Yalnız deterministik katmanların **hepsi** tükendiğinde tetiklenir
 - Provider port üzerinden (ADR-0019), kendi typed sonucu ve `Unknown` yolu

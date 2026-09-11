@@ -4,8 +4,8 @@ title: Verified media identity in player chrome
 milestone: M6
 size: L
 state: backlog
-depends_on: [NEN-033, NEN-061]
-blocks: []
+depends_on: [NEN-120, NEN-061]
+blocks: [NEN-126]
 adr: [9, 31]
 ---
 
@@ -18,6 +18,11 @@ sezon/bölüm bilgisi playback'i bekletmeden üst medya şeridinde görünür;
 doğrulanmış kimlik yoksa mevcut basename kalır.
 
 ## Kapsam
+
+> **Bağımlılık düzeltmesi (M6 kırılımı, 2026-09-11):** `NEN-033` kimlik
+> sorgusunu Rust'ta bitirdi ama uygulamaya bağlamadı — `nen-ffi`'de çağıran,
+> macOS'ta anahtar yok. Kimlik kabuğa ancak `NEN-120` ile ulaşır; bu task
+> onu bekler.
 
 - Yalnız `NEN-033`'teki resmî OpenSubtitles API'sinin kesin hash `Match`
   sonucu zengin kimlik sayılır. `NoMatch`, `Ambiguous` ve hata sonucu kimlik

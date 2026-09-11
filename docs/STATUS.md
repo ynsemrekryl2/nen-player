@@ -3,20 +3,37 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-11** (**`NEN-104` kapandı — M5 tamamlandı** — M5'in
-> altı çıkış kriteri gerçek `.app` üzerinde, hem sidecar hem gömülü track
-> kaynağıyla, mock provider ile uçtan uca kanıtlandı; sıra **M6 — Real
-> Providers**'da.)
+> Son güncelleme: **2026-09-11** (**M6 task kırılımı üretildi** — 17 yeni
+> task `NEN-110`…`NEN-126`, üç kol, altı ADR; aynı gün `NEN-104` ile M5
+> kapanmıştı. Sıradaki adım M6'nın ilk task'ı — `NEN-110` önerisi aşağıda.)
 
 ## Nerede duruyoruz
 
 | | |
 |---|---|
-| **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı; task kırılımı henüz üretilmedi) |
+| **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı; kırılım aynı gün üretildi — `docs/milestones/M6-real-providers.md`) |
 | **Aktif task** | — |
 | **Son tamamlanan** | **`NEN-104`** — M5 translation core kabul kanıtı. Ondan önce: `NEN-044` |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-064`, `NEN-105`, `NEN-107`, `NEN-109` |
-| **Task sayısı** | 109 · done 100 · active 0 · blocked 0 · canceled 2 · backlog 7 |
+| **Sıradaki READY** | `NEN-035`, `NEN-105`, `NEN-107`, `NEN-109`, `NEN-110`, `NEN-114`, `NEN-119`, `NEN-124` |
+| **Task sayısı** | 126 · done 100 · active 0 · blocked 0 · canceled 2 · backlog 24 |
+
+**M6 kırılımı üretildi (2026-09-11, `/plan-milestone M6`, kullanıcı
+onayıyla).** 17 yeni backlog task'ı (`NEN-110`…`NEN-126`), üç kol: **kimlik
+bilgisi** (110 ADR-0020 → 111 port → 112 Keychain → 113 ayarlar),
+**çeviri sağlayıcıları** (114 ADR-0019 → 115 HTTP POST → 116 OpenAI → 117
+OpenRouter → 118 gerçek ortam) ve **OpenSubtitles** (119 ADR-0021 → 120
+kimlik uygulamada → 121 aday katalog → 122 güvenli indirme → 123 macOS
+menü); iki ön koşul ADR task'ı (124 ADR-0046 → `NEN-034`, 125 ADR-0047 →
+`NEN-038`) ve kabul (`NEN-126`). Kırılımı şekillendiren iki ölçülmüş gerçek:
+`NEN-033`'ün kimlik sorgusu Rust'ta bitmiş ama **uygulamaya bağlı değil**
+(`nen-ffi`'de çağıran, macOS'ta anahtar yok — `NEN-064` bu yüzden artık
+`NEN-120`'yi bekliyor), ve `HttpClient` portunda **POST/gövde yok**
+(`NEN-115`). Kullanıcı kararları: S3 kalite çıtası ADR-0019'da ölçümle ·
+kabulde kullanıcının kendi anahtarıyla **tek** gerçek koşu (testler yine
+fixture, Kural 8) · `NEN-034`/`035`/`038`/`109` M6'da kalıyor. Kod
+değişmedi; `bash scripts/task-index.sh` ve `bash scripts/check-docs.sh`
+çıkış 0. Önerilen ilk task: **`NEN-110`** (ADR-0020) — üç kol da credential
+kapısına bağlanıyor.
 
 **`NEN-104` kapandı — M5'in altı çıkış kriteri gerçek `.app` üzerinde, hem
 sidecar hem gömülü track kaynağıyla, mock provider ile (Kural 8) uçtan uca
@@ -2914,6 +2931,12 @@ kurmaz** — bu, `scripts/tests/doctor.test.sh` S7 ile mekanik olarak kanıtlan�
 Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
+
+2026-09-11'de M6 task kırılımı üretildi (doküman işi, kod değişmedi):
+17 yeni task dosyası, `docs/milestones/M6-real-providers.md` kırılımı,
+`NEN-034`/`NEN-038`/`NEN-064` bağımlılık düzeltmeleri, ADR README'ye 0046/0047
+satırları, roadmap S3/S9 notları. `bash scripts/task-index.sh` ve `bash
+scripts/check-docs.sh` çıkış 0 (döngü yok, 126 task).
 
 2026-09-11'de `NEN-044` kapandı — gömülü bir metin altyazı track'inin tam
 metni artık `libavformat`/`libavcodec` üzerinden (ADR-0045) çıkarılabiliyor;

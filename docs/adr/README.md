@@ -56,13 +56,15 @@ karar verilmiş sayılmaz (bkz. `docs/architecture.md` → "Karar statüsü").
 | 0003 | FFI binding stratejisi (aday: UniFFI + C ABI); büyük veri geçiş modeli | M1 |
 | 0005 | Typed error taksonomisi ve redaction kuralları | M1 |
 | 0014 | Stremio handoff kontratı — Android Intent tarafı ve log yasakları (macOS yarısı ADR-0043 ile kapandı) | M10 |
-| 0019 | Provider port soyutlaması ve capability preflight | M6 |
-| 0020 | Secure credential storage haritası | M6 |
-| 0021 | OpenSubtitles entegrasyon sınırları: opaque public ID, indirme güvenliği | M6 |
+| 0019 | Gerçek çeviri sağlayıcı sınırı: HTTP POST genişlemesi, structured output, retry, capability preflight, model seçimi; S3 · S9 (`NEN-114`) | M6 |
+| 0020 | Secure credential storage haritası — port, macOS Keychain adapter'ı, secret yaşam döngüsü (`NEN-110`) | M6 |
+| 0021 | OpenSubtitles entegrasyon sınırları: opaque public ID, arama stratejisi, seçimde indirme, indirme güvenliği (`NEN-119`) | M6 |
 | 0022 | SyncProfile modeli ve anahtarlama; artifact ile paylaşım | M7 |
 | 0023 | Audio auto-sync pipeline ve confidence eşikleri | M8 |
 | 0024 | Audio privacy modeli: localOnly varsayılanı, remote izin akışı | M8 |
 | 0025 | Android motor kararı: Media3 vs. alternatif | M10 |
+| 0046 | Dosya adının AI destekli normalizasyona gönderilmesi — gizlilik ve izin modeli (`NEN-124`, `NEN-034`'ün ön koşulu) | M6 |
+| 0047 | Tercih dilinde otomatik altyazı indirme sözleşmesi — ADR-0010 Karar 9'un üçüncü basamağı (`NEN-125`, `NEN-038`'in ön koşulu) | M6 |
 
 ## Kritik üçü
 

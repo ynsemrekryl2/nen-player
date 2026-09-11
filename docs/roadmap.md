@@ -3,7 +3,7 @@
 Üst görünüm. Task ayrıntısı için `tasks/INDEX.md`, milestone ayrıntısı için
 `docs/milestones/`.
 
-**Şu anki konum: M5 kapandı (2026-09-11), M6 sırada.** M5'in 20 task'ı ve beş
+**Şu anki konum: M5 kapandı (2026-09-11), M6 kırılımı üretildi (aynı gün, 17 yeni task `NEN-110`…`NEN-126` — [`milestones/M6-real-providers.md`](milestones/M6-real-providers.md)).** M5'in 20 task'ı ve beş
 ADR'si (0015 · 0016 · 0017 · 0018 · 0045, hepsi `accepted`) tamamlandı; altı
 çıkış kriteri gerçek `.app` üzerinde uçtan uca kanıtlandı — retro
 [`milestones/M5-translation-core.md`](milestones/M5-translation-core.md)'de.
@@ -87,13 +87,13 @@ Yanıtlanan satır **silinmez** — durumu güncellenir ve kararı
 |---|---|---|---|
 | **S1** | Dağıtım modeli ne? | ✅ kısmen cevaplandı (2026-08-24) | Şimdilik **kişisel kullanım + side-loading**. Public dağıtım kararı ertelendi → **S11** |
 | **S2** | AI çeviri maliyetini kim karşılıyor? | ✅ cevaplandı (2026-08-24) | Kullanıcı **kendi** OpenSubtitles/OpenAI/OpenRouter anahtarını girer. **Hosted backend yok** |
-| **S3** | Çeviri kalite hedefi: "anlaşılır" mı, "yayın kalitesi" mi? | 🟡 kısmen cevaplandı (2026-09-08) | **M5'in ölçütü yapısal doğruluk**: cue sayısı birebir, izinli ve tekil ID, boş olmayan metin, korunan sıra/zamanlar. Blok boyutu (40 · 30–60) ve repair bütçesi (2+1) şartnamede zaten sabit. Dilsel kalite çıtası ve model seçimi gerçek sağlayıcıyla **M6**'da kapanır — M5 yalnız mock provider ile bitiyor |
+| **S3** | Çeviri kalite hedefi: "anlaşılır" mı, "yayın kalitesi" mi? | 🟡 kısmen cevaplandı (2026-09-08) | **M5'in ölçütü yapısal doğruluk**: cue sayısı birebir, izinli ve tekil ID, boş olmayan metin, korunan sıra/zamanlar. Blok boyutu (40 · 30–60) ve repair bütçesi (2+1) şartnamede zaten sabit. Dilsel kalite çıtası ve model seçimi gerçek sağlayıcıyla **M6**'da kapanır — M5 yalnız mock provider ile bitiyor. **M6 kırılımı (2026-09-11):** karar ADR-0019'da (`NEN-114`); varsayılan "anlaşılır", "yayın kalitesi" iddiası `NEN-126`'nın gerçek koşusunda ölçülmeden yazılmaz |
 | **S4** | Offline/uçak modu birinci sınıf senaryo mu? | ✅ cevaplandı (2026-09-08) | **Evet, ama ayrı bir mod yok.** Kaydedilmiş artifact ağ olmadan açılıp oynatılır (`NEN-098` DoD'unda negatif testle); çeviri komutu ağ yokken tipli hata verir ve yarım iş bırakmaz. Açık bir "offline modu" anahtarı eklenmez |
 | **S5** | Uzak medya ne kadar destekleniyor? | ✅ cevaplandı (2026-08-24) | Genel **file/http/https** açma desteklenir. Stremio önemli bir giriş kaynağı, **tek remote kaynak değil** |
 | **S6** | Auto-sync'te ASR yerel mi? | ⚠️ kısmen cevaplandı (2026-08-24) | Privacy net: varsayılan **localOnly**, remote audio analizi **açık izin** ister. **Model seçimi ve cihaz kaynak bütçesi açık** — M8 |
 | **S7** | Android TV minimum API seviyesi ve hedef cihaz sınıfı? | ❓ açık | Media3 sürümü, bellek bütçesi, cue pencereleme eşikleri — M10 |
 | **S8** | Kullanıcı tercihleri cihazlar arası taşınacak mı? | ✅ cevaplandı (2026-08-24) | **Cloud sync ilk ürün için non-goal** |
-| **S9** | Aynı medya için birden fazla AI çeviri saklanabilir mi? | 🟡 kısmen cevaplandı (2026-09-08) | **Diskte evet, menüde en yeni.** Cache identity provider/model/glossary'yi zaten ayırdığı için artifact'ler yan yana durur; M5'te hedef dil grubunda yalnız en yeni gösterilir (ADR-0018 · `NEN-098`). Kullanıcıya seçtirme yüzeyi gerçek sağlayıcılarla **M6**'da kararlaşır |
+| **S9** | Aynı medya için birden fazla AI çeviri saklanabilir mi? | 🟡 kısmen cevaplandı (2026-09-08) | **Diskte evet, menüde en yeni.** Cache identity provider/model/glossary'yi zaten ayırdığı için artifact'ler yan yana durur; M5'te hedef dil grubunda yalnız en yeni gösterilir (ADR-0018 · `NEN-098`). Kullanıcıya seçtirme yüzeyi gerçek sağlayıcılarla **M6**'da kararlaşır. **M6 kırılımı (2026-09-11):** karar ADR-0019'da (`NEN-114`), projeksiyona `NEN-118` yansıtır |
 | **S10** | Telemetri / crash raporlama olacak mı? | ✅ cevaplandı (2026-08-24) | **İlk ürün için yok** |
 | **S11** | İleride public dağıtım — hangi kanal, ne zaman? | 🟡 daraldı (2026-09-07) | ADR-0012 lisansı **GPL-3.0-or-later** yaptı: **App Store kapalı** (GPL ile uyumsuz), açık kaynak side-loading / GitHub release açık. `NEN-043` libmpv gömme + `@rpath` kolunu kapattı (ad-hoc imzalı `.app` Homebrew olmadan çalışıyor — negatif kontrol kanıtlı). Kalan ön koşul: **Developer ID imzası, hardened runtime, notarization, `spctl`** — Apple Developer Program üyeliği gerektiriyor, bu makinede yok (`security find-identity` → 0 kimlik). Numaralandırılmış bir task S11 zamanlandığında açılacak |
 | **S12** | Gerçek lisans seçimi: open-source / source-available / private? | ✅ cevaplandı (2026-08-26) | **Açık kaynak, GPL-3.0-or-later.** Kökte `LICENSE`; gerekçe [ADR-0012](adr/0012-macos-playback-engine.md), anlatımı [`licensing.md`](licensing.md) |
