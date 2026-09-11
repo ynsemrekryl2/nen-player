@@ -44,6 +44,16 @@ pub enum AddOutcome {
     Rejected(FileRejection),
 }
 
+/// Why [`SubtitleLibrary::attach_embedded_document`] refused a document
+/// (`NEN-044`).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum AttachEmbeddedDocumentError {
+    /// The token does not name an embedded row — either it is a user file or
+    /// an AI translation (both already own their document through a
+    /// different call), or the token itself is stale.
+    NotAnEmbeddedRow,
+}
+
 /// One menu row, as the shell needs it (NEN-026).
 ///
 /// [`nen_catalog::project`] answers *where* a source sits; this type adds the
@@ -269,9 +279,11 @@ impl SubtitleLibrary {
 
     /// The parsed document a token refers to, when the row has one.
     ///
-    /// `None` for an embedded row: that one is the engine's own track and has
-    /// no document on this side. The two together are what let a caller decide
-    /// how a row is shown without knowing what kind it is.
+    /// `None` for an embedded row that has not been extracted yet: that one is
+    /// the engine's own track and starts with no document on this side, until
+    /// [`Self::attach_embedded_document`] (`NEN-044`) gives it one. The two
+    /// together are what let a caller decide how a row is shown without
+    /// knowing what kind it is.
     pub fn document_of(&self, token: u32) -> Option<&SubtitleDocument> {
         self.document(self.id_of(token)?)
     }
@@ -282,6 +294,31 @@ impl SubtitleLibrary {
     /// row that simply is not a track, and showing it is NEN-027's job.
     pub fn embedded_track_of(&self, token: u32) -> Option<TrackId> {
         crate::embedded::track_of(self.id_of(token)?)
+    }
+
+    /// Records the text a lazy embedded-track extraction produced (`NEN-044`),
+    /// so a later [`Self::document_of`] call finds it without asking the
+    /// engine a second time.
+    ///
+    /// Narrow on purpose: refuses a token that is not an embedded row (a user
+    /// file already has its document from [`Self::add_file`], and asking this
+    /// call to overwrite it would let two different sources of truth disagree
+    /// about the same row), and is a silent no-op when the row already has a
+    /// document — a second extraction request for the same token is the
+    /// ordinary case (the user reopens the "Altyazı" menu, or the translation
+    /// gate is asked twice), not a reason to decode the container again.
+    pub fn attach_embedded_document(
+        &mut self,
+        token: u32,
+        document: SubtitleDocument,
+    ) -> Result<(), AttachEmbeddedDocumentError> {
+        if self.embedded_track_of(token).is_none() {
+            return Err(AttachEmbeddedDocumentError::NotAnEmbeddedRow);
+        }
+        // `embedded_track_of` having answered `Some` proves `id_of` resolves.
+        let id = self.id_of(token).expect("embedded row has an id").clone();
+        self.documents.entry(id).or_insert(document);
+        Ok(())
     }
 
     /// Catalogues a finished translation as a `SubtitleSourceKind::Ai` entry

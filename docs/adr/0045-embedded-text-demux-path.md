@@ -116,3 +116,29 @@ değiştirilebilir; ancak Swift binding ve fixture testleri yeniden yazılır.
 `NEN-103` (karar) · `NEN-044` (implementasyon)
 
 ## Notlar
+
+**Uygulama üç noktada karar tamamladı (2026-09-11, `NEN-044`).** ADR'nin
+kendisi bunları kapsam dışı bırakmıştı; kullanıcı onayıyla kapatıldı:
+
+1. **Taşıma biçimi:** adapter, kaynak codec ne olursa olsun (subrip · ass ·
+   mov_text · ...), çıkardığı metni **kanonik SRT** olarak core'a verir. Core
+   tarafında zaten tek bir parser var (`nen_subtitle::srt::parse`, NEN-013);
+   ikinci bir format ikinci bir parser ister.
+2. **Kilit dışı çalışma:** `PlaybackSession::prepare_embedded_document`
+   çıkarımı `ShellEngineBridge`'in kilidi **dışında** çağırır — gerçek bir
+   demux saniyeler sürebilir, kilit altında `position_ms`/pump'ı o süre
+   boyunca dondururdu. Motorun kendi el yordamı (`MPVPlaybackEngine`'in
+   `lock`'ı) hiç tutulmaz: `libavformat`, mpv'nin handle'ından tamamen
+   bağımsız, aynı dosyayı **ikinci kez** açar.
+3. **Yalnız yerel dosya:** `extractText`, locator'ı `/` ile başlamıyorsa
+   (uzak medya — M4 Stremio HTTP akışı) `Unsupported` ile döner; tüm uzak
+   akışı indirip demux etmenin iptal mekanizması ve indirme sınırı yok.
+   `NEN-109` (backlog, M6) uzak durumu ayrı bir tasarımla ele alacak.
+
+Bitmap reddi için yeni, payload'suz bir port varyantı eklendi —
+`PlaybackError::TrackCarriesNoText` — çünkü mevcut `UnknownTrack` "bu id
+yok" demek, "bu id'de metin yok" demek değil; ADR'nin Karar 3'ü ikisini
+ayırmayı zaten gerektiriyordu.
+
+Bu ADR yalnız **bağlayıcı** kararları taşır. Gövde ADR-0001 gereği olduğu gibi
+bırakıldı.

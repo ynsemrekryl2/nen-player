@@ -18,8 +18,8 @@ use crate::playback::{
     FfiVideoGeometry, ForeignPlaybackEngine,
 };
 use crate::subtitles::FfiSubtitleLibrary;
-use nen_app::ports::playback::{PlaybackEvent, TrackId};
-use nen_app::session::{PlaybackSession, ShowOutcome};
+use nen_app::ports::playback::{PlaybackError, PlaybackEvent, TrackId};
+use nen_app::session::{EmbeddedDocumentError, PlaybackSession, PrepareOutcome, ShowOutcome};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -100,6 +100,104 @@ impl From<ShowOutcome> for FfiShowOutcome {
         match outcome {
             ShowOutcome::Shown => Self::Shown,
             ShowOutcome::Unusable => Self::Unusable,
+        }
+    }
+}
+
+/// What preparing an embedded row's document did (`NEN-044`).
+///
+/// Not an error channel, the same reasoning as [`FfiShowOutcome`]: a row that
+/// is not usable, or is not an embedded row with something to extract, is an
+/// **outcome** with a defined behaviour — the shell learns nothing changed —
+/// while the engine refusing an extraction it should have been able to do is
+/// a genuine failure.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum FfiPrepareOutcome {
+    /// The row has a document now — it already had one, or extraction just
+    /// produced it.
+    Ready,
+    /// No such row, or the row is not one extraction applies to.
+    Unusable,
+}
+
+impl From<PrepareOutcome> for FfiPrepareOutcome {
+    fn from(outcome: PrepareOutcome) -> Self {
+        match outcome {
+            PrepareOutcome::Ready => Self::Ready,
+            PrepareOutcome::Unusable => Self::Unusable,
+        }
+    }
+}
+
+/// Why preparing an embedded row's document failed.
+///
+/// Flat and payload-free, the same convention
+/// [`FfiTranslationStartError`](crate::translation::FfiTranslationStartError)
+/// documents: the shell has no use for a nested error's own fields, and a
+/// payload here is one more thing this crate would have to prove safe to
+/// print. `Display` names the variant and nothing else.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Error)]
+pub enum FfiEmbeddedDocumentError {
+    /// The engine does not declare the capability extraction needs.
+    Unsupported,
+    /// Called synchronously from inside an event callback (ADR-0011 Karar 2).
+    ReentrantCall,
+    /// No media is loaded.
+    NotLoaded,
+    /// The session has been shut down.
+    ShutDown,
+    /// The id no longer names a track the engine has (the medium changed
+    /// underneath the row).
+    UnknownTrack,
+    /// The track carries no text — a bitmap subtitle, or a codec extraction
+    /// does not recognise (ADR-0045 Karar 3).
+    TrackCarriesNoText,
+    /// The engine failed for a reason of its own.
+    EngineFailure,
+    /// The engine's answer could not be parsed as a subtitle document.
+    /// Carries no detail: the answer was dialogue (K23 #4).
+    Unparseable,
+}
+
+impl std::fmt::Display for FfiEmbeddedDocumentError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::Unsupported => "unsupported",
+            Self::ReentrantCall => "reentrant_call",
+            Self::NotLoaded => "not_loaded",
+            Self::ShutDown => "shut_down",
+            Self::UnknownTrack => "unknown_track",
+            Self::TrackCarriesNoText => "track_carries_no_text",
+            Self::EngineFailure => "engine_failure",
+            Self::Unparseable => "unparseable",
+        })
+    }
+}
+
+impl std::error::Error for FfiEmbeddedDocumentError {}
+
+impl From<EmbeddedDocumentError> for FfiEmbeddedDocumentError {
+    fn from(value: EmbeddedDocumentError) -> Self {
+        match value {
+            EmbeddedDocumentError::Engine(error) => match error {
+                PlaybackError::Unsupported { .. } => Self::Unsupported,
+                PlaybackError::ReentrantCall { .. } => Self::ReentrantCall,
+                PlaybackError::NotLoaded { .. } => Self::NotLoaded,
+                PlaybackError::ShutDown { .. } => Self::ShutDown,
+                PlaybackError::UnknownTrack { .. } => Self::UnknownTrack,
+                PlaybackError::TrackCarriesNoText => Self::TrackCarriesNoText,
+                // Nothing else can reach this call: extraction has no rate
+                // and no inset, and the medium has already loaded by the time
+                // a document is requested — so these collapse into the
+                // honest catch-all rather than into a case that would
+                // describe them wrongly (`nen_app::renderer::render_error`'s
+                // own precedent for the same shape of gap).
+                PlaybackError::RateOutOfRange { .. }
+                | PlaybackError::InsetOutOfRange { .. }
+                | PlaybackError::LoadFailed { .. }
+                | PlaybackError::EngineFailure { .. } => Self::EngineFailure,
+            },
+            EmbeddedDocumentError::Unparseable => Self::Unparseable,
         }
     }
 }
@@ -222,6 +320,26 @@ impl FfiPlaybackSession {
     ) -> Result<FfiShowOutcome, FfiPlaybackError> {
         library
             .with(|library| self.inner.show_source(library, token))
+            .map(Into::into)
+            .map_err(Into::into)
+    }
+
+    /// Makes sure the row a token names has a document to translate,
+    /// extracting one from the engine when it is an embedded track that does
+    /// not have one yet (`NEN-044`).
+    ///
+    /// Call this before starting a translation on a row that might be an
+    /// embedded track — `FfiTranslationEngine::start` refuses with
+    /// `NoDocument` for one that has none, and this is what gives it one.
+    /// **No dialogue crosses this call in either direction** except the
+    /// document itself, which stays inside the library.
+    pub fn prepare_embedded_document(
+        &self,
+        library: Arc<FfiSubtitleLibrary>,
+        token: u32,
+    ) -> Result<FfiPrepareOutcome, FfiEmbeddedDocumentError> {
+        library
+            .with_mut(|library| self.inner.prepare_embedded_document(library, token))
             .map(Into::into)
             .map_err(Into::into)
     }

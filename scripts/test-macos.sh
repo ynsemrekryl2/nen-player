@@ -25,6 +25,16 @@ fi
 
 echo "▶ libmpv $(pkg-config --modversion mpv)"
 
+# Gömülü altyazı metin çıkarımı (NEN-044, ADR-0045) — libmpv'nin zaten
+# getirdiği ffmpeg formülü.
+if ! pkg-config --exists libavformat libavcodec libavutil 2>/dev/null; then
+  echo "HATA: libavformat/libavcodec/libavutil bulunamadı." >&2
+  echo "      Kurulum: brew install ffmpeg" >&2
+  exit 1
+fi
+
+echo "▶ libavformat $(pkg-config --modversion libavformat) · libavcodec $(pkg-config --modversion libavcodec) · libavutil $(pkg-config --modversion libavutil)"
+
 echo "▶ binding üretimi"
 bash "$ROOT/scripts/build-apple.sh"
 

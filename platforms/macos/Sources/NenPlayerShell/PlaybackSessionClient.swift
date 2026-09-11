@@ -4,7 +4,14 @@ import NenCore
 ///
 /// Keeping the UI on this protocol lets shell behaviour be tested without a
 /// real libmpv process. Production still uses `FfiPlaybackSession` directly.
-public protocol PlaybackSessionClient: AnyObject {
+///
+/// `Sendable`: `translateSelectedSubtitle()` (`NEN-044`) calls
+/// `prepareEmbeddedDocument` from inside a detached task, off the main actor,
+/// for the same reason it already runs `FfiTranslationEngine.start` there —
+/// a real extraction demuxes a container and must not block the UI thread.
+/// `FfiPlaybackSession` is `@unchecked Sendable` in the generated bindings;
+/// a test double conforms the same way (`ShellTestSupport.swift`).
+public protocol PlaybackSessionClient: AnyObject, Sendable {
     func load(locator: String) throws
     func play() throws
     func pause() throws
@@ -24,6 +31,16 @@ public protocol PlaybackSessionClient: AnyObject {
     /// and therefore whether the engine selects a track or is given a document
     /// to draw, is the core's decision (ADR-0013 Karar 3).
     func showSubtitle(library: FfiSubtitleLibrary, token: UInt32) throws -> FfiShowOutcome
+    /// Makes sure the row a token names has a document to translate,
+    /// extracting one from the engine when it is an embedded track that does
+    /// not have one yet (`NEN-044`). Call this before starting a translation
+    /// on a row that might be an embedded track — the core has otherwise
+    /// never asked the engine, and `FfiTranslationEngine.start` would refuse
+    /// with `NoDocument`.
+    func prepareEmbeddedDocument(
+        library: FfiSubtitleLibrary,
+        token: UInt32
+    ) throws -> FfiPrepareOutcome
     /// §8's `Kapalı`: nothing on screen, whatever was drawing it.
     func hideSubtitle() throws
     /// The share of the surface height this shell's own chrome covers, so the

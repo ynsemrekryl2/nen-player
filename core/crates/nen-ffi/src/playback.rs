@@ -193,6 +193,9 @@ pub enum FfiPlaybackError {
     ShutDown,
     /// No track with the given id, or the id belongs to the other kind.
     UnknownTrack { kind: FfiTrackKind },
+    /// The track exists but does not carry text (ADR-0045 Karar 3) — a bitmap
+    /// subtitle, or a codec extraction does not recognise as text.
+    TrackCarriesNoText,
     /// The rate is outside what the engine accepts.
     RateOutOfRange { requested: f32, min: f32, max: f32 },
     /// The subtitle bottom inset is outside the accepted range (ADR-0037).
@@ -221,6 +224,7 @@ impl std::fmt::Display for FfiPlaybackError {
             Self::NotLoaded => "not_loaded",
             Self::ShutDown => "shut_down",
             Self::UnknownTrack { .. } => "unknown_track",
+            Self::TrackCarriesNoText => "track_carries_no_text",
             Self::RateOutOfRange { .. } => "rate_out_of_range",
             Self::InsetOutOfRange => "inset_out_of_range",
             Self::LoadFailed { .. } => "load_failed",
@@ -246,6 +250,7 @@ impl From<PlaybackError> for FfiPlaybackError {
             PlaybackError::NotLoaded { .. } => Self::NotLoaded,
             PlaybackError::ShutDown { .. } => Self::ShutDown,
             PlaybackError::UnknownTrack { kind } => Self::UnknownTrack { kind: kind.into() },
+            PlaybackError::TrackCarriesNoText => Self::TrackCarriesNoText,
             PlaybackError::RateOutOfRange {
                 requested,
                 min,
@@ -276,6 +281,7 @@ impl FfiPlaybackError {
             Self::NotLoaded => PlaybackError::NotLoaded { operation },
             Self::ShutDown => PlaybackError::ShutDown { operation },
             Self::UnknownTrack { kind } => PlaybackError::UnknownTrack { kind: kind.into() },
+            Self::TrackCarriesNoText => PlaybackError::TrackCarriesNoText,
             Self::RateOutOfRange {
                 requested,
                 min,

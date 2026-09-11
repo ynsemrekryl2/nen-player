@@ -222,6 +222,7 @@ fn render_error(error: PlaybackError, operation: Operation) -> RenderError {
         // before the engine is called, so an engine answering it would be
         // answering a question nobody asked.
         PlaybackError::UnknownTrack { .. }
+        | PlaybackError::TrackCarriesNoText
         | PlaybackError::RateOutOfRange { .. }
         | PlaybackError::InsetOutOfRange { .. }
         | PlaybackError::LoadFailed { .. } => RenderError::SurfaceFailure { operation, code: 0 },

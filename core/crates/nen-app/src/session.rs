@@ -39,8 +39,8 @@ use crate::playback::{ShellEngine, ShellEngineBridge};
 use crate::renderer::{playback_error, EngineNativeRenderer, RendererState};
 use crate::subtitles::SubtitleLibrary;
 use nen_ports::playback::{
-    MediaSource, Operation, PlaybackEngine, PlaybackError, PlaybackEvent, PlaybackState,
-    TrackDescriptor, TrackId, TrackKind, VideoGeometry,
+    guard_reentrancy, MediaSource, Operation, PlaybackEngine, PlaybackError, PlaybackEvent,
+    PlaybackState, TrackDescriptor, TrackId, TrackKind, VideoGeometry,
 };
 use nen_ports::renderer::{RenderError, SubtitleRenderer};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -91,6 +91,36 @@ pub enum ShowOutcome {
     Shown,
     /// Nothing happened: no such row, or the row is marked unusable.
     Unusable,
+}
+
+/// What [`PlaybackSession::prepare_embedded_document`] did (`NEN-044`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PrepareOutcome {
+    /// The row now has a document — already had one, or just got one.
+    Ready,
+    /// No such row, or the row is marked unusable. The same non-failure
+    /// [`ShowOutcome::Unusable`] describes: nothing to explain to the user.
+    Unusable,
+}
+
+/// Why [`PlaybackSession::prepare_embedded_document`] could not produce a
+/// document.
+///
+/// Derives `Debug` safely (K23): `Engine` delegates to `PlaybackError`, which
+/// is itself only bounded enums and numbers by construction (see that type's
+/// own module note), and `Unparseable` carries nothing at all — the text that
+/// failed to parse is never attached to this error.
+// No `Eq`: `Engine` carries `PlaybackError`, which cannot be `Eq` either
+// (`RateOutOfRange` holds `f32`).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum EmbeddedDocumentError {
+    /// The engine refused the extraction (unsupported, no such track, the
+    /// track carries no text, ...) or failed to perform it.
+    Engine(PlaybackError),
+    /// The engine returned text this side could not parse as a subtitle
+    /// document. Carries no detail: the input was dialogue (K23 #4), and a
+    /// parser's own error can quote it.
+    Unparseable,
 }
 
 /// One medium, one engine, one event queue.
@@ -261,6 +291,65 @@ impl PlaybackSession {
         };
         self.render(|renderer| renderer.show(document))?;
         Ok(ShowOutcome::Shown)
+    }
+
+    /// Makes sure the row a token names has a document to translate,
+    /// extracting one from the engine when it is an embedded track that does
+    /// not have one yet (`NEN-044`).
+    ///
+    /// **The one place that decodes an embedded track's text.** Before this
+    /// existed, an embedded row's [`SubtitleLibrary::document_of`] always
+    /// answered `None` and `crate::translation::prepare` refused with
+    /// `NoDocument` — nothing had ever asked the engine. This runs only when a
+    /// caller explicitly wants a document (a translation request); it never
+    /// runs while the catalog is built (§7's lazy rule, `NEN-023`'s tripwire)
+    /// and never runs from [`Self::show_source`], which only selects the
+    /// track.
+    ///
+    /// A document a row already has — a user file, an AI translation, or an
+    /// embedded row a previous call already extracted — is returned as-is;
+    /// the engine is asked at most once per row.
+    pub fn prepare_embedded_document(
+        &self,
+        library: &mut SubtitleLibrary,
+        token: u32,
+    ) -> Result<PrepareOutcome, EmbeddedDocumentError> {
+        if !library.is_token_usable(token) {
+            return Ok(PrepareOutcome::Unusable);
+        }
+        if library.document_of(token).is_some() {
+            return Ok(PrepareOutcome::Ready);
+        }
+        let Some(track) = library.embedded_track_of(token) else {
+            // Not an embedded row and has no document: an ordinary unusable
+            // combination (a defective file, say) that is not this call's to
+            // explain.
+            return Ok(PrepareOutcome::Unusable);
+        };
+        if self.shut_down.load(Ordering::Acquire) {
+            return Err(EmbeddedDocumentError::Engine(PlaybackError::ShutDown {
+                operation: Operation::ExtractText,
+            }));
+        }
+        guard_reentrancy(Operation::ExtractText).map_err(EmbeddedDocumentError::Engine)?;
+        // Cloned and called *outside* the session's own lock, deliberately: a
+        // real extraction demuxes a container and can take real wall-clock
+        // time, and holding the mutex `command()` and the pump both need for
+        // that long would freeze every other operation on this session — play,
+        // seek, the position pump — for as long as the decode runs.
+        let engine = lock(&self.engine).engine();
+        let text = engine
+            .extract_text(track)
+            .map_err(EmbeddedDocumentError::Engine)?;
+        // The text is subtitle dialogue (K23 #4): held, parsed and handed to
+        // the library, never logged and never included in an error — a parse
+        // failure below collapses to `Unparseable` with no detail.
+        let document =
+            nen_subtitle::srt::parse(&text).map_err(|_| EmbeddedDocumentError::Unparseable)?;
+        library
+            .attach_embedded_document(token, document)
+            .expect("embedded_track_of already proved this token names an embedded row");
+        Ok(PrepareOutcome::Ready)
     }
 
     /// Declares the share of the surface the shell's own chrome covers, so

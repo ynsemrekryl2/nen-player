@@ -26,7 +26,7 @@ run_timeout() { s="$1"; shift; perl -e 'alarm shift; exec @ARGV' "$s" "$@"; }
 # ---------------------------------------------------------------- araç kayıtları
 
 # Sıra bu listeye göre. Her araç için detect_<id> ve install_<id> tanımlı olmalı.
-TOOLS="cargo rustc cargo_deny jdk gradle xcode swift libmpv android_sdk"
+TOOLS="cargo rustc cargo_deny jdk gradle xcode swift libmpv ffmpeg android_sdk"
 
 label() {
   case "$1" in
@@ -38,6 +38,7 @@ label() {
     xcode)       echo "Xcode" ;;
     swift)       echo "swift" ;;
     libmpv)      echo "libmpv" ;;
+    ffmpeg)      echo "libavformat/libavcodec" ;;
     android_sdk) echo "Android SDK" ;;
   esac
 }
@@ -52,6 +53,7 @@ install_hint() {
     xcode)       echo "App Store'dan Xcode, sonra: sudo xcode-select -s /Applications/Xcode.app" ;;
     swift)       echo "Xcode veya Command Line Tools ile gelir" ;;
     libmpv)      echo "brew install mpv   (libmpv dylib'i ile birlikte gelir)" ;;
+    ffmpeg)      echo "brew install mpv   (ffmpeg'i bağımlılık olarak zaten getirir)" ;;
     android_sdk) echo "Android Studio kurun veya ANDROID_HOME ayarlayın" ;;
   esac
 }
@@ -86,6 +88,7 @@ need_note() {
     xcode)       echo "M3" ;;
     swift)       echo "M1" ;;
     libmpv)      echo "M3 · development/binding" ;;
+    ffmpeg)      echo "M5 · NEN-044 gömülü metin çıkarımı — libmpv'nin (M3) zaten getirdiği bağımlılık" ;;
     android_sdk) echo "M10" ;;
   esac
 }
@@ -172,6 +175,13 @@ detect_libmpv() {
   done
   IFS="$old_ifs"
   return 1
+}
+
+detect_ffmpeg() {
+  command -v pkg-config >/dev/null 2>&1 || return 1
+  v="$(run_timeout 10 pkg-config --modversion libavformat 2>&1)" && [ -n "$v" ] || return 1
+  echo "libavformat $v (pkg-config)"
+  return 0
 }
 
 # sdkmanager ÇALIŞTIRILMAZ — yalnız env ve bilinen dizin kontrolü.

@@ -644,6 +644,7 @@ public final class PlayerModel: ObservableObject {
         let storeRoot = translationStoreRoot
         let cancellation = translationCancellation
         let observer = translationProgressObserver
+        let session = self.session
         // A medium switch must not let a job started against the previous
         // medium's catalog silently add a row to the new one's menu — the
         // same revision guard `mediaPresentationRevision`'s own doc comment
@@ -665,6 +666,24 @@ public final class PlayerModel: ObservableObject {
                 // `translationCancellation`'s own doc comment.
                 guard !cancellation.isCancelled else {
                     return .joinFailed(.Cancelled)
+                }
+                // `NEN-044`: an embedded row has no document until something
+                // asks the engine to extract one. This is that ask, run here
+                // — off the main actor, before the store or the engine is
+                // touched — so a selected embedded track no longer refuses
+                // with `NoDocument` for having never been read. A row that
+                // already has a document (a user file, an AI translation, or
+                // an embedded row a previous call already extracted) returns
+                // `.ready` immediately without decoding anything again.
+                guard let session else {
+                    return .startFailed(.Unusable)
+                }
+                do {
+                    _ = try session.prepareEmbeddedDocument(library: library, token: token)
+                } catch let prepareError as FfiEmbeddedDocumentError {
+                    return .prepareFailed(prepareError)
+                } catch {
+                    return .prepareFailed(.EngineFailure)
                 }
                 do {
                     // `FfiTranslationEngine` opens the root with `canonicalize`
@@ -732,6 +751,8 @@ public final class PlayerModel: ObservableObject {
             case let .succeeded(job):
                 _ = job.catalogInto(library: library)
                 self.refreshSubtitleMenu()
+            case let .prepareFailed(error):
+                self.presentTransient(PlaybackPresentation.prepareEmbeddedDocumentMessage(for: error))
             case let .startFailed(error):
                 self.presentTransient(PlaybackPresentation.translationStartMessage(for: error))
             case let .joinFailed(error):

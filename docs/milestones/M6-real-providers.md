@@ -37,7 +37,8 @@ OpenSubtitles, OpenAI ve OpenRouter'ın gerçek entegrasyonu ve kullanıcı API 
 
 ## Task'lar
 
-`NEN-033` · `NEN-034` · `NEN-035` · `NEN-038` · `NEN-064` · `NEN-105` · `NEN-107`
+`NEN-033` · `NEN-034` · `NEN-035` · `NEN-038` · `NEN-064` · `NEN-105` · `NEN-107` ·
+`NEN-109`
 
 ## Bağımlılıklar
 

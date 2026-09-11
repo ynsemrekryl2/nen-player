@@ -144,10 +144,13 @@ final class TranslationCancellation: @unchecked Sendable {
 /// actor. Carries the finished `FfiTranslationJob` rather than its summary
 /// so `catalogInto` can be called only after re-checking the medium has not
 /// changed underneath it — `FfiTranslationJob`, `FfiTranslationSummary` and
-/// both error types are all `Sendable` (generated bindings), so nothing
+/// every error type here are all `Sendable` (generated bindings), so nothing
 /// here needs a manual `@unchecked`.
 enum TranslationJoinOutcome: Sendable {
     case succeeded(FfiTranslationJob)
+    /// `prepare_embedded_document` (`NEN-044`) refused before a job could
+    /// even be prepared — the engine was never asked to start.
+    case prepareFailed(FfiEmbeddedDocumentError)
     case startFailed(FfiTranslationStartError)
     case joinFailed(FfiTranslationError)
 }

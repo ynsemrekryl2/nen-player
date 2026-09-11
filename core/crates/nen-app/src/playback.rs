@@ -126,6 +126,18 @@ impl ShellEngineBridge {
         }
     }
 
+    /// The engine itself, for a caller that needs to hold it past the
+    /// session's own lock (`NEN-044`).
+    ///
+    /// Extracting an embedded track's text can take real time — it demuxes a
+    /// container — and doing that while holding the mutex this bridge sits
+    /// behind would freeze every other command (`position_ms`, the event
+    /// pump) for as long as the decode runs. The `Arc` is cheap to clone and
+    /// the engine answers its own calls without this bridge's help.
+    pub(crate) fn engine(&self) -> Arc<dyn ShellEngine> {
+        Arc::clone(&self.inner)
+    }
+
     /// Moves whatever the foreign engine has reported into the shared queue.
     ///
     /// Called before every observation rather than after every command,

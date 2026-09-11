@@ -220,7 +220,7 @@ final class MemoryTranslationPreferenceStore: TranslationPreferenceStoring {
 /// The session calls a test can make fail, so the shell's refusal paths run.
 enum FakeSessionCall: Hashable {
     case load, play, pause, stop, seek, position, duration, state, tracks, showSubtitle,
-        hideSubtitle, rate, volume
+        hideSubtitle, rate, volume, prepareEmbeddedDocument
 }
 
 /// What ended up on screen, as the fake session saw it.
@@ -233,9 +233,15 @@ enum DrawnSubtitle: Equatable {
     case off
 }
 
-final class FakeSession: PlaybackSessionClient {
+final class FakeSession: PlaybackSessionClient, @unchecked Sendable {
     /// Errors keyed by call: every listed call throws instead of succeeding.
     var errors: [FakeSessionCall: FfiPlaybackError] = [:]
+    /// What `prepareEmbeddedDocument` reports (`NEN-044`). `.success(.ready)`
+    /// by default — most tests care about what happens *after* preparation,
+    /// not about preparation itself.
+    var prepareEmbeddedDocumentResult: Result<FfiPrepareOutcome, FfiEmbeddedDocumentError> = .success(.ready)
+    /// Every token `prepareEmbeddedDocument` was asked to prepare, in order.
+    var prepareEmbeddedDocumentCalls: [UInt32] = []
 
     var loadedLocators: [String] = []
     var playCount = 0
@@ -338,6 +344,11 @@ final class FakeSession: PlaybackSessionClient {
             drawnSubtitles.append(.document(token))
         }
         return .shown
+    }
+    func prepareEmbeddedDocument(library: FfiSubtitleLibrary, token: UInt32) throws -> FfiPrepareOutcome {
+        callOrder.append(.prepareEmbeddedDocument)
+        prepareEmbeddedDocumentCalls.append(token)
+        return try prepareEmbeddedDocumentResult.get()
     }
     func hideSubtitle() throws {
         try refuse(.hideSubtitle)

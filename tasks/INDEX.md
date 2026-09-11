@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **108** task · ✅ done 98 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 8
+Toplam **109** task · ✅ done 99 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 8
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -117,7 +117,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 
 | ID | Başlık | Boyut | Durum | Bağımlılık |
 |---|---|---|---|---|
-| [NEN-044](backlog/NEN-044-embedded-text-extraction.md) | Embedded subtitle text extraction | M | ⚪ backlog | NEN-023 NEN-103 |
+| [NEN-044](done/NEN-044-embedded-text-extraction.md) | Embedded subtitle text extraction | M | ✅ done | NEN-023 NEN-103 |
 | [NEN-072](done/NEN-072-remote-container-metadata.md) | Parse container metadata from remote byte windows | M | ✅ done | NEN-036 |
 | [NEN-089](done/NEN-089-translation-block-layout.md) | Translation block layout and whole-document context | M | ✅ done | NEN-016 |
 | [NEN-090](done/NEN-090-translation-provider-port-and-mock.md) | Translation provider port and deterministic mock | M | ✅ done | NEN-089 |
@@ -149,6 +149,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-064](backlog/NEN-064-verified-media-identity-strip.md) | Verified media identity in player chrome | L | ⚪ backlog | NEN-033 NEN-061 |
 | [NEN-105](backlog/NEN-105-resumable-checkpoint-store.md) | Resumable checkpoint store for interrupted translation runs | M | ⚪ backlog | NEN-096 |
 | [NEN-107](backlog/NEN-107-document-wide-translation-progress.md) | Document-wide translation progress across the FFI boundary | M | ⚪ backlog | NEN-102 |
+| [NEN-109](backlog/NEN-109-remote-embedded-text-extraction.md) | Remote embedded text extraction | M | ⚪ backlog | NEN-044 |
 
 ## Sıradaki uygun task'lar
 
@@ -156,7 +157,8 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 
 - **NEN-034** — AI-assisted release name normalization
 - **NEN-035** — Identity confidence scoring and candidate ranking
-- **NEN-044** — Embedded subtitle text extraction
 - **NEN-064** — Verified media identity in player chrome
+- **NEN-104** — Translation core acceptance
 - **NEN-105** — Resumable checkpoint store for interrupted translation runs
 - **NEN-107** — Document-wide translation progress across the FFI boundary
+- **NEN-109** — Remote embedded text extraction

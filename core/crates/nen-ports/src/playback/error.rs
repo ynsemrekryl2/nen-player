@@ -141,6 +141,11 @@ pub enum PlaybackError {
     ShutDown { operation: Operation },
     /// No track with the given id, or the id belongs to the other kind.
     UnknownTrack { kind: TrackKind },
+    /// The track exists but does not carry text (ADR-0045 Karar 3) — a
+    /// bitmap subtitle, or any track [`super::track::subtitle_carries_text`]
+    /// does not recognise. Never returned for a missing id; that is
+    /// [`Self::UnknownTrack`].
+    TrackCarriesNoText,
     /// The engine supports rate changes but not this rate.
     ///
     /// Carries the bounds so the caller can clamp instead of guessing.
@@ -175,6 +180,7 @@ impl PlaybackError {
             | Self::ShutDown { operation }
             | Self::InsetOutOfRange { operation } => Some(*operation),
             Self::UnknownTrack { .. }
+            | Self::TrackCarriesNoText
             | Self::RateOutOfRange { .. }
             | Self::LoadFailed { .. }
             | Self::EngineFailure { .. } => None,
@@ -198,6 +204,7 @@ impl fmt::Display for PlaybackError {
                 write!(f, "{operation} outside the accepted inset range")
             }
             Self::UnknownTrack { kind } => write!(f, "no such {kind} track"),
+            Self::TrackCarriesNoText => f.write_str("the track carries no text"),
             Self::RateOutOfRange {
                 requested,
                 min,

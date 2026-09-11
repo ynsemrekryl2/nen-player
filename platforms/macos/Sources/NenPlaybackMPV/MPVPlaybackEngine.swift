@@ -16,8 +16,6 @@ import NenCore
 ///   ``MPVVideoView``, but creating and retaining the window stays in
 ///   `NenPlayerShell`. Tests use the headless initializer and keep `vo=null` /
 ///   `ao=null`.
-/// - **No text extraction.** It is a capability and it is declared absent, so
-///   the contract checks the typed refusal instead. It arrives with NEN-044.
 /// - **No drawing decisions.** External subtitles are drawn by mpv itself
 ///   (ADR-0013 Karar 1), but *which* document reaches this adapter, and when,
 ///   is the core session's answer. Nothing here consults a catalog, and
@@ -133,6 +131,13 @@ public final class MPVPlaybackEngine: ForeignPlaybackEngine, @unchecked Sendable
     /// every time the user picks another subtitle.
     var injectedSubtitleId: Int64 = MPVPlaybackEngine.noTrack
     var pending: [FfiPlaybackEvent] = []
+    /// The locator this adapter last loaded, for `extractText` (`NEN-044`) to
+    /// reopen the same container through `libavformat`.
+    ///
+    /// **Never logged** (K23 #1, #3): a locator is a media URL or a private
+    /// full path. It crosses to the core once, on `load`, and this is the
+    /// only other place it is read.
+    var currentLocator: String?
 
     /// Creates either a headless contract-test engine or an engine embedded in
     /// the shell's AppKit video view. The shell owns the view and the adapter
@@ -202,11 +207,6 @@ public final class MPVPlaybackEngine: ForeignPlaybackEngine, @unchecked Sendable
     // MARK: - ForeignPlaybackEngine
 
     public func capabilities() -> [FfiCapability] {
-        // Rate, volume, external subtitle injection and rendered-text
-        // observation are real here; text extraction (NEN-044) is not. A
-        // capability this engine does not have would make the contract check
-        // the wrong half — the kit verifies the typed refusal for whatever is
-        // absent, which is exactly the behaviour a caller gets today.
         Self.declaredCapabilities
     }
 
@@ -218,6 +218,7 @@ public final class MPVPlaybackEngine: ForeignPlaybackEngine, @unchecked Sendable
             atEndOfFile = false
             seekInFlight = false
             trackList = []
+            currentLocator = locator
             // mpv drops external subtitles with the outgoing file, so the id
             // this adapter is holding stops meaning anything at that moment.
             injectedSubtitleId = Self.noTrack
@@ -467,11 +468,60 @@ public final class MPVPlaybackEngine: ForeignPlaybackEngine, @unchecked Sendable
         try setDouble("volume", 100)
     }
 
-    public func extractText(track _: UInt32) throws -> String {
-        // Declared absent above, so the core refuses before reaching here. The
-        // typed refusal is repeated rather than trapped: a capability set and
-        // an implementation that disagree is a bug the contract should see.
-        throw FfiPlaybackError.Unsupported(capability: .embeddedTextExtraction)
+    /// Demuxes and decodes an embedded track's full text (`NEN-044`,
+    /// ADR-0045).
+    ///
+    /// Runs `libavformat`/`libavcodec` against the locator this adapter last
+    /// loaded — a **second**, independent open of the same file, entirely
+    /// outside mpv's own handle. That is deliberate: `mpv_wait_event` may
+    /// only be called from the pump thread (this file's own threading note),
+    /// and a real demux can take real wall-clock time, so it must not hold
+    /// `lock` or touch mpv's handle for the duration.
+    ///
+    /// **Security (K23 #4).** The returned text is subtitle dialogue —
+    /// displayable, never loggable. Every failure below is a libav return
+    /// code or nothing at all; none can carry the locator or the text.
+    public func extractText(track: UInt32) throws -> String {
+        try requireMedia()
+        lock.lock()
+        let match = trackList.first { $0.ffIndex == track && $0.kind == .subtitle }
+        let locator = currentLocator
+        lock.unlock()
+        guard let match else {
+            throw FfiPlaybackError.UnknownTrack(kind: .subtitle)
+        }
+        guard let locator, Self.isLocalFile(locator) else {
+            // A remote medium: reading an entire remote container to demux
+            // one stream has no cancellation and no bound on how much it
+            // would download. `NEN-109` (backlog) owns the remote case; from
+            // this call's side, extraction from this locator is simply
+            // unsupported — the same refusal an engine that never declared
+            // the capability at all would give.
+            throw FfiPlaybackError.Unsupported(capability: .embeddedTextExtraction)
+        }
+        do {
+            return try EmbeddedTextExtractor.extractText(
+                fromLocalFile: locator,
+                streamIndex: match.ffIndex
+            )
+        } catch let failure as EmbeddedTextExtractionFailure {
+            switch failure {
+            case .notASubtitleStream, .noText:
+                throw FfiPlaybackError.TrackCarriesNoText
+            case let .cannotOpen(code), let .streamInfoUnavailable(code), let .decoderUnavailable(code):
+                throw FfiPlaybackError.EngineFailure(code: code)
+            case .noDecoder:
+                throw FfiPlaybackError.EngineFailure(code: 0)
+            }
+        }
+    }
+
+    /// A locator this adapter loaded from `load(locator:)`'s own shell
+    /// convention (`url.isFileURL ? url.path : url.absoluteString`): a local
+    /// path always starts with `/`, and nothing this adapter is asked to
+    /// open otherwise does.
+    private static func isLocalFile(_ locator: String) -> Bool {
+        locator.hasPrefix("/")
     }
 
     /// Hands mpv a document to draw, over `memory://` (ADR-0013 Karar 4).
@@ -603,7 +653,8 @@ extension MPVPlaybackEngine {
     /// The capability set this adapter declares, as a value a test can compare
     /// against without instantiating an engine.
     public static let declaredCapabilities: [FfiCapability] = [
-        .externalSubtitleInjection, .renderedTextObservation, .playbackRate, .volume
+        .embeddedTextExtraction, .externalSubtitleInjection, .renderedTextObservation,
+        .playbackRate, .volume
     ]
 
     /// No playlist entry. mpv numbers its entries from 1, so no real entry can

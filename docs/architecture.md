@@ -218,7 +218,7 @@ handoff / dosya seçimi
   → PlaybackSession.load()              [playback HEMEN başlar]
   → MediaEvidence toplanır              [async, playback'i bloklamaz]
   → CatalogService
-      ├─ embedded track metadata        (lazy: metin çıkarımı yok)
+      ├─ embedded track metadata        (lazy: metin çıkarımı yalnız çeviri komutunda, NEN-044)
       ├─ sidecar tarama (aynı basename)
       └─ OpenSubtitles sorgusu          (lazy: indirme yok)
   → SubtitleSourceCatalog               (gruplu, dedup'lu)

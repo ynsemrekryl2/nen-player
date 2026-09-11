@@ -30,10 +30,20 @@ let package = Package(
             pkgConfig: "mpv",
             providers: [.brew(["mpv"])]
         ),
+        // libavformat/libavcodec/libavutil, for embedded subtitle text
+        // extraction (ADR-0045, NEN-044). Already in the bundle's dylib
+        // closure via `libmpv` (`NEN-103`'s measurement); this target links
+        // them directly rather than reaching through mpv's own private API.
+        .systemLibrary(
+            name: "Cavformat",
+            pkgConfig: "libavformat libavcodec libavutil",
+            providers: [.brew(["ffmpeg"])]
+        ),
         .target(
             name: "NenPlaybackMPV",
             dependencies: [
                 "Cmpv",
+                "Cavformat",
                 .product(name: "NenCore", package: "apple-shared")
             ]
         ),

@@ -40,8 +40,13 @@ pub const FAKE_SUBTITLE_TRACKS: usize = 2;
 /// An audio track the fake medium has.
 pub const FAKE_AUDIO_TRACK: TrackId = TrackId(2);
 
-/// A subtitle track the fake medium has.
-pub const FAKE_SUBTITLE_TRACK: TrackId = TrackId(1);
+/// A subtitle track the fake medium has — the text one (NEN-044), so the
+/// shared contract's `ExtractText` scenario exercises the ordinary success
+/// path. The fake's other subtitle track (`descriptors()`, `TrackId(1)`) is
+/// a bitmap one, deliberately not named here: no
+/// [`super::contract::TrackRef`] resolves to it, because ADR-0045 Karar 3's
+/// bitmap refusal is proven at the adapter level, not in the shared kit.
+pub const FAKE_SUBTITLE_TRACK: TrackId = TrackId(0);
 
 /// An id no fake track of any kind has.
 pub const FAKE_UNKNOWN_TRACK: TrackId = TrackId(9_999);
@@ -423,10 +428,17 @@ impl PlaybackEngine for FakeEngine {
     fn extract_text(&mut self, track: TrackId) -> Result<String, PlaybackError> {
         self.ensure_live(Operation::ExtractText)?;
         self.require(Capability::EmbeddedTextExtraction, Operation::ExtractText)?;
-        if !self.has_track(TrackKind::Subtitle, track) {
+        let Some(descriptor) = self
+            .descriptors(TrackKind::Subtitle)
+            .into_iter()
+            .find(|descriptor| descriptor.id() == track)
+        else {
             return Err(PlaybackError::UnknownTrack {
                 kind: TrackKind::Subtitle,
             });
+        };
+        if !descriptor.is_text() {
+            return Err(PlaybackError::TrackCarriesNoText);
         }
         Ok("1\n00:00:01,000 --> 00:00:02,000\nfake cue\n".to_string())
     }

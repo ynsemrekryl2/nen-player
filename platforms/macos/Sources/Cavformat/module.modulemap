@@ -1,0 +1,15 @@
+// libavformat/libavcodec/libavutil, as a system library target (ADR-0045).
+//
+// The headers and libraries are found through pkg-config (`Package.swift`),
+// so this file names no absolute path — same reasoning as `Cmpv`'s. All three
+// live in the one Homebrew `ffmpeg` formula and share one include root, which
+// is why a single `pkgConfig` entry (naming all three `.pc` files) resolves
+// every header this shim pulls in; the three `link` lines are still needed
+// because `pkg-config --libs` only expands what was asked for.
+module Cavformat [system] {
+    header "shim.h"
+    link "avformat"
+    link "avcodec"
+    link "avutil"
+    export *
+}

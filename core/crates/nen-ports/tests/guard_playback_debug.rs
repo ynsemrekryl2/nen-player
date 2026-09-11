@@ -127,6 +127,7 @@ fn no_playback_error_variant_carries_private_data() {
         PlaybackError::UnknownTrack {
             kind: TrackKind::Subtitle,
         },
+        PlaybackError::TrackCarriesNoText,
         PlaybackError::RateOutOfRange {
             requested: 4.0,
             min: 0.5,

@@ -67,6 +67,8 @@ public enum PlaybackPresentation {
             return "Oynatma oturumu kapandı."
         case .UnknownTrack:
             return "Seçilen parça kullanılamıyor."
+        case .TrackCarriesNoText:
+            return "Bu parça metin taşımıyor."
         case .RateOutOfRange:
             return "Bu oynatma hızı kullanılamıyor."
         case .Unsupported:
@@ -134,6 +136,23 @@ public enum PlaybackPresentation {
         case .LayoutRefused: return "Bu altyazı çeviri için uygun değil."
         case .InvalidTargetLanguage: return "Hedef dil geçersiz."
         case .StoreUnavailable: return "Çeviri deposu kullanılamıyor."
+        }
+    }
+
+    /// What the user is told when `translateSelectedSubtitle()` could not get
+    /// an embedded row a document to translate (`NEN-044`). Same rule as
+    /// `translationStartMessage`: variant only — `FfiEmbeddedDocumentError`
+    /// is flat and payload-free, so there is nothing else to say.
+    public static func prepareEmbeddedDocumentMessage(for error: FfiEmbeddedDocumentError) -> String {
+        switch error {
+        case .Unsupported: return "Bu parçadan metin çıkarılamıyor."
+        case .ReentrantCall: return "İşlem şu anda tamamlanamadı."
+        case .NotLoaded: return "Önce bir medya açın."
+        case .ShutDown: return "Oynatma oturumu kapandı."
+        case .UnknownTrack: return "Seçilen parça kullanılamıyor."
+        case .TrackCarriesNoText: return "Bu parça metin taşımıyor."
+        case .EngineFailure: return "Gömülü altyazı metni okunamadı."
+        case .Unparseable: return "Gömülü altyazı metni okunamadı."
         }
     }
 

@@ -3,11 +3,10 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-11** (**`NEN-108` kapandı** — `nen-ffi`'nin çeviri
-> iptal testlerinden ikisi artık CI'da tutarlı geçiyor; ölçülmüş kök neden
-> (worker'ı delivery-gate'in kendi kilidi içinde durduran, adil olmayan OS
-> mutex'e bağımlı bir senkronizasyon) ikinci bir mekanizmaya — kilidin
-> tamamen dışında bir duraklama noktasına — taşındı.)
+> Son güncelleme: **2026-09-11** (**`NEN-044` kapandı** — gömülü bir metin
+> altyazı track'inin tam metni artık `libavformat`/`libavcodec` üzerinden
+> (ADR-0045) çıkarılabiliyor; NEN-102'nin kaydettiği canlı kusur — gömülü
+> İngilizce track'in çeviri komutunda kalıcı `NoDocument` reddi — kapandı.)
 
 ## Nerede duruyoruz
 
@@ -15,9 +14,88 @@
 |---|---|
 | **Mevcut milestone** | **M5 — Translation Core** (M4 2026-09-08'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-108`** — flaky çeviri iptal testi stabilize edildi. Ondan önce: `NEN-102` |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-105`, `NEN-107` |
-| **Task sayısı** | 108 · done 98 · active 0 · blocked 0 · canceled 2 · backlog 8 |
+| **Son tamamlanan** | **`NEN-044`** — gömülü metin çıkarımı (libavformat/libavcodec). Ondan önce: `NEN-108` |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-064`, `NEN-104`, `NEN-105`, `NEN-107`, `NEN-109` |
+| **Task sayısı** | 109 · done 99 · active 0 · blocked 0 · canceled 2 · backlog 8 |
+
+**`NEN-044` kapandı — gömülü bir metin altyazı track'inin tam metni artık
+seçimde değil, yalnız açık çeviri komutunda, `libavformat`/`libavcodec`
+üzerinden (ADR-0045) çıkarılabiliyor.** Yeni `EmbeddedTextExtractor.swift`
+(macOS adapter) seçili medyanın container'ını mpv'nin kendi handle'ından
+tamamen bağımsız, **ikinci kez** açıp ilgili subtitle stream'ini demux/decode
+ediyor ve kanonik SRT olarak yeni `nen-app::session::PlaybackSession::
+prepare_embedded_document`'a veriyor — bu, `nen_subtitle::srt::parse`
+(NEN-013) ile parse edilip `SubtitleLibrary::attach_embedded_document`
+(idempotent) ile satıra takılan **tek yeni giriş noktası**. `NEN-102`'nin
+kapanışında canlı ölçülüp kaydedilen kusur — gömülü İngilizce track'in
+çeviri komutunda kalıcı `NoDocument` reddi, çünkü hiçbir şey motoru
+metin için hiç sormuyordu — bu yolla kapandı.
+
+**Üç uygulama noktası kullanıcı kararıyla kapatıldı (plan onayı sırasında,
+ADR'nin kendisi bunları kapsam dışı bırakmıştı).** Taşıma biçimi kaynak
+codec ne olursa olsun (subrip · ass · mov_text · ...) **kanonik SRT** —
+core'un zaten tek parser'ı var, ikincisini açmaya gerek yok. Çıkarım
+`ShellEngineBridge`'in kilidi **dışında** çalışıyor: gerçek bir demux
+saniyeler sürebilir, kilit altında `position_ms`/pump'ı o süre boyunca
+dondururdu. Ve **yalnız yerel dosya** — uzak (M4 Stremio HTTP akışı)
+locator `Unsupported` ile döner; sınırsız/iptal edilemez bir indirmenin
+riskini taşımak yerine yeni `tasks/backlog/NEN-109-remote-embedded-text-
+extraction.md` (M6) ayrıldı (Kural 5).
+
+**Bitmap reddi için yeni, payload'suz bir port varyantı gerekti:
+`PlaybackError::TrackCarriesNoText`.** Mevcut `UnknownTrack` "bu id yok"
+demek, "bu id'de metin yok" demek değil — ADR-0045 Karar 3'ün ayırdığı iki
+anlam. Varyant `nen-ports` → `nen-ffi` (`FfiPlaybackError`, ve ayrı bir
+`FfiEmbeddedDocumentError` — `FfiTranslationStartError`'ın **düz, payload'suz**
+kuralına uydurulmuş sekiz varyant) → Swift'e (kendi Türkçe mesajıyla)
+uçtan uca taşındı.
+
+**Golden ve zorunlu negatif, gerçek libmpv + gerçek libavformat'ta ölçüldü.**
+`contract-clip.mkv`'nin gömülü İngilizce ve Türkçe track'lerinden çıkarılan
+metin, yeni `fixtures/media/contract-clip.sub-{eng,tur}.golden` ile **birebir**
+eşleşti — zamanlamalar fixture'ın kendi üretim recipe'sindeki kaynak SRT'yle
+bit bit aynı, ilk denemede. `bitmap-subs-clip.mkv`'nin `hdmv_pgs_subtitle`
+track'i `TrackCarriesNoText` ile reddedildi; **aynı dosyanın** metin track'i
+sorunsuz çıkarıldı — red bitmap'e özel, container/codec-lookup'ta genel bir
+kusur değil. İki mutasyon elle uygulanıp geri alındı (bitmap rect'lerin
+metne eklenmesi; süre hesabının sabit `1ms`'e sabitlenmesi), ikisinde de
+tam olarak beklenen test(ler) kırmızıya döndü.
+
+**`nen-app`/`nen-ffi` uçtan uca kanıt, ayrıca `PlayerModel.
+translateSelectedSubtitle()`'ın kendi çağrısı.** `nen-app::embedded_
+extraction.rs` (7 test) `prepare_embedded_document` sonrası
+`translation::prepare`'ın **artık `NoDocument` vermediğini** doğrudan
+ölçüyor; ikinci çağrıda motor tekrar sorulmuyor (idempotent); kullanıcı
+dosyası motora hiç gitmiyor; seçim (`show_source`) çıkarım tetiklemiyor.
+Swift tarafında `translateSelectedSubtitle()` artık `FfiTranslationEngine`
+kurulmadan önce `session.prepareEmbeddedDocument`'ı çağırıyor
+(`PlaybackSessionClient` bu yüzden `Sendable` oldu); bir mutasyon (çağrının
+kaldırılması) yalnız bu iki yeni Swift testini kırmızıya çevirdi,
+`NEN-101`'in testlerinin hiçbiri etkilenmedi.
+
+**Bundle kapanışı yeniden ölçüldü (ADR-0045 Karar 5): gömülü dylib sayısı
+48 — `NEN-043`'ün orijinal kapanışıyla birebir aynı.** `otool -L` ana
+ikilinin `libavformat`/`libavcodec`/`libavutil`'i artık doğrudan (yalnız
+`libmpv` üzerinden transitif değil) bağladığını gösterdi; ayrıntı
+`evidence/M5/NEN-044-bundle.md`. Gerçek `.app` üzerinde bir GUI checklist
+planlanmıştı (`NEN-101`/`NEN-102` emsali); computer-use erişim isteği
+kullanıcı tarafından reddedildi. Bunun yerine — dürüst kayıt — telafi eden
+kanıt zaten koşmuş durumdaydı: `ContractTests.
+theRealAdapterPassesTheSharedContractKit` ve `EmbeddedTextExtractionTests`
+aynı gerçek libmpv + gerçek libavformat adapter'ını gerçek fixture'larla
+koşturuyor; GUI yalnız aynı kodu bir pencereden çağırırdı.
+
+`cargo test --workspace` **846 passed / 1 ignored** (`NEN-108` baseline 832
++ bu task'ın 14 testi). `bash scripts/test-macos.sh` **264 test / 33 suite**
+(baseline 256/31 + bu task'ın 8 testi), iki ayrı koşuda tekrarlandı, ikisi de
+yeşil (tek bir ara koşuda görülen `PicturelessSurfaceTests` kırmızısı,
+dosyanın kendi doc-comment'inin belgelediği bilinen main-actor-contention
+flake'i — `NEN-049`, izole koşuda ve iki tam-suite koşuda yeşil; bu task'ın
+kapsamı dışı, dokunulmadı). `cargo fmt --check`, `cargo clippy --workspace
+--all-targets -- -D warnings`, `cargo deny check` (yeni bağımlılık yok),
+`bash scripts/test.sh` **4/4**, `bash scripts/doctor.sh` (yeni `ffmpeg`
+tespiti dahil) ve `bash scripts/check-docs.sh` hepsi yeşil. Kanıt:
+`tasks/done/NEN-044-*.md`.
 
 **`NEN-108` kapandı — `core/crates/nen-ffi/tests/translation_gate.rs`'teki iki
 çeviri iptal testi artık CI'da tutarlı geçiyor.** `NEN-102`'nin commit'i
@@ -2797,6 +2875,21 @@ kurmaz** — bu, `scripts/tests/doctor.test.sh` S7 ile mekanik olarak kanıtlan�
 Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
+
+2026-09-11'de `NEN-044` kapandı — gömülü bir metin altyazı track'inin tam
+metni artık `libavformat`/`libavcodec` üzerinden (ADR-0045) çıkarılabiliyor;
+`NEN-102`'nin kaydettiği canlı kusur (gömülü İngilizce track'in çeviri
+komutunda kalıcı `NoDocument` reddi) kapandı. `cargo test --workspace`
+**846 passed / 1 ignored** (`NEN-108` baseline 832 + 14). `bash
+scripts/test-macos.sh` **264 test / 33 suite** (baseline 256/31 + 8), iki
+ayrı koşuda tekrarlandı, ikisi de yeşil. `cargo fmt --check`, `cargo clippy
+--workspace --all-targets -- -D warnings`, `cargo deny check` (yeni
+bağımlılık yok), `bash scripts/test.sh` **4/4**, `bash
+scripts/check-docs.sh` hepsi yeşil. Golden fixture (`contract-clip.mkv`'nin
+gömülü İngilizce/Türkçe track'leri) ve zorunlu bitmap negatifi
+(`bitmap-subs-clip.mkv`) gerçek libmpv + gerçek libavformat'ta ölçüldü; iki
+mutasyon elle uygulanıp geri alındı, ikisinde de tam olarak beklenen
+test(ler) kırmızıya döndü. Ayrıntılı kanıt kaydı: `tasks/done/NEN-044-*.md`.
 
 2026-09-11'de `NEN-102` kapandı — koşan bir çeviri işinin ilerlemesi ekranda
 görünüyor, kullanıcı `İptal` ile durdurabiliyor, iptal edilen iş ekranda ve
