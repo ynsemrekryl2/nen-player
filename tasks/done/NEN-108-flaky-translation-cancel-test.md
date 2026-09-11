@@ -68,9 +68,7 @@ sefer macOS'takinden daha müsait bir zamanlama verdi.
 ## Kanıt (DoD)
 
 - [x] Aynı test, art arda çok sayıda yerel koşuda (≥ 20) hep yeşil
-- [ ] CI'da art arda ≥ 3 koşuda yeşil (`gh run rerun` ile ölçülür) — bu
-      kapanış commit'i push edildikten sonra tamamlanacak, ayrı bir
-      docs-only takip commit'iyle işaretlenecek (bkz. Kanıt kaydı → CI)
+- [x] CI'da art arda ≥ 3 koşuda yeşil (`gh run rerun` ile ölçülür)
 - [x] Kök neden (adil olmayan kilit / barging worker) kod içi yorumla
       kayıt altına alınır
 
@@ -138,10 +136,10 @@ sonraki kilit talebiyle canceller arasında bir yarış hiç yok; sleep orada
 yalnız kapsamı (canceller'ın gerçekten beklerken yakalanmasını) etkiliyor,
 sonucu değil — flaky aile değil.
 
-**CI:** bu kapanış commit'i push edildikten sonra ilk koşu izlenecek, ardından
-`gh run rerun` ile aynı commit üzerinde iki kez daha tekrarlanıp üçünün de
-yeşil olduğu doğrulanacak — bir push olmadan hiçbir CI koşusu var olamayacağı
-için bu adım mekanik olarak yalnız push'tan **sonra** tamamlanabilir. Üç
-koşunun run ID'leri, bu satırın yerine, ayrı ve kendi başına tutarlı bir
-docs-only takip commit'iyle eklenecek (Kural 6 — pushed commit geçmişi
-değiştirilmez).
+**CI:** kapanış commit'i (`f683f88` — `origin/main`'de o an duran `ab9c213`
+üzerine rebase edildikten sonra push edildi) `gh run 34572292913` ile üç kez
+ardışık koştu, üçü de yeşil: ilk koşu 3m16s, `gh run rerun` ile birinci tekrar
+2m51s, ikinci tekrar 2m42s — hepsinde `cargo fmt --check`, `cargo clippy`,
+`cargo test`, `cargo deny check`, `bash scripts/test.sh`,
+`bash scripts/task-index.sh --check` ve `bash scripts/check-docs.sh` dahil
+tüm adımlar geçti. DoD'un "≥ 3 CI koşusu yeşil" maddesi bununla karşılandı.
