@@ -31,6 +31,7 @@ Süreç: [`0001-adr-process.md`](0001-adr-process.md) · Şablon:
 | [0038](0038-video-display-geometry.md) | Video display geometry playback portundan geçer | ✅ accepted | M3 |
 | [0039](0039-remote-media-http-boundary.md) | Uzak medya HTTP sınırı ve macOS adapter'ı | ✅ accepted | M3 |
 | [0040](0040-opensubtitles-identity-provider-boundary.md) | OpenSubtitles hash kimlik provider sınırı | ✅ accepted | M6 |
+| [0020](0020-secure-credential-storage.md) | Secure credential storage haritası — port, macOS Keychain adapter'ı, secret yaşam döngüsü | ✅ accepted | M6 |
 | [0041](0041-sidecar-discovery-scope.md) | Sidecar keşfi medyanın dizinini bir kez listeler | ✅ accepted | M3 |
 | [0042](0042-seek-during-loading.md) | Yüklenirken verilen seek reddedilmez, ertelenir | ✅ accepted | M3 |
 | [0043](0043-macos-handoff-surface.md) | macOS handoff alıcı yüzeyi — argv + open-with + custom scheme | ✅ accepted | M4 |
@@ -57,7 +58,6 @@ karar verilmiş sayılmaz (bkz. `docs/architecture.md` → "Karar statüsü").
 | 0005 | Typed error taksonomisi ve redaction kuralları | M1 |
 | 0014 | Stremio handoff kontratı — Android Intent tarafı ve log yasakları (macOS yarısı ADR-0043 ile kapandı) | M10 |
 | 0019 | Gerçek çeviri sağlayıcı sınırı: HTTP POST genişlemesi, structured output, retry, capability preflight, model seçimi; S3 · S9 (`NEN-114`) | M6 |
-| 0020 | Secure credential storage haritası — port, macOS Keychain adapter'ı, secret yaşam döngüsü (`NEN-110`) | M6 |
 | 0021 | OpenSubtitles entegrasyon sınırları: opaque public ID, arama stratejisi, seçimde indirme, indirme güvenliği (`NEN-119`) | M6 |
 | 0022 | SyncProfile modeli ve anahtarlama; artifact ile paylaşım | M7 |
 | 0023 | Audio auto-sync pipeline ve confidence eşikleri | M8 |

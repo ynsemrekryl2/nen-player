@@ -241,3 +241,9 @@ dili — ekliyor. Bu, Karar 6'nın kendisini ihlal etmiyor: yasaklanan şey gene
 bir ayarlar ekranı, pencere hâlâ yalnız dil seçicilerinden ibaret ve
 `NEN-024`'ün yasağı aynı biçimde yürürlükte. Gövde ADR-0001 gereği olduğu gibi
 bırakıldı.
+
+**Karar 6'nın kapsamı `NEN-110`/ADR-0020 ile üçüncü kez genişledi
+(2026-09-11).** Aynı Settings penceresine üç yeni satır — OpenSubtitles,
+OpenAI, OpenRouter API anahtarları — ekleniyor (implementasyonu `NEN-113`).
+Karar 6 yine ihlal edilmiyor: pencere hâlâ tek, genel bir ayarlar ekranı
+açılmıyor. Gövde ADR-0001 gereği olduğu gibi bırakıldı.

@@ -25,6 +25,10 @@
 > **Kabul edilmiş teknoloji:** Gömülü metin çıkarımında macOS adapter'ı
 > `libavformat`/`libavcodec` kullanır ([ADR-0045](adr/0045-embedded-text-demux-path.md)).
 
+> **Kabul edilmiş teknoloji:** Secure credential storage macOS'ta login
+> keychain + generic password kullanır, adapter Swift'te ve core'a reverse-FFI
+> ile bağlanır ([ADR-0020](adr/0020-secure-credential-storage.md)).
+
 ## Katmanlar
 
 ```
@@ -127,7 +131,7 @@ motorudur. Core yalnız çıkan metni parse eder.
 |---|---|---|
 | `PlaybackEngine` | libmpv / AVPlayer / Media3 adapter | Cihaz medya API'si. **Capability tabanlı** — bkz. aşağıda |
 | `SubtitleRenderer` | Engine-native adapter (core'da, motorun enjeksiyon capability'sine delege eder) · ileride custom overlay | Çizim stratejisi değişebilir; çağrı yeri değişmesin (ADR-0013) |
-| `SecureCredentialStore` | Keychain / Keystore / CredMan / Secret Service | OS güvenlik API'si |
+| `SecureCredentialStore` | macOS: Swift Keychain adapter'ı, core'a reverse-FFI (ADR-0020) · Keystore / CredMan / Secret Service M9–M11 | OS güvenlik API'si |
 | `MediaFileAccess` | Platform dosya seçici + sandbox/bookmark | İzin modeli platforma özgü |
 | `EmbeddedTrackExtractor` | Playback motoru; macOS'ta libavformat/libavcodec kullanan adapter | Container I/O ve cue çıkarımı motorda; core yalnız metni parse eder |
 | `AudioSampleSource` | Platform decoder | M8 audio auto-sync için |

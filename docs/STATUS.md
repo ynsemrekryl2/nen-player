@@ -3,9 +3,9 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-11** (**M6 task kırılımı üretildi** — 17 yeni
-> task `NEN-110`…`NEN-126`, üç kol, altı ADR; aynı gün `NEN-104` ile M5
-> kapanmıştı. Sıradaki adım M6'nın ilk task'ı — `NEN-110` önerisi aşağıda.)
+> Son güncelleme: **2026-09-11** (**`NEN-110` kapandı** — ADR-0020 `accepted`,
+> secure credential storage haritası karara bağlandı; M6 kırılımı aynı gün
+> üretilmişti. Sıradaki adım `NEN-111` — port + in-memory fake.)
 
 ## Nerede duruyoruz
 
@@ -13,9 +13,37 @@
 |---|---|
 | **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı; kırılım aynı gün üretildi — `docs/milestones/M6-real-providers.md`) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-104`** — M5 translation core kabul kanıtı. Ondan önce: `NEN-044` |
-| **Sıradaki READY** | `NEN-035`, `NEN-105`, `NEN-107`, `NEN-109`, `NEN-110`, `NEN-114`, `NEN-119`, `NEN-124` |
-| **Task sayısı** | 126 · done 100 · active 0 · blocked 0 · canceled 2 · backlog 24 |
+| **Son tamamlanan** | **`NEN-110`** — ADR-0020 secure credential storage haritası kabul edildi. Ondan önce: `NEN-104` |
+| **Sıradaki READY** | `NEN-035`, `NEN-105`, `NEN-107`, `NEN-109`, `NEN-111`, `NEN-114`, `NEN-119`, `NEN-124` |
+| **Task sayısı** | 126 · done 101 · active 0 · blocked 0 · canceled 2 · backlog 23 |
+
+**`NEN-110` kapandı — ADR-0020 `accepted`: kullanıcının üç API anahtarının
+(OpenSubtitles · OpenAI · OpenRouter) hangi port üzerinden, hangi platform
+deposunda ve hangi yaşam döngüsüyle saklanacağı karara bağlandı.** Sekiz
+kararlı madde: `nen-ports::credentials::SecureCredentialStore` portu (senkron,
+object-safe, kapalı `CredentialKind` enum'u) · tek `ApiKey` newtype'ı
+(kind'dan bağımsız, `Debug`/`Display` → `<redacted>`, `Serialize` yok) ·
+tipli payload'suz hata (`Unavailable`/`Denied`/`Corrupt`) · adapter Swift'te,
+core'a reverse-FFI ile (`ForeignSecureCredentialStore`, `ForeignHttpClient`/
+ADR-0039 emsali) · macOS deposu login keychain + generic password
+(`kSecAttrSynchronizable` yok) · UI yalnız "kayıtlı" göstergesi verir · test
+kuralı in-memory fake + contract kiti + K23 guard, gerçek Keychain yalnız
+`NEN-112`'nin kendi testinde · diğer platformlar yalnız harita (M9–M11).
+
+**Üç kullanıcı kararı plan onayı sırasında netleşti.** Anahtarın yazma/okuma
+yolu her zaman Rust portundan geçer — Swift Keychain adapter'ının tek çağıranı
+Rust'tır, ayarlar UI'ı dahil; kayıtlı anahtar UI'da hiçbir zaman okunmaz,
+yalnız "kayıtlı" göstergesi vardır; macOS deposu login keychain + generic
+password seçildi (data-protection keychain değil — ad-hoc imzalı geliştirme
+build'inde application-identifier entitlement'ı olmadan `SecItemAdd`
+`-34018` ile düşerdi).
+
+Kod değişmedi (karar/doküman task'ı, Kural 1 gereği implementasyon önce ADR
+ister). `docs/adr/README.md`, `docs/DECISIONS.md`, `docs/architecture.md`
+tutarlı güncellendi (`NEN-097`'nin ölçtüğü ADR-0017 kusuru tekrarlanmadı);
+ADR-0031'e Notlar girdisi eklendi (ayar yüzeyinin üçüncü genişlemesi, gövde
+değişmedi). `bash scripts/check-docs.sh` çıkış 0. Kanıt:
+`tasks/done/NEN-110-*.md`.
 
 **M6 kırılımı üretildi (2026-09-11, `/plan-milestone M6`, kullanıcı
 onayıyla).** 17 yeni backlog task'ı (`NEN-110`…`NEN-126`), üç kol: **kimlik
