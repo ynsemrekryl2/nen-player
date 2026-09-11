@@ -16,8 +16,8 @@
 | **Mevcut milestone** | **M5 — Translation Core** (M4 2026-09-08'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
 | **Son tamamlanan** | **`NEN-102`** — macOS çeviri ilerleme/iptal yüzeyi. Ondan önce: `NEN-101` |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-105`, `NEN-107` |
-| **Task sayısı** | 107 · done 97 · active 0 · blocked 0 · canceled 2 · backlog 8 |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-105`, `NEN-107`, `NEN-108` |
+| **Task sayısı** | 108 · done 97 · active 0 · blocked 0 · canceled 2 · backlog 9 |
 
 **`NEN-102` kapandı — koşan bir çeviri işinin ilerlemesi ekranda görünüyor,
 kullanıcı onu iptal edebiliyor ve iptal edilen iş ekranda yarım bir sonuç
