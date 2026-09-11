@@ -3,20 +3,59 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-11** (**`NEN-044` kapandı** — gömülü bir metin
-> altyazı track'inin tam metni artık `libavformat`/`libavcodec` üzerinden
-> (ADR-0045) çıkarılabiliyor; NEN-102'nin kaydettiği canlı kusur — gömülü
-> İngilizce track'in çeviri komutunda kalıcı `NoDocument` reddi — kapandı.)
+> Son güncelleme: **2026-09-11** (**`NEN-104` kapandı — M5 tamamlandı** — M5'in
+> altı çıkış kriteri gerçek `.app` üzerinde, hem sidecar hem gömülü track
+> kaynağıyla, mock provider ile uçtan uca kanıtlandı; sıra **M6 — Real
+> Providers**'da.)
 
 ## Nerede duruyoruz
 
 | | |
 |---|---|
-| **Mevcut milestone** | **M5 — Translation Core** (M4 2026-09-08'de kapandı; toolchain kapısı **açık**) |
+| **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı; task kırılımı henüz üretilmedi) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-044`** — gömülü metin çıkarımı (libavformat/libavcodec). Ondan önce: `NEN-108` |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-064`, `NEN-104`, `NEN-105`, `NEN-107`, `NEN-109` |
-| **Task sayısı** | 109 · done 99 · active 0 · blocked 0 · canceled 2 · backlog 8 |
+| **Son tamamlanan** | **`NEN-104`** — M5 translation core kabul kanıtı. Ondan önce: `NEN-044` |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-064`, `NEN-105`, `NEN-107`, `NEN-109` |
+| **Task sayısı** | 109 · done 100 · active 0 · blocked 0 · canceled 2 · backlog 7 |
+
+**`NEN-104` kapandı — M5'in altı çıkış kriteri gerçek `.app` üzerinde, hem
+sidecar hem gömülü track kaynağıyla, mock provider ile (Kural 8) uçtan uca
+kanıtlandı; M5 kapandı.** `contract-clip.mkv`'nin sidecar olarak elle
+yüklenen `layout-sample.srt`'si (95 cue) ve gömülü İngilizce track'i (3
+cue, `NEN-044`'ün demux yolu üzerinden) ayrı ayrı Türkçe'ye çevrildi; her
+ikisinin çıktısı ilgili golden fixture'la cue ID/zaman/sıra ve metin
+düzeyinde **birebir** eşleşti. Hedef dil Deutsch'a değiştirilince ADR-0018'in
+cache identity'si yeni bir artifact üretti (`artifacts/` 2→3); gömülü Türkçe
+kaynak zaten hedef dildeyken komut `app_menu`'nün kendi "disabled" reddiyle
+basılamadı.
+
+**Restart sonrası cache reuse gerçek `.app` üzerinde ölçüldü — dosya yeniden
+yazılmadı.** Uygulama kapatılıp yeniden açıldıktan, aynı komut tekrarlandıktan
+sonra ilgili artifact dosyasının inode'u ve mtime'ı **birebir aynı** kaldı;
+`nen-app::translation::run_job`'ın cache isabetinin provider'a hiç
+gitmeden döndüğü canlı doğrulandı. İptal negatifı mock provider'ın anlık
+bitişi yüzünden GUI'de zamanlanamadı (`NEN-101`/`NEN-102`'nin öngördüğü
+bilinen risk) — deterministik testler (`NEN-102` progress/cancel suite'i,
+`translation_gate.rs`) telafi etti.
+
+**Bu ortamda `computer-use`'un ekran görüntüsü kaydı depoya committ
+edilebilecek bir dosya yoluna erişilemedi (tooling sınırı) — kanıt metin
+checklist + disk ölçümleriyle (dosya sayısı, inode, mtime) tutuldu** (Kural
+3: UI kanıtı screenshot **veya** checklist). Kod değişmedi: `cargo test
+--workspace` **846 passed / 1 ignored** ve `bash scripts/test-macos.sh`
+**264 passed / 33 suites** (iki koşuda, ikisi de yeşil — aradaki bilinen
+`PicturelessSurfaceTests` flake'i, `NEN-049`, dokunulmadı), her ikisi de
+`NEN-044` baseline'la birebir aynı; fmt, clippy, `cargo deny check`, `bash
+scripts/test.sh` **4/4** yeşil. Kanıt: `evidence/M5/NEN-104-checklist.md`.
+
+**M5 retro'su `docs/milestones/M5-translation-core.md`'ye yazıldı: 2026-09-08
+→ 2026-09-11, 20 task, beş ADR (0015/0016/0017/0018/0045) `accepted`, dört
+yanlış çıkan varsayım (`NEN-101` store kökü, `NEN-102` cancel/join state,
+`NEN-106` blok-`total`, `NEN-108` mutex fairness) — hepsi aynı task'ta
+ölçülüp düzeltildi.** Üç takip task'ı M6'ya ayrıldı: `NEN-105` (kalıcı
+checkpoint), `NEN-107` (belge-geneli ilerleme), `NEN-109` (uzak gömülü metin
+çıkarımı). M6'nın kendi task kırılımı henüz üretilmedi — sıradaki adım ayrı
+bir `/plan-milestone` onayı.
 
 **`NEN-044` kapandı — gömülü bir metin altyazı track'inin tam metni artık
 seçimde değil, yalnız açık çeviri komutunda, `libavformat`/`libavcodec`

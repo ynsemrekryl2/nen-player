@@ -26,12 +26,15 @@ AI çeviri pipeline'ının tamamı: bağlam analizi, overlapping blok çevirisi,
 
 ## Çıkış kriterleri
 
-- [ ] Uçtan uca: kaynak seçimi → açık çeviri komutu → doğrulanmış artifact
-- [ ] Yarım/progressive çıktı hiçbir koşulda yayınlanmıyor
-- [ ] İptal sonrası **late commit yok**
-- [ ] Cache identity bileşenlerinden biri değişince eski artifact **kullanılmıyor**
-- [ ] Cue ID/sıra/zamanlar girdiyle birebir aynı
-- [ ] Çeviri sırasında kaynak değişimi işi retarget **etmiyor**
+- [x] Uçtan uca: kaynak seçimi → açık çeviri komutu → doğrulanmış artifact
+- [x] Yarım/progressive çıktı hiçbir koşulda yayınlanmıyor
+- [x] İptal sonrası **late commit yok**
+- [x] Cache identity bileşenlerinden biri değişince eski artifact **kullanılmıyor**
+- [x] Cue ID/sıra/zamanlar girdiyle birebir aynı
+- [x] Çeviri sırasında kaynak değişimi işi retarget **etmiyor**
+
+Kanıt: `evidence/M5/NEN-104-checklist.md` (gerçek `.app`, hem sidecar hem
+gömülü track kaynağıyla, mock provider ile — Kural 8).
 
 ## Kırılım öncesi kapanan açık sorular
 
@@ -99,4 +102,53 @@ M2 + M3
 
 ## Retro
 
-<!-- kapanışta doldurulacak -->
+**Süre ve çıktı.** M5, 2026-09-08'de başladı ve 2026-09-11'de **20 task**
+(`089`, `090`–`103`, `044`, `106`, `108`, `104`) ile kapandı. Overlapping
+blok stratejisi, sıkı yerel doğrulama + onarım bütçesi, checkpoint/iptal,
+içerik adresli persistence + cache identity, uçtan uca FFI/macOS yüzeyi ve
+gömülü metin çıkarımı — hepsi mock provider ile uçtan uca kanıtlandı
+(`NEN-104`, `evidence/M5/NEN-104-checklist.md`).
+
+**Yanlış çıkan varsayımlar.** Dördü, hepsi ölçülüp aynı task'ta düzeltildi:
+
+- `NEN-101`: `nen-persist::FilesystemArtifactStore::new`'ın kökü
+  `canonicalize` ile açması, kökün **zaten var olmasını** şart koşuyordu —
+  temiz bir kurulumda ilk komut hep `StoreUnavailable` ile düşerdi.
+- `NEN-102`: `FfiTranslationJob::cancel()` yalnız `Running` state'teki
+  handle'a erişebiliyordu, ama `join()`'ün ilk işi state'i `Taken`'a
+  çevirmekti — her çağıran `start()`'tan hemen sonra `join()` yaptığı için
+  `cancel()` iş dakikalarca sürse bile kalıcı olarak etkisizdi.
+- `NEN-106`: `translate_checkpointed` bütün bloklar için tek
+  `TranslationCall` kullanıyordu; bir sağlayıcı yalnız kendi bloğunun
+  cue sayısını `total` bildirdiğinde ikinci blok `Permanent` hatasıyla
+  düşüyordu — `NEN-090`/`NEN-093` kapandıktan sonra ölçülüp ayrı task'ta
+  giderildi, `NEN-099`'u blokluyordu.
+- `NEN-108`: `nen-ffi`'nin iptal testleri std `Mutex`'in adil olmayan
+  (non-FIFO) davranışına dayanıyordu; CI'da bir kez kırmızı çıktı. Düzeltme
+  sleep büyütmek değil, duraklama noktasını kilidin **dışına** taşımaktı.
+
+**Mock provider'ın anlık bitişi, ilerleme/iptal'i canlı ekranda üç ayrı
+task'ta (`NEN-101`, `NEN-102`, `NEN-104`) yakalanamaz kıldı** — bu M6'nın
+gerçek (ağ gecikmeli) sağlayıcısıyla ilk kez insan-zamanlı gözlenecek. Her
+üçünde de deterministik testler (gerçek OS thread rendezvous'u) telafi etti;
+kontrol sağır değildi.
+
+**Kararlar.** Beş ADR de `accepted`: **0015** (blok stratejisi, `NEN-089`),
+**0016** (doğrulama/onarım politikası, `NEN-091`), **0017** (dosya sistemi +
+içerik adresli store, atomik commit, `NEN-095`), **0018** (cache identity
+bileşenleri/versiyonlama, `NEN-097`), **0045** (gömülü metin demux yolu,
+`NEN-103`). Hiçbiri supersede edilmedi. Üç ek karar kullanıcı onayıyla
+kapsam dışı bırakıldı (ADR'lerin kendisi zaten öngörmüştü): taşıma biçimi
+kanonik SRT (kaynak codec ne olursa olsun), çıkarım kilit dışında çalışıyor,
+yalnız yerel dosya (uzak → `NEN-109`, M6).
+
+**Kapsam dışına ayrılan takip task'ları (Kural 5):** `NEN-105` (kalıcı
+checkpoint store), `NEN-107` (belge-geneli ilerleme yüzdesi), `NEN-109`
+(uzak gömülü metin çıkarımı) — üçü de M6'ya.
+
+**Sonraki milestone.** Sıra **M6 — Real Providers**'da: OpenSubtitles resmi
+API, OpenAI/OpenRouter provider implementasyonları, Keychain tabanlı
+credential storage, indirme güvenliği. İskelet `docs/milestones/M6-real-
+providers.md`'de zaten duruyor (`033` done, `034`/`035`/`038`/`064`/`105`/
+`107`/`109` backlog); task kırılımının kendisi ayrı bir `/plan-milestone`
+onayı bekliyor.

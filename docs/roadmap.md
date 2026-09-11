@@ -3,9 +3,9 @@
 Üst görünüm. Task ayrıntısı için `tasks/INDEX.md`, milestone ayrıntısı için
 `docs/milestones/`.
 
-**Şu anki konum: M5 — Translation Core.** Kırılımı 2026-09-08'de üretildi:
-18 task (`NEN-072` done · `NEN-089`…`NEN-104` · `NEN-044`) ve beş `proposed`
-ADR (0015 · 0016 · 0017 · 0018 · 0045) — kırılım
+**Şu anki konum: M5 kapandı (2026-09-11), M6 sırada.** M5'in 20 task'ı ve beş
+ADR'si (0015 · 0016 · 0017 · 0018 · 0045, hepsi `accepted`) tamamlandı; altı
+çıkış kriteri gerçek `.app` üzerinde uçtan uca kanıtlandı — retro
 [`milestones/M5-translation-core.md`](milestones/M5-translation-core.md)'de.
 
 Arkada bırakılanlar: macOS dilimi 46 task ile tamamlandı (gerçek `.app` dosyayı
@@ -26,8 +26,8 @@ Kararlar: [`docs/DECISIONS.md`](DECISIONS.md)
 | **M2** | Subtitle Core | SRT strict parse, WebVTT yazımı, encoding, timeline fingerprint, indeksli cue lookup, media evidence, source catalog — headless test edilmiş. | ✅ kapandı |
 | **M3** | macOS Vertical Slice | Dosya aç → oynat → katalog (embedded + sidecar) → altyazı menüsü → seç → ekranda göster. **İlk gerçek ürün.** | ✅ kapandı |
 | **M4** | Stremio Handoff (macOS) | Stremio'dan açılan medya macOS'ta doğru pozisyondan oynuyor; argüman/URL loglanmıyor. | ✅ kapandı |
-| **M5** | Translation Core | Blok pipeline + strict validation + checkpoint/cancel + artifact/cache; mock provider ile uçtan uca doğrulanmış. | 🔵 açık |
-| **M6** | Real Providers | OpenSubtitles resmi API + OpenAI + OpenRouter; secure credential storage; katalogda gerçek adaylar. | ⚪ |
+| **M5** | Translation Core | Blok pipeline + strict validation + checkpoint/cancel + artifact/cache; mock provider ile uçtan uca doğrulanmış. | ✅ kapandı |
+| **M6** | Real Providers | OpenSubtitles resmi API + OpenAI + OpenRouter; secure credential storage; katalogda gerçek adaylar. | 🔵 sıradaki |
 | **M7** | Manual Sync | Offset · replik-temelli anchor · iki-anchor drift; SyncProfile persistence, undo/reset/preview. | ⚪ |
 | **M8** | AI Audio-Assisted Sync | VAD + ASR + alignment + confidence + kullanıcı önizleme/onay; varsayılan localOnly. | ⚪ |
 | **M9** | Windows / Linux | Aynı core, libmpv adapter, platform secure storage. | ⚪ |

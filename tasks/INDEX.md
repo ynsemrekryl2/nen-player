@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **109** task · ✅ done 99 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 8
+Toplam **109** task · ✅ done 100 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 7
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -134,7 +134,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-101](done/NEN-101-macos-translate-command.md) | macOS translate command and target language setting | M | ✅ done | NEN-100 NEN-037 |
 | [NEN-102](done/NEN-102-macos-translation-progress.md) | macOS translation progress and cancellation surface | M | ✅ done | NEN-101 |
 | [NEN-103](done/NEN-103-adr-embedded-text-demux.md) | Decide the demux path for embedded subtitle text | S | ✅ done | NEN-089 |
-| [NEN-104](backlog/NEN-104-m5-acceptance.md) | Translation core acceptance | S | ⚪ backlog | NEN-102 NEN-044 |
+| [NEN-104](done/NEN-104-m5-acceptance.md) | Translation core acceptance | S | ✅ done | NEN-102 NEN-044 |
 | [NEN-106](done/NEN-106-per-block-progress-totals.md) | A multi-block run rejects its own provider's progress | S | ✅ done | NEN-090 NEN-093 |
 | [NEN-108](done/NEN-108-flaky-translation-cancel-test.md) | Stabilize the flaky nen-ffi translation cancellation test | S | ✅ done | — |
 
@@ -158,7 +158,6 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-034** — AI-assisted release name normalization
 - **NEN-035** — Identity confidence scoring and candidate ranking
 - **NEN-064** — Verified media identity in player chrome
-- **NEN-104** — Translation core acceptance
 - **NEN-105** — Resumable checkpoint store for interrupted translation runs
 - **NEN-107** — Document-wide translation progress across the FFI boundary
 - **NEN-109** — Remote embedded text extraction
