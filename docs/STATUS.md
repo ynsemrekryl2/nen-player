@@ -3,21 +3,91 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-10** (**`NEN-101` kapandı** — kullanıcı macOS'ta
-> hedef çeviri dilini Settings'ten seçebiliyor ve seçili bir altyazı kaynağı
-> için yeni `Altyazı` menüsündeki "AI ile çevir" komutuyla açıkça çeviri
-> başlatabiliyor; komut işi başlatıp kataloglar ama ekrandaki altyazıyı
-> asla zorla değiştirmiyor. `NEN-102`'yi bloke eden tek engel kalktı.)
+> Son güncelleme: **2026-09-11** (**`NEN-102` kapandı** — koşan bir çeviri
+> işinin ilerlemesi ekranda görünüyor, kullanıcı `İptal` ile durdurabiliyor,
+> ve iptal edilen iş ekranda ve menüde hiçbir iz bırakmıyor. Yol üstünde
+> `nen-ffi`'de gerçek bir kusur bulundu ve düzeltildi: `join()` çağrıldığı an
+> `cancel()` kalıcı olarak etkisiz kalıyordu.)
 
 ## Nerede duruyoruz
 
 | | |
 |---|---|
 | **Mevcut milestone** | **M5 — Translation Core** (M4 2026-09-08'de kapandı; toolchain kapısı **açık**) |
-| **Aktif task** | `NEN-102` — macOS translation progress and cancellation surface |
-| **Son tamamlanan** | **`NEN-101`** — macOS çeviri komutu + hedef dil ayarı. Ondan önce: `NEN-100` |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-105` |
-| **Task sayısı** | 107 · done 96 · active 1 · blocked 0 · canceled 2 · backlog 8 |
+| **Aktif task** | — |
+| **Son tamamlanan** | **`NEN-102`** — macOS çeviri ilerleme/iptal yüzeyi. Ondan önce: `NEN-101` |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-105`, `NEN-107` |
+| **Task sayısı** | 107 · done 97 · active 0 · blocked 0 · canceled 2 · backlog 8 |
+
+**`NEN-102` kapandı — koşan bir çeviri işinin ilerlemesi ekranda görünüyor,
+kullanıcı onu iptal edebiliyor ve iptal edilen iş ekranda yarım bir sonuç
+bırakmıyor.** Yeni `TranslationProgressRelay` (`ForeignTranslationProgressSink`
+implementasyonu) `translateSelectedSubtitle()`'ın artık `sink: nil` değil
+gerçek bir sink verdiği `FfiTranslationEngine.start`'tan gelen olayları bir
+`AsyncStream`'e taşıyor; `PlayerModel.translationProgress` (blok sırası + o
+bloğun kendi `done`/`total`'ı — belge-geneli yüzde değil, bkz. aşağıda) yeni
+`TranslationStatusPill`'e akıyor, `PlayerRootView`'in mevcut geçici-mesaj
+yuvasında — `NEN-067`'nin kalıcı kromuna hiçbir öğe eklenmedi. Yeni
+`nonisolated PlayerModel.cancelTranslation()` hem hapın `İptal` düğmesinden
+hem `Altyazı` menüsünün iş koşarkenki `AI Çevirisini İptal Et` komutundan
+çağrılıyor; medya değişimi de (`openMedia`) çalışan işi aynı yoldan iptal
+ediyor (kullanıcı kararı).
+
+**Yol üstünde `nen-ffi`'de gerçek, üretimde de geçerli bir kusur bulundu ve
+aynı task'ta düzeltildi.** `FfiTranslationJob::cancel()` yalnız `JobState`
+`Running` iken çalışan handle'a erişebiliyordu; ama `join()`'ün **ilk işi**
+state'i `Taken`'a çevirmekti — `join()` çağrıldığı an (ki her çağıran, bu
+task'ın kendi kodu dahil, `start()`'tan hemen sonra yapar) `cancel()` kalıcı
+olarak etkisiz kalıyordu, iş dakikalarca sürse bile. Yeni bir Rust regresyon
+testiyle (`nen-ffi/tests/translation_gate.rs` →
+`cancelling_after_join_has_already_been_called_still_stops_the_job`) doğrudan
+ölçüldü. Düzeltme: `nen-app::translation`'a `join()`'ün tükettiği
+`JobState`'ten bağımsız, `TranslationJobHandle::cancel_handle()` ile alınan
+ve `FfiTranslationJob`'a `state` mutex'inin **dışında** saklanan yeni bir
+`TranslationCancelHandle` — ADR-0004 Karar 2'nin gate'i değişmedi, yalnız
+ona her zaman erişilebilir hale geldi.
+
+**Beş kapı elle mutasyona uğratıldı, her birinde tam olarak beklenen
+test(ler) kırmızıya döndü** (kontrol sağır değil); medya değişimindeki
+revizyon koruması mevcut testlerin hiçbiriyle kırmızıya döndürülemedi (çok
+dar bir yarışı koruyor) — bu olduğu gibi kaydedildi, sağır bir kontrol
+koddan çıkarılmadı çünkü üretimde gerçek bir korumaya denk geliyor.
+Cancel'ın gerçekten çalışan bir işi durdurduğunu ölçen testler, Rust'ın
+kendi testinin (`translation_gate.rs`) aynı desenini kullanıyor — işi
+duraklatan bir gözlemci callback'i, paylaşılan kilide gerçek bir OS
+`Thread` üzerinden ulaşan bir iptalci. `Task.detached` bu iş için
+**kullanılmadı**: kuyruklanan bir `Task.detached` iptalcinin gerçekten ne
+zaman çalışacağının garantisi olmadığı ölçülerek bulundu (bazen iş, iptalci
+bloğu elde etmeden önce zaten bitiyordu) — gerçek `Thread` bu garantiyi
+veriyor.
+
+**Belge-geneli yüzde bu task'ın kapsamı dışında bırakıldı (kullanıcı
+kararı).** `FfiTranslationProgress` blok-yereldir (`checkpoint.rs` her blok
+sınırında `TranslationCall::fork` kullanıyor, `done` sıfıra dönüyor) ve FFI
+belgenin toplam cue sayısını hiç geçirmiyor — kabuk bugün dürüst bir payda
+hesaplayamaz. Yeni `tasks/backlog/NEN-107-document-wide-translation-progress.md`
+(M6, gerçek sağlayıcılardan önce) bunu Rust tarafında çözecek; oraya
+`NEN-106`'nın emsali olan retry-monotonluk tuzağı not düşüldü.
+
+**Gerçek `.app` kabulü** (`evidence/M5/NEN-102-checklist.md`):
+`fixtures/media/contract-clip.mkv` (gömülü Türkçe + İngilizce) ve
+`fixtures/subtitles/blocks/layout-sample.srt` (95 cue, 3 blok — `NEN-089`'un
+golden fixture'ı) ile — kullanıcı altyazısı yüklenip seçildi, komut verildi;
+menüde `Türkçe ▸ AI çevirisi (tr)` belirdi, seçili altyazı **değişmeden**
+kaldı (§9). Negatif: hedef dille aynı gömülü Türkçe kaynak seçilince komut
+soluk görüldü. Mock provider'ın anlık bitişi yüzünden ilerleme hapı/İptal
+canlı ekran görüntüsünde yakalanamadı (`NEN-101`'in kendi kaydının öngördüğü
+bilinen risk); deterministik kanıt Swift testlerinde. Yol üstünde ölçülen
+ayrı bir gerçek: medyanın gömülü **İngilizce** track'i (`NEN-044`, backlog)
+`NoDocument` ile kalıcı olarak reddediliyor — kusur değil, embedded metin
+çıkarımının henüz uygulanmadığının canlı teyidi.
+
+`bash scripts/test-macos.sh` **256 passed / 31 suites** (iki ayrı koşuda
+tekrarlandı, ikisi de yeşil — `NEN-101` baseline 249 + bu task'ın 7 testi).
+`cargo test --workspace` **832 passed / 1 ignored** (`NEN-100` baseline 831 +
+bu task'ın regresyon testi). fmt, clippy, `cargo deny check` (yeni dış
+bağımlılık yok), `bash scripts/test.sh` **4/4** ve `bash scripts/check-docs.sh`
+yeşil. Kanıt: `tasks/done/NEN-102-*.md`.
 
 **`NEN-101` kapandı — kullanıcı macOS'ta hedef çeviri dilini bir ayardan
 seçebiliyor ve seçili altyazı kaynağı için menü çubuğundaki yeni `Altyazı ▸
@@ -2690,17 +2760,19 @@ Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
 
-2026-09-10'da `NEN-099` kapandı — kaynak seçmek çeviri başlatmıyor, açık bir
-komut bir işi kendi worker thread'inde başlatıyor ve iş retarget edilmiyor.
-Yeni `nen-app::translation` modülü (`prepare`/`start`) ve
-`SubtitleLibrary::add_translation`. `cargo test --workspace` **818 passed / 1
-ignored** (`NEN-106` baseline 809 + 9 yeni test: `translation_session.rs` 4,
-`translation_retarget.rs` 2, `guard_translation_debug.rs` 3). `cargo fmt
---check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo deny
-check` (yeni bağımlılık yok, `core/Cargo.lock` diff'i boş), `bash
-scripts/test.sh` **4/4**, `bash scripts/check-docs.sh` hepsi yeşil. Dört kapı
-elle mutasyona uğratılıp her birinde tam olarak beklenen test(ler) kırmızıya
-döndüğü ölçüldü. Ayrıntılı kanıt kaydı: `tasks/done/NEN-099-*.md`.
+2026-09-11'de `NEN-102` kapandı — koşan bir çeviri işinin ilerlemesi ekranda
+görünüyor, kullanıcı `İptal` ile durdurabiliyor, iptal edilen iş ekranda ve
+menüde hiçbir iz bırakmıyor. Yol üstünde `nen-ffi`'de gerçek bir kusur bulundu
+ve düzeltildi: `FfiTranslationJob::cancel()` `join()` çağrıldığı an kalıcı
+olarak etkisiz kalıyordu (yeni `TranslationCancelHandle`, `nen-app::translation`).
+`bash scripts/test-macos.sh` **256 passed / 31 suites** (iki ayrı koşuda
+tekrarlandı). `cargo test --workspace` **832 passed / 1 ignored** (`NEN-100`
+baseline 831 + bu task'ın regresyon testi). `cargo fmt --check`, `cargo clippy
+--workspace --all-targets -- -D warnings`, `cargo deny check` (yeni bağımlılık
+yok), `bash scripts/test.sh` **4/4**, `bash scripts/check-docs.sh` hepsi
+yeşil. Beş kapı elle mutasyona uğratılıp her birinde tam olarak beklenen
+test(ler) kırmızıya döndüğü ölçüldü. Ayrıntılı kanıt kaydı:
+`tasks/done/NEN-102-*.md`.
 
 2026-09-09'da `NEN-094` kapandı — `ValidatedSubtitleArtifact` ve WebVTT
 çıktısı `core/crates/nen-translate/src/artifact.rs`'e eklendi. `cargo test -p

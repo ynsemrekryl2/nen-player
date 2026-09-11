@@ -392,6 +392,89 @@ fn cancelling_a_paused_job_delivers_no_further_progress_and_leaves_no_artifact_o
     );
 }
 
+/// `NEN-102`'s own regression: the shell always calls `join()` immediately
+/// after `start()` (there is no other sane way to get the result off the
+/// main actor), so a cancel button's `cancel()` call almost always lands
+/// while `join()` is already in flight on a **different** thread than the
+/// one that will eventually call `cancel()`. Measured red before
+/// `TranslationCancelHandle` (`nen-app`) existed: `FfiTranslationJob::cancel`
+/// read `JobState`, and `join()`'s own first action swapped that state to
+/// `Taken` — permanently — the instant `join()` was called, regardless of
+/// how long the run actually took afterward. `cancel()` was a silent no-op
+/// for the job's entire remaining duration.
+#[test]
+fn cancelling_after_join_has_already_been_called_still_stops_the_job() {
+    let media = TempDir::new("cancel-after-join-media");
+    let store = TempDir::new("cancel-after-join-store");
+    let library = Arc::new(FfiSubtitleLibrary::new());
+    let token = add_file(
+        &library,
+        media.path(),
+        "Movie.en.srt",
+        &["One", "Two", "Three", "Four", "Five"],
+    );
+
+    let engine = FfiTranslationEngine::new(store.path().to_string_lossy().into_owned())
+        .expect("a fresh store opens");
+    let rendezvous = Arc::new(Rendezvous::default());
+    let sink = Arc::new(PausingSink::new(rendezvous.clone()));
+    let job = engine
+        .start(
+            library.clone(),
+            token,
+            "tr".to_owned(),
+            Some(sink.clone() as Arc<dyn ForeignTranslationProgressSink>),
+        )
+        .expect("the job starts");
+
+    rendezvous.wait_until_arrived();
+
+    // Unlike the test above: `join()` is called first, on its own thread —
+    // the shell's own shape (`translateSelectedSubtitle()` calls `join()`
+    // right after `start()`) — and only then does something else call
+    // `cancel()`.
+    let joiner = {
+        let job = job.clone();
+        thread::spawn(move || job.join())
+    };
+    // Give `join()` a moment to actually run and reach its own internal
+    // bookkeeping before `cancel()` is called — the defect this test
+    // guards against depended on exactly that ordering.
+    thread::sleep(std::time::Duration::from_millis(50));
+
+    // `cancel()` blocks on the same delivery-gate lock the paused callback
+    // holds (same reasoning as the test above), so it runs on its own
+    // thread — calling it inline here, before `release()`, would deadlock
+    // this test against itself.
+    let canceller = {
+        let job = job.clone();
+        thread::spawn(move || job.cancel())
+    };
+    thread::sleep(std::time::Duration::from_millis(50));
+    rendezvous.release();
+    canceller
+        .join()
+        .expect("the canceller thread does not panic");
+
+    let result = joiner.join().expect("the joiner thread does not panic");
+    assert_eq!(
+        result,
+        Err(FfiTranslationError::Cancelled),
+        "cancel() called after join() was already in flight had no effect"
+    );
+    assert_eq!(
+        artifact_count(store.path()),
+        0,
+        "a cancelled job wrote no artifact"
+    );
+    assert_eq!(job.catalog_into(library.clone()), None);
+    assert_eq!(
+        ai_entries(&library),
+        0,
+        "a cancelled job added no catalog row"
+    );
+}
+
 #[test]
 fn starting_is_refused_when_the_source_is_already_the_target_language() {
     let media = TempDir::new("already-target-media");

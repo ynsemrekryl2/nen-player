@@ -42,8 +42,8 @@ use crate::subtitles::FfiSubtitleLibrary;
 use nen_app::domain::source::LanguageTag;
 use nen_app::ports::translation::{TranslationProgress, TranslationProgressPhase};
 use nen_app::translation::{
-    StartRefusal, TranslationEnvironment, TranslationError, TranslationJobHandle,
-    TranslationOutcome,
+    StartRefusal, TranslationCancelHandle, TranslationEnvironment, TranslationError,
+    TranslationJobHandle, TranslationOutcome,
 };
 use std::fmt;
 use std::path::Path;
@@ -286,6 +286,15 @@ struct FinishedJob {
 /// gives for holding no `Debug` of its own.
 #[derive(uniffi::Object)]
 pub struct FfiTranslationJob {
+    /// Independent of `state` (`NEN-102`) — deliberately so.
+    /// [`FfiTranslationJob::join`] moves the running [`TranslationJobHandle`]
+    /// out of `state` and into a blocking call on the first thread that
+    /// joins; a caller cancelling from another thread while that call is in
+    /// flight must still reach the job's delivery gate, and `state` alone
+    /// cannot offer that once it reads `Taken`. `cancel_handle` is captured
+    /// once, in [`FfiTranslationEngine::start`], before `state` is ever
+    /// touched, and outlives every value `state` can hold.
+    cancel_handle: TranslationCancelHandle,
     state: Mutex<JobState>,
 }
 
@@ -301,11 +310,13 @@ fn lock(mutex: &Mutex<JobState>) -> std::sync::MutexGuard<'_, JobState> {
 #[uniffi::export]
 impl FfiTranslationJob {
     /// Closes the job's delivery gate (ADR-0004 Karar 2). Idempotent and
-    /// safe to call after the job has already finished or been joined.
+    /// safe to call before the job has started doing any work, while
+    /// [`Self::join`] is blocking on another thread, or after the job has
+    /// already finished or been joined — `cancel_handle` does not depend on
+    /// `state`, unlike a caller reaching into `JobState::Running` would
+    /// (`NEN-102`; see `cancel_handle`'s own doc comment).
     pub fn cancel(&self) {
-        if let JobState::Running(handle) = &*lock(&self.state) {
-            handle.cancel();
-        }
+        self.cancel_handle.cancel();
     }
 
     pub fn is_finished(&self) -> bool {
@@ -412,7 +423,12 @@ impl FfiTranslationEngine {
             self.inner
                 .start(library, token, target_language, progress_sink)
         })?;
+        // Captured before `handle` is ever moved into `state` — the whole
+        // point of `cancel_handle` (`NEN-102`) is to outlive whatever
+        // `join()` later does to `state`.
+        let cancel_handle = handle.cancel_handle();
         Ok(Arc::new(FfiTranslationJob {
+            cancel_handle,
             state: Mutex::new(JobState::Running(handle)),
         }))
     }

@@ -295,6 +295,31 @@ impl fmt::Debug for TranslationOutcome {
     }
 }
 
+/// A cheap, independently cloneable capability to close a running job's
+/// delivery gate (`NEN-102`).
+///
+/// [`TranslationJobHandle::join`] consumes `self` — the only way a caller
+/// can both block on the result *and* remain able to cancel from elsewhere
+/// (a UI thread handling a cancel button, say) is to have taken this handle
+/// out **before** handing the job handle to whatever calls `join()`. It
+/// wraps the same [`TranslationCall`] [`TranslationJobHandle::cancel`]
+/// already used — no second gate, ADR-0004 Karar 2's guarantee is
+/// unchanged, this only widens who can still reach it once `join()` is in
+/// flight.
+#[derive(Clone)]
+pub struct TranslationCancelHandle {
+    call: TranslationCall,
+}
+
+impl TranslationCancelHandle {
+    /// Closes the job's delivery gate. Idempotent; safe to call before the
+    /// job has started doing any work, while it is running, or after it has
+    /// already finished.
+    pub fn cancel(&self) {
+        self.call.cancel();
+    }
+}
+
 /// A running or finished translation job.
 ///
 /// `cancel` reaches directly into the same [`TranslationCall`] gate the
@@ -315,6 +340,15 @@ impl TranslationJobHandle {
     /// from, since `start` consumes the job into the worker's closure.
     pub fn origin(&self) -> &SubtitleSourceId {
         &self.origin
+    }
+
+    /// An independent handle to this same job's delivery gate, safe to hold
+    /// onto after `self` is consumed by [`Self::join`] (`NEN-102`) — see
+    /// [`TranslationCancelHandle`]'s own doc comment for why one is needed.
+    pub fn cancel_handle(&self) -> TranslationCancelHandle {
+        TranslationCancelHandle {
+            call: self.call.clone(),
+        }
     }
 
     /// Closes the job's delivery gate. Idempotent; safe to call after the

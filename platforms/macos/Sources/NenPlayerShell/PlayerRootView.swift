@@ -104,16 +104,30 @@ public struct PlayerRootView: View {
                 playerChrome
             }
 
-            if let transientMessage = model.transientMessage {
-                Text(transientMessage)
-                    .font(.callout.weight(.medium))
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 9)
-                    .background(.ultraThinMaterial, in: Capsule())
-                    .padding(.bottom, TransportControls.height + 18)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            // The transient message and the translation status pill share
+            // one bottom-aligned slot rather than two independent overlays —
+            // both are ephemeral, neither is permanent chrome, and a start/
+            // finish transient can briefly coexist with a still-draining
+            // progress pill right at the handoff between them.
+            VStack(spacing: 8) {
+                if let transientMessage = model.transientMessage {
+                    Text(transientMessage)
+                        .font(.callout.weight(.medium))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 9)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .transition(.opacity)
+                }
+                if let translationProgress = model.translationProgress {
+                    TranslationStatusPill(
+                        state: translationProgress,
+                        cancelAction: model.cancelTranslation
+                    )
                     .transition(.opacity)
+                }
             }
+            .padding(.bottom, TransportControls.height + 18)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         }
         // The Window scene derives its user-resize floor from the root view.
         // Advertising zero here let SwiftUI overwrite the `contentMinSize`
@@ -163,6 +177,7 @@ public struct PlayerRootView: View {
         .animation(.easeOut(duration: 0.24), value: model.controlsVisible)
         .animation(.easeOut(duration: 0.24), value: presentedPanel)
         .animation(.easeOut(duration: 0.16), value: model.transientMessage)
+        .animation(.easeOut(duration: 0.16), value: model.translationProgress)
         .onChange(of: model.mediaPresentationRevision) { _, _ in
             setPresentedPanel(nil)
         }

@@ -14,6 +14,12 @@ public final class PlayerModel: ObservableObject {
     /// playback critical path. The closure is injected so platform tests can
     /// prove the call and its failure policy without making a network request.
     public typealias HandoffEvidenceCollector = @Sendable (URL) throws -> Void
+    /// Runs synchronously on the translation job's worker thread for every
+    /// progress callback, before it reaches `translationProgress` (`NEN-102`).
+    /// Test-only: there is no FFI-exposed way to pause the mock provider
+    /// mid-block, so a test pauses here instead, the same rendezvous shape
+    /// `core/crates/nen-ffi/tests/translation_gate.rs`'s `PausingSink` uses.
+    public typealias TranslationProgressObserver = @Sendable (FfiTranslationProgress) -> Void
 
     @Published public private(set) var mediaName: String?
     @Published public private(set) var recentMedia: [RecentMediaEntry] = []
@@ -56,6 +62,11 @@ public final class PlayerModel: ObservableObject {
     /// still running. The command's own gate — `NEN-102` adds progress and
     /// cancellation on top, not a second flag.
     @Published public private(set) var isTranslating = false
+    /// The running job's latest progress, or `nil` when no job is running
+    /// (`NEN-102`). `PlayerRootView` shows this in the same transient-pill
+    /// slot the command's own start/finish messages already use — no new
+    /// permanent chrome.
+    @Published public private(set) var translationProgress: TranslationProgressState?
     /// The display size of the picture being played, or `nil` when there is no
     /// picture (ADR-0038).
     ///
@@ -206,6 +217,13 @@ public final class PlayerModel: ObservableObject {
     private var sidecarScanTask: Task<Void, Never>?
     private var handoffEvidenceTask: Task<Void, Never>?
     private var translationTask: Task<Void, Never>?
+    /// Tracks the running job for `cancelTranslation()` (`NEN-102`). One
+    /// instance reused for the model's lifetime — `begin()` resets it per
+    /// job, `isTranslating`'s own gate guarantees only one job at a time.
+    private let translationCancellation = TranslationCancellation()
+    /// Test-only hook into every progress callback (`NEN-102`). `nil` in
+    /// production — see `TranslationProgressObserver`'s own doc comment.
+    private let translationProgressObserver: TranslationProgressObserver?
     /// ADR-0031 Karar 4.3: automatic selection runs **once**, at the start.
     /// A source discovered later never re-triggers it, however well it matches.
     private var hasAutoSelected = false
@@ -243,6 +261,7 @@ public final class PlayerModel: ObservableObject {
         preferenceStore: any SubtitlePreferenceStoring = UserDefaultsSubtitlePreferenceStore(),
         translationPreferenceStore: any TranslationPreferenceStoring = UserDefaultsTranslationPreferenceStore(),
         translationStoreRoot: URL = PlayerModel.defaultTranslationStoreRoot(),
+        translationProgressObserver: TranslationProgressObserver? = nil,
         handoffEvidenceCollector: HandoffEvidenceCollector? = nil,
         sessionFactory: @escaping SessionFactory = { view in
             let engine = try MPVPlaybackEngine(videoView: view)
@@ -264,6 +283,7 @@ public final class PlayerModel: ObservableObject {
         self.translationPreferenceStore = translationPreferenceStore
         self.translationTargetLanguage = translationPreferenceStore.targetLanguage
         self.translationStoreRoot = translationStoreRoot
+        self.translationProgressObserver = translationProgressObserver
         if let handoffEvidenceCollector {
             self.handoffEvidenceCollector = handoffEvidenceCollector
         } else {
@@ -346,6 +366,11 @@ public final class PlayerModel: ObservableObject {
             accessedURL = url
         }
         mediaPresentationRevision &+= 1
+        // A translation job started against the outgoing medium must not
+        // keep running unwatched, spending a real provider's credit on a
+        // result the revision guard below would discard anyway (user
+        // decision, NEN-102: switching media cancels the running job).
+        cancelTranslation()
 
         mediaName = url.lastPathComponent
         fatalMessage = nil
@@ -596,27 +621,16 @@ public final class PlayerModel: ObservableObject {
         translationTargetLanguage = code
     }
 
-    /// How a translation job that finished or failed reports back to the
-    /// main actor. Carries the finished `FfiTranslationJob` rather than its
-    /// summary so `catalogInto` can be called only after re-checking the
-    /// medium has not changed underneath it — `FfiTranslationJob`,
-    /// `FfiTranslationSummary` and both error types are all `Sendable`
-    /// (generated bindings), so nothing here needs a manual `@unchecked`.
-    private enum TranslationJoinOutcome: Sendable {
-        case succeeded(FfiTranslationJob)
-        case startFailed(FfiTranslationStartError)
-        case joinFailed(FfiTranslationError)
-    }
-
     /// §9's explicit command: "AI ile <hedef dile> çevir."
     ///
     /// Starts a job, blocks on its result off the main actor (the same
     /// `Task.detached` shape as `startSidecarScan`), and on success catalogues
     /// the outcome — but **never selects it**: the row the user is reading
     /// stays exactly what it was (ADR-0031 Karar 4.3's family, §9's "zorla AI
-    /// çıktısına geçilmez"). `NEN-102` adds progress and cancellation on top
-    /// of this same job; this task's job runs to completion or failure with
-    /// no way to interrupt it once started.
+    /// çıktısına geçilmez"). `NEN-102` adds progress (`translationProgress`)
+    /// and cancellation (`cancelTranslation()`) on top of this same job —
+    /// the progress relay only ever narrates the job, it never mutates what
+    /// is drawn on screen (§10's progressive-publication ban).
     public func translateSelectedSubtitle() {
         guard canTranslateSelectedSubtitle,
             let target = translationTargetLanguage,
@@ -624,17 +638,34 @@ public final class PlayerModel: ObservableObject {
         else { return }
 
         isTranslating = true
+        translationProgress = nil
+        translationCancellation.begin()
         let library = subtitles
         let storeRoot = translationStoreRoot
+        let cancellation = translationCancellation
+        let observer = translationProgressObserver
         // A medium switch must not let a job started against the previous
         // medium's catalog silently add a row to the new one's menu — the
         // same revision guard `mediaPresentationRevision`'s own doc comment
-        // describes for in-window presentation state.
+        // describes for in-window presentation state. `openMedia` also
+        // cancels the job outright (NEN-102 user decision); this guard is
+        // the second, independent line of defence `NEN-101` already had.
         let revision = mediaPresentationRevision
+
+        let (stream, progressContinuation) = AsyncStream.makeStream(of: FfiTranslationProgress.self)
+        let relay = TranslationProgressRelay(continuation: progressContinuation, observer: observer)
 
         translationTask?.cancel()
         translationTask = Task { [weak self] in
-            let outcome = await Task.detached(priority: .utility) { () -> TranslationJoinOutcome in
+            async let outcome: TranslationJoinOutcome = Task.detached(priority: .utility) {
+                defer { progressContinuation.finish() }
+                // A cancel issued in the same main-actor turn as the command
+                // (or won by a race arriving before the store even opens)
+                // must never reach the artifact store or a provider at all —
+                // `translationCancellation`'s own doc comment.
+                guard !cancellation.isCancelled else {
+                    return .joinFailed(.Cancelled)
+                }
                 do {
                     // `FfiTranslationEngine` opens the root with `canonicalize`
                     // (`nen-persist`'s `FilesystemArtifactStore::new`), which
@@ -653,8 +684,9 @@ public final class PlayerModel: ObservableObject {
                         library: library,
                         token: token,
                         targetLanguage: target,
-                        sink: nil
+                        sink: relay
                     )
+                    cancellation.adopt(job)
                     do {
                         _ = try job.join()
                         return .succeeded(job)
@@ -670,10 +702,33 @@ public final class PlayerModel: ObservableObject {
                 }
             }.value
 
+            // Counts blocks by their own boundary — the first progress event
+            // of each block is `Preparing` with `done == 0`
+            // (`checkpoint.rs`'s own contract) — rather than trusting a
+            // counter the provider itself could get wrong.
+            var currentBlock = 0
+            for await progress in stream {
+                guard !Task.isCancelled, let self else { break }
+                if progress.phase == .preparing, progress.done == 0 {
+                    currentBlock += 1
+                } else if currentBlock == 0 {
+                    currentBlock = 1
+                }
+                guard self.mediaPresentationRevision == revision else { continue }
+                self.translationProgress = TranslationProgressState(
+                    phase: progress.phase,
+                    block: currentBlock,
+                    done: progress.done,
+                    total: progress.total
+                )
+            }
+
+            let result = await outcome
             guard !Task.isCancelled, let self else { return }
             self.isTranslating = false
+            self.translationProgress = nil
             guard self.mediaPresentationRevision == revision else { return }
-            switch outcome {
+            switch result {
             case let .succeeded(job):
                 _ = job.catalogInto(library: library)
                 self.refreshSubtitleMenu()
@@ -683,6 +738,22 @@ public final class PlayerModel: ObservableObject {
                 self.presentTransient(PlaybackPresentation.translationJoinMessage(for: error))
             }
         }
+    }
+
+    /// §9's explicit cancellation counterpart, `NEN-102`.
+    ///
+    /// `nonisolated`, deliberately: cancellation must be requestable without
+    /// waiting for the main actor, from the transient pill's `İptal` button,
+    /// the `Altyazı` menu's replacement command, or a test that is holding
+    /// the worker thread inside a progress callback. Idempotent — safe to
+    /// call with no job running, before a job has started, or after one has
+    /// already finished (`FfiTranslationJob.cancel()`'s own doc comment).
+    /// UI state (`isTranslating`, `translationProgress`) is not touched
+    /// here; it is cleared once, on the main actor, when
+    /// `translateSelectedSubtitle()`'s own task observes the job's outcome —
+    /// the single writer `openMedia`'s revision guard already relies on.
+    public nonisolated func cancelTranslation() {
+        translationCancellation.cancel()
     }
 
     /// Waits for the running translation job. For tests only, and internal
@@ -969,7 +1040,9 @@ public final class PlayerModel: ObservableObject {
         handoffEvidenceTask = nil
         translationTask?.cancel()
         translationTask = nil
+        cancelTranslation()
         isTranslating = false
+        translationProgress = nil
         controlsTask?.cancel()
         controlsTask = nil
         controlsPinned = false

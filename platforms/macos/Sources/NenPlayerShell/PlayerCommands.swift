@@ -82,8 +82,17 @@ public struct PlayerCommands: Commands {
         // depends on what is selected and whether a job is already running
         // (`PlayerModel.canTranslateSelectedSubtitle`).
         CommandMenu("Altyazı") {
-            Button(translateLabel, action: model.translateSelectedSubtitle)
-                .disabled(!model.canTranslateSelectedSubtitle)
+            // While a job is running, the command's own slot becomes its
+            // cancellation (`NEN-102`) — there is nothing useful the start
+            // command could do (`isTranslating` already refuses it via
+            // `canTranslateSelectedSubtitle`), so showing both at once would
+            // just be a second, disabled entry with no purpose.
+            if model.isTranslating {
+                Button("AI Çevirisini İptal Et", action: model.cancelTranslation)
+            } else {
+                Button(translateLabel, action: model.translateSelectedSubtitle)
+                    .disabled(!model.canTranslateSelectedSubtitle)
+            }
         }
     }
 

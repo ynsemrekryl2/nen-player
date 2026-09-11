@@ -150,4 +150,16 @@ public enum PlaybackPresentation {
         case .AlreadyJoined: return "Çeviri tamamlanamadı."
         }
     }
+
+    /// What the user is told while a translation job is running (`NEN-102`).
+    /// Block sequence and that block's own count only — no document-wide
+    /// percentage (`TranslationProgressState`'s own doc comment, `NEN-107`),
+    /// no cue text, no provider name.
+    public static func translationProgressMessage(for state: TranslationProgressState) -> String {
+        switch state.phase {
+        case .preparing: return "AI çevirisi hazırlanıyor… · \(state.block). blok"
+        case .translating: return "AI çevirisi · \(state.block). blok"
+        case .finalizing: return "AI çevirisi tamamlanıyor… · \(state.block). blok"
+        }
+    }
 }
