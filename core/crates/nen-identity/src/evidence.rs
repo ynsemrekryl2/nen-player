@@ -42,6 +42,7 @@ use std::fmt;
 
 use nen_domain::redact::{extension, size_class};
 
+use crate::confidence::EvidenceSource;
 use crate::container::{self, ContainerMetadata};
 use crate::declared_name;
 use crate::nfo::Nfo;
@@ -335,33 +336,54 @@ impl MediaEvidence {
         candidates
     }
 
-    /// Every layer's parse, in ADR-0009 Karar 6 order.
-    fn layers(&self) -> Vec<ParsedName> {
+    /// Scores and ranks the identity hypotheses supplied by all evidence
+    /// layers.  This is additive to [`Self::resolve`], whose first-winner
+    /// semantics remain stable for existing callers.
+    pub fn assess_identity(&self) -> crate::confidence::IdentityAssessment {
+        crate::confidence::assess(self)
+    }
+
+    /// Scores every usable evidence layer without changing the legacy
+    /// first-winner resolver.  The confidence module consumes this annotated
+    /// walk to keep source provenance out of the public evidence shape.
+    pub(crate) fn confidence_layers(&self) -> Vec<(EvidenceSource, ParsedName)> {
         let mut layers = Vec::with_capacity(8);
 
         if let Some(identity) = &self.verified_identity {
-            layers.push(identity.clone());
+            layers.push((EvidenceSource::VerifiedHash, identity.clone()));
         }
         if let Some(handoff) = &self.handoff {
-            layers.push(handoff.to_parsed());
+            layers.push((EvidenceSource::Handoff, handoff.to_parsed()));
         }
         if let Some(nfo) = &self.nfo {
-            layers.push(nfo_to_parsed(nfo));
+            layers.push((EvidenceSource::Nfo, nfo_to_parsed(nfo)));
         }
         if let Some(metadata) = &self.container {
-            layers.push(container::to_parsed(metadata));
+            layers.push((EvidenceSource::Container, container::to_parsed(metadata)));
         }
         if let Some(name) = self.file_name.as_deref().or(self.declared_name.as_deref()) {
-            layers.push(release_name::parse(name));
+            layers.push((EvidenceSource::DeclaredName, release_name::parse(name)));
         }
         for hint in &self.dir_hints {
-            layers.push(release_name::parse(hint));
+            layers.push((EvidenceSource::Directory, release_name::parse(hint)));
         }
         for hint in &self.url_hints {
-            layers.push(release_name::parse(hint));
+            layers.push((EvidenceSource::UrlPath, release_name::parse(hint)));
         }
 
         layers
+    }
+
+    pub(crate) fn sibling_names(&self) -> &[String] {
+        &self.sibling_names
+    }
+
+    /// Every layer's parse, in ADR-0009 Karar 6 order.
+    fn layers(&self) -> Vec<ParsedName> {
+        self.confidence_layers()
+            .into_iter()
+            .map(|(_, parsed)| parsed)
+            .collect()
     }
 }
 

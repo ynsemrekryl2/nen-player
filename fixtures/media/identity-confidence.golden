@@ -1,0 +1,17 @@
+threshold	60
+weight	verified_hash	100
+weight	handoff	90
+weight	nfo	80
+weight	container	70
+weight	declared_name	60
+weight	directory	50
+weight	url_path	40
+bonus	independent_support	10
+bonus	sibling_confirmation	10
+penalty	sibling_unconfirmed	10
+penalty	conflict	20
+outcome	automatic	8
+outcome	selection	1
+outcome	manual	1
+selection_rate_percent	10
+wrong_automatic	0

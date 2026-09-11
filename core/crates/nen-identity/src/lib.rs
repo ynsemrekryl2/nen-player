@@ -52,6 +52,7 @@
     )
 )]
 
+pub mod confidence;
 pub mod container;
 pub mod declared_name;
 pub mod dir_hints;

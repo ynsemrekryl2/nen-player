@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **126** task · ✅ done 102 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 22
+Toplam **126** task · ✅ done 103 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 21
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -144,7 +144,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 |---|---|---|---|---|
 | [NEN-033](done/NEN-033-opensubtitles-hash-lookup.md) | OpenSubtitles hash-based identity lookup | M | ✅ done | NEN-018 |
 | [NEN-034](backlog/NEN-034-ai-release-name-normalization.md) | AI-assisted release name normalization | M | ⚪ backlog | NEN-018 NEN-124 NEN-116 |
-| [NEN-035](backlog/NEN-035-identity-confidence-and-candidates.md) | Identity confidence scoring and candidate ranking | M | ⚪ backlog | NEN-018 |
+| [NEN-035](done/NEN-035-identity-confidence-and-candidates.md) | Identity confidence scoring and candidate ranking | M | ✅ done | NEN-018 |
 | [NEN-038](backlog/NEN-038-preferred-language-auto-download.md) | Auto-download subtitles for the preferred language | M | ⚪ backlog | NEN-019 NEN-033 NEN-035 NEN-036 NEN-125 NEN-122 |
 | [NEN-064](backlog/NEN-064-verified-media-identity-strip.md) | Verified media identity in player chrome | L | ⚪ backlog | NEN-120 NEN-061 |
 | [NEN-105](backlog/NEN-105-resumable-checkpoint-store.md) | Resumable checkpoint store for interrupted translation runs | M | ⚪ backlog | NEN-096 |
@@ -172,7 +172,6 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 
 Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 
-- **NEN-035** — Identity confidence scoring and candidate ranking
 - **NEN-105** — Resumable checkpoint store for interrupted translation runs
 - **NEN-107** — Document-wide translation progress across the FFI boundary
 - **NEN-109** — Remote embedded text extraction

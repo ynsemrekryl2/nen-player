@@ -3,10 +3,10 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-11** (**`NEN-111` kapandı** —
-> `SecureCredentialStore` portu, deterministic in-memory fake'i ve reverse-FFI
-> geçidi kanıtlandı. Sıradaki seçim `NEN-035`, `NEN-105`, `NEN-107`, `NEN-109`,
-> `NEN-112`, `NEN-114`, `NEN-119`, `NEN-120` veya `NEN-124`.)
+> Son güncelleme: **2026-09-11** (**`NEN-035` kapandı** — kimlik güven skoru,
+> aday sıralaması ve ölçümlü fixture korpusu kanıtlandı. Sıradaki seçim
+> `NEN-105`, `NEN-107`, `NEN-109`, `NEN-112`, `NEN-114`, `NEN-119`, `NEN-120`
+> veya `NEN-124`.)
 
 ## Nerede duruyoruz
 
@@ -14,9 +14,16 @@
 |---|---|
 | **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı; kırılım aynı gün üretildi — `docs/milestones/M6-real-providers.md`) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-111`** — secure credential portu, fake'i ve reverse-FFI köprüsü tamamlandı. Ondan önce: `NEN-110` |
-| **Sıradaki READY** | `NEN-035`, `NEN-105`, `NEN-107`, `NEN-109`, `NEN-112`, `NEN-114`, `NEN-119`, `NEN-120`, `NEN-124` |
-| **Task sayısı** | 126 · done 102 · active 0 · blocked 0 · canceled 2 · backlog 22 |
+| **Son tamamlanan** | **`NEN-035`** — kimlik güven skoru, aday sıralaması ve ölçümlü fixture korpusu tamamlandı. Ondan önce: `NEN-111` |
+| **Sıradaki READY** | `NEN-105`, `NEN-107`, `NEN-109`, `NEN-112`, `NEN-114`, `NEN-119`, `NEN-120`, `NEN-124` |
+| **Task sayısı** | 126 · done 103 · active 0 · blocked 0 · canceled 2 · backlog 21 |
+
+**`NEN-035` kapandı —** `MediaEvidence::assess_identity` artık ADR-0009 kanıt
+katmanlarından redaction-safe skorlar ve deterministik sıralı adaylar üretiyor.
+Fixture ölçümü 10 vakada %80 otomatik karar, %10 aday seçimi, %10 manuel giriş
+ve 0 yanlış sessiz karar verdi; eşik ve profil `identity-confidence.golden`
+ile sabitlendi. Çakışan kanıtlar (doğrulanmış hash dışında) manuel seçime düşüyor.
+Kanıt: `tasks/done/NEN-035-identity-confidence-and-candidates.md`.
 
 **`NEN-110` kapandı — ADR-0020 `accepted`: kullanıcının üç API anahtarının
 (OpenSubtitles · OpenAI · OpenRouter) hangi port üzerinden, hangi platform
