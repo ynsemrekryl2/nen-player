@@ -8,6 +8,7 @@
 
 uniffi::setup_scaffolding!();
 
+pub mod credentials;
 pub mod handoff;
 pub mod playback;
 pub mod remote_evidence;

@@ -2,6 +2,7 @@
 //!
 //! Crate sınırları ve izinli bağımlılıklar: ADR-0006.
 
+pub mod credentials;
 pub mod http;
 pub mod identity;
 pub mod persistence;

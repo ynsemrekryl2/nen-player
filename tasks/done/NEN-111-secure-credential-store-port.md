@@ -3,8 +3,8 @@ id: NEN-111
 title: SecureCredentialStore port with contract kit and in-memory fake
 milestone: M6
 size: M
-state: backlog
-closed:
+state: done
+closed: 2026-09-11
 depends_on: [NEN-110]
 blocks: [NEN-112, NEN-116, NEN-120]
 adr: [20]
@@ -47,17 +47,33 @@ ile değerini sızdırmıyor.
 
 ## Kanıt (DoD)
 
-- [ ] Contract kiti fake ile geçiyor (`cargo test -p nen-ports -p nen-providers`)
-- [ ] `nen-ffi` köprüsü: Rust'ta yazılan foreign fake üzerinden set/get/delete
+- [x] Contract kiti fake ile geçiyor (`cargo test -p nen-ports -p nen-providers`)
+- [x] `nen-ffi` köprüsü: Rust'ta yazılan foreign fake üzerinden set/get/delete
       roundtrip testi
-- [ ] Negatif (zorunlu, K23): sentinel anahtar hiçbir port/FFI tipinin
+- [x] Negatif (zorunlu, K23): sentinel anahtar hiçbir port/FFI tipinin
       `Debug`/`Display` çıktısında yok; kasıtlı `#[derive(Debug)]` ikizi
       sızdırıyor (guard sağır değil)
-- [ ] Negatif: `CredentialKind`'lar birbirinin değerini döndürmüyor
-- [ ] `bash scripts/build-apple.sh` binding üretimi kırılmadı; üretilen
+- [x] Negatif: `CredentialKind`'lar birbirinin değerini döndürmüyor
+- [x] `bash scripts/build-apple.sh` binding üretimi kırılmadı; üretilen
       `nen_ffi.swift`'te `ForeignSecureCredentialStore` var
-- [ ] `cargo deny check` — yeni dış bağımlılık yok (ya da gerekçesi task'ta)
+- [x] `cargo deny check` — yeni dış bağımlılık yok (ya da gerekçesi task'ta)
 
 ## Kanıt kaydı
 
-<!-- done olurken doldurulacak -->
+**Doğrulanmış kapanış, 2026-09-11.**
+
+- `cargo test -p nen-ports -p nen-providers -p nen-ffi` geçti; credentials
+  unit/contract, foreign fake roundtrip ve K23 guard testleri yeşil.
+- `cargo test --workspace --quiet` geçti; tüm workspace suite'leri yeşil,
+  yalnız önceden var olan `lookup_bench` baseline testi ignored kaldı.
+- `cargo fmt --all -- --check` ve `cargo clippy --workspace --all-targets -- -D warnings`
+  geçti.
+- `cargo deny check` geçti (`advisories/bans/licenses/sources ok`); yeni dış
+  bağımlılık eklenmedi. Mevcut duplicate `hashbrown`/`syn` uyarıları yalnız
+  bilgi seviyesinde kaldı.
+- `bash scripts/build-apple.sh` geçti. Üretilen Swift binding'de
+  `ForeignSecureCredentialStore`, `FfiSecureCredentialStore` ve yalnız
+  `contains`/`set`/`delete` UI yüzeyi doğrulandı; foreign `get` yalnız Rust
+  adapter'ında kaldı.
+- `bash scripts/test.sh` geçti (4/4 script suite). K23 sentinel guard'ı
+  kasıtlı derived-debug ikiziyle sağır olmadığını da doğruladı.

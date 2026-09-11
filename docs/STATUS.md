@@ -3,9 +3,10 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-11** (**`NEN-110` kapandı** — ADR-0020 `accepted`,
-> secure credential storage haritası karara bağlandı; M6 kırılımı aynı gün
-> üretilmişti. Sıradaki adım `NEN-111` — port + in-memory fake.)
+> Son güncelleme: **2026-09-11** (**`NEN-111` kapandı** —
+> `SecureCredentialStore` portu, deterministic in-memory fake'i ve reverse-FFI
+> geçidi kanıtlandı. Sıradaki seçim `NEN-035`, `NEN-105`, `NEN-107`, `NEN-109`,
+> `NEN-112`, `NEN-114`, `NEN-119`, `NEN-120` veya `NEN-124`.)
 
 ## Nerede duruyoruz
 
@@ -13,9 +14,9 @@
 |---|---|
 | **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı; kırılım aynı gün üretildi — `docs/milestones/M6-real-providers.md`) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-110`** — ADR-0020 secure credential storage haritası kabul edildi. Ondan önce: `NEN-104` |
-| **Sıradaki READY** | `NEN-035`, `NEN-105`, `NEN-107`, `NEN-109`, `NEN-111`, `NEN-114`, `NEN-119`, `NEN-124` |
-| **Task sayısı** | 126 · done 101 · active 0 · blocked 0 · canceled 2 · backlog 23 |
+| **Son tamamlanan** | **`NEN-111`** — secure credential portu, fake'i ve reverse-FFI köprüsü tamamlandı. Ondan önce: `NEN-110` |
+| **Sıradaki READY** | `NEN-035`, `NEN-105`, `NEN-107`, `NEN-109`, `NEN-112`, `NEN-114`, `NEN-119`, `NEN-120`, `NEN-124` |
+| **Task sayısı** | 126 · done 102 · active 0 · blocked 0 · canceled 2 · backlog 22 |
 
 **`NEN-110` kapandı — ADR-0020 `accepted`: kullanıcının üç API anahtarının
 (OpenSubtitles · OpenAI · OpenRouter) hangi port üzerinden, hangi platform
@@ -37,6 +38,18 @@ yalnız "kayıtlı" göstergesi vardır; macOS deposu login keychain + generic
 password seçildi (data-protection keychain değil — ad-hoc imzalı geliştirme
 build'inde application-identifier entitlement'ı olmadan `SecItemAdd`
 `-34018` ile düşerdi).
+
+**`NEN-111` kapandı — `nen-ports::credentials` altında ADR-0020'nin senkron,
+object-safe `SecureCredentialStore` portu, kapalı üç-varyantlı
+`CredentialKind`, tek redacted `ApiKey`, payload'suz store hataları, contract
+kiti ve Mutex korumalı deterministic `InMemoryCredentialStore` eklendi.**
+`nen-ffi` reverse-FFI `ForeignSecureCredentialStore` trait'i ve Swift'e yalnız
+`contains`/`set`/`delete` veren `FfiSecureCredentialStore` nesnesiyle bağlandı;
+foreign `get` içeriği doğrulanmadan core'a geçmiyor. K23 sentinel guard'ı,
+mutasyon ikizi ve kind izolasyonu negatifleri yeşil. `cargo test --workspace`
+suite'leri, fmt, clippy, cargo deny, `bash scripts/test.sh` ve Swift binding
+üretimi geçti. Gerçek Keychain ve UI sonraki `NEN-112`/`NEN-113` task'larına
+bırakıldı. Kanıt: `tasks/done/NEN-111-*.md`.
 
 Kod değişmedi (karar/doküman task'ı, Kural 1 gereği implementasyon önce ADR
 ister). `docs/adr/README.md`, `docs/DECISIONS.md`, `docs/architecture.md`

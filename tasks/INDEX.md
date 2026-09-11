@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **126** task · ✅ done 101 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 23
+Toplam **126** task · ✅ done 102 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 22
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -151,7 +151,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-107](backlog/NEN-107-document-wide-translation-progress.md) | Document-wide translation progress across the FFI boundary | M | ⚪ backlog | NEN-102 |
 | [NEN-109](backlog/NEN-109-remote-embedded-text-extraction.md) | Remote embedded text extraction | M | ⚪ backlog | NEN-044 |
 | [NEN-110](done/NEN-110-adr-secure-credential-storage.md) | Decide the secure credential storage map | S | ✅ done | — |
-| [NEN-111](backlog/NEN-111-secure-credential-store-port.md) | SecureCredentialStore port with contract kit and in-memory fake | M | ⚪ backlog | NEN-110 |
+| [NEN-111](done/NEN-111-secure-credential-store-port.md) | SecureCredentialStore port with contract kit and in-memory fake | M | ✅ done | NEN-110 |
 | [NEN-112](backlog/NEN-112-macos-keychain-credential-adapter.md) | macOS Keychain credential adapter | M | ⚪ backlog | NEN-111 |
 | [NEN-113](backlog/NEN-113-macos-api-key-settings.md) | macOS API key entry in settings | M | ⚪ backlog | NEN-112 |
 | [NEN-114](backlog/NEN-114-adr-real-translation-provider-boundary.md) | Decide the real translation provider boundary | S | ⚪ backlog | NEN-090 |
@@ -176,7 +176,8 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-105** — Resumable checkpoint store for interrupted translation runs
 - **NEN-107** — Document-wide translation progress across the FFI boundary
 - **NEN-109** — Remote embedded text extraction
-- **NEN-111** — SecureCredentialStore port with contract kit and in-memory fake
+- **NEN-112** — macOS Keychain credential adapter
 - **NEN-114** — Decide the real translation provider boundary
 - **NEN-119** — Decide the OpenSubtitles integration boundaries
+- **NEN-120** — Verified identity lookup runs from the app
 - **NEN-124** — Decide filename privacy for AI-assisted normalization
