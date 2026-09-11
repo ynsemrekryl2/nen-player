@@ -524,9 +524,28 @@ impl TranslationEnvironment {
     /// — one object, stored here under both trait names because a running
     /// job only ever needs one of the two at a time.
     pub fn new(root: &Path) -> Result<Self, ArtifactStoreError> {
+        Self::with_provider(
+            root,
+            Arc::new(nen_providers::translation_mock::MockTranslationProvider::new()),
+        )
+    }
+
+    /// Same composition as [`Self::new`], with the provider supplied instead
+    /// of hardcoded — the seam `nen-ffi`'s own
+    /// `FfiTranslationEngine::with_environment` (`NEN-108`) uses to hand its
+    /// integration tests a [`nen_providers::translation_mock::
+    /// MockTranslationProvider`] that pauses **outside**
+    /// [`TranslationCall`]'s delivery-gate lock, so a concurrent `cancel()`
+    /// never has to win an OS mutex-fairness race against the very worker
+    /// thread it is trying to stop. `new` is still the only constructor a
+    /// real caller (M6's provider included) ever needs.
+    pub fn with_provider(
+        root: &Path,
+        provider: Arc<dyn TranslationProvider>,
+    ) -> Result<Self, ArtifactStoreError> {
         let store = Arc::new(nen_persist::FilesystemArtifactStore::new(root)?);
         Ok(Self {
-            provider: Arc::new(nen_providers::translation_mock::MockTranslationProvider::new()),
+            provider,
             store: store.clone() as Arc<dyn ArtifactStore>,
             index: store as Arc<dyn ArtifactIndex>,
         })

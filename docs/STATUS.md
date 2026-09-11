@@ -3,11 +3,11 @@
 > **Bu dosya yalnız doğrulanmış bugünü anlatır.** Plan `roadmap.md`'de, kararlar
 > `DECISIONS.md`'de, task ayrıntısı `tasks/INDEX.md`'de. Burada tekrar edilmez.
 >
-> Son güncelleme: **2026-09-11** (**`NEN-102` kapandı** — koşan bir çeviri
-> işinin ilerlemesi ekranda görünüyor, kullanıcı `İptal` ile durdurabiliyor,
-> ve iptal edilen iş ekranda ve menüde hiçbir iz bırakmıyor. Yol üstünde
-> `nen-ffi`'de gerçek bir kusur bulundu ve düzeltildi: `join()` çağrıldığı an
-> `cancel()` kalıcı olarak etkisiz kalıyordu.)
+> Son güncelleme: **2026-09-11** (**`NEN-108` kapandı** — `nen-ffi`'nin çeviri
+> iptal testlerinden ikisi artık CI'da tutarlı geçiyor; ölçülmüş kök neden
+> (worker'ı delivery-gate'in kendi kilidi içinde durduran, adil olmayan OS
+> mutex'e bağımlı bir senkronizasyon) ikinci bir mekanizmaya — kilidin
+> tamamen dışında bir duraklama noktasına — taşındı.)
 
 ## Nerede duruyoruz
 
@@ -15,9 +15,47 @@
 |---|---|
 | **Mevcut milestone** | **M5 — Translation Core** (M4 2026-09-08'de kapandı; toolchain kapısı **açık**) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-102`** — macOS çeviri ilerleme/iptal yüzeyi. Ondan önce: `NEN-101` |
-| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-105`, `NEN-107`, `NEN-108` |
-| **Task sayısı** | 108 · done 97 · active 0 · blocked 0 · canceled 2 · backlog 9 |
+| **Son tamamlanan** | **`NEN-108`** — flaky çeviri iptal testi stabilize edildi. Ondan önce: `NEN-102` |
+| **Sıradaki READY** | `NEN-034`, `NEN-035`, `NEN-044`, `NEN-064`, `NEN-105`, `NEN-107` |
+| **Task sayısı** | 108 · done 98 · active 0 · blocked 0 · canceled 2 · backlog 8 |
+
+**`NEN-108` kapandı — `core/crates/nen-ffi/tests/translation_gate.rs`'teki iki
+çeviri iptal testi artık CI'da tutarlı geçiyor.** `NEN-102`'nin commit'i
+(`afbcb1e`) GitHub Actions'ta bir kez kırmızı verip aynı commit'te
+`gh run rerun` ile yeşile dönmüştü — ölçülen kök neden, worker'ı
+`TranslationCall::progress`'in tuttuğu delivery-gate kilidinin **içinde**
+durduran test senkronizasyonuydu: `release()` sonrası kilidi kimin alacağı
+(worker'ın kendi sonraki `checkpoint()`'i mi, bloke `cancel()` mi) std
+`Mutex`'in adil olmayan (non-FIFO) davranışına kalıyordu, `thread::sleep(50ms)`
+olasılığı düşürüyor ama sıfırlamıyordu.
+
+**Düzeltme sleep büyütmek değil, duraklama noktasını değiştirmek oldu.**
+`nen-app`'in kendi eşdeğer testi zaten kilidin tamamen dışında duraklıyordu
+(`nen_providers::translation_mock::MockCallGate`, provider'ı bir progress
+teslim edildikten **sonra** durduruyor); `nen-ffi`'nin testi bu mekanizmaya
+iki dar test-seam ile ulaştı — `TranslationEnvironment::with_provider`
+(`nen-app`, `new`'in sabit mock'unu parametreye çevirir) ve
+`FfiTranslationEngine::with_environment` (`nen-ffi`, `#[doc(hidden)]` ve
+`#[uniffi::export]` dışında — üretilen Swift binding'de yok, gerçek bir
+çağıranın ulaşamayacağı tek yol). `nen-ffi/Cargo.toml`'a yalnız
+`[dev-dependencies]` altında `nen-providers` eklendi; ADR-0006 kural 2/3'ün
+üretim `[dependencies]` grafiği değişmedi.
+
+**İki test artık `thread::sleep` veya ikinci bir thread içermiyor.**
+`cancel()` her iki testte de inline çağrılıyor — worker kilidin dışında
+duraklarken `cancel()` rakipsiz çalışıyor. İkinci testin sıralaması
+(`join()` önce uçar, `cancel()` sonra gelir) yeni bir `wait_until_finished()`
+yardımcı fonksiyonuyla `job.is_finished()`'ın `Taken` durumunu — `join()`'ün
+**ilk** işi — gözlemleyerek sabitlendi, sabit bir gecikme yerine.
+
+**Sağırlık kontrolü: iki ayrı mutasyon (her testten `cancel()` çağrısı
+kaldırıldı), tam olarak beklenen tek testi kırdı.** Yerelde 30/30 ardışık
+koşu yeşil (varsayılan yükte), ayrıca 20/20 ardışık koşu 4 paralel CPU
+yükleyici altında yeşil. `cargo test --workspace` **832 passed / 1 ignored**
+(`NEN-102` baseline'la birebir aynı). fmt, clippy, `cargo deny check`
+(yalnız workspace-içi bir dev-dependency kenarı — yeni dış paket yok),
+`bash scripts/build-apple.sh` (seam binding'de yok), `bash scripts/test.sh`
+**4/4** ve `bash scripts/check-docs.sh` yeşil. Kanıt: `tasks/done/NEN-108-*.md`.
 
 **`NEN-102` kapandı — koşan bir çeviri işinin ilerlemesi ekranda görünüyor,
 kullanıcı onu iptal edebiliyor ve iptal edilen iş ekranda yarım bir sonuç

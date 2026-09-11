@@ -3,10 +3,15 @@
 //! `nen-app`'s [`TranslationEnvironment`] is this module's whole reason to
 //! exist: it is the composition root that wires a concrete
 //! `FilesystemArtifactStore` (`nen-persist`) to M5's deterministic mock
-//! provider (`nen-providers`), which `nen-ffi` is not allowed to name
-//! directly (ADR-0006 kural 3 — this crate depends on `nen-app` only). So
-//! this gate takes and returns nothing more exotic than a store root path, a
-//! catalog token and a language tag; a caller across it can start a job, get
+//! provider (`nen-providers`), which `nen-ffi` is not allowed to name in its
+//! production `[dependencies]` (ADR-0006 kural 3 — this crate depends on
+//! `nen-app` only). `[dev-dependencies]` is the one narrow exception
+//! (`NEN-108`): `tests/translation_gate.rs` names `nen-providers` directly
+//! through [`FfiTranslationEngine::with_environment`], a `#[doc(hidden)]`
+//! constructor outside the `#[uniffi::export]` surface — no generated
+//! binding, and so no real caller, can reach it. So this gate takes and
+//! returns nothing more exotic than a store root path, a catalog token and a
+//! language tag; a caller across it can start a job, get
 //! told why not, watch its progress, cancel it, and — once it finishes — add
 //! its result to the same [`FfiSubtitleLibrary`] it started from.
 //!
@@ -431,5 +436,26 @@ impl FfiTranslationEngine {
             cancel_handle,
             state: Mutex::new(JobState::Running(handle)),
         }))
+    }
+}
+
+impl FfiTranslationEngine {
+    /// Wraps an already-composed [`TranslationEnvironment`] — never part of
+    /// the `#[uniffi::export]` surface above, so no generated binding names
+    /// it and a real caller across the gate has no way to reach it; the
+    /// only constructor `nen_ffi.swift`/Kotlin ever sees is [`Self::new`].
+    ///
+    /// This exists solely so `tests/translation_gate.rs` (`NEN-108`) can
+    /// hand a job a [`nen_providers::translation_mock::
+    /// MockTranslationProvider`] built with a
+    /// [`nen_providers::translation_mock::MockCallGate`], which pauses the
+    /// worker thread **between** provider calls rather than inside one, on
+    /// the far side of [`nen_app::ports::translation::TranslationCall`]'s
+    /// own delivery-gate lock. Everything else about a job started from the
+    /// result — `start`, `cancel`, `join`, `catalog_into` — is the exact
+    /// same exported path a real caller drives.
+    #[doc(hidden)]
+    pub fn with_environment(inner: TranslationEnvironment) -> Self {
+        Self { inner }
     }
 }

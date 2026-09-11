@@ -1,9 +1,29 @@
 //! The translation FFI surface, driven entirely through the gate (`NEN-100`).
 //!
-//! Every test here goes through [`FfiTranslationEngine`]/[`FfiTranslationJob`]
-//! only — never `nen_app::translation` directly — because that is the whole
-//! point of this crate (ADR-0006 kural 2): a caller across the gate has no
-//! other way in.
+//! Every test here drives a job through [`FfiTranslationEngine`]/
+//! [`FfiTranslationJob`] only — the same `start`/`cancel`/`join`/
+//! `catalog_into` path a real caller across the gate uses. The one exception
+//! is how the two cancellation tests below **build** the engine: they call
+//! [`FfiTranslationEngine::with_environment`] to hand a job a
+//! [`nen_providers::translation_mock::MockCallGate`]-backed provider instead
+//! of going through [`FfiTranslationEngine::new`]. That constructor is
+//! `#[doc(hidden)]` and outside the `#[uniffi::export]` surface — no
+//! generated binding names it, so it changes nothing about what a real
+//! caller across the gate can reach (ADR-0006 kural 2). See its doc comment,
+//! and `NEN-108`, for why: pausing a worker thread *inside* a progress
+//! callback (as the plain [`FfiTranslationEngine::new`] +
+//! [`ForeignTranslationProgressSink`] path forces, since [`nen_app::ports::
+//! translation::TranslationCall::progress`] holds its delivery-gate lock for
+//! the callback's whole duration) makes the moment `cancel()` unblocks a
+//! straight race between two threads for the same freed lock — the OS's
+//! std `Mutex` is not FIFO, and a `thread::sleep` before releasing the pause
+//! only narrows the window, never closes it (measured red on CI, run
+//! `34569242736`, after passing every local run). Pausing the worker
+//! *between* two provider calls — entirely outside that lock, the way
+//! `nen-app`'s own `tests/translation_retarget.rs` already does — removes
+//! the race instead of narrowing it: `cancel()` runs uncontended the moment
+//! it is called, and the worker's very next `checkpoint()` sees it closed
+//! deterministically, every time.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -11,11 +31,13 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 
+use nen_app::translation::TranslationEnvironment;
 use nen_ffi::subtitles::{FfiSubtitleLibrary, FfiSubtitleOutcome, FfiSubtitleSourceKind};
 use nen_ffi::translation::{
-    FfiTranslationEngine, FfiTranslationError, FfiTranslationPhase, FfiTranslationProgress,
-    FfiTranslationStartError, ForeignTranslationProgressSink,
+    FfiTranslationEngine, FfiTranslationError, FfiTranslationJob, FfiTranslationPhase,
+    FfiTranslationProgress, FfiTranslationStartError, ForeignTranslationProgressSink,
 };
+use nen_providers::translation_mock::{MockCallGate, MockTranslationProvider};
 
 struct TempDir(PathBuf);
 
@@ -83,6 +105,33 @@ fn artifact_count(store_root: &Path) -> usize {
     fs::read_dir(store_root.join("artifacts"))
         .map(|entries| entries.count())
         .unwrap_or(0)
+}
+
+/// Opens an engine over `store_root` whose provider pauses — via `gate` —
+/// after delivering a progress event but before the next `checkpoint()`,
+/// entirely outside `TranslationCall`'s own delivery-gate lock (module doc).
+fn gated_engine(store_root: &Path) -> (Arc<MockCallGate>, FfiTranslationEngine) {
+    let gate = Arc::new(MockCallGate::default());
+    let provider = Arc::new(MockTranslationProvider::with_call_gate(gate.clone()));
+    let inner =
+        TranslationEnvironment::with_provider(store_root, provider).expect("a fresh store opens");
+    (gate, FfiTranslationEngine::with_environment(inner))
+}
+
+/// Blocks until `job.is_finished()` is `true` — a deterministic marker of a
+/// state transition, not a duration, so this never races the transition it
+/// waits for the way a fixed `thread::sleep` would (module doc). The bound
+/// is only a diagnostic backstop against a genuine deadlock, never expected
+/// to fire.
+fn wait_until_finished(job: &FfiTranslationJob) {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while !job.is_finished() {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "job did not reach a finished state within the deadline"
+        );
+        thread::yield_now();
+    }
 }
 
 fn ai_entries(library: &FfiSubtitleLibrary) -> usize {
@@ -323,10 +372,8 @@ fn cancelling_a_paused_job_delivers_no_further_progress_and_leaves_no_artifact_o
         &["One", "Two", "Three", "Four", "Five"],
     );
 
-    let engine = FfiTranslationEngine::new(store.path().to_string_lossy().into_owned())
-        .expect("a fresh store opens");
-    let rendezvous = Arc::new(Rendezvous::default());
-    let sink = Arc::new(PausingSink::new(rendezvous.clone()));
+    let (gate, engine) = gated_engine(store.path());
+    let sink = Arc::new(RecordingSink::default());
     let job = engine
         .start(
             library.clone(),
@@ -336,40 +383,29 @@ fn cancelling_a_paused_job_delivers_no_further_progress_and_leaves_no_artifact_o
         )
         .expect("the job starts");
 
-    // The very first progress callback (`Preparing`) is where `sink` pauses,
-    // holding the delivery gate's own lock (ADR-0004 Karar 2) — so `cancel()`
-    // on another thread is guaranteed to block on the same lock until
-    // `release()` lets the callback return.
-    rendezvous.wait_until_arrived();
-    let canceller = {
-        let job = job.clone();
-        thread::spawn(move || job.cancel())
-    };
-    // Give the canceller a chance to reach (and block on) the delivery
-    // gate's lock before the paused callback is allowed to return — the
-    // same precaution `nen-ports`'s own
-    // `cancel_waits_for_an_in_flight_commit_and_blocks_every_commit_after`
-    // takes against the identical race (a freshly unblocked worker thread
-    // can otherwise barge back onto the lock before a woken waiter is
-    // scheduled). What the assertions below prove does not depend on this
-    // sleep for correctness — only for reliably exercising the case where
-    // cancellation actually lands before the run finishes, rather than
-    // racing to the end first.
-    thread::sleep(std::time::Duration::from_millis(50));
-    rendezvous.release();
-    canceller
-        .join()
-        .expect("the canceller thread does not panic");
+    // The worker has delivered `Preparing` (recorded by `sink`, under and
+    // released by `TranslationCall`'s own delivery-gate lock, same as any
+    // other progress event) and is now paused **inside the provider**,
+    // between that call and its first `checkpoint()` — outside every lock
+    // this job holds (module doc). `cancel()` below is therefore never
+    // contending with the worker for anything: it runs to completion the
+    // moment it is called.
+    gate.wait_until_arrived();
+    job.cancel();
 
-    // From here on, nothing new can reach the sink: once `cancel()` has
+    // From here on, nothing new can reach the sink: `cancel()` has already
     // returned, the gate is permanently closed, and every later
     // `checkpoint`/`progress` call sees that under the same lock before it
     // could ever reach the sink again (`nen_ports::translation::
     // TranslationCall::progress`'s own early return). This is the property
-    // "iptal sonrası late commit yok" actually rests on, independent of
-    // exactly how many events raced through *before* `cancel()` took hold.
+    // "iptal sonrası late commit yok" actually rests on.
     let count_after_cancel_returns = sink.events.lock().expect("lock").len();
+    assert_eq!(
+        count_after_cancel_returns, 1,
+        "only the Preparing event should have been delivered before the pause"
+    );
 
+    gate.release();
     let result = job.join();
     assert_eq!(result, Err(FfiTranslationError::Cancelled));
 
@@ -414,20 +450,18 @@ fn cancelling_after_join_has_already_been_called_still_stops_the_job() {
         &["One", "Two", "Three", "Four", "Five"],
     );
 
-    let engine = FfiTranslationEngine::new(store.path().to_string_lossy().into_owned())
-        .expect("a fresh store opens");
-    let rendezvous = Arc::new(Rendezvous::default());
-    let sink = Arc::new(PausingSink::new(rendezvous.clone()));
+    let (gate, engine) = gated_engine(store.path());
+    let sink = Arc::new(RecordingSink::default());
     let job = engine
         .start(
             library.clone(),
             token,
             "tr".to_owned(),
-            Some(sink.clone() as Arc<dyn ForeignTranslationProgressSink>),
+            Some(sink as Arc<dyn ForeignTranslationProgressSink>),
         )
         .expect("the job starts");
 
-    rendezvous.wait_until_arrived();
+    gate.wait_until_arrived();
 
     // Unlike the test above: `join()` is called first, on its own thread —
     // the shell's own shape (`translateSelectedSubtitle()` calls `join()`
@@ -437,24 +471,19 @@ fn cancelling_after_join_has_already_been_called_still_stops_the_job() {
         let job = job.clone();
         thread::spawn(move || job.join())
     };
-    // Give `join()` a moment to actually run and reach its own internal
-    // bookkeeping before `cancel()` is called — the defect this test
-    // guards against depended on exactly that ordering.
-    thread::sleep(std::time::Duration::from_millis(50));
+    // `join()`'s very first action swaps `JobState` to `Taken`, and
+    // `is_finished()` reads `Taken` as finished regardless of whether the
+    // worker itself has actually returned yet (its own doc comment) — so
+    // this deterministically observes the moment `join()` is genuinely in
+    // flight, the exact ordering this test's regression depended on,
+    // without guessing at how long that takes.
+    wait_until_finished(&job);
 
-    // `cancel()` blocks on the same delivery-gate lock the paused callback
-    // holds (same reasoning as the test above), so it runs on its own
-    // thread — calling it inline here, before `release()`, would deadlock
-    // this test against itself.
-    let canceller = {
-        let job = job.clone();
-        thread::spawn(move || job.cancel())
-    };
-    thread::sleep(std::time::Duration::from_millis(50));
-    rendezvous.release();
-    canceller
-        .join()
-        .expect("the canceller thread does not panic");
+    // The worker is still paused outside `TranslationCall`'s lock (same
+    // reasoning as the test above), so `cancel()` here is not racing
+    // `join()` for anything and needs no thread of its own.
+    job.cancel();
+    gate.release();
 
     let result = joiner.join().expect("the joiner thread does not panic");
     assert_eq!(

@@ -20,3 +20,12 @@ path = "src/bin/uniffi-bindgen.rs"
 [dependencies]
 nen-app.workspace = true
 uniffi = { workspace = true, features = ["cli"] }
+
+# Test-only: `nen-providers::translation_mock::MockCallGate` gives
+# `tests/translation_gate.rs` a pause point outside `TranslationCall`'s own
+# delivery-gate lock (NEN-108). A dev-dependency never reaches the compiled
+# `lib`/`staticlib`/`cdylib` artifacts or the generated bindings — ADR-0006
+# kural 2/3's production dependency graph (`nen-ffi -> nen-app` only) is
+# unchanged.
+[dev-dependencies]
+nen-providers.workspace = true

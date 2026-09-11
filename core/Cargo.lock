@@ -407,6 +407,7 @@ name = "nen-ffi"
 version = "0.1.0"
 dependencies = [
  "nen-app",
+ "nen-providers",
  "uniffi",
 ]
 
