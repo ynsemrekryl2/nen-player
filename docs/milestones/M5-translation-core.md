@@ -47,18 +47,25 @@ kapandı (2026-09-08):
 ## Task'lar
 
 `NEN-072` (done) · `NEN-089` · `NEN-090` · `NEN-091` · `NEN-092` · `NEN-093` ·
-`NEN-094` · `NEN-095` · `NEN-096` · `NEN-097` · `NEN-098` · `NEN-099` ·
-`NEN-100` · `NEN-101` · `NEN-102` · `NEN-103` · `NEN-044` · `NEN-104` ·
-`NEN-108`
+`NEN-094` · `NEN-095` · `NEN-096` · `NEN-097` · `NEN-098` · `NEN-106` ·
+`NEN-099` · `NEN-100` · `NEN-101` · `NEN-102` · `NEN-103` · `NEN-044` ·
+`NEN-104` · `NEN-108`
 
 ```
 089 blok düzeni ─┬─▶ 090 provider+mock ─▶ 091 doğrulama ─▶ 092 repair ─▶ 093 checkpoint/iptal ─▶ 094 artifact ─┬─▶ 095 ADR ─▶ 096 CAS ──┐
-                 │                                                                                             └─▶ 097 kimlik ─────────┴─▶ 098 index
+                 │                                                                            │                └─▶ 097 kimlik ─────────┴─▶ 098 index
+                 │                                                                            └─▶ 106 blok ilerleme kusuru ─────────────────┐
                  │                                                                                                                          │
                  └─▶ 103 ADR ─▶ 044 gömülü metin ──────────────────────────────────────────────────────────────────┐                        ▼
                                                                                                                     │        099 orkestrasyon ─▶ 100 FFI ─▶ 101 macOS komut ─▶ 102 macOS ilerleme
                                                                                                                     └────────────────────────────────────────────────────────────────────┴─▶ 104 acceptance
 ```
+
+`NEN-106`, `NEN-090`/`NEN-093` kapandıktan sonra ölçülen ve giderilen bir
+orkestrasyon kusuruydu: çok bloklu bir çeviri, ikinci bloğun kendi
+`total`'ını bildirmesi yüzünden `Permanent` hatasıyla düşüyordu
+(`NEN-093`'ün checkpoint/iptal akışı üstünde). `NEN-099`'un orkestrasyonu
+bu düzeltmeye bağımlı.
 
 ### Çıkış kriteri → kanıt eşlemesi
 
