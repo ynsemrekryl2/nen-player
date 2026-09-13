@@ -283,6 +283,21 @@ if [ -f "$STATUS" ]; then
   fi
 fi
 
+echo "== 10. STATUS.md boyutu =="
+# STATUS.md her oturum başında okunur; "yalnız bugünü anlatır" kuralı yazıya
+# değil bu sınıra güvenir (NEN-127). Geçmiş kapanışlar tasks/done/ ve
+# docs/history/ altındadır, STATUS'a eklenmez.
+STATUS_MAX_LINES=150
+if [ -f "$STATUS" ]; then
+  status_lines="$(wc -l < "$STATUS" | tr -d ' ')"
+  if [ "$status_lines" -gt "$STATUS_MAX_LINES" ]; then
+    err "docs/STATUS.md $status_lines satır; sınır $STATUS_MAX_LINES."
+    echo "      Yapılacak: önceki kapanış özetlerini ve doğrulama girdilerini silin — geçmiş tasks/done/ ve docs/history/ altındadır." >&2
+  else
+    ok "STATUS.md $status_lines satır (sınır $STATUS_MAX_LINES)"
+  fi
+fi
+
 echo
 if [ "$ERRORS" -gt 0 ]; then
   echo "SONUÇ: $ERRORS hata." >&2

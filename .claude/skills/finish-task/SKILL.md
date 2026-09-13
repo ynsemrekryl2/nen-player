@@ -26,7 +26,10 @@ Aktif task'ı **kanıtla kapat** — eksikse kapatma.
    dosyayı `tasks/done/` altına taşı.
 10. `bash scripts/task-index.sh` çalıştır.
 11. `docs/STATUS.md`'yi güncelle: son tamamlanan, sıradaki READY, toolchain
-    değiştiyse o satır, çözülen blocker'lar.
+    değiştiyse o satır, çözülen blocker'lar. **Ekleme değil değiştirme:**
+    önceki "Son kapanış" özeti ve "Son doğrulama" girdisi silinir, yenisi
+    (3–6 satır + `tasks/done/` linki) yazılır. Dosya 150 satırı aşamaz
+    (`check-docs.sh` denetim 10); geçmiş `tasks/done/` Kanıt kaydındadır.
 12. Milestone'un son task'ıysa `docs/milestones/M#-*.md` içine **retro** yaz.
 13. Karar verildiyse `docs/DECISIONS.md`'ye işle.
 14. `bash scripts/check-docs.sh` ile doğrula — çıkış 0 olmalı.

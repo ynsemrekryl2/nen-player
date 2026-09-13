@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# scripts/check-docs.sh denetim 3b/6/8/9 — canceled kaydı, ADR kapısı,
-# STATUS.md ↔ INDEX ready listesi ve Son doğrulama tarihi.
+# scripts/check-docs.sh denetim 3b/6/8/9/10 — canceled kaydı, ADR kapısı,
+# STATUS.md ↔ INDEX ready listesi, Son doğrulama tarihi ve STATUS boyutu.
 #
 # Test kendi task fixture'ını kurar: canlı tasks/ ve INDEX.md OKUNMAZ. Sonuç
 # bu yüzden repo'nun o anki durumundan — aktif task var mı, ready listesi boş
@@ -406,6 +406,34 @@ echo "  T15: shallow klonda bayat STATUS yine yakalanıyor (negatif)"
 set_shallow_verification_date "$SHALLOW/docs/STATUS.md" "2026-09-04"
 OUT="$(bash "$SHALLOW_CHECK" 2>&1)"; RC=$?
 expect 1 "NEN-901 (2026-09-05) daha yeni" "T15 shallow klon, bayat STATUS → hata"
+
+# ===================================== H. STATUS.md boyut kapısı (adım 10, NEN-127)
+
+# Fixture STATUS'a verilen sayıda dolgu satırı ekler; denetim 8/9'un okuduğu
+# satırlara dokunmaz.
+pad_status() { # <eklenecek satır sayısı>
+  python3 - "$STATUS" "$1" <<'PAD'
+import sys
+p, n = sys.argv[1], int(sys.argv[2])
+with open(p, 'a', encoding='utf-8') as f:
+    for i in range(n):
+        f.write(f'fixture dolgu satırı {i}\n')
+PAD
+}
+
+echo "  Fixture: STATUS tam sınırda (150 satır)"
+make_fixture ready
+set_status_row '`NEN-902`'
+pad_status $((150 - $(wc -l < "$STATUS")))
+
+echo "  T18: 150 satırlık STATUS geçiyor"
+run_check
+expect 0 "STATUS.md 150 satır" "T18 sınırdaki STATUS → geçiyor"
+
+echo "  T19: 151 satırlık STATUS yakalanıyor (negatif)"
+pad_status 1
+run_check
+expect 1 "docs/STATUS.md 151 satır; sınır 150" "T19 sınırı aşan STATUS → hata"
 
 # =============================================================== E. yan etkisizlik
 

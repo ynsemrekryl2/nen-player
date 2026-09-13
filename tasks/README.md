@@ -122,6 +122,8 @@ edilen bir kararın task kaydı da bu dizinde korunabilir.
 9. `docs/STATUS.md`'nin "Sıradaki READY" satırı `INDEX.md` ile uyumlu
 10. `docs/STATUS.md`'nin "Son doğrulama" tarihi en yeni done task'ın `closed`
     tarihinden bayat değil
+11. `docs/STATUS.md` 150 satırı aşmıyor — yalnız son kapanışı taşır, geçmiş
+    `tasks/done/` ve `docs/history/` altındadır (NEN-127)
 
 ## Yeni task açma
 

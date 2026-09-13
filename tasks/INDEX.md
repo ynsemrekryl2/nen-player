@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **126** task · ✅ done 106 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 18
+Toplam **128** task · ✅ done 107 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 19
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -167,6 +167,8 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-124](backlog/NEN-124-adr-filename-privacy-for-ai-normalization.md) | Decide filename privacy for AI-assisted normalization | S | ⚪ backlog | — |
 | [NEN-125](backlog/NEN-125-adr-preferred-language-auto-download.md) | Decide the preferred-language auto-download contract | S | ⚪ backlog | NEN-035 NEN-122 |
 | [NEN-126](backlog/NEN-126-m6-acceptance.md) | Real providers acceptance | S | ⚪ backlog | NEN-118 NEN-123 NEN-113 |
+| [NEN-127](done/NEN-127-status-token-diet.md) | STATUS.md token diet and size guard | S | ✅ done | — |
+| [NEN-128](backlog/NEN-128-split-task-index-archive.md) | Split the generated task index into open and archive tables | S | ⚪ backlog | NEN-127 |
 
 ## Sıradaki uygun task'lar
 
@@ -179,3 +181,4 @@ Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 - **NEN-119** — Decide the OpenSubtitles integration boundaries
 - **NEN-120** — Verified identity lookup runs from the app
 - **NEN-124** — Decide filename privacy for AI-assisted normalization
+- **NEN-128** — Split the generated task index into open and archive tables
