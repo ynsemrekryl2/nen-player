@@ -136,3 +136,6 @@ demek. Port kontratına ve domain modeline dokunmuyor.
 ## Notlar
 
 <!-- Karar sonrası gözlemler buraya. -->
+
+NEN-119 / ADR-0021 OpenSubtitles aday ve indirme durumları için yeni defect
+etiketi eklemez; yalnız strict SRT'den geçen seçilmiş içerik kataloglanır.

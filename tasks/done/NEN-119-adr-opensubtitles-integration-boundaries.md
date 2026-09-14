@@ -3,8 +3,8 @@ id: NEN-119
 title: Decide the OpenSubtitles integration boundaries
 milestone: M6
 size: S
-state: backlog
-closed:
+state: done
+closed: 2026-09-14
 depends_on: [NEN-033]
 blocks: [NEN-121]
 adr: [21]
@@ -67,13 +67,18 @@ ADR-0021 en az şunları kararlaştırır:
 
 ## Kanıt (DoD)
 
-- [ ] `docs/adr/0021-*.md` yazıldı, kullanıcı onayıyla `accepted`
-- [ ] `docs/adr/README.md`, `docs/DECISIONS.md` sayacı ve `docs/security-policy.md`
+- [x] `docs/adr/0021-*.md` yazıldı, kullanıcı onayıyla `accepted`
+- [x] `docs/adr/README.md`, `docs/DECISIONS.md` sayacı ve `docs/security-policy.md`
       §3'ün sayıları (redirect, boyut) ADR ile tutarlı
-- [ ] ADR-0035'e (etiket kümesi) ve ADR-0010'a (katalog) gerekiyorsa Notlar
+- [x] ADR-0035'e (etiket kümesi) ve ADR-0010'a (katalog) gerekiyorsa Notlar
       girdisi
-- [ ] `bash scripts/check-docs.sh` çıkış 0
+- [x] `bash scripts/check-docs.sh` çıkış 0
 
 ## Kanıt kaydı
 
-<!-- done olurken doldurulacak -->
+2026-09-14:
+- [ADR-0021](../../docs/adr/0021-opensubtitles-integration-boundaries.md)
+  kullanıcı onayıyla `accepted` durumuna geçirildi.
+- `docs/adr/README.md` Yazılmış/Planlanan, `docs/DECISIONS.md` ADR sayacı/listesi,
+  `security-policy.md` §3 sayıları ve ADR-0035/0010 Notlar girdileri hizalandı.
+- `bash scripts/check-docs.sh` ve `git diff --check` başarılı.

@@ -5,8 +5,7 @@
 > `tasks/done/` ve `history/`'de. Burada tekrar edilmez; **150 satırı aşamaz**
 > (`check-docs.sh` denetim 10).
 >
-> Son güncelleme: **2026-09-14** (**`NEN-118` tamamlandı** — gerçek provider seçimi
-> translation environment'a bağlandı.)
+> Son güncelleme: **2026-09-14** (**`NEN-119` kapandı** — ADR-0021 kabul edildi.)
 
 ## Nerede duruyoruz
 
@@ -14,16 +13,16 @@
 |---|---|
 | **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı — `docs/milestones/M6-real-providers.md`) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-118`** — Real provider selection wired into the translation environment. Ondan önce: `NEN-117` |
-| **Sıradaki READY** | `NEN-119`, `NEN-120`, `NEN-124`, `NEN-128` |
-| **Task sayısı** | 128 · done 114 · active 0 · blocked 0 · canceled 2 · backlog 12 |
+| **Son tamamlanan** | **`NEN-119`** — Decide the OpenSubtitles integration boundaries. Ondan önce: `NEN-118` |
+| **Sıradaki READY** | `NEN-120`, `NEN-124`, `NEN-128` |
+| **Task sayısı** | 128 · done 115 · active 0 · blocked 0 · canceled 2 · backlog 12 |
 
-**Son kapanış — `NEN-118` (2026-09-14):** Provider/model seçimi, secure
-credential store, bounded HTTP client ve NEN-018 medya hash'i `nen-app`
-composition root'unda birleştirildi. Eksik anahtar ve provider capability
-redleri tipli olarak macOS'a taşındı; cache identity ve K23 guard'ları gerçek
-fixture'larla doğrulandı. Kanıt: `evidence/M6/NEN-118-checklist.md` ve
-`tasks/done/NEN-118-real-provider-environment-wiring.md`.
+**Son kapanış — `NEN-119` (2026-09-14):** OpenSubtitles metadata araması,
+public/private kimlik ayrımı, yalnız açık seçimde indirme ve redirect/boyut/
+archive/content-type kapıları ADR-0021 ile kabul edildi. `docs/adr/README.md`,
+`docs/DECISIONS.md`, `security-policy.md` ve ilgili ADR Notlar girdileri
+hizalandı. Kanıt: `evidence/M6/NEN-119-checklist.md` ve
+`tasks/done/NEN-119-adr-opensubtitles-integration-boundaries.md`.
 
 ## Toolchain
 
@@ -68,9 +67,8 @@ Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
 
-2026-09-14'te `NEN-118` kapandı. `cargo test --workspace`, fmt/clippy/deny,
-`bash scripts/test-macos.sh` (**284 test**), M3 doctor ve `check-docs.sh`
-yeşil; NEN-118 provider wiring fixture suite'i gerçek ağa çıkmadan tamamlandı.
+2026-09-14'te `NEN-119` kapandı. `bash scripts/check-docs.sh` (**10/10**)
+ve `git diff --check` yeşil; ADR-only task için kod kapıları gerekmedi.
 
 Önceki doğrulama girdileri ve toolchain kapısı geçmişi:
 `history/status-archive-2026-09.md`.

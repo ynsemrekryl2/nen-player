@@ -67,8 +67,8 @@ gömülmez.
 |---|---|
 | Yalnız HTTPS | Provider API istekleri HTTPS'tir; kullanıcı/handoff medya URL'leri S5 gereği `http/https` olabilir |
 | Approved host | Sağlayıcı host'ları sabit listede; kullanıcı/handoff medya host'u bu listeyle sınırlandırılmaz |
-| Bounded redirect | Yönlendirme sayısı sınırlı; her adımda host yeniden doğrulanır |
-| Maksimum boyut | İndirme boyut sınırı aşılırsa akış kesilir, dosya reddedilir |
+| Bounded redirect | OpenSubtitles indirmesinde en fazla **5 hop**; her adımda host yeniden doğrulanır; provider API'lerinde otomatik redirect yoktur |
+| Maksimum boyut | OpenSubtitles altyazı indirmesi **10 MiB**, provider metadata response **1 MiB** sınırındadır; aşımda akış kesilir ve dosya reddedilir |
 | Archive reddi | Zip/rar/gzip vb. altyazı arşivi kabul edilmez (zip bomb / path traversal) |
 | Content-type doğrulaması | Beklenmeyen tipte içerik reddedilir |
 | Retry sınırı | Yalnız bounded transient network/5xx retry. Doğrulama hatası retry sebebi değildir |

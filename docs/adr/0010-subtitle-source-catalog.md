@@ -379,3 +379,6 @@ sabitliyor ki açılış anında sıra yeniden tartışılmasın. Açılışın 
 Karar 9'da yazılı; kendi ADR'sinde en az şu üçü ele alınmalı: kimlik güven
 eşiğinin sayısal değeri, kullanıcının bunu kapatabilmesi, ve ölçülü/sayaçlı
 bir başarısızlık davranışı (yanlış altyazı inerse ne olur).
+
+NEN-119 / ADR-0021, OpenSubtitles adayını public opaque subtitle ID ile lazy
+metadata olarak kataloglar; arama indirme yapmaz ve otomatik seçim yapmaz.
