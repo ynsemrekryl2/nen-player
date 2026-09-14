@@ -26,6 +26,13 @@ public struct SubtitlePreferencesSettingsView: View {
             picker("Birinci tercih edilen dil", selection: primaryBinding)
             picker("İkinci tercih edilen dil", selection: secondaryBinding)
             picker("AI çeviri hedef dili", selection: translationTargetBinding)
+            Picker("AI çeviri sağlayıcısı", selection: providerBinding) {
+                ForEach(TranslationProviderKind.allCases) { provider in
+                    Text(provider.title).tag(provider)
+                }
+            }
+            TextField("AI model kimliği", text: modelBinding)
+                .textFieldStyle(.roundedBorder)
 
             Section("API anahtarları") {
                 credentialRow(.openSubtitles, draft: $openSubtitlesDraft)
@@ -97,6 +104,20 @@ public struct SubtitlePreferencesSettingsView: View {
         Binding(
             get: { model.translationTargetLanguage },
             set: { model.updateTranslationTargetLanguage($0) }
+        )
+    }
+
+    private var providerBinding: Binding<TranslationProviderKind> {
+        Binding(
+            get: { model.translationProvider },
+            set: { model.updateTranslationProvider($0) }
+        )
+    }
+
+    private var modelBinding: Binding<String> {
+        Binding(
+            get: { model.translationModel },
+            set: { model.updateTranslationModel($0) }
         )
     }
 

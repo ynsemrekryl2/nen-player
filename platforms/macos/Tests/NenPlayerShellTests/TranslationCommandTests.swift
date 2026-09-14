@@ -61,6 +61,46 @@ struct TranslationCommandTests {
         #expect(!FileManager.default.fileExists(atPath: store.url.appendingPathComponent("artifacts").path))
     }
 
+    @Test("a missing provider key is a typed message and never changes the selection")
+    func missingProviderCredentialLeavesSelectionAlone() async throws {
+        let store = TempFixture("translate-missing-key")
+        defer { store.remove() }
+        let dir = TempFixture("translate-missing-key-media")
+        defer { dir.remove() }
+        let media = dir.write("Film.mkv", "not really a video")
+        let subtitle = dir.write("Source.en.srt", TempFixture.validSrt)
+        let credentialStore = FfiSecureCredentialStore(store: EmptyCredentialStore())
+
+        let model = PlayerModel(
+            recentStore: MemoryRecentStore(),
+            startsPolling: false,
+            managesCursor: false,
+            preferenceStore: MemoryPreferenceStore(),
+            translationPreferenceStore: MemoryTranslationPreferenceStore(targetLanguage: "tr"),
+            translationStoreRoot: store.url,
+            credentialStore: credentialStore,
+            sessionFactory: { _ in FakeSession() }
+        )
+        model.attach(to: MPVVideoView.makePlaybackSurface())
+        model.openMedia(at: media)
+        model.consume([.stateChanged(state: .ready)])
+        model.loadSubtitleFile(at: subtitle)
+        let token = try #require(userSubtitleToken(in: model))
+        model.selectSubtitle(token: token)
+        let sourceCountBefore = model.subtitleSourceCount
+
+        model.translateSelectedSubtitle()
+        await model.awaitTranslation()
+
+        #expect(!model.isTranslating)
+        #expect(model.transientMessage == "Çeviri için Ayarlar'dan API anahtarı girin.")
+        #expect(model.selectedSubtitleToken == token)
+        #expect(model.subtitleSourceCount == sourceCountBefore)
+        let artifacts = store.url.appendingPathComponent("artifacts")
+        #expect(FileManager.default.fileExists(atPath: artifacts.path))
+        #expect((try? FileManager.default.contentsOfDirectory(atPath: artifacts.path).isEmpty) == true)
+    }
+
     @Test("a region-qualified source in the target language's primary subtag also refuses")
     func regionQualifiedTargetLanguageAlsoRefuses() throws {
         let store = TempFixture("translate-region-variant")
@@ -201,4 +241,14 @@ struct TranslationCommandTests {
             .first { SubtitleMenuGroupID($0.group) == .userSubtitles }?
             .entries.first?.token
     }
+}
+
+private final class EmptyCredentialStore: ForeignSecureCredentialStore, @unchecked Sendable {
+    func get(kind: FfiCredentialKind) throws -> String? { nil }
+
+    func contains(kind: FfiCredentialKind) throws -> Bool { false }
+
+    func set(kind: FfiCredentialKind, value: String) throws {}
+
+    func delete(kind: FfiCredentialKind) throws {}
 }

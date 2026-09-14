@@ -93,6 +93,13 @@ struct ForeignHttpClientAdapter {
     inner: Arc<dyn ForeignHttpClient>,
 }
 
+/// Adapts the platform's one-request HTTP object for app/provider
+/// composition. The returned object owns the foreign reference and is safe to
+/// move into a translation worker.
+pub(crate) fn adapt_http_client(inner: Arc<dyn ForeignHttpClient>) -> Arc<dyn HttpClient> {
+    Arc::new(ForeignHttpClientAdapter { inner })
+}
+
 impl HttpClient for ForeignHttpClientAdapter {
     fn send(&self, request: HttpRequest) -> Result<HttpResponse, HttpError> {
         let response = self.inner.send(request.into()).map_err(HttpError::from)?;

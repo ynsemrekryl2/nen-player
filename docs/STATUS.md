@@ -5,8 +5,8 @@
 > `tasks/done/` ve `history/`'de. Burada tekrar edilmez; **150 satırı aşamaz**
 > (`check-docs.sh` denetim 10).
 >
-> Son güncelleme: **2026-09-14** (**`NEN-117` kapandı** — OpenRouter provider ve
-> structured-output preflight doğrulandı.)
+> Son güncelleme: **2026-09-14** (**`NEN-118` tamamlandı** — gerçek provider seçimi
+> translation environment'a bağlandı.)
 
 ## Nerede duruyoruz
 
@@ -14,16 +14,16 @@
 |---|---|
 | **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı — `docs/milestones/M6-real-providers.md`) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-117`** — OpenRouter provider ve structured-output preflight. Ondan önce: `NEN-116` |
-| **Sıradaki READY** | `NEN-118`, `NEN-119`, `NEN-120`, `NEN-124`, `NEN-128` |
-| **Task sayısı** | 128 · done 113 · active 0 · blocked 0 · canceled 2 · backlog 13 |
+| **Son tamamlanan** | **`NEN-118`** — Real provider selection wired into the translation environment. Ondan önce: `NEN-117` |
+| **Sıradaki READY** | `NEN-119`, `NEN-120`, `NEN-124`, `NEN-128` |
+| **Task sayısı** | 128 · done 114 · active 0 · blocked 0 · canceled 2 · backlog 12 |
 
-**Son kapanış — `NEN-117` (2026-09-14):** OpenRouter Chat Completions adapter'ı
-structured-output preflight, 15 dakikalık pozitif/negatif capability cache,
-bounded retry/cancellation ve K23 redaction guard'larıyla eklendi. Deterministic
-fixture/contract suite'i ve tüm workspace kalite kapıları gerçek ağa çıkmadan
-geçti. Kanıt: `evidence/M6/NEN-117-checklist.md` ve
-`tasks/done/NEN-117-openrouter-provider-and-preflight.md`.
+**Son kapanış — `NEN-118` (2026-09-14):** Provider/model seçimi, secure
+credential store, bounded HTTP client ve NEN-018 medya hash'i `nen-app`
+composition root'unda birleştirildi. Eksik anahtar ve provider capability
+redleri tipli olarak macOS'a taşındı; cache identity ve K23 guard'ları gerçek
+fixture'larla doğrulandı. Kanıt: `evidence/M6/NEN-118-checklist.md` ve
+`tasks/done/NEN-118-real-provider-environment-wiring.md`.
 
 ## Toolchain
 
@@ -68,9 +68,9 @@ Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
 
-2026-09-14'te `NEN-117` kapandı. `cargo test --workspace`, fmt/clippy/deny,
-`bash scripts/test.sh` (**6/6**), M3 doctor ve `check-docs.sh` yeşil; NEN-116
-OpenAI ve NEN-117 OpenRouter fixture suite'leri gerçek ağa çıkmadan tamamlandı.
+2026-09-14'te `NEN-118` kapandı. `cargo test --workspace`, fmt/clippy/deny,
+`bash scripts/test-macos.sh` (**284 test**), M3 doctor ve `check-docs.sh`
+yeşil; NEN-118 provider wiring fixture suite'i gerçek ağa çıkmadan tamamlandı.
 
 Önceki doğrulama girdileri ve toolchain kapısı geçmişi:
 `history/status-archive-2026-09.md`.

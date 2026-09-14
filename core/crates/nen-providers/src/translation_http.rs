@@ -29,6 +29,24 @@ pub trait RetrySleeper: Send + Sync {
     fn sleep(&self, duration: Duration, call: &TranslationCall);
 }
 
+/// A provider can borrow a deterministic test client or own the shared
+/// platform client used by a real translation environment. Keeping both
+/// shapes here lets the contract tests stay lightweight while the worker gets
+/// a `'static` provider that is safe to move onto its own thread.
+pub(crate) enum HttpClientRef<'a> {
+    Borrowed(&'a dyn HttpClient),
+    Shared(Arc<dyn HttpClient>),
+}
+
+impl HttpClientRef<'_> {
+    pub(crate) fn as_ref(&self) -> &dyn HttpClient {
+        match self {
+            Self::Borrowed(client) => *client,
+            Self::Shared(client) => client.as_ref(),
+        }
+    }
+}
+
 struct ThreadRetrySleeper;
 
 impl RetrySleeper for ThreadRetrySleeper {

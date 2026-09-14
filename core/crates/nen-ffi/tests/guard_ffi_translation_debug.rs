@@ -18,6 +18,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
+use nen_app::translation::StartRefusal;
 use nen_ffi::subtitles::{FfiSubtitleLibrary, FfiSubtitleOutcome, FfiSubtitleSourceKind};
 use nen_ffi::translation::{
     FfiTranslationEngine, FfiTranslationError, FfiTranslationProgress, FfiTranslationStartError,
@@ -135,9 +136,13 @@ fn every_start_refusal_variant_prints_only_its_own_name() {
         FfiTranslationStartError::UnknownSourceLanguage,
         FfiTranslationStartError::AlreadyTargetLanguage,
         FfiTranslationStartError::NoDocument,
+        FfiTranslationStartError::MissingCredential,
+        FfiTranslationStartError::ProviderCapabilityMissing,
+        FfiTranslationStartError::ProviderUnavailable,
         FfiTranslationStartError::LayoutRefused,
         FfiTranslationStartError::InvalidTargetLanguage,
         FfiTranslationStartError::StoreUnavailable,
+        FfiTranslationStartError::InvalidMediaHash,
     ];
     for variant in variants {
         let combined = format!("{variant:?} {variant}");
@@ -145,6 +150,22 @@ fn every_start_refusal_variant_prints_only_its_own_name() {
         // Not blind: the variant's own name is still legible in both forms.
         assert!(combined.contains(&format!("{variant:?}")), "{combined}");
     }
+}
+
+#[test]
+fn new_provider_refusals_map_to_flat_ffi_variants() {
+    assert_eq!(
+        FfiTranslationStartError::from(StartRefusal::MissingCredential),
+        FfiTranslationStartError::MissingCredential
+    );
+    assert_eq!(
+        FfiTranslationStartError::from(StartRefusal::ProviderCapabilityMissing),
+        FfiTranslationStartError::ProviderCapabilityMissing
+    );
+    assert_eq!(
+        FfiTranslationStartError::from(StartRefusal::ProviderUnavailable),
+        FfiTranslationStartError::ProviderUnavailable
+    );
 }
 
 #[test]

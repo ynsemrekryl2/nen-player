@@ -207,13 +207,26 @@ final class MemoryPreferenceStore: SubtitlePreferenceStoring {
 /// reasoning as `MemoryPreferenceStore` (`NEN-101`).
 final class MemoryTranslationPreferenceStore: TranslationPreferenceStoring {
     var targetLanguage: String?
+    var providerKind: TranslationProviderKind
+    var providerModel: String
 
-    init(targetLanguage: String? = nil) {
+    init(
+        targetLanguage: String? = nil,
+        providerKind: TranslationProviderKind = .openRouter,
+        providerModel: String = UserDefaultsTranslationPreferenceStore.defaultModel
+    ) {
         self.targetLanguage = targetLanguage
+        self.providerKind = providerKind
+        self.providerModel = providerModel
     }
 
     func save(_ targetLanguage: String?) {
         self.targetLanguage = targetLanguage
+    }
+
+    func save(provider: TranslationProviderKind, model: String) {
+        self.providerKind = provider
+        self.providerModel = model
     }
 }
 

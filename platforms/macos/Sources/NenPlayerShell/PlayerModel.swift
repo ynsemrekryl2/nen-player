@@ -64,6 +64,10 @@ public final class PlayerModel: ObservableObject {
     /// subtag on the same terms as `subtitlePreferences` — published so the
     /// Settings picker and the "Altyazı" command stay in the same frame.
     @Published public private(set) var translationTargetLanguage: String?
+    /// The selected real provider and model (`NEN-118`). Mock composition is
+    /// available only to headless tests that do not inject a credential store.
+    @Published public private(set) var translationProvider: TranslationProviderKind
+    @Published public private(set) var translationModel: String
     /// Whether a translation job started by `translateSelectedSubtitle()` is
     /// still running. The command's own gate — `NEN-102` adds progress and
     /// cancellation on top, not a second flag.
@@ -240,6 +244,9 @@ public final class PlayerModel: ObservableObject {
     private var playWhenReady = false
     private weak var videoView: MPVVideoView?
     private var accessedURL: URL?
+    /// The exact medium URL used to derive the optional NEN-018 hash for a
+    /// translation cache identity. It is never displayed or logged.
+    private var currentMediaURL: URL?
     private var hasSecurityScope = false
     private var cursorHidden = false
     /// The share of the surface the chrome was last reported to cover.
@@ -289,6 +296,8 @@ public final class PlayerModel: ObservableObject {
         self.subtitlePreferences = preferenceStore.preferences
         self.translationPreferenceStore = translationPreferenceStore
         self.translationTargetLanguage = translationPreferenceStore.targetLanguage
+        self.translationProvider = translationPreferenceStore.providerKind
+        self.translationModel = translationPreferenceStore.providerModel
         self.translationStoreRoot = translationStoreRoot
         self.translationProgressObserver = translationProgressObserver
         self.credentialStore = credentialStore
@@ -373,6 +382,7 @@ public final class PlayerModel: ObservableObject {
             hasSecurityScope = url.startAccessingSecurityScopedResource()
             accessedURL = url
         }
+        currentMediaURL = url
         mediaPresentationRevision &+= 1
         // A translation job started against the outgoing medium must not
         // keep running unwatched, spending a real provider's credit on a
@@ -629,6 +639,20 @@ public final class PlayerModel: ObservableObject {
         translationTargetLanguage = code
     }
 
+    /// Persists the selected provider without changing the model text. The
+    /// next explicit translation command snapshots both values.
+    public func updateTranslationProvider(_ provider: TranslationProviderKind) {
+        translationPreferenceStore.save(provider: provider, model: translationModel)
+        translationProvider = provider
+    }
+
+    /// Persists the selected model string. Validation of the provider-specific
+    /// model identity remains in the Rust adapter before any request is sent.
+    public func updateTranslationModel(_ model: String) {
+        translationPreferenceStore.save(provider: translationProvider, model: model)
+        translationModel = model
+    }
+
     /// §9's explicit command: "AI ile <hedef dile> çevir."
     ///
     /// Starts a job, blocks on its result off the main actor (the same
@@ -653,6 +677,10 @@ public final class PlayerModel: ObservableObject {
         let cancellation = translationCancellation
         let observer = translationProgressObserver
         let session = self.session
+        let provider = translationProvider
+        let model = translationModel
+        let mediaURL = currentMediaURL
+        let credentialStore = self.credentialStore
         // A medium switch must not let a job started against the previous
         // medium's catalog silently add a row to the new one's menu — the
         // same revision guard `mediaPresentationRevision`'s own doc comment
@@ -724,7 +752,26 @@ public final class PlayerModel: ObservableObject {
                     )) != nil else {
                         return .startFailed(.StoreUnavailable)
                     }
-                    let engine = try FfiTranslationEngine(storeRoot: storeRoot.path)
+                    let engine: FfiTranslationEngine
+                    if let credentialStore {
+                        let httpClient = URLSessionRemoteEvidenceClient()
+                        let providerChoice: FfiTranslationProviderChoice = switch provider {
+                        case .openAi: .openAi(model: model)
+                        case .openRouter: .openRouter(model: model)
+                        }
+                        engine = try FfiTranslationEngine.withProvider(
+                            storeRoot: storeRoot.path,
+                            provider: providerChoice,
+                            credentialStore: credentialStore,
+                            httpClient: httpClient,
+                            mediaHash: Self.mediaHash(for: mediaURL)
+                        )
+                    } else {
+                        // Headless shell tests use the documented mock seam;
+                        // a production PlayerModel is composed with the
+                        // Keychain-backed credential store by NenPlayerApp.
+                        engine = try FfiTranslationEngine(storeRoot: storeRoot.path)
+                    }
                     let job = try engine.start(
                         library: library,
                         token: token,
@@ -811,6 +858,28 @@ public final class PlayerModel: ObservableObject {
     /// `UserDefaultsSubtitlePreferenceStore`'s seed already does.
     private static func primarySubtag(of tag: String) -> String {
         String(tag.split(separator: "-", maxSplits: 1).first ?? Substring(tag)).lowercased()
+    }
+
+    /// Reads only the two bounded NEN-018 windows. The hash algorithm itself
+    /// stays in the Rust core; a short/unreadable file simply has no media
+    /// hash and therefore uses the existing fallback cache identity.
+    private nonisolated static func mediaHash(for url: URL?) -> Data? {
+        guard let url, url.isFileURL else { return nil }
+        do {
+            let values = try url.resourceValues(forKeys: [.fileSizeKey])
+            guard let size = values.fileSize, size >= 131_072 else { return nil }
+            let file = try FileHandle(forReadingFrom: url)
+            let head = try file.read(upToCount: 65_536) ?? Data()
+            try file.seek(toOffset: UInt64(size - 65_536))
+            let tail = try file.read(upToCount: 65_536) ?? Data()
+            return mediaHashForWindows(
+                fileSize: UInt64(size),
+                head: head,
+                tail: tail
+            )
+        } catch {
+            return nil
+        }
     }
 
     // MARK: - Menu actions
@@ -1089,6 +1158,7 @@ public final class PlayerModel: ObservableObject {
         session = nil
         releaseSecurityScope()
         mediaName = nil
+        currentMediaURL = nil
         playbackState = .idle
         positionMilliseconds = 0
         durationMilliseconds = nil

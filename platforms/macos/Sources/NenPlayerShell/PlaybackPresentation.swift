@@ -135,9 +135,13 @@ public enum PlaybackPresentation {
         case .UnknownSourceLanguage: return "Bu kaynağın dili belirlenemedi."
         case .AlreadyTargetLanguage: return "Bu kaynak zaten hedef dilde."
         case .NoDocument: return "Bu kaynağın içeriği henüz okunamadı."
+        case .MissingCredential: return "Çeviri için Ayarlar'dan API anahtarı girin."
+        case .ProviderCapabilityMissing: return "Seçilen model yapılandırılmış çıktı desteklemiyor."
+        case .ProviderUnavailable: return "Çeviri sağlayıcısına şu anda erişilemiyor."
         case .LayoutRefused: return "Bu altyazı çeviri için uygun değil."
         case .InvalidTargetLanguage: return "Hedef dil geçersiz."
         case .StoreUnavailable: return "Çeviri deposu kullanılamıyor."
+        case .InvalidMediaHash: return "Medya kimliği kullanılamadı; çeviri yeniden denenebilir."
         }
     }
 

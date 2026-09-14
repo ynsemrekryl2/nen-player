@@ -3,8 +3,8 @@ id: NEN-118
 title: Real provider selection wired into the translation environment
 milestone: M6
 size: M
-state: backlog
-closed:
+state: done
+closed: 2026-09-14
 depends_on: [NEN-116, NEN-117, NEN-113, NEN-107]
 blocks: [NEN-126]
 adr: [19, 18]
@@ -50,20 +50,21 @@ seçebiliyor.
 
 ## Kanıt (DoD)
 
-- [ ] Unit (`nen-app`): anahtar yokken `start` → `MissingCredential`, provider
+- [x] Unit (`nen-app`): anahtar yokken `start` → `MissingCredential`, provider
       `send` sayacı 0, `artifacts/` boş
-- [ ] Unit: fake credential store + `FakeHttpClient` + OpenAI fixture ile
+- [x] Unit: fake credential store + `FakeHttpClient` + OpenAI fixture ile
       uçtan uca iş tamamlanıyor, artifact yazılıyor
-- [ ] Unit: aynı belge iki farklı `media_hash` ile iki farklı artifact
+- [x] Unit: aynı belge iki farklı `media_hash` ile iki farklı artifact
       (cache miss), aynı hash ile cache hit (provider'a gitmiyor)
-- [ ] Negatif (zorunlu, K23): yazılan artifact JSON'unda ve `ArtifactRecord`
+- [x] Negatif (zorunlu, K23): yazılan artifact JSON'unda ve `ArtifactRecord`
       `Debug`'ında anahtar sentinel'ı yok
-- [ ] `nen-ffi`: `FfiTranslationStartError` yeni varyantları eşleniyor (mutasyon
+- [x] `nen-ffi`: `FfiTranslationStartError` yeni varyantları eşleniyor (mutasyon
       testi — `NEN-100` emsali)
-- [ ] Swift: sağlayıcı/model ayarı kalıcı; anahtar yokken komut tipli hata
+- [x] Swift: sağlayıcı/model ayarı kalıcı; anahtar yokken komut tipli hata
       gösteriyor, seçili altyazı değişmiyor
-- [ ] `cargo test --workspace` ve `bash scripts/test-macos.sh` yeşil
+- [x] `cargo test --workspace` ve `bash scripts/test-macos.sh` yeşil
 
 ## Kanıt kaydı
 
-<!-- done olurken doldurulacak -->
+`evidence/M6/NEN-118-checklist.md` — tüm DoD maddeleri ve kapanış kapıları
+2026-09-14 tarihinde yeşil.

@@ -27,7 +27,7 @@ const PROVIDER_ID: &str = "openai";
 
 /// One direct OpenAI provider instance for a translation job.
 pub struct OpenAiTranslationProvider<'a> {
-    http: &'a dyn HttpClient,
+    http: translation_http::HttpClientRef<'a>,
     api_key: ApiKey,
     identity: TranslationProviderIdentity,
     endpoint: String,
@@ -58,11 +58,42 @@ impl<'a> OpenAiTranslationProvider<'a> {
         endpoint: &str,
         sleeper: Arc<dyn RetrySleeper>,
     ) -> Result<Self, TranslationProviderError> {
+        Self::with_http(
+            translation_http::HttpClientRef::Borrowed(http),
+            api_key,
+            model,
+            endpoint,
+            sleeper,
+        )
+    }
+
+    /// Builds a worker-safe provider over the platform-owned HTTP client.
+    pub fn with_shared_http(
+        http: Arc<dyn HttpClient>,
+        api_key: ApiKey,
+        model: &str,
+    ) -> Result<OpenAiTranslationProvider<'static>, TranslationProviderError> {
+        Self::with_http(
+            translation_http::HttpClientRef::Shared(http),
+            api_key,
+            model,
+            OPENAI_RESPONSES_ENDPOINT,
+            translation_http::default_retry_sleeper(),
+        )
+    }
+
+    fn with_http<'b>(
+        http: translation_http::HttpClientRef<'b>,
+        api_key: ApiKey,
+        model: &str,
+        endpoint: &str,
+        sleeper: Arc<dyn RetrySleeper>,
+    ) -> Result<OpenAiTranslationProvider<'b>, TranslationProviderError> {
         if model.trim().is_empty() || model.chars().any(char::is_control) {
             return Err(TranslationProviderError::Permanent);
         }
         let identity = TranslationProviderIdentity::new(PROVIDER_ID, model)?;
-        Ok(Self {
+        Ok(OpenAiTranslationProvider {
             http,
             api_key,
             identity,
@@ -113,8 +144,11 @@ impl TranslationProvider for OpenAiTranslationProvider<'_> {
             total,
         })?;
 
-        let response =
-            translation_http::send_with_retries(self.http, call, self.sleeper.as_ref(), || {
+        let response = translation_http::send_with_retries(
+            self.http.as_ref(),
+            call,
+            self.sleeper.as_ref(),
+            || {
                 HttpRequest::post_json(
                     &self.endpoint,
                     vec![HttpHeader {
@@ -125,7 +159,8 @@ impl TranslationProvider for OpenAiTranslationProvider<'_> {
                     MAX_PROVIDER_BODY_BYTES,
                     PROVIDER_TIMEOUT_MS,
                 )
-            })?;
+            },
+        )?;
 
         call.checkpoint()?;
         let translated = translation_http::parse_response_body(&response.body)?;

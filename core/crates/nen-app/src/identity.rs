@@ -3,6 +3,16 @@
 use nen_identity::evidence::MediaEvidence;
 use nen_ports::identity::{IdentityLookup, IdentityLookupError, MediaHash, MediaIdentityLookup};
 
+/// Computes the provider-compatible media hash from two bounded windows.
+/// Reading the windows remains the platform adapter's job; this keeps the
+/// NEN-018 algorithm in its owning crate while allowing the FFI composition
+/// root to pass the result into cache identity.
+pub fn media_hash_from_windows(file_size: u64, head: &[u8], tail: &[u8]) -> Option<MediaHash> {
+    nen_identity::os_hash::of(file_size, head, tail)
+        .ok()
+        .map(|hash| MediaHash::from_bytes(*hash.as_bytes()))
+}
+
 /// Applies an exact provider match to evidence while preserving local fallback
 /// resolution for `NoMatch`, `Ambiguous` and typed provider failures.
 pub fn apply_provider_identity(

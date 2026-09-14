@@ -57,4 +57,27 @@ struct TranslationPreferenceStoreTests {
         let store = UserDefaultsTranslationPreferenceStore(defaults: defaults, systemLanguage: { "en-US" })
         #expect(store.targetLanguage == "en")
     }
+
+    @Test("the provider and model survive a fresh store instance")
+    func providerAndModelSurviveRestart() throws {
+        let (defaults, cleanup) = freshDefaults()
+        defer { cleanup() }
+
+        let writer = UserDefaultsTranslationPreferenceStore(defaults: defaults, systemLanguage: { nil })
+        writer.save(provider: .openAi, model: "gpt-5.6-luna")
+
+        let reader = UserDefaultsTranslationPreferenceStore(defaults: defaults, systemLanguage: { nil })
+        #expect(reader.providerKind == .openAi)
+        #expect(reader.providerModel == "gpt-5.6-luna")
+    }
+
+    @Test("missing provider settings use the OpenRouter Luna default")
+    func providerDefaultsAreOpenRouterLuna() throws {
+        let (defaults, cleanup) = freshDefaults()
+        defer { cleanup() }
+
+        let store = UserDefaultsTranslationPreferenceStore(defaults: defaults, systemLanguage: { nil })
+        #expect(store.providerKind == .openRouter)
+        #expect(store.providerModel == "openai/gpt-5.6-luna")
+    }
 }

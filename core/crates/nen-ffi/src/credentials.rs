@@ -117,6 +117,27 @@ impl SecureCredentialStore for ForeignSecureCredentialStoreAdapter {
     }
 }
 
+/// Lets the app composition root retain the UI-facing object as an owned
+/// `Arc` while keeping the secret-reading port private to Rust. The methods
+/// below are trait calls only; none are part of the exported object surface.
+impl SecureCredentialStore for FfiSecureCredentialStore {
+    fn get(&self, kind: CredentialKind) -> Result<Option<ApiKey>, CredentialStoreError> {
+        self.inner.get(kind)
+    }
+
+    fn contains(&self, kind: CredentialKind) -> Result<bool, CredentialStoreError> {
+        self.inner.contains(kind)
+    }
+
+    fn set(&self, kind: CredentialKind, key: ApiKey) -> Result<(), CredentialStoreError> {
+        self.inner.set(kind, key)
+    }
+
+    fn delete(&self, kind: CredentialKind) -> Result<(), CredentialStoreError> {
+        self.inner.delete(kind)
+    }
+}
+
 /// The UI-facing store object. Secret values can be written and presence can
 /// be queried, but a stored value is never returned to the UI.
 #[derive(uniffi::Object)]
@@ -144,15 +165,6 @@ impl FfiSecureCredentialStore {
 
     pub fn delete(&self, kind: FfiCredentialKind) -> Result<(), FfiCredentialError> {
         self.inner.delete(kind.into()).map_err(Into::into)
-    }
-}
-
-impl FfiSecureCredentialStore {
-    /// Internal composition hook for future provider environments. It is not
-    /// exported to Swift, so the platform UI still cannot read a secret.
-    #[allow(dead_code)]
-    pub(crate) fn as_port(&self) -> &dyn SecureCredentialStore {
-        &self.inner
     }
 }
 

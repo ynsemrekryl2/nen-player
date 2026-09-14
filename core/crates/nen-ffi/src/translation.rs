@@ -43,12 +43,15 @@
 //! end through this gate, with sentinel dialogue and a sentinel store root,
 //! and shows a naive derive would have leaked it.
 
+use crate::credentials::FfiSecureCredentialStore;
+use crate::remote_evidence::{adapt_http_client, ForeignHttpClient};
 use crate::subtitles::FfiSubtitleLibrary;
 use nen_app::domain::source::LanguageTag;
+use nen_app::ports::identity::MediaHash;
 use nen_app::ports::translation::{TranslationProgress, TranslationProgressPhase};
 use nen_app::translation::{
-    StartRefusal, TranslationCancelHandle, TranslationEnvironment, TranslationError,
-    TranslationJobHandle, TranslationOutcome,
+    ProviderChoice, StartRefusal, TranslationCancelHandle, TranslationEnvironment,
+    TranslationError, TranslationJobHandle, TranslationOutcome,
 };
 use std::fmt;
 use std::path::Path;
@@ -112,6 +115,33 @@ pub struct FfiTranslationSummary {
     pub target_language: String,
 }
 
+/// A real provider selected by the shell. The provider/model pair is kept
+/// closed at the FFI edge; composition and credential lookup remain in
+/// `nen-app`.
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Enum)]
+pub enum FfiTranslationProviderChoice {
+    OpenAi { model: String },
+    OpenRouter { model: String },
+}
+
+impl From<FfiTranslationProviderChoice> for ProviderChoice {
+    fn from(value: FfiTranslationProviderChoice) -> Self {
+        match value {
+            FfiTranslationProviderChoice::OpenAi { model } => Self::OpenAi { model },
+            FfiTranslationProviderChoice::OpenRouter { model } => Self::OpenRouter { model },
+        }
+    }
+}
+
+/// Runs the NEN-018 algorithm over two platform-read windows. The raw hash is
+/// an inbound composition value only: it is never logged or returned by the
+/// translation job surface.
+#[uniffi::export]
+pub fn media_hash_for_windows(file_size: u64, head: Vec<u8>, tail: Vec<u8>) -> Option<Vec<u8>> {
+    nen_app::identity::media_hash_from_windows(file_size, &head, &tail)
+        .map(|hash| hash.as_bytes().to_vec())
+}
+
 impl From<&TranslationOutcome> for FfiTranslationSummary {
     fn from(value: &TranslationOutcome) -> Self {
         Self {
@@ -142,14 +172,20 @@ pub enum FfiTranslationStartError {
     AlreadyTargetLanguage,
     /// The row is catalogued but has no parsed document yet.
     NoDocument,
+    /// The selected provider has no credential in secure storage.
+    MissingCredential,
     /// The selected provider model cannot produce strict structured output.
     ProviderCapabilityMissing,
+    /// The selected provider could not be prepared safely.
+    ProviderUnavailable,
     /// The document could not be split into blocks under M5's fixed layout.
     LayoutRefused,
     /// `target_language` is not a BCP-47 tag this core can parse.
     InvalidTargetLanguage,
     /// The artifact store could not be opened at the given root.
     StoreUnavailable,
+    /// The supplied media hash did not have the NEN-018 shape.
+    InvalidMediaHash,
 }
 
 impl fmt::Display for FfiTranslationStartError {
@@ -160,10 +196,13 @@ impl fmt::Display for FfiTranslationStartError {
             Self::UnknownSourceLanguage => "unknown_source_language",
             Self::AlreadyTargetLanguage => "already_target_language",
             Self::NoDocument => "no_document",
+            Self::MissingCredential => "missing_credential",
             Self::ProviderCapabilityMissing => "provider_capability_missing",
+            Self::ProviderUnavailable => "provider_unavailable",
             Self::LayoutRefused => "layout_refused",
             Self::InvalidTargetLanguage => "invalid_target_language",
             Self::StoreUnavailable => "store_unavailable",
+            Self::InvalidMediaHash => "invalid_media_hash",
         })
     }
 }
@@ -178,7 +217,9 @@ impl From<StartRefusal> for FfiTranslationStartError {
             StartRefusal::UnknownSourceLanguage => Self::UnknownSourceLanguage,
             StartRefusal::AlreadyTargetLanguage => Self::AlreadyTargetLanguage,
             StartRefusal::NoDocument => Self::NoDocument,
+            StartRefusal::MissingCredential => Self::MissingCredential,
             StartRefusal::ProviderCapabilityMissing => Self::ProviderCapabilityMissing,
+            StartRefusal::ProviderUnavailable => Self::ProviderUnavailable,
             StartRefusal::Layout(_) => Self::LayoutRefused,
         }
     }
@@ -403,13 +444,47 @@ pub struct FfiTranslationEngine {
 #[uniffi::export]
 impl FfiTranslationEngine {
     /// Opens (creating it if needed) a content-addressed artifact store
-    /// under `store_root`, paired with M5's deterministic mock provider
-    /// (`nen_app::translation::TranslationEnvironment::new` — M6 replaces
-    /// the provider only there, never here).
+    /// under `store_root`, paired with the legacy deterministic mock provider.
+    /// This constructor remains only for headless tests; production uses
+    /// `with_provider` below so the app composition root receives the real
+    /// provider choice, credential store and HTTP client.
     #[uniffi::constructor]
     pub fn new(store_root: String) -> Result<Self, FfiTranslationStartError> {
-        let inner = TranslationEnvironment::new(Path::new(&store_root))
+        let inner = TranslationEnvironment::with_mock(Path::new(&store_root))
             .map_err(|_store_error| FfiTranslationStartError::StoreUnavailable)?;
+        Ok(Self { inner })
+    }
+
+    /// Opens a real-provider environment. Secrets and HTTP payloads stay
+    /// inside Rust ports; only the platform objects and primitive provider
+    /// choice cross this FFI boundary.
+    #[uniffi::constructor]
+    pub fn with_provider(
+        store_root: String,
+        provider: FfiTranslationProviderChoice,
+        credential_store: Arc<FfiSecureCredentialStore>,
+        http_client: Arc<dyn ForeignHttpClient>,
+        media_hash: Option<Vec<u8>>,
+    ) -> Result<Self, FfiTranslationStartError> {
+        let media_hash = media_hash
+            .map(|bytes| {
+                bytes
+                    .try_into()
+                    .map(MediaHash::from_bytes)
+                    .map_err(|_| FfiTranslationStartError::InvalidMediaHash)
+            })
+            .transpose()?;
+        let credentials =
+            credential_store as Arc<dyn nen_app::ports::credentials::SecureCredentialStore>;
+        let http_client = adapt_http_client(http_client);
+        let inner = TranslationEnvironment::new(
+            Path::new(&store_root),
+            provider.into(),
+            credentials,
+            http_client,
+            media_hash,
+        )
+        .map_err(|_store_error| FfiTranslationStartError::StoreUnavailable)?;
         Ok(Self { inner })
     }
 

@@ -33,6 +33,8 @@
 use crate::subtitles::SubtitleLibrary;
 use nen_domain::source::{LanguageTag, SubtitleSourceId};
 use nen_domain::subtitle::SubtitleDocument;
+use nen_ports::credentials::{CredentialKind, SecureCredentialStore};
+use nen_ports::http::HttpClient;
 use nen_ports::identity::MediaHash;
 use nen_ports::persistence::{
     ArtifactIndex, ArtifactRecord, ArtifactStore, ArtifactStoreError, CacheKey, ContentAddress,
@@ -68,6 +70,21 @@ pub struct TranslationMetadataSeed {
     pub created_at: ArtifactTimestamp,
 }
 
+/// The provider configuration a real translation environment may compose.
+/// `Mock` is deliberately hidden from documentation and exists only for the
+/// deterministic test seam retained by M5.
+#[derive(Clone, PartialEq, Eq)]
+pub enum ProviderChoice {
+    #[doc(hidden)]
+    Mock,
+    OpenAi {
+        model: String,
+    },
+    OpenRouter {
+        model: String,
+    },
+}
+
 /// Why a translation job was never started.
 ///
 /// Flat and payload-free but for [`Self::Layout`], whose
@@ -86,8 +103,12 @@ pub enum StartRefusal {
     AlreadyTargetLanguage,
     /// The row is catalogued but has no parsed document behind it yet.
     NoDocument,
+    /// The selected provider has no credential in secure storage.
+    MissingCredential,
     /// The selected real provider model cannot produce strict structured output.
     ProviderCapabilityMissing,
+    /// The selected provider could not be prepared safely.
+    ProviderUnavailable,
     /// The document could not be split into blocks under the given config.
     Layout(BlockLayoutError),
 }
@@ -100,9 +121,11 @@ impl fmt::Display for StartRefusal {
             Self::UnknownSourceLanguage => f.write_str("source language is unknown"),
             Self::AlreadyTargetLanguage => f.write_str("source is already in the target language"),
             Self::NoDocument => f.write_str("source has no parsed document"),
+            Self::MissingCredential => f.write_str("provider credential is missing"),
             Self::ProviderCapabilityMissing => {
                 f.write_str("provider does not support structured output")
             }
+            Self::ProviderUnavailable => f.write_str("provider is unavailable"),
             Self::Layout(error) => error.fmt(f),
         }
     }
@@ -513,7 +536,7 @@ fn mint_artifact_id() -> ArtifactId {
 }
 
 /// Everything a translation job needs besides the library and the language
-/// pair: the provider, the artifact store and its index.
+/// pair: the provider configuration, the artifact store and its index.
 ///
 /// This is `nen-app`'s composition root for `NEN-100`'s FFI surface —
 /// `nen-ffi` may only depend on this crate (ADR-0006 kural 3), so wiring a
@@ -522,28 +545,94 @@ fn mint_artifact_id() -> ArtifactId {
 /// nothing more exotic than a store root path, a token and a language tag;
 /// it never names `FilesystemArtifactStore` or `MockTranslationProvider`.
 ///
-/// M5's only provider is the deterministic mock (`docs/milestones/
-/// M5-translation-core.md` → Kapsam); M6 replaces it **only here**.
+/// Provider composition stays here rather than in `nen-ffi`: the FFI passes
+/// only a closed choice and platform port objects, while this layer decides
+/// which concrete adapter and credential kind that choice means (ADR-0006).
 pub struct TranslationEnvironment {
-    provider: Arc<dyn TranslationProvider>,
+    provider: ProviderSource,
     store: Arc<dyn ArtifactStore>,
     index: Arc<dyn ArtifactIndex>,
     resume_store: Arc<dyn ResumeStore>,
+    media_hash: Option<MediaHash>,
+}
+
+enum ProviderSource {
+    Fixed(Arc<dyn TranslationProvider>),
+    Configured {
+        choice: ProviderChoice,
+        credentials: Arc<dyn SecureCredentialStore>,
+        http: Arc<dyn HttpClient>,
+    },
+}
+
+enum ProviderRuntime {
+    Fixed(Arc<dyn TranslationProvider>),
+    OpenAi(Arc<nen_providers::openai::OpenAiTranslationProvider<'static>>),
+    OpenRouter(Arc<nen_providers::openrouter::OpenRouterTranslationProvider<'static>>),
+}
+
+impl ProviderRuntime {
+    fn provider(&self) -> Arc<dyn TranslationProvider> {
+        match self {
+            Self::Fixed(provider) => Arc::clone(provider),
+            Self::OpenAi(provider) => Arc::clone(provider) as Arc<dyn TranslationProvider>,
+            Self::OpenRouter(provider) => Arc::clone(provider) as Arc<dyn TranslationProvider>,
+        }
+    }
+
+    fn preflight(&self) -> Result<(), StartRefusal> {
+        let Self::OpenRouter(provider) = self else {
+            return Ok(());
+        };
+        provider
+            .preflight(&TranslationCall::without_progress())
+            .map(|_| ())
+            .map_err(|error| match error {
+                nen_providers::openrouter::OpenRouterPreflightError::CapabilityMissing => {
+                    StartRefusal::ProviderCapabilityMissing
+                }
+                nen_providers::openrouter::OpenRouterPreflightError::Cancelled
+                | nen_providers::openrouter::OpenRouterPreflightError::Transient
+                | nen_providers::openrouter::OpenRouterPreflightError::Permanent => {
+                    StartRefusal::ProviderUnavailable
+                }
+            })
+    }
 }
 
 impl TranslationEnvironment {
-    /// Opens (creating it if needed) a content-addressed artifact store
-    /// under `root` and pairs it with M5's deterministic mock provider.
-    ///
-    /// `FilesystemArtifactStore` implements both [`ArtifactStore`] and
-    /// [`ArtifactIndex`] (`nen-persist`'s single adapter over one directory)
-    /// — one object, stored here under both trait names because a running
-    /// job only ever needs one of the two at a time.
-    pub fn new(root: &Path) -> Result<Self, ArtifactStoreError> {
+    /// Deterministic mock composition retained only for the legacy test gate.
+    #[doc(hidden)]
+    pub fn with_mock(root: &Path) -> Result<Self, ArtifactStoreError> {
         Self::with_provider(
             root,
             Arc::new(nen_providers::translation_mock::MockTranslationProvider::new()),
         )
+    }
+
+    /// Opens (creating it if needed) a content-addressed artifact store under
+    /// `root` and records the selected real provider configuration. The
+    /// credential is intentionally read only when [`Self::start`] is called,
+    /// so a missing key becomes a typed refusal before any HTTP request.
+    pub fn new(
+        root: &Path,
+        choice: ProviderChoice,
+        credentials: Arc<dyn SecureCredentialStore>,
+        http: Arc<dyn HttpClient>,
+        media_hash: Option<MediaHash>,
+    ) -> Result<Self, ArtifactStoreError> {
+        let store = Arc::new(nen_persist::FilesystemArtifactStore::new(root)?);
+        Ok(Self {
+            provider: ProviderSource::Configured {
+                choice,
+                credentials,
+                http,
+            },
+            store: store.clone() as Arc<dyn ArtifactStore>,
+            index: store.clone() as Arc<dyn ArtifactIndex>,
+            resume_store: store as Arc<dyn ResumeStore>,
+            media_hash,
+        })
     }
 
     /// Same composition as [`Self::new`], with the provider supplied instead
@@ -559,24 +648,76 @@ impl TranslationEnvironment {
         root: &Path,
         provider: Arc<dyn TranslationProvider>,
     ) -> Result<Self, ArtifactStoreError> {
+        Self::with_provider_and_media_hash(root, provider, None)
+    }
+
+    /// Test seam for proving cache identity changes without composing a real
+    /// credential or network adapter.
+    pub fn with_provider_and_media_hash(
+        root: &Path,
+        provider: Arc<dyn TranslationProvider>,
+        media_hash: Option<MediaHash>,
+    ) -> Result<Self, ArtifactStoreError> {
         let store = Arc::new(nen_persist::FilesystemArtifactStore::new(root)?);
         Ok(Self {
-            provider,
+            provider: ProviderSource::Fixed(provider),
             store: store.clone() as Arc<dyn ArtifactStore>,
             index: store.clone() as Arc<dyn ArtifactIndex>,
             resume_store: store as Arc<dyn ResumeStore>,
+            media_hash,
         })
+    }
+
+    fn provider_runtime(&self) -> Result<ProviderRuntime, StartRefusal> {
+        match &self.provider {
+            ProviderSource::Fixed(provider) => Ok(ProviderRuntime::Fixed(Arc::clone(provider))),
+            ProviderSource::Configured {
+                choice,
+                credentials,
+                http,
+            } => match choice {
+                ProviderChoice::Mock => Ok(ProviderRuntime::Fixed(Arc::new(
+                    nen_providers::translation_mock::MockTranslationProvider::new(),
+                ))),
+                ProviderChoice::OpenAi { model } => {
+                    let key = credentials
+                        .get(CredentialKind::OpenAi)
+                        .map_err(|_| StartRefusal::ProviderUnavailable)?
+                        .ok_or(StartRefusal::MissingCredential)?;
+                    let provider =
+                        nen_providers::openai::OpenAiTranslationProvider::with_shared_http(
+                            Arc::clone(http),
+                            key,
+                            model,
+                        )
+                        .map_err(|_| StartRefusal::ProviderUnavailable)?;
+                    Ok(ProviderRuntime::OpenAi(Arc::new(provider)))
+                }
+                ProviderChoice::OpenRouter { model } => {
+                    let key = credentials
+                        .get(CredentialKind::OpenRouter)
+                        .map_err(|_| StartRefusal::ProviderUnavailable)?
+                        .ok_or(StartRefusal::MissingCredential)?;
+                    let provider =
+                        nen_providers::openrouter::OpenRouterTranslationProvider::with_shared_http(
+                            Arc::clone(http),
+                            key,
+                            model,
+                        )
+                        .map_err(|_| StartRefusal::ProviderUnavailable)?;
+                    Ok(ProviderRuntime::OpenRouter(Arc::new(provider)))
+                }
+            },
+        }
     }
 
     /// Builds and starts a job for `library`'s `token`, in one call.
     ///
     /// Fills in everything [`prepare`] cannot derive from the library or the
-    /// document itself: a fresh [`ArtifactId`], no glossary and no media
-    /// hash (neither has a producer yet — M6), the current wall-clock time,
-    /// and M5's fixed default block layout (`NEN-101` offers no block-size
-    /// setting). A caller across the FFI gate supplies only what a person
-    /// actually chooses: which source, which target language, and whether
-    /// to watch progress.
+    /// document itself: a fresh [`ArtifactId`], no glossary, the supplied
+    /// media hash, the current wall-clock time, and M5's fixed default block
+    /// layout. Real-provider credential lookup and OpenRouter preflight both
+    /// happen before the worker is spawned.
     pub fn start(
         &self,
         library: &SubtitleLibrary,
@@ -584,10 +725,12 @@ impl TranslationEnvironment {
         target_language: LanguageTag,
         sink: Option<Arc<dyn TranslationProgressSink>>,
     ) -> Result<TranslationJobHandle, StartRefusal> {
+        let runtime = self.provider_runtime()?;
+        let provider = runtime.provider();
         let seed = TranslationMetadataSeed {
             id: mint_artifact_id(),
             glossary: GlossaryIdentity::none(),
-            media_hash: None,
+            media_hash: self.media_hash,
             created_at: ArtifactTimestamp::from_unix_ms(unix_ms_now()),
         };
         let job = prepare(
@@ -595,12 +738,13 @@ impl TranslationEnvironment {
             token,
             target_language,
             BlockLayoutConfig::default(),
-            self.provider.identity(),
+            provider.identity(),
             seed,
         )?;
+        runtime.preflight()?;
         Ok(start(
             job,
-            Arc::clone(&self.provider),
+            provider,
             Arc::clone(&self.store),
             Arc::clone(&self.index),
             Arc::clone(&self.resume_store),

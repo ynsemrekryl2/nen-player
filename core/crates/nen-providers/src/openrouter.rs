@@ -94,7 +94,7 @@ struct CachedCapabilities {
 
 /// One OpenRouter provider instance for a translation job.
 pub struct OpenRouterTranslationProvider<'a> {
-    http: &'a dyn HttpClient,
+    http: translation_http::HttpClientRef<'a>,
     api_key: ApiKey,
     identity: TranslationProviderIdentity,
     chat_endpoint: String,
@@ -133,12 +133,49 @@ impl<'a> OpenRouterTranslationProvider<'a> {
         sleeper: Arc<dyn RetrySleeper>,
         clock: Arc<dyn Clock>,
     ) -> Result<Self, OpenRouterPreflightError> {
+        Self::with_http(
+            translation_http::HttpClientRef::Borrowed(http),
+            api_key,
+            model,
+            chat_endpoint,
+            model_endpoint,
+            sleeper,
+            clock,
+        )
+    }
+
+    /// Builds a worker-safe provider over the platform-owned HTTP client.
+    pub fn with_shared_http(
+        http: Arc<dyn HttpClient>,
+        api_key: ApiKey,
+        model: &str,
+    ) -> Result<OpenRouterTranslationProvider<'static>, OpenRouterPreflightError> {
+        Self::with_http(
+            translation_http::HttpClientRef::Shared(http),
+            api_key,
+            model,
+            OPENROUTER_CHAT_ENDPOINT,
+            &format!("{OPENROUTER_MODEL_ENDPOINT_PREFIX}{model}"),
+            translation_http::default_retry_sleeper(),
+            Arc::new(SystemClock),
+        )
+    }
+
+    fn with_http<'b>(
+        http: translation_http::HttpClientRef<'b>,
+        api_key: ApiKey,
+        model: &str,
+        chat_endpoint: &str,
+        model_endpoint: &str,
+        sleeper: Arc<dyn RetrySleeper>,
+        clock: Arc<dyn Clock>,
+    ) -> Result<OpenRouterTranslationProvider<'b>, OpenRouterPreflightError> {
         if !valid_model(model) {
             return Err(OpenRouterPreflightError::Permanent);
         }
         let identity = TranslationProviderIdentity::new(PROVIDER_ID, model)
             .map_err(|_| OpenRouterPreflightError::Permanent)?;
-        Ok(Self {
+        Ok(OpenRouterTranslationProvider {
             http,
             api_key,
             identity,
@@ -180,11 +217,13 @@ impl<'a> OpenRouterTranslationProvider<'a> {
             return result_for_capabilities(cached.capabilities.clone());
         }
 
-        let response =
-            translation_http::send_with_retries(self.http, call, self.sleeper.as_ref(), || {
-                translation_http::bounded_get(&self.model_endpoint, self.headers())
-            })
-            .map_err(map_translation_error_to_preflight)?;
+        let response = translation_http::send_with_retries(
+            self.http.as_ref(),
+            call,
+            self.sleeper.as_ref(),
+            || translation_http::bounded_get(&self.model_endpoint, self.headers()),
+        )
+        .map_err(map_translation_error_to_preflight)?;
         call.checkpoint()
             .map_err(map_translation_error_to_preflight)?;
         let capabilities = parse_capabilities(&response.body)?;
@@ -254,8 +293,11 @@ impl TranslationProvider for OpenRouterTranslationProvider<'_> {
             done: 0,
             total,
         })?;
-        let response =
-            translation_http::send_with_retries(self.http, call, self.sleeper.as_ref(), || {
+        let response = translation_http::send_with_retries(
+            self.http.as_ref(),
+            call,
+            self.sleeper.as_ref(),
+            || {
                 HttpRequest::post_json(
                     &self.chat_endpoint,
                     self.headers(),
@@ -263,7 +305,8 @@ impl TranslationProvider for OpenRouterTranslationProvider<'_> {
                     MAX_PROVIDER_BODY_BYTES,
                     PROVIDER_TIMEOUT_MS,
                 )
-            })?;
+            },
+        )?;
         call.checkpoint()?;
         let translated = translation_http::parse_response_body(&response.body)?;
         call.progress(TranslationProgress {
