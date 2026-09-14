@@ -5,8 +5,8 @@
 > `tasks/done/` ve `history/`'de. Burada tekrar edilmez; **150 satırı aşamaz**
 > (`check-docs.sh` denetim 10).
 >
-> Son güncelleme: **2026-09-14** (**`NEN-109` kapandı** — Stremio HTTP
-> akışlarından bounded ve iptal edilebilir embedded text extraction hazır.)
+> Son güncelleme: **2026-09-14** (**`NEN-112` kapandı** — macOS Keychain
+> credential adapter'ı gerçek Keychain ve reverse-FFI ile hazır.)
 
 ## Nerede duruyoruz
 
@@ -14,15 +14,15 @@
 |---|---|
 | **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı — `docs/milestones/M6-real-providers.md`) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-109`** — Remote embedded text extraction. Ondan önce: `NEN-107` |
-| **Sıradaki READY** | `NEN-112`, `NEN-116`, `NEN-119`, `NEN-120`, `NEN-124`, `NEN-128` |
-| **Task sayısı** | 128 · done 109 · active 0 · blocked 0 · canceled 2 · backlog 16 |
+| **Son tamamlanan** | **`NEN-112`** — macOS Keychain credential adapter. Ondan önce: `NEN-109` |
+| **Sıradaki READY** | `NEN-113`, `NEN-116`, `NEN-119`, `NEN-120`, `NEN-124`, `NEN-128` |
+| **Task sayısı** | 128 · done 110 · active 0 · blocked 0 · canceled 2 · backlog 16 |
 
-**Son kapanış — `NEN-109` (2026-09-14):** Stremio HTTP akışında 8 MiB
-bounded Range okuması, typed cap refusal ve out-of-band URLSession cancellation
-eklendi; gerçek EngineFS proxy kabul probu ve 271 macOS testi yeşil. Kanıt:
-`evidence/M6/NEN-109-checklist.md` ve
-`tasks/done/NEN-109-remote-embedded-text-extraction.md`.
+**Son kapanış — `NEN-112` (2026-09-14):** `SecItem*` tabanlı, sabit service/account
+Keychain adapter'ı; gerçek test service izolasyonu, payload'sız hata eşlemesi,
+K23 guard'ı ve tek reverse-FFI composition root eklendi. Kanıt:
+`evidence/M6/NEN-112-checklist.md` ve
+`tasks/done/NEN-112-macos-keychain-credential-adapter.md`.
 
 ## Toolchain
 
@@ -67,10 +67,10 @@ Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
 
-2026-09-14'te `NEN-109` kapandı. `cargo test --workspace`, fmt/clippy/deny,
-`bash scripts/test-macos.sh` (**271/271**), gerçek `.app` build,
-`bash scripts/test.sh` (**4/4**), M3 doctor, gerçek Stremio EngineFS proxy
-kabul probu ve `check-docs.sh` yeşil.
+2026-09-14'te `NEN-112` kapandı. `cargo test --workspace`, fmt/clippy/deny,
+`bash scripts/test-macos.sh` (**275/275**), gerçek Keychain suite'i, ad-hoc
+`.app` build + strict codesign, `bash scripts/test.sh` (**5/5**), M3 doctor ve
+`check-docs.sh` yeşil.
 
 Önceki doğrulama girdileri ve toolchain kapısı geçmişi:
 `history/status-archive-2026-09.md`.

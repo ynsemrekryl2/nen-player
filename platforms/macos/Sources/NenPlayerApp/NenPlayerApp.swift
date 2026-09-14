@@ -1,11 +1,20 @@
 import AppKit
+import NenCredentialsKeychain
 import NenPlayerShell
 import SwiftUI
 
 @main
 struct NenPlayerApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @StateObject private var model = PlayerModel()
+    @StateObject private var model: PlayerModel
+
+    init() {
+        // This is the only production composition point for credentials:
+        // SwiftUI receives the Rust-owned object, never the Keychain adapter.
+        _model = StateObject(wrappedValue: PlayerModel(
+            credentialStore: CredentialCompositionRoot.makeProductionStore()
+        ))
+    }
 
     var body: some Scene {
         Window("Nen Player", id: "player") {

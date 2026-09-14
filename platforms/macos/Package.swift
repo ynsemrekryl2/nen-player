@@ -14,6 +14,7 @@ let package = Package(
     platforms: [.macOS(.v14)],
     products: [
         .library(name: "NenPlaybackMPV", targets: ["NenPlaybackMPV"]),
+        .library(name: "NenCredentialsKeychain", targets: ["NenCredentialsKeychain"]),
         .library(name: "NenRemoteEvidenceHTTP", targets: ["NenRemoteEvidenceHTTP"]),
         .library(name: "NenPlayerShell", targets: ["NenPlayerShell"]),
         .executable(name: "NenPlayer", targets: ["NenPlayerApp"])
@@ -54,6 +55,12 @@ let package = Package(
             ]
         ),
         .target(
+            name: "NenCredentialsKeychain",
+            dependencies: [
+                .product(name: "NenCore", package: "apple-shared")
+            ]
+        ),
+        .target(
             name: "NenPlayerShell",
             dependencies: [
                 "NenPlaybackMPV",
@@ -63,7 +70,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "NenPlayerApp",
-            dependencies: ["NenPlayerShell"]
+            dependencies: ["NenPlayerShell", "NenCredentialsKeychain"]
         ),
         .testTarget(
             name: "NenPlaybackMPVTests",
@@ -73,6 +80,13 @@ let package = Package(
             name: "NenRemoteEvidenceHTTPTests",
             dependencies: [
                 "NenRemoteEvidenceHTTP",
+                .product(name: "NenCore", package: "apple-shared")
+            ]
+        ),
+        .testTarget(
+            name: "NenCredentialsKeychainTests",
+            dependencies: [
+                "NenCredentialsKeychain",
                 .product(name: "NenCore", package: "apple-shared")
             ]
         ),

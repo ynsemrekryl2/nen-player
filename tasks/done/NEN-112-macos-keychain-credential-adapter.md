@@ -3,8 +3,8 @@ id: NEN-112
 title: macOS Keychain credential adapter
 milestone: M6
 size: M
-state: backlog
-closed:
+state: done
+closed: 2026-09-14
 depends_on: [NEN-111]
 blocks: [NEN-113]
 adr: [20]
@@ -17,7 +17,8 @@ adr: [20]
 macOS'ta `ForeignSecureCredentialStore`'u implemente eden Keychain adapter'ı
 `NEN-111`'in contract kitini **gerçek Keychain** üzerinde geçiyor; anahtar
 yazılıyor, okunuyor, siliniyor ve uygulamanın kendi service adı dışındaki
-hiçbir kayda erişilmiyor.
+hiçbir kayda erişilmiyor. Üretim uygulaması bu adapter'ı tek bir composition
+root üzerinden Rust'un UI store objesine bağlıyor.
 
 ## Kapsam
 
@@ -42,18 +43,19 @@ hiçbir kayda erişilmiyor.
 
 ## Kanıt (DoD)
 
-- [ ] Swift contract testleri gerçek Keychain'de geçiyor (`bash scripts/test-macos.sh`)
-- [ ] Negatif (zorunlu): silinen anahtar okunmuyor; farklı kind'lar
+- [x] Swift contract testleri gerçek Keychain'de geçiyor (`bash scripts/test-macos.sh`)
+- [x] Negatif (zorunlu): silinen anahtar okunmuyor; farklı kind'lar
       birbirine karışmıyor; test service adı dışındaki kayıtlara dokunulmuyor
       (test öncesi/sonrası `SecItemCopyMatching` sayımı)
-- [ ] Negatif: Keychain hatası tipli, payload'sız dönüyor — Swift test
+- [x] Negatif: Keychain hatası tipli, payload'sız dönüyor — Swift test
       `errSecItemNotFound`'ı "yok"a, bir hata kodunu `Unavailable`'a eşliyor
-- [ ] K23: adapter'ın hiçbir `print`/log yolu anahtar değerini içermiyor
+- [x] K23: adapter'ın hiçbir `print`/log yolu anahtar değerini içermiyor
       (kod taraması + guard testi)
-- [ ] `bash scripts/build-macos-app.sh` ve `codesign --verify` geçiyor
+- [x] `bash scripts/build-macos-app.sh` ve `codesign --verify` geçiyor
       (Keychain erişimi ad-hoc imzalı `.app`'te çalışıyor — gerçek `.app`'te
       tek set/get denemesi checklist'e)
 
 ## Kanıt kaydı
 
-<!-- done olurken doldurulacak -->
+**Doğrulanmış kapanış, 2026-09-14.** Tam kanıt kaydı:
+[`evidence/M6/NEN-112-checklist.md`](../../evidence/M6/NEN-112-checklist.md).

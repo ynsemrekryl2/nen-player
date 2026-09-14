@@ -21,6 +21,12 @@ public final class PlayerModel: ObservableObject {
     /// `core/crates/nen-ffi/tests/translation_gate.rs`'s `PausingSink` uses.
     public typealias TranslationProgressObserver = @Sendable (FfiTranslationProgress) -> Void
 
+    /// The Rust-owned UI credential object supplied by the application
+    /// composition root. It is optional for headless shell tests; production
+    /// construction injects the macOS Keychain-backed object (NEN-112), while
+    /// settings remain unable to read a stored secret.
+    public let credentialStore: FfiSecureCredentialStore?
+
     @Published public private(set) var mediaName: String?
     @Published public private(set) var recentMedia: [RecentMediaEntry] = []
     @Published public private(set) var playbackState: FfiPlaybackState = .idle
@@ -263,6 +269,7 @@ public final class PlayerModel: ObservableObject {
         translationStoreRoot: URL = PlayerModel.defaultTranslationStoreRoot(),
         translationProgressObserver: TranslationProgressObserver? = nil,
         handoffEvidenceCollector: HandoffEvidenceCollector? = nil,
+        credentialStore: FfiSecureCredentialStore? = nil,
         sessionFactory: @escaping SessionFactory = { view in
             let engine = try MPVPlaybackEngine(videoView: view)
             return FfiPlaybackSession(engine: engine)
@@ -284,6 +291,7 @@ public final class PlayerModel: ObservableObject {
         self.translationTargetLanguage = translationPreferenceStore.targetLanguage
         self.translationStoreRoot = translationStoreRoot
         self.translationProgressObserver = translationProgressObserver
+        self.credentialStore = credentialStore
         if let handoffEvidenceCollector {
             self.handoffEvidenceCollector = handoffEvidenceCollector
         } else {
