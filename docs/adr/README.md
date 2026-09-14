@@ -43,6 +43,7 @@ Süreç: [`0001-adr-process.md`](0001-adr-process.md) · Şablon:
 | [0017](0017-artifact-persistence-adapter.md) | Doğrulanmış artifact'lerin persistence adapter'ı | ✅ accepted | M5 |
 | [0018](0018-cache-identity-and-invalidation.md) | Cache identity bileşenleri, versiyonlama ve invalidasyon | ✅ accepted | M5 |
 | [0045](0045-embedded-text-demux-path.md) | Gömülü altyazı metninin demux yolu | ✅ accepted | M5 |
+| [0046](0046-filename-privacy-for-ai-normalization.md) | Dosya adının AI destekli normalizasyona gönderilmesi — gizlilik ve izin modeli | ✅ accepted | M6 |
 | [0002](0002-core-language.md) | Shared core dili — go/no-go kapısı | ✅ accepted | M1 |
 | [0027](0027-performance-budget.md) | Performans bütçeleri — M1 baseline'larından marjlı kabul | ✅ accepted | M1 sonrası |
 
@@ -63,7 +64,6 @@ karar verilmiş sayılmaz (bkz. `docs/architecture.md` → "Karar statüsü").
 | 0023 | Audio auto-sync pipeline ve confidence eşikleri | M8 |
 | 0024 | Audio privacy modeli: localOnly varsayılanı, remote izin akışı | M8 |
 | 0025 | Android motor kararı: Media3 vs. alternatif | M10 |
-| 0046 | Dosya adının AI destekli normalizasyona gönderilmesi — gizlilik ve izin modeli (`NEN-124`, `NEN-034`'ün ön koşulu) | M6 |
 | 0047 | Tercih dilinde otomatik altyazı indirme sözleşmesi — ADR-0010 Karar 9'un üçüncü basamağı (`NEN-125`, `NEN-038`'in ön koşulu) | M6 |
 
 ## Kritik üçü

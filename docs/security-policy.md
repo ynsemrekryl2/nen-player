@@ -49,6 +49,12 @@ impl fmt::Debug for MediaRef {
 Bu kural NEN-006'da test edilir: hassas tiplerin `{:?}` çıktısı yasaklı desenleri
 **içermemelidir**.
 
+**ADR-0046 ayrımı:** Kullanıcı medya-başına açık izin verirse AI destekli
+filename normalizasyonuna, yalnız sanitize edilmiş basename stem'i gönderilebilir.
+Bu, loglama izni değildir: stem, istek gövdesi ve LLM cevabı yine log, `Debug`,
+crash, telemetry ve artifact yüzeylerinde yasaktır. Tam yol, uzantı, URL
+parçaları, hash, boyut, metadata ve içerik bu izinle dahi gönderilemez.
+
 ## 2. Untrusted girdiler
 
 Şunların **hepsi** düşmanca kabul edilir; doğrulanmadan hiçbiri kullanılmaz:
@@ -59,7 +65,8 @@ path bileşenleri.
 
 **Kural:** parse eden kod asla `unwrap`/`expect` kullanmaz; her hata typed error
 döner. Untrusted metin doğrudan bir yol, komut, SQL veya format string'ine
-gömülmez.
+gömülmez. AI/LLM cevabı da untrusted evidence'tır; yerel doğrulama ve
+ADR-0009'un kanıt sırası geçmeden kimlik veya otomatik seçim olarak kullanılamaz.
 
 ## 3. Ağ kuralları
 

@@ -3,7 +3,7 @@ id: NEN-124
 title: Decide filename privacy for AI-assisted normalization
 milestone: M6
 size: S
-state: backlog
+state: active
 closed:
 depends_on: []
 blocks: [NEN-034]

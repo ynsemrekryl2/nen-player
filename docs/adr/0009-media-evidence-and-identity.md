@@ -228,3 +228,12 @@ kuralı **sağlayıcı API'leri** için yazılmış. Kullanıcının veya Stremi
 verdiği medya URL'i ise keyfi bir host olabilir ve player onu açmak zorundadır.
 İki isteğin farklı kurallara tabi olduğu politikada açıkça yazmıyor; `NEN-036`
 bu ayrımı netleştirmeden uzak kanıt toplayan ilk kod olmamalı.
+
+**AI destekli filename normalizasyonu (ADR-0046):** Deterministik katmanlar
+1–7 `Unknown` kaldıktan sonra, kullanıcı medya-başına açık izin verirse
+sanitize edilmiş filename stem'inden türetilen sonuç yeni ve en düşük öncelikli
+bir **AI-derived evidence** katmanı olarak değerlendirilir. Bu katman aday
+gösteriminden ve manuel düzeltmeden önce gelir; mevcut katmanları ezmez,
+`MediaIdentity`'yi tek başına kesinleştirmez ve otomatik seçime izin vermez.
+İzin verilmemesi veya modelin cevap vermemesi akışı bozmaz. Tam yol, URL
+segmentleri/query/fragment, hash, boyut ve içerik bu katmana girdi olamaz.

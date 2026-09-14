@@ -5,22 +5,17 @@
 > `tasks/done/` ve `history/`'de. Burada tekrar edilmez; **150 satırı aşamaz**
 > (`check-docs.sh` denetim 10).
 >
-> Son güncelleme: **2026-09-14** (**`NEN-123` kapandı** — macOS OpenSubtitles menü ve seçim akışı bağlandı.)
+> Son güncelleme: **2026-09-14** (**`NEN-124` aktif** — AI filename normalization gizlilik ADR'sini bağlıyorum.)
 
 ## Nerede duruyoruz
 
 | | |
 |---|---|
 | **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı — `docs/milestones/M6-real-providers.md`) |
-| **Aktif task** | Yok — `NEN-123` kapandı |
+| **Aktif task** | **`NEN-124`** — Decide filename privacy for AI-assisted normalization |
 | **Son tamamlanan** | **`NEN-123`** — macOS OpenSubtitles menu and selection. Ondan önce: `NEN-122` |
-| **Sıradaki READY** | `NEN-124`, `NEN-125`, `NEN-126`, `NEN-128` |
-| **Task sayısı** | 128 · done 120 · active 0 · blocked 0 · canceled 2 · backlog 6 |
-
-**Son kapanış — `NEN-122` (2026-09-14):** Seçilen OpenSubtitles adayı yalnız
-HTTPS/approved-host, redirect, boyut, content-type/magic-byte, encoding ve
-strict SRT kapılarından geçince belleğe bağlanıyor; kota, credential, parse ve
-medya-revizyonu retleri payload'sız. Kanıt: `tasks/done/NEN-122-safe-download-on-selection.md`.
+| **Sıradaki READY** | `NEN-125`, `NEN-126`, `NEN-128` |
+| **Task sayısı** | 128 · done 120 · active 1 · blocked 0 · canceled 2 · backlog 6 |
 
 **Son kapanış — `NEN-123` (2026-09-14):** OpenSubtitles adayları worker-owned
 katalogdan revision kontrollü biçimde macOS menüsüne bağlanıyor; seçim
