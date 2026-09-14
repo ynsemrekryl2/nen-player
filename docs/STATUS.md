@@ -5,24 +5,24 @@
 > `tasks/done/` ve `history/`'de. Burada tekrar edilmez; **150 satırı aşamaz**
 > (`check-docs.sh` denetim 10).
 >
-> Son güncelleme: **2026-09-14** (**`NEN-124` aktif** — AI filename normalization gizlilik ADR'sini bağlıyorum.)
+> Son güncelleme: **2026-09-14** (**`NEN-124` kapandı** — AI filename normalization gizlilik ADR'si kabul edildi.)
 
 ## Nerede duruyoruz
 
 | | |
 |---|---|
 | **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı — `docs/milestones/M6-real-providers.md`) |
-| **Aktif task** | **`NEN-124`** — Decide filename privacy for AI-assisted normalization |
-| **Son tamamlanan** | **`NEN-123`** — macOS OpenSubtitles menu and selection. Ondan önce: `NEN-122` |
-| **Sıradaki READY** | `NEN-125`, `NEN-126`, `NEN-128` |
-| **Task sayısı** | 128 · done 120 · active 1 · blocked 0 · canceled 2 · backlog 6 |
+| **Aktif task** | Yok — `NEN-124` kapandı |
+| **Son tamamlanan** | **`NEN-124`** — Decide filename privacy for AI-assisted normalization. Ondan önce: `NEN-123` |
+| **Sıradaki READY** | `NEN-034`, `NEN-125`, `NEN-126`, `NEN-128` |
+| **Task sayısı** | 128 · done 121 · active 0 · blocked 0 · canceled 2 · backlog 6 |
 
-**Son kapanış — `NEN-123` (2026-09-14):** OpenSubtitles adayları worker-owned
-katalogdan revision kontrollü biçimde macOS menüsüne bağlanıyor; seçim
-indirmeyi başlatıyor, ilerleme geçici yuvada gösteriliyor, başarı belgeyi
-seçiyor, hata önceki seçimi koruyor ve medya değişimindeki geç sonuç atılıyor.
-Kanıt: `tasks/done/NEN-123-macos-opensubtitles-menu-and-download.md` ve
-`evidence/M6/NEN-123-checklist.md`.
+**Son kapanış — `NEN-124` (2026-09-14):** AI filename normalization varsayılan
+olarak kapalı; yalnız medya-başına açık izinle, sanitize basename stem'i ve
+kullanıcının seçtiği translation provider üzerinden çalışabilecek. LLM sonucu
+yalnız düşük öncelikli untrusted evidence'tır. Kanıt:
+`tasks/done/NEN-124-adr-filename-privacy-for-ai-normalization.md` ve
+`docs/adr/0046-filename-privacy-for-ai-normalization.md`.
 
 ## Toolchain
 
@@ -67,12 +67,12 @@ Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
 
-2026-09-14'te `NEN-123` kapandı. `cargo test --workspace`, clippy, format,
-deny, `bash scripts/build-macos-app.sh`, `bash scripts/test.sh` (**6/6**),
-`bash scripts/check-docs.sh` (**10/10**) ve `git diff --check` yeşil; NEN-123
-Swift fixture suite'i **4/4**, MenuFixture suite'i **3/3** geçti. Tam macOS
-Swift suite'i mevcut `SubtitleRenderingTests` libmpv test-helper SIGSEGV'i
-nedeniyle kapanmadı; NEN-123 suite'i, bağlama ve uygulama derlemesi geçti.
+2026-09-14'te `NEN-124` kapandı. ADR-0046 yazıldı/kabul edildi; ADR-0009,
+güvenlik politikası ve karar sayaçları güncellendi. `bash scripts/check-docs.sh`
+(**10/10**), `bash scripts/task-index.sh --check` ve `git diff --check` yeşil.
+NEN-123'ün NEN-123 suite'i **4/4**, MenuFixture suite'i **3/3** ve gerçek
+`.app` derlemesi yeşildi; tam macOS suite'i mevcut `SubtitleRenderingTests`
+libmpv test-helper SIGSEGV'i nedeniyle hâlâ kapanmıyor.
 
 Önceki doğrulama girdileri ve toolchain kapısı geçmişi:
 `history/status-archive-2026-09.md`.

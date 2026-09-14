@@ -3,8 +3,8 @@ id: NEN-124
 title: Decide filename privacy for AI-assisted normalization
 milestone: M6
 size: S
-state: active
-closed:
+state: done
+closed: 2026-09-14
 depends_on: []
 blocks: [NEN-034]
 adr: [46]
@@ -50,12 +50,32 @@ ADR-0046 en az şunları kararlaştırır:
 
 ## Kanıt (DoD)
 
-- [ ] `docs/adr/0046-*.md` yazıldı, kullanıcı onayıyla `accepted`
-- [ ] `docs/adr/README.md` (Planlanan → Yazılmış), `docs/DECISIONS.md` sayacı,
+- [x] `docs/adr/0046-*.md` yazıldı, kullanıcı onayıyla `accepted`
+- [x] `docs/adr/README.md` (Planlanan → Yazılmış), `docs/DECISIONS.md` sayacı,
       `docs/security-policy.md` §1/§2'ye gerekirse not
-- [ ] ADR-0009'a Notlar girdisi (yeni evidence katmanının sırası)
-- [ ] `bash scripts/check-docs.sh` çıkış 0
+- [x] ADR-0009'a Notlar girdisi (yeni evidence katmanının sırası)
+- [x] `bash scripts/check-docs.sh` çıkış 0
 
 ## Kanıt kaydı
 
-<!-- done olurken doldurulacak -->
+### Karar
+
+ADR-0046 `accepted` olarak kaydedildi: AI filename normalization yalnız
+deterministik kanıtlar `Unknown` kaldığında ve medya-başına açık kullanıcı
+izniyle çalışır; yalnız sanitize edilmiş basename stem'i, kullanıcının seçtiği
+translation provider üzerinden gönderilir. URL/path, uzantı, boyut, hash,
+metadata, içerik ve subtitle diyaloğu gönderilmez. LLM sonucu kesin kimlik
+değil, düşük öncelikli untrusted evidence'tır.
+
+### Doğrulama
+
+- `docs/adr/0046-filename-privacy-for-ai-normalization.md` oluşturuldu ve
+  kullanıcının 2026-09-14 onayıyla `status: accepted` oldu.
+- `docs/adr/README.md` 0046'yı Planlanan'dan Yazılmış'a taşıyor;
+  `docs/DECISIONS.md` kabul sayacı **37** ve 0046 listede.
+- `docs/adr/0009-media-evidence-and-identity.md` Notlar bölümüne AI-derived
+  evidence katmanının sırası eklendi.
+- `docs/security-policy.md` §1/§2, ADR-0046 veri minimizasyonu ve untrusted
+  LLM sonucu kurallarıyla güncellendi.
+- `bash scripts/task-index.sh --check`, `bash scripts/check-docs.sh` (**10/10**)
+  ve `git diff --check`: **geçti**.
