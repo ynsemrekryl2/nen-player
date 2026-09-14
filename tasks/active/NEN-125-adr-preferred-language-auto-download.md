@@ -3,7 +3,7 @@ id: NEN-125
 title: Decide the preferred-language auto-download contract
 milestone: M6
 size: S
-state: backlog
+state: active
 closed:
 depends_on: [NEN-035, NEN-122]
 blocks: [NEN-038]

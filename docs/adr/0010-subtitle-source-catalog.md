@@ -382,3 +382,8 @@ bir başarısızlık davranışı (yanlış altyazı inerse ne olur).
 
 NEN-119 / ADR-0021, OpenSubtitles adayını public opaque subtitle ID ile lazy
 metadata olarak kataloglar; arama indirme yapmaz ve otomatik seçim yapmaz.
+
+`NEN-125` ile [ADR-0047](0047-preferred-language-auto-download.md) kabul
+edildi. Böylece Karar 9'un ertelenmiş `opensubtitles` basamağı, kullanıcı
+ayarı açık olduğunda ve yerel kaynak bulunmadığında, ölçülmüş kimlik güveni ile
+koşullu otomatik seçime açılmıştır; implementasyon `NEN-038` kapsamındadır.
