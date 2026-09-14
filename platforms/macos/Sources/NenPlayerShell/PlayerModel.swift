@@ -23,6 +23,16 @@ public final class PlayerModel: ObservableObject {
     /// Runs the optional provider identity lookup away from the main actor.
     /// Its errors are evidence-only and never become playback errors.
     public typealias IdentityLookupRunner = @Sendable (URL) throws -> FfiIdentityLookupResult
+    /// Searches provider metadata into a worker-owned catalog. The catalog is
+    /// merged only after the caller checks the media revision, so a late
+    /// response cannot populate the next medium.
+    public typealias SubtitleCandidateSearchRunner = @Sendable (
+        URL,
+        FfiVerifiedMediaIdentity?,
+        [String]
+    ) throws -> FfiSubtitleLibrary
+    /// Downloads one selected provider row in a worker-owned catalog.
+    public typealias SubtitleDownloadRunner = @Sendable (FfiSubtitleLibrary, UInt32) throws -> Void
 
     /// The Rust-owned UI credential object supplied by the application
     /// composition root. It is optional for headless shell tests; production
@@ -84,6 +94,10 @@ public final class PlayerModel: ObservableObject {
     /// slot the command's own start/finish messages already use — no new
     /// permanent chrome.
     @Published public private(set) var translationProgress: TranslationProgressState?
+    /// Whether an explicit OpenSubtitles selection is currently downloading.
+    /// It shares the transient bottom slot with translation progress and is not
+    /// a permanent player mode.
+    @Published public private(set) var isDownloadingSubtitle = false
     /// The display size of the picture being played, or `nil` when there is no
     /// picture (ADR-0038).
     ///
@@ -234,6 +248,8 @@ public final class PlayerModel: ObservableObject {
     private var sidecarScanTask: Task<Void, Never>?
     private var handoffEvidenceTask: Task<Void, Never>?
     private var identityLookupTask: Task<Void, Never>?
+    private var candidateSearchTask: Task<Void, Never>?
+    private var subtitleDownloadTask: Task<Void, Never>?
     private var translationTask: Task<Void, Never>?
     /// Tracks the running job for `cancelTranslation()` (`NEN-102`). One
     /// instance reused for the model's lifetime — `begin()` resets it per
@@ -243,6 +259,8 @@ public final class PlayerModel: ObservableObject {
     /// production — see `TranslationProgressObserver`'s own doc comment.
     private let translationProgressObserver: TranslationProgressObserver?
     private let identityLookupRunner: IdentityLookupRunner?
+    private let subtitleCandidateSearchRunner: SubtitleCandidateSearchRunner?
+    private let subtitleDownloadRunner: SubtitleDownloadRunner?
     /// ADR-0031 Karar 4.3: automatic selection runs **once**, at the start.
     /// A source discovered later never re-triggers it, however well it matches.
     private var hasAutoSelected = false
@@ -285,6 +303,8 @@ public final class PlayerModel: ObservableObject {
         translationStoreRoot: URL = PlayerModel.defaultTranslationStoreRoot(),
         translationProgressObserver: TranslationProgressObserver? = nil,
         identityLookupRunner: IdentityLookupRunner? = nil,
+        subtitleCandidateSearchRunner: SubtitleCandidateSearchRunner? = nil,
+        subtitleDownloadRunner: SubtitleDownloadRunner? = nil,
         handoffEvidenceCollector: HandoffEvidenceCollector? = nil,
         credentialStore: FfiSecureCredentialStore? = nil,
         sessionFactory: @escaping SessionFactory = { view in
@@ -331,6 +351,39 @@ public final class PlayerModel: ObservableObject {
             }
         } else {
             self.identityLookupRunner = nil
+        }
+        if let subtitleCandidateSearchRunner {
+            self.subtitleCandidateSearchRunner = subtitleCandidateSearchRunner
+        } else if let credentialStore {
+            let client = URLSessionRemoteEvidenceClient()
+            self.subtitleCandidateSearchRunner = { url, identity, languages in
+                let library = FfiSubtitleLibrary()
+                _ = try searchOpensubtitlesCandidates(
+                    mediaHash: Self.mediaHash(for: url),
+                    identity: identity,
+                    languages: languages,
+                    credentialStore: credentialStore,
+                    httpClient: client,
+                    library: library
+                )
+                return library
+            }
+        } else {
+            self.subtitleCandidateSearchRunner = nil
+        }
+        if let subtitleDownloadRunner {
+            self.subtitleDownloadRunner = subtitleDownloadRunner
+        } else if let credentialStore {
+            let client = URLSessionRemoteEvidenceClient()
+            self.subtitleDownloadRunner = { library, token in
+                try library.downloadOpensubtitles(
+                    token: token,
+                    credentialStore: credentialStore,
+                    httpClient: client
+                )
+            }
+        } else {
+            self.subtitleDownloadRunner = nil
         }
         if let handoffEvidenceCollector {
             self.handoffEvidenceCollector = handoffEvidenceCollector
@@ -417,6 +470,11 @@ public final class PlayerModel: ObservableObject {
         mediaPresentationRevision &+= 1
         identityLookupTask?.cancel()
         identityLookupTask = nil
+        candidateSearchTask?.cancel()
+        candidateSearchTask = nil
+        subtitleDownloadTask?.cancel()
+        subtitleDownloadTask = nil
+        isDownloadingSubtitle = false
         verifiedMediaIdentity = nil
         // A translation job started against the outgoing medium must not
         // keep running unwatched, spending a real provider's credit on a
@@ -424,6 +482,7 @@ public final class PlayerModel: ObservableObject {
         // decision, NEN-102: switching media cancels the running job).
         cancelTranslation()
         startIdentityLookup(for: url, revision: mediaPresentationRevision)
+        startSubtitleCandidateSearch(for: url, revision: mediaPresentationRevision)
 
         mediaName = url.lastPathComponent
         fatalMessage = nil
@@ -548,10 +607,49 @@ public final class PlayerModel: ObservableObject {
         }
     }
 
+    /// Searches optional OpenSubtitles metadata after identity work has had a
+    /// chance to produce its exact match. Hash search still works when the
+    /// identity lookup returns no match; all outcomes are evidence-only and
+    /// therefore stay silent on the playback surface.
+    private func startSubtitleCandidateSearch(for url: URL, revision: UInt64) {
+        guard let runner = subtitleCandidateSearchRunner else { return }
+        let identityTask = identityLookupTask
+        let languages = [subtitlePreferences.primary, subtitlePreferences.secondary]
+            .compactMap { $0 }
+        candidateSearchTask = Task { [weak self] in
+            await identityTask?.value
+            guard !Task.isCancelled, let self,
+                  self.mediaPresentationRevision == revision
+            else { return }
+            let identity = self.verifiedMediaIdentity
+            let catalog = try? await Task.detached(priority: .utility) {
+                try runner(url, identity, languages)
+            }.value
+            guard !Task.isCancelled,
+                  self.mediaPresentationRevision == revision,
+                  let catalog
+            else { return }
+            self.subtitles.mergeOpensubtitles(source: catalog)
+            self.refreshSubtitleMenu()
+        }
+    }
+
     /// Waits for the current identity worker. Internal for the revision and
     /// failure-policy tests; production playback never awaits it.
     func awaitIdentityLookup() async {
         await identityLookupTask?.value
+    }
+
+    /// Waits for the optional candidate search. Internal for deterministic
+    /// shell tests; the menu itself never waits for provider metadata.
+    func awaitSubtitleCandidateSearch() async {
+        await candidateSearchTask?.value
+    }
+
+    /// Waits for an explicit provider download. Internal for shell tests; the
+    /// UI observes `isDownloadingSubtitle` instead.
+    func awaitSubtitleDownload() async {
+        await subtitleDownloadTask?.value
     }
 
     /// Asks the user for a subtitle file and loads it.
@@ -973,6 +1071,12 @@ public final class PlayerModel: ObservableObject {
     /// because it is marked broken, changes nothing and says nothing: that is
     /// an outcome, not a failure (ADR-0031 Karar 5).
     public func selectSubtitle(token: UInt32) {
+        if let entry = subtitleMenuEntry(for: token),
+           entry.kind == .openSubtitles,
+           !subtitles.hasDocument(token: token) {
+            startOpenSubtitlesDownload(token: token)
+            return
+        }
         var shown = true
         guard accepted({ shown = try $0.showSubtitle(library: self.subtitles, token: token) == .shown })
         else { return }
@@ -985,6 +1089,54 @@ public final class PlayerModel: ObservableObject {
         // subtitle that is on screen. Measured on the real .app.
         if let group = groupContaining(token) {
             browsedSubtitleGroup = group
+        }
+    }
+
+    /// Downloads a catalogued provider row without touching the live catalog
+    /// until the worker succeeds. This preserves the current selection on all
+    /// failures and makes the revision check meaningful even while a request
+    /// is still blocked in the platform HTTP adapter.
+    private func startOpenSubtitlesDownload(token: UInt32) {
+        guard subtitleDownloadTask == nil else { return }
+        guard let runner = subtitleDownloadRunner
+        else {
+            presentTransient("OpenSubtitles için Ayarlar'dan API anahtarı girin.")
+            return
+        }
+        guard let workerLibrary = subtitles.copyOpensubtitles(token: token) else { return }
+
+        let revision = mediaPresentationRevision
+        // `copyOpensubtitles` intentionally contains exactly one row, so its
+        // worker-local token is always the first catalog token. The live token
+        // is restored by the identity-preserving merge below.
+        let workerToken: UInt32 = 1
+        isDownloadingSubtitle = true
+        subtitleDownloadTask = Task { [weak self] in
+            let failure = await Task.detached(priority: .utility) {
+                do {
+                    try runner(workerLibrary, workerToken)
+                    return nil as FfiDownloadError?
+                } catch let error as FfiDownloadError {
+                    return error
+                } catch {
+                    return FfiDownloadError.InvalidRequest
+                }
+            }.value
+
+            guard !Task.isCancelled, let self else { return }
+            self.isDownloadingSubtitle = false
+            self.subtitleDownloadTask = nil
+            guard self.mediaPresentationRevision == revision else { return }
+            if let failure {
+                self.presentTransient(PlaybackPresentation.subtitleDownloadMessage(for: failure))
+                return
+            }
+            self.subtitles.mergeOpensubtitles(source: workerLibrary)
+            self.refreshSubtitleMenu()
+            // The live library now owns the validated document. Calling the
+            // normal path keeps session routing and highlight updates in one
+            // place; its provider branch is bypassed by `hasDocument`.
+            self.selectSubtitle(token: token)
         }
     }
 
@@ -1208,11 +1360,16 @@ public final class PlayerModel: ObservableObject {
         handoffEvidenceTask = nil
         identityLookupTask?.cancel()
         identityLookupTask = nil
+        candidateSearchTask?.cancel()
+        candidateSearchTask = nil
+        subtitleDownloadTask?.cancel()
+        subtitleDownloadTask = nil
         translationTask?.cancel()
         translationTask = nil
         cancelTranslation()
         isTranslating = false
         translationProgress = nil
+        isDownloadingSubtitle = false
         controlsTask?.cancel()
         controlsTask = nil
         controlsPinned = false

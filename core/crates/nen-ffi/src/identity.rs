@@ -7,7 +7,12 @@
 
 use crate::credentials::FfiSecureCredentialStore;
 use crate::remote_evidence::{adapt_http_client, ForeignHttpClient};
-use nen_app::identity::{ProviderIdentityError, ProviderIdentityOutcome};
+use crate::subtitles::FfiSubtitleLibrary;
+use nen_app::domain::source::LanguageTag;
+use nen_app::identity::{
+    ProviderCandidateError, ProviderCandidateOutcome, ProviderIdentityError,
+    ProviderIdentityOutcome,
+};
 use nen_app::ports::identity::{MediaHash, VerifiedMediaIdentity};
 use std::fmt;
 use std::sync::Arc;
@@ -35,6 +40,17 @@ impl fmt::Debug for FfiVerifiedMediaIdentity {
 
 impl From<VerifiedMediaIdentity> for FfiVerifiedMediaIdentity {
     fn from(value: VerifiedMediaIdentity) -> Self {
+        Self {
+            title: value.title,
+            year: value.year,
+            season: value.season,
+            episode: value.episode,
+        }
+    }
+}
+
+impl From<FfiVerifiedMediaIdentity> for VerifiedMediaIdentity {
+    fn from(value: FfiVerifiedMediaIdentity) -> Self {
         Self {
             title: value.title,
             year: value.year,
@@ -111,6 +127,86 @@ impl fmt::Display for FfiIdentityLookupError {
 }
 
 impl std::error::Error for FfiIdentityLookupError {}
+
+/// The optional candidate catalog's ordinary outcome. An empty catalog is
+/// represented by `Cataloged`; missing credentials and missing identity stay
+/// silent states rather than shell errors (ADR-0021).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum FfiCandidateSearchStatus {
+    Cataloged,
+    NoCredential,
+    NoIdentity,
+}
+
+/// Flat failures from the optional OpenSubtitles metadata search.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Error)]
+pub enum FfiCandidateSearchError {
+    CredentialStoreUnavailable,
+    CredentialStoreDenied,
+    CredentialStoreCorrupt,
+    InvalidRequest,
+    Transport,
+    HttpStatus,
+    InvalidResponse,
+    ResponseTooLarge,
+    RedirectRejected,
+}
+
+impl fmt::Display for FfiCandidateSearchError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::CredentialStoreUnavailable => "credential_store_unavailable",
+            Self::CredentialStoreDenied => "credential_store_denied",
+            Self::CredentialStoreCorrupt => "credential_store_corrupt",
+            Self::InvalidRequest => "invalid_request",
+            Self::Transport => "transport",
+            Self::HttpStatus => "http_status",
+            Self::InvalidResponse => "invalid_response",
+            Self::ResponseTooLarge => "response_too_large",
+            Self::RedirectRejected => "redirect_rejected",
+        })
+    }
+}
+
+impl std::error::Error for FfiCandidateSearchError {}
+
+impl From<ProviderCandidateError> for FfiCandidateSearchError {
+    fn from(value: ProviderCandidateError) -> Self {
+        match value {
+            ProviderCandidateError::CredentialStore(error) => match error {
+                nen_app::ports::credentials::CredentialStoreError::Unavailable => {
+                    Self::CredentialStoreUnavailable
+                }
+                nen_app::ports::credentials::CredentialStoreError::Denied => {
+                    Self::CredentialStoreDenied
+                }
+                nen_app::ports::credentials::CredentialStoreError::Corrupt => {
+                    Self::CredentialStoreCorrupt
+                }
+            },
+            ProviderCandidateError::Provider(error) => match error {
+                nen_app::ports::subtitle_candidates::SubtitleCandidateSearchError::InvalidRequest => {
+                    Self::InvalidRequest
+                }
+                nen_app::ports::subtitle_candidates::SubtitleCandidateSearchError::Transport => {
+                    Self::Transport
+                }
+                nen_app::ports::subtitle_candidates::SubtitleCandidateSearchError::HttpStatus => {
+                    Self::HttpStatus
+                }
+                nen_app::ports::subtitle_candidates::SubtitleCandidateSearchError::InvalidResponse => {
+                    Self::InvalidResponse
+                }
+                nen_app::ports::subtitle_candidates::SubtitleCandidateSearchError::ResponseTooLarge => {
+                    Self::ResponseTooLarge
+                }
+                nen_app::ports::subtitle_candidates::SubtitleCandidateSearchError::RedirectRejected => {
+                    Self::RedirectRejected
+                }
+            },
+        }
+    }
+}
 
 impl From<ProviderIdentityError> for FfiIdentityLookupError {
     fn from(value: ProviderIdentityError) -> Self {
@@ -229,4 +325,52 @@ pub fn lookup_verified_remote_identity(
         nen_app::identity::lookup_opensubtitles_for_remote_url(&url, credentials, http.as_ref())
             .map_err(FfiIdentityLookupError::from)?;
     Ok(result(outcome))
+}
+
+/// Searches and catalogs OpenSubtitles metadata into the receiving library.
+/// The library may be a worker snapshot; the shell decides when that snapshot
+/// is safe to merge into the live medium. Private provider file ids remain in
+/// the Rust application library and never appear in this API.
+#[uniffi::export]
+pub fn search_opensubtitles_candidates(
+    media_hash: Option<Vec<u8>>,
+    identity: Option<FfiVerifiedMediaIdentity>,
+    languages: Vec<String>,
+    credential_store: Arc<FfiSecureCredentialStore>,
+    http_client: Arc<dyn ForeignHttpClient>,
+    library: Arc<FfiSubtitleLibrary>,
+) -> Result<FfiCandidateSearchStatus, FfiCandidateSearchError> {
+    let media_hash = media_hash
+        .map(|bytes| {
+            bytes
+                .try_into()
+                .map(MediaHash::from_bytes)
+                .map_err(|_| FfiCandidateSearchError::InvalidRequest)
+        })
+        .transpose()?;
+    let identity = identity.map(Into::into);
+    let languages = languages
+        .into_iter()
+        .filter_map(|tag| LanguageTag::parse(&tag).ok())
+        .collect();
+    let credentials =
+        credential_store.as_ref() as &dyn nen_app::ports::credentials::SecureCredentialStore;
+    let http = adapt_http_client(http_client);
+    let outcome = nen_app::identity::search_opensubtitles_candidates(
+        media_hash,
+        identity,
+        languages,
+        credentials,
+        http.as_ref(),
+    )
+    .map_err(FfiCandidateSearchError::from)?;
+
+    match outcome {
+        ProviderCandidateOutcome::Candidates(candidates) => {
+            library.with_mut(|library| library.add_opensubtitles(candidates));
+            Ok(FfiCandidateSearchStatus::Cataloged)
+        }
+        ProviderCandidateOutcome::NoCredential => Ok(FfiCandidateSearchStatus::NoCredential),
+        ProviderCandidateOutcome::NoIdentity => Ok(FfiCandidateSearchStatus::NoIdentity),
+    }
 }

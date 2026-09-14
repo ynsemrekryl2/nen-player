@@ -31,6 +31,9 @@ public enum SubtitleMenuGroupID: Hashable, Sendable {
 /// chrome is Turkish. Both halves are the platform's business, and they are
 /// written here so a test can read them without drawing a view.
 public enum SubtitleMenuPresentation {
+    /// The transient state shown while an explicit provider row is downloading.
+    public static let downloadingNotice = "İndiriliyor…"
+
     /// The compact transport label for the source currently on screen.
     ///
     /// A token is deliberately resolved through the menu rather than printed:

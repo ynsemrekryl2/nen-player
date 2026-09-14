@@ -125,6 +125,14 @@ public struct PlayerRootView: View {
                     )
                     .transition(.opacity)
                 }
+                if model.isDownloadingSubtitle {
+                    Text(SubtitleMenuPresentation.downloadingNotice)
+                        .font(.callout.weight(.medium))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 9)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .transition(.opacity)
+                }
             }
             .padding(.bottom, TransportControls.height + 18)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
@@ -178,6 +186,7 @@ public struct PlayerRootView: View {
         .animation(.easeOut(duration: 0.24), value: presentedPanel)
         .animation(.easeOut(duration: 0.16), value: model.transientMessage)
         .animation(.easeOut(duration: 0.16), value: model.translationProgress)
+        .animation(.easeOut(duration: 0.16), value: model.isDownloadingSubtitle)
         .onChange(of: model.mediaPresentationRevision) { _, _ in
             setPresentedPanel(nil)
         }

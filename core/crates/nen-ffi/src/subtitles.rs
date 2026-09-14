@@ -397,6 +397,32 @@ impl FfiSubtitleLibrary {
             .map_err(Into::into)
     }
 
+    /// Creates a worker-owned copy containing one OpenSubtitles row. The
+    /// private download identity stays inside the Rust catalog while the
+    /// caller performs network work away from the live medium.
+    pub fn copy_opensubtitles(&self, token: u32) -> Option<Arc<FfiSubtitleLibrary>> {
+        let copy = Arc::new(FfiSubtitleLibrary::new());
+        let copied = self.with(|source| {
+            copy.with_mut(|target| target.copy_opensubtitles_entry_from(source, token))
+        });
+        copied.then_some(copy)
+    }
+
+    /// Merges a worker snapshot after its caller has checked the media
+    /// revision. Documents and private download identities remain in Rust;
+    /// only the normal menu projection crosses the boundary.
+    pub fn merge_opensubtitles(&self, source: Arc<FfiSubtitleLibrary>) {
+        let source = lock(&source.inner);
+        lock(&self.inner).merge_opensubtitles_from(&source);
+    }
+
+    /// Whether a source has an in-memory document attached. OpenSubtitles rows
+    /// are catalogued before download, so this is the distinction between a
+    /// row that starts download and one that can be shown immediately.
+    pub fn has_document(&self, token: u32) -> bool {
+        lock(&self.inner).document_of(token).is_some()
+    }
+
     /// §8's menu, ready to draw.
     ///
     /// Re-derived on every call. Which headings exist, their order, the order

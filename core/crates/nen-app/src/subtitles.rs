@@ -210,6 +210,59 @@ impl SubtitleLibrary {
             .collect()
     }
 
+    /// Copies OpenSubtitles rows from a worker-owned library into this
+    /// medium's catalog. The worker library is deliberately separate from the
+    /// live one: a late search or download must not mutate the next medium
+    /// after `clear()` has replaced the live catalog (NEN-123).
+    pub fn merge_opensubtitles_from(&mut self, other: &SubtitleLibrary) {
+        let entries: Vec<_> = other
+            .catalog
+            .of_kind(SubtitleSourceKind::OpenSubtitles)
+            .filter_map(|source| {
+                let file_id = other.opensubtitles_file_ids.get(source.id()).copied()?;
+                Some((
+                    source.clone(),
+                    file_id,
+                    other.documents.get(source.id()).cloned(),
+                ))
+            })
+            .collect();
+
+        for (source, file_id, document) in entries {
+            let id = source.id().clone();
+            self.remember(&id);
+            self.opensubtitles_file_ids.insert(id.clone(), file_id);
+            self.defects.remove(&id);
+            if let Some(document) = document {
+                self.documents.insert(id.clone(), document);
+            } else {
+                self.documents.remove(&id);
+            }
+            self.catalog.insert(source);
+        }
+    }
+
+    /// Copies one OpenSubtitles row into a worker-owned library before an
+    /// explicit download. No other source kind can cross this narrow seam.
+    pub fn copy_opensubtitles_entry_from(&mut self, other: &SubtitleLibrary, token: u32) -> bool {
+        let Some(id) = other.id_of(token) else {
+            return false;
+        };
+        if id.kind() != SubtitleSourceKind::OpenSubtitles {
+            return false;
+        }
+        let Some(file_id) = other.opensubtitles_file_ids.get(id).copied() else {
+            return false;
+        };
+        let Some(source) = other.catalog.get(id).cloned() else {
+            return false;
+        };
+        self.remember(id);
+        self.opensubtitles_file_ids.insert(id.clone(), file_id);
+        self.catalog.insert(source);
+        true
+    }
+
     /// Gives a source its token, once and for good.
     ///
     /// Re-adding a source keeps the token it already had. That is the whole

@@ -107,6 +107,27 @@ public enum PlaybackPresentation {
         }
     }
 
+    /// Closed Turkish copy for an explicit OpenSubtitles download failure.
+    /// Provider payloads, URLs, credentials and parser details never reach the
+    /// transient message surface (K23, ADR-0031).
+    public static func subtitleDownloadMessage(for error: FfiDownloadError) -> String {
+        switch error {
+        case .MissingCredential, .CredentialStoreUnavailable, .CredentialStoreDenied,
+             .CredentialStoreCorrupt, .InvalidCredential:
+            return "OpenSubtitles için Ayarlar'dan API anahtarı girin."
+        case .InvalidEncoding:
+            return "İndirilen altyazının kodlaması desteklenmiyor."
+        case .MalformedSubtitle, .ArchiveRejected, .UnexpectedContentType:
+            return "İndirilen altyazı kullanılamıyor."
+        case .Cancelled:
+            return "Altyazı indirme iptal edildi."
+        case .NotOpenSubtitles, .InvalidRequest, .Transport, .HttpStatus, .Unauthorized,
+             .InvalidResponse, .QuotaExhausted, .ResponseTooLarge, .RedirectRejected,
+             .ContentTooLarge:
+            return "OpenSubtitles altyazısı indirilemedi."
+        }
+    }
+
     /// What the user is told when the recent-media store's bookmark could not
     /// be saved. Playback continues regardless — this is informational, not a
     /// refusal (NEN-050).

@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **128** task · ✅ done 119 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 7
+Toplam **128** task · ✅ done 120 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 6
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -163,7 +163,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-120](done/NEN-120-identity-lookup-from-the-app.md) | Verified identity lookup runs from the app | M | ✅ done | NEN-033 NEN-111 |
 | [NEN-121](done/NEN-121-opensubtitles-candidate-catalog.md) | OpenSubtitles candidates catalogued without download | M | ✅ done | NEN-119 NEN-120 NEN-035 |
 | [NEN-122](done/NEN-122-safe-download-on-selection.md) | Safe download on selection | M | ✅ done | NEN-121 |
-| [NEN-123](backlog/NEN-123-macos-opensubtitles-menu-and-download.md) | macOS subtitle menu shows OpenSubtitles candidates and downloads on select | M | ⚪ backlog | NEN-122 |
+| [NEN-123](done/NEN-123-macos-opensubtitles-menu-and-download.md) | macOS subtitle menu shows OpenSubtitles candidates and downloads on select | M | ✅ done | NEN-122 |
 | [NEN-124](backlog/NEN-124-adr-filename-privacy-for-ai-normalization.md) | Decide filename privacy for AI-assisted normalization | S | ⚪ backlog | — |
 | [NEN-125](backlog/NEN-125-adr-preferred-language-auto-download.md) | Decide the preferred-language auto-download contract | S | ⚪ backlog | NEN-035 NEN-122 |
 | [NEN-126](backlog/NEN-126-m6-acceptance.md) | Real providers acceptance | S | ⚪ backlog | NEN-118 NEN-123 NEN-113 |
@@ -174,7 +174,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 
 Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 
-- **NEN-123** — macOS subtitle menu shows OpenSubtitles candidates and downloads on select
 - **NEN-124** — Decide filename privacy for AI-assisted normalization
 - **NEN-125** — Decide the preferred-language auto-download contract
+- **NEN-126** — Real providers acceptance
 - **NEN-128** — Split the generated task index into open and archive tables
