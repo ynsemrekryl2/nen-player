@@ -3,8 +3,8 @@ id: NEN-125
 title: Decide the preferred-language auto-download contract
 milestone: M6
 size: S
-state: active
-closed:
+state: done
+closed: 2026-09-14
 depends_on: [NEN-035, NEN-122]
 blocks: [NEN-038]
 adr: [47]
@@ -50,12 +50,35 @@ ADR-0047 en az şunları kararlaştırır:
 
 ## Kanıt (DoD)
 
-- [ ] `docs/adr/0047-*.md` yazıldı, kullanıcı onayıyla `accepted`; eşik
+- [x] `docs/adr/0047-*.md` yazıldı, kullanıcı onayıyla `accepted`; eşik
       `NEN-035`'in kanıt kaydına atıfla
-- [ ] ADR-0010'a Notlar girdisi (Karar 9 basamağı açıldı)
-- [ ] `docs/adr/README.md`, `docs/DECISIONS.md` sayacı tutarlı
-- [ ] `bash scripts/check-docs.sh` çıkış 0
+- [x] ADR-0010'a Notlar girdisi (Karar 9 basamağı açıldı)
+- [x] `docs/adr/README.md`, `docs/DECISIONS.md` sayacı tutarlı
+- [x] `bash scripts/check-docs.sh` çıkış 0
 
 ## Kanıt kaydı
 
-<!-- done olurken doldurulacak -->
+### Karar
+
+ADR-0047, kullanıcı onayıyla `accepted` oldu. OpenSubtitles otomatik indirmesi
+varsayılan olarak kapalıdır; ayar açıldığında yalnız yerel kaynak yoksa birinci
+ve ikinci tercih dili için, `Automatic` ve çakışmasız identity assessment ile
+`ConfidenceScore >= 60` kapısından sonra çalışır. Medya başına günlük tek
+deneme, hata sonrası retry yok, kullanıcı seçimini sessizce değiştirmeme ve
+`ai` kaynağını otomatik seçmeme kuralları sabittir. İmplementasyon `NEN-038`'e
+aittir.
+
+### Doğrulama
+
+- [`ADR-0047`](../../docs/adr/0047-preferred-language-auto-download.md)
+  2026-09-14 kullanıcı onayıyla `accepted`; ADR-0010 Notlar, ADR README ve
+  `docs/DECISIONS.md` sayacı/listesi hizalı.
+- `NEN-035` baseline'ı: 10 vaka, 8 otomatik (%80), 1 aday (%10), 1 manuel
+  (%10), yanlış sessiz otomatik karar 0; mevcut eşik `ConfidenceScore >= 60`.
+- [`NEN-125-checklist.md`](../../evidence/M6/NEN-125-checklist.md) karar ve
+  güvenlik sınırlarını, komut sonuçlarını ve CI kanıtını kaydeder.
+- `bash scripts/check-docs.sh` (**10/10**),
+  `bash scripts/task-index.sh --check` ve `git diff --check`: geçti.
+- CI run **34886476167**: `cargo fmt --check`, `cargo clippy`, `cargo test`,
+  `cargo deny check`, `bash scripts/test.sh`, iki index denetimi ve
+  `bash scripts/check-docs.sh`: tamamı geçti.

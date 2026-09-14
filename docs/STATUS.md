@@ -5,21 +5,21 @@
 > `tasks/done/` ve `history/`'de. Burada tekrar edilmez; **150 satırı aşamaz**
 > (`check-docs.sh` denetim 10).
 >
-> Son güncelleme: **2026-09-14** (**`NEN-125` aktif** — ADR-0047 kabul edildi.)
+> Son güncelleme: **2026-09-14** (**`NEN-125` kapandı**.)
 
 ## Nerede duruyoruz
 
 | | |
 |---|---|
 | **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı — `docs/milestones/M6-real-providers.md`) |
-| **Aktif task** | **`NEN-125`** — Decide the preferred-language auto-download contract |
-| **Son tamamlanan** | **`NEN-128`** — Split the generated task index into open and archive tables. Ondan önce: `NEN-034` |
-| **Sıradaki READY** | `NEN-126` |
-| **Task sayısı** | 128 · done 123 · active 1 · blocked 0 · canceled 2 · backlog 2 |
+| **Aktif task** | — |
+| **Son tamamlanan** | **`NEN-125`** — Decide the preferred-language auto-download contract. Ondan önce: `NEN-128` |
+| **Sıradaki READY** | `NEN-038`, `NEN-126` |
+| **Task sayısı** | 128 · done 124 · active 0 · blocked 0 · canceled 2 · backlog 2 |
 
-**Son kapanış — `NEN-128` (2026-09-14):** generated task index açık task'lar
-ve milestone `done/total` özetini `tasks/INDEX.md`'de, done/canceled ayrıntılarını
-`tasks/INDEX-done.md`'de taşıyor. Kanıt: `tasks/done/NEN-128-split-task-index-archive.md`.
+**Son kapanış — `NEN-125` (2026-09-14):** ADR-0047, tercih dilinde koşullu
+OpenSubtitles otomatik indirme sözleşmesini kabul etti; implementasyon kapısı
+`NEN-038`'e devredildi. Kanıt: `tasks/done/NEN-125-adr-preferred-language-auto-download.md`.
 
 ## Toolchain
 
@@ -64,11 +64,10 @@ Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
 
-2026-09-14'te `NEN-128` kapandı. `tasks/INDEX.md` **1552 byte**; `bash
-scripts/test.sh` (**6/6**), `bash scripts/check-docs.sh` (**10/10**),
-`bash scripts/task-index.sh --check` ve `git diff --check` geçti. Rust ve
-provider doğrulamaları önceki NEN-034 kapanışında yeşildi; NEN-128 kod ürünü
-değiştirmedi.
+2026-09-14'te `NEN-125` kapandı. `tasks/INDEX.md` **1240 byte**; `bash
+scripts/check-docs.sh` (**10/10**), `bash scripts/task-index.sh --check` ve
+`git diff --check` geçti. CI run **34886476167**'de Rust/provider ve shell
+doğrulamaları da yeşil.
 
 Önceki doğrulama girdileri ve toolchain kapısı geçmişi:
 `history/status-archive-2026-09.md`.

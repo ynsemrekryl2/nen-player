@@ -163,5 +163,6 @@ Açık task görünümü: [tasks/INDEX.md](INDEX.md)
 | [NEN-122](done/NEN-122-safe-download-on-selection.md) | Safe download on selection | M | ✅ done | NEN-121 |
 | [NEN-123](done/NEN-123-macos-opensubtitles-menu-and-download.md) | macOS subtitle menu shows OpenSubtitles candidates and downloads on select | M | ✅ done | NEN-122 |
 | [NEN-124](done/NEN-124-adr-filename-privacy-for-ai-normalization.md) | Decide filename privacy for AI-assisted normalization | S | ✅ done | — |
+| [NEN-125](done/NEN-125-adr-preferred-language-auto-download.md) | Decide the preferred-language auto-download contract | S | ✅ done | NEN-035 NEN-122 |
 | [NEN-127](done/NEN-127-status-token-diet.md) | STATUS.md token diet and size guard | S | ✅ done | — |
 | [NEN-128](done/NEN-128-split-task-index-archive.md) | Split the generated task index into open and archive tables | S | ✅ done | NEN-127 |
