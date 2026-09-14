@@ -86,6 +86,8 @@ pub enum StartRefusal {
     AlreadyTargetLanguage,
     /// The row is catalogued but has no parsed document behind it yet.
     NoDocument,
+    /// The selected real provider model cannot produce strict structured output.
+    ProviderCapabilityMissing,
     /// The document could not be split into blocks under the given config.
     Layout(BlockLayoutError),
 }
@@ -98,6 +100,9 @@ impl fmt::Display for StartRefusal {
             Self::UnknownSourceLanguage => f.write_str("source language is unknown"),
             Self::AlreadyTargetLanguage => f.write_str("source is already in the target language"),
             Self::NoDocument => f.write_str("source has no parsed document"),
+            Self::ProviderCapabilityMissing => {
+                f.write_str("provider does not support structured output")
+            }
             Self::Layout(error) => error.fmt(f),
         }
     }

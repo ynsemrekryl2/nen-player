@@ -1,0 +1,44 @@
+{
+  "model": "openai/gpt-5.6-luna",
+  "messages": [
+    {
+      "role": "system",
+      "content": "Translate subtitle cues. Use context_cues and context_terms only as context. Translate only output_cue_ids. Preserve meaning, register, names, terminology, and meaningful line breaks. Return only the requested JSON object with no explanation or extra fields."
+    },
+    {
+      "role": "user",
+      "content": "{\"prompt_version\":1,\"schema_version\":1,\"source_language\":\"en\",\"target_language\":\"tr\",\"context_terms\":[\"PrivateName\"],\"context_cues\":[{\"cue_id\":10,\"text\":\"First fixture line\"},{\"cue_id\":20,\"text\":\"Second fixture line\"}],\"output_cue_ids\":[10,20]}"
+    }
+  ],
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "subtitle_translation",
+      "strict": true,
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "cues": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "cue_id": { "type": "integer" },
+                "text": { "type": "string" }
+              },
+              "required": ["cue_id", "text"]
+            }
+          }
+        },
+        "required": ["cues"]
+      }
+    }
+  },
+  "provider": {
+    "order": ["OpenAI"],
+    "allow_fallbacks": false,
+    "require_parameters": true
+  }
+}

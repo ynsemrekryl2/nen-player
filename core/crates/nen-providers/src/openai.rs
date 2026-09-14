@@ -6,46 +6,24 @@
 //! validator. Request/response payloads stay inside the HTTP boundary and no
 //! provider-specific payload is carried by an error or a `Debug` surface.
 
+use super::translation_http;
 use nen_ports::credentials::ApiKey;
-use nen_ports::http::{HttpClient, HttpError, HttpHeader, HttpRequest, HttpResponse};
+use nen_ports::http::{HttpClient, HttpHeader, HttpRequest};
 use nen_ports::translation::{
-    TranslatedCue, TranslationCall, TranslationProgress, TranslationProgressPhase,
-    TranslationProvider, TranslationProviderError, TranslationProviderIdentity, TranslationRequest,
-    TranslationResponse,
+    TranslationCall, TranslationProgress, TranslationProgressPhase, TranslationProvider,
+    TranslationProviderError, TranslationProviderIdentity, TranslationRequest, TranslationResponse,
 };
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde::Serialize;
+use serde_json::Value;
 use std::fmt;
 use std::sync::Arc;
-use std::time::Duration;
 
 pub const OPENAI_RESPONSES_ENDPOINT: &str = "https://api.openai.com/v1/responses";
-pub const MAX_PROVIDER_BODY_BYTES: usize = 1024 * 1024;
-pub const PROVIDER_TIMEOUT_MS: u64 = 60_000;
-pub const PROMPT_VERSION: u32 = 1;
-pub const SCHEMA_VERSION: u32 = 1;
+pub use super::translation_http::{
+    RetrySleeper, MAX_PROVIDER_BODY_BYTES, PROMPT_VERSION, PROVIDER_TIMEOUT_MS, SCHEMA_VERSION,
+};
 
 const PROVIDER_ID: &str = "openai";
-const RESPONSE_SCHEMA_NAME: &str = "subtitle_translation";
-const MAX_RETRIES: usize = 2;
-const SYSTEM_INSTRUCTIONS: &str = "Translate subtitle cues. Use context_cues and context_terms only as context. Translate only output_cue_ids. Preserve meaning, register, names, terminology, and meaningful line breaks. Return only the requested JSON object with no explanation or extra fields.";
-
-/// Provides the bounded wait between transient attempts.
-///
-/// Production uses [`ThreadRetrySleeper`]. The injected form makes the retry
-/// contract deterministic in tests and lets a test close the same
-/// [`TranslationCall`] while a wait is in progress.
-pub trait RetrySleeper: Send + Sync {
-    fn sleep(&self, duration: Duration, call: &TranslationCall);
-}
-
-struct ThreadRetrySleeper;
-
-impl RetrySleeper for ThreadRetrySleeper {
-    fn sleep(&self, duration: Duration, _call: &TranslationCall) {
-        std::thread::sleep(duration);
-    }
-}
 
 /// One direct OpenAI provider instance for a translation job.
 pub struct OpenAiTranslationProvider<'a> {
@@ -67,7 +45,7 @@ impl<'a> OpenAiTranslationProvider<'a> {
             api_key,
             model,
             OPENAI_RESPONSES_ENDPOINT,
-            Arc::new(ThreadRetrySleeper),
+            translation_http::default_retry_sleeper(),
         )
     }
 
@@ -135,69 +113,33 @@ impl TranslationProvider for OpenAiTranslationProvider<'_> {
             total,
         })?;
 
-        let mut retries = 0usize;
-        loop {
-            call.checkpoint()?;
-            let request = HttpRequest::post_json(
-                &self.endpoint,
-                vec![HttpHeader {
-                    name: "Authorization".to_owned(),
-                    value: format!("Bearer {}", self.api_key.expose()),
-                }],
-                body.clone(),
-                MAX_PROVIDER_BODY_BYTES,
-                PROVIDER_TIMEOUT_MS,
-            );
+        let response =
+            translation_http::send_with_retries(self.http, call, self.sleeper.as_ref(), || {
+                HttpRequest::post_json(
+                    &self.endpoint,
+                    vec![HttpHeader {
+                        name: "Authorization".to_owned(),
+                        value: format!("Bearer {}", self.api_key.expose()),
+                    }],
+                    body.clone(),
+                    MAX_PROVIDER_BODY_BYTES,
+                    PROVIDER_TIMEOUT_MS,
+                )
+            })?;
 
-            match self.http.send(request) {
-                Err(HttpError::ResponseTooLarge) => {
-                    return Err(TranslationProviderError::Permanent);
-                }
-                Err(HttpError::Transport) => {
-                    if retries == MAX_RETRIES {
-                        return Err(TranslationProviderError::Transient);
-                    }
-                    self.wait_for_retry(call, fallback_retry_delay(retries))?;
-                    retries += 1;
-                }
-                Ok(response) if is_retryable_status(response.status_code) => {
-                    if retries == MAX_RETRIES {
-                        return Err(TranslationProviderError::Transient);
-                    }
-                    let delay = retry_after_or_fallback(&response, retries);
-                    self.wait_for_retry(call, delay)?;
-                    retries += 1;
-                }
-                Ok(response) if (200..300).contains(&response.status_code) => {
-                    call.checkpoint()?;
-                    let translated = parse_response_body(&response.body)?;
-                    call.progress(TranslationProgress {
-                        phase: TranslationProgressPhase::Translating,
-                        done: total,
-                        total,
-                    })?;
-                    call.progress(TranslationProgress {
-                        phase: TranslationProgressPhase::Finalizing,
-                        done: total,
-                        total,
-                    })?;
-                    return call.finish(translated);
-                }
-                Ok(_) => return Err(TranslationProviderError::Permanent),
-            }
-        }
-    }
-}
-
-impl OpenAiTranslationProvider<'_> {
-    fn wait_for_retry(
-        &self,
-        call: &TranslationCall,
-        delay: Duration,
-    ) -> Result<(), TranslationProviderError> {
         call.checkpoint()?;
-        self.sleeper.sleep(delay, call);
-        call.checkpoint()
+        let translated = translation_http::parse_response_body(&response.body)?;
+        call.progress(TranslationProgress {
+            phase: TranslationProgressPhase::Translating,
+            done: total,
+            total,
+        })?;
+        call.progress(TranslationProgress {
+            phase: TranslationProgressPhase::Finalizing,
+            done: total,
+            total,
+        })?;
+        call.finish(translated)
     }
 }
 
@@ -224,187 +166,24 @@ struct ResponsesFormat {
     schema: Value,
 }
 
-#[derive(Serialize)]
-struct PromptInput {
-    prompt_version: u32,
-    schema_version: u32,
-    source_language: String,
-    target_language: String,
-    context_terms: Vec<String>,
-    context_cues: Vec<PromptCue>,
-    output_cue_ids: Vec<u32>,
-}
-
-#[derive(Serialize)]
-struct PromptCue {
-    cue_id: u32,
-    text: String,
-}
-
 fn build_request_body(
     identity: &TranslationProviderIdentity,
     request: &TranslationRequest,
 ) -> Result<Vec<u8>, TranslationProviderError> {
-    let input = PromptInput {
-        prompt_version: PROMPT_VERSION,
-        schema_version: SCHEMA_VERSION,
-        source_language: request.source_language.as_str().to_owned(),
-        target_language: request.target_language.as_str().to_owned(),
-        context_terms: request.context_terms.clone(),
-        context_cues: request
-            .context_cues
-            .iter()
-            .map(|cue| PromptCue {
-                cue_id: cue.cue_id.get(),
-                text: cue.text.clone(),
-            })
-            .collect(),
-        output_cue_ids: request
-            .output_cue_ids
-            .iter()
-            .map(|cue_id| cue_id.get())
-            .collect(),
-    };
-    let input = serde_json::to_string(&input).map_err(|_| TranslationProviderError::Permanent)?;
+    let input = translation_http::prompt_input(request)?;
     let payload = ResponsesRequest {
         model: identity.model(),
         store: false,
-        instructions: SYSTEM_INSTRUCTIONS,
+        instructions: translation_http::SYSTEM_INSTRUCTIONS,
         input,
         text: ResponsesText {
             format: ResponsesFormat {
                 format_type: "json_schema",
-                name: RESPONSE_SCHEMA_NAME,
+                name: translation_http::RESPONSE_SCHEMA_NAME,
                 strict: true,
-                schema: response_schema(),
+                schema: translation_http::response_schema(),
             },
         },
     };
     serde_json::to_vec(&payload).map_err(|_| TranslationProviderError::Permanent)
-}
-
-fn response_schema() -> Value {
-    json!({
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-            "cues": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "properties": {
-                        "cue_id": { "type": "integer" },
-                        "text": { "type": "string" }
-                    },
-                    "required": ["cue_id", "text"]
-                }
-            }
-        },
-        "required": ["cues"]
-    })
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ResponsePayload {
-    cues: Vec<ResponseCue>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ResponseCue {
-    cue_id: u32,
-    text: String,
-}
-
-fn parse_response_body(body: &[u8]) -> Result<TranslationResponse, TranslationProviderError> {
-    if body.len() > MAX_PROVIDER_BODY_BYTES {
-        return Err(TranslationProviderError::Permanent);
-    }
-    let root: Value =
-        serde_json::from_slice(body).map_err(|_| TranslationProviderError::Permanent)?;
-    if contains_refusal(&root) {
-        return Err(TranslationProviderError::Permanent);
-    }
-
-    let payload = if let Some(output_text) = extract_output_text(&root) {
-        serde_json::from_str(output_text).map_err(|_| TranslationProviderError::Permanent)?
-    } else if root.get("cues").is_some() {
-        root
-    } else {
-        return Err(TranslationProviderError::Permanent);
-    };
-    let payload: ResponsePayload =
-        serde_json::from_value(payload).map_err(|_| TranslationProviderError::Permanent)?;
-    Ok(TranslationResponse {
-        cues: payload
-            .cues
-            .into_iter()
-            .map(|cue| TranslatedCue {
-                cue_id: nen_domain::subtitle::CueId::new(cue.cue_id),
-                text: cue.text,
-            })
-            .collect(),
-    })
-}
-
-fn extract_output_text(root: &Value) -> Option<&str> {
-    if let Some(text) = root.get("output_text").and_then(Value::as_str) {
-        return Some(text);
-    }
-    root.get("output")
-        .and_then(Value::as_array)
-        .and_then(|items| {
-            items.iter().find_map(|item| {
-                item.get("content")
-                    .and_then(Value::as_array)
-                    .and_then(|parts| {
-                        parts.iter().find_map(|part| {
-                            (part.get("type").and_then(Value::as_str) == Some("output_text"))
-                                .then(|| part.get("text").and_then(Value::as_str))
-                                .flatten()
-                        })
-                    })
-            })
-        })
-}
-
-fn contains_refusal(value: &Value) -> bool {
-    match value {
-        Value::Object(object) => {
-            if object
-                .get("type")
-                .and_then(Value::as_str)
-                .is_some_and(|kind| kind == "refusal")
-                || object
-                    .get("refusal")
-                    .is_some_and(|refusal| !refusal.is_null())
-            {
-                return true;
-            }
-            object.values().any(contains_refusal)
-        }
-        Value::Array(items) => items.iter().any(contains_refusal),
-        _ => false,
-    }
-}
-
-fn is_retryable_status(status: u16) -> bool {
-    status == 408 || status == 429 || (500..600).contains(&status)
-}
-
-fn retry_after_or_fallback(response: &HttpResponse, retry_index: usize) -> Duration {
-    response
-        .header("Retry-After")
-        .and_then(|value| value.trim().parse::<u64>().ok())
-        .map(|seconds| Duration::from_secs(seconds.min(10)))
-        .unwrap_or_else(|| fallback_retry_delay(retry_index))
-}
-
-fn fallback_retry_delay(retry_index: usize) -> Duration {
-    match retry_index {
-        0 => Duration::from_millis(500),
-        _ => Duration::from_secs(2),
-    }
 }

@@ -1,0 +1,6 @@
+{
+  "data": {
+    "id": "openai/gpt-5.6-luna",
+    "supported_parameters": ["temperature"]
+  }
+}

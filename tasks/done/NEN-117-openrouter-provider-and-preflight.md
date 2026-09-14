@@ -3,8 +3,8 @@ id: NEN-117
 title: OpenRouter translation provider with structured-output preflight
 milestone: M6
 size: M
-state: backlog
-closed:
+state: done
+closed: 2026-09-14
 depends_on: [NEN-116]
 blocks: [NEN-118]
 adr: [19]
@@ -43,16 +43,16 @@ iş başlamadan tespit ediyor — hiçbir çeviri isteği çıkmıyor.
 
 ## Kanıt (DoD)
 
-- [ ] Contract kiti fixture ile geçiyor
-- [ ] Negatif (zorunlu): desteklemeyen model → preflight reddi, çeviri
+- [x] Contract kiti fixture ile geçiyor
+- [x] Negatif (zorunlu): desteklemeyen model → preflight reddi, çeviri
       endpoint'ine `send` sayacı **0**
-- [ ] Negatif: preflight'ın kendi ağ hatası → `Transient`, iş başlamıyor,
+- [x] Negatif: preflight'ın kendi ağ hatası → `Transient`, iş başlamıyor,
       yarım artifact yok
-- [ ] Negatif (K23): anahtar/raw cevap/diyalog `Debug`'da yok (`NEN-116`
+- [x] Negatif (K23): anahtar/raw cevap/diyalog `Debug`'da yok (`NEN-116`
       guard'ının OpenRouter kopyası)
-- [ ] Unit: preflight önbelleği — aynı iş içinde ikinci `send` yok
-- [ ] Golden: istek gövdesi
+- [x] Unit: preflight önbelleği — aynı iş içinde ikinci `send` yok
+- [x] Golden: istek gövdesi
 
 ## Kanıt kaydı
 
-<!-- done olurken doldurulacak -->
+[Kanıt kaydı](../../evidence/M6/NEN-117-checklist.md)

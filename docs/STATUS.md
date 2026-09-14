@@ -5,8 +5,8 @@
 > `tasks/done/` ve `history/`'de. Burada tekrar edilmez; **150 satırı aşamaz**
 > (`check-docs.sh` denetim 10).
 >
-> Son güncelleme: **2026-09-14** (**`NEN-116` kapandı** — OpenAI Responses API
-> translation provider.)
+> Son güncelleme: **2026-09-14** (**`NEN-117` kapandı** — OpenRouter provider ve
+> structured-output preflight doğrulandı.)
 
 ## Nerede duruyoruz
 
@@ -14,15 +14,16 @@
 |---|---|
 | **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı — `docs/milestones/M6-real-providers.md`) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-116`** — OpenAI Responses API translation provider. Ondan önce: `NEN-113` |
-| **Sıradaki READY** | `NEN-117`, `NEN-119`, `NEN-120`, `NEN-124`, `NEN-128` |
-| **Task sayısı** | 128 · done 112 · active 0 · blocked 0 · canceled 2 · backlog 14 |
+| **Son tamamlanan** | **`NEN-117`** — OpenRouter provider ve structured-output preflight. Ondan önce: `NEN-116` |
+| **Sıradaki READY** | `NEN-118`, `NEN-119`, `NEN-120`, `NEN-124`, `NEN-128` |
+| **Task sayısı** | 128 · done 113 · active 0 · blocked 0 · canceled 2 · backlog 13 |
 
-**Son kapanış — `NEN-116` (2026-09-14):** OpenAI Responses API adapter'ı
-structured JSON output, bounded retry/cancellation ve K23 redaction guard'larıyla
-eklendi. Deterministic fixture/contract suite'i ve tüm workspace kalite kapıları
-geçti. Kanıt: `evidence/M6/NEN-116-checklist.md` ve
-`tasks/done/NEN-116-openai-translation-provider.md`.
+**Son kapanış — `NEN-117` (2026-09-14):** OpenRouter Chat Completions adapter'ı
+structured-output preflight, 15 dakikalık pozitif/negatif capability cache,
+bounded retry/cancellation ve K23 redaction guard'larıyla eklendi. Deterministic
+fixture/contract suite'i ve tüm workspace kalite kapıları gerçek ağa çıkmadan
+geçti. Kanıt: `evidence/M6/NEN-117-checklist.md` ve
+`tasks/done/NEN-117-openrouter-provider-and-preflight.md`.
 
 ## Toolchain
 
@@ -67,9 +68,9 @@ Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
 
-2026-09-14'te `NEN-116` kapandı. `cargo test --workspace`, fmt/clippy/deny,
+2026-09-14'te `NEN-117` kapandı. `cargo test --workspace`, fmt/clippy/deny,
 `bash scripts/test.sh` (**6/6**), M3 doctor ve `check-docs.sh` yeşil; NEN-116
-OpenAI fixture suite'i gerçek ağa çıkmadan tamamlandı.
+OpenAI ve NEN-117 OpenRouter fixture suite'leri gerçek ağa çıkmadan tamamlandı.
 
 Önceki doğrulama girdileri ve toolchain kapısı geçmişi:
 `history/status-archive-2026-09.md`.

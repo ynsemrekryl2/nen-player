@@ -1,0 +1,6 @@
+{
+  "error": {
+    "type": "bad_gateway",
+    "code": "fixture-bad-gateway"
+  }
+}

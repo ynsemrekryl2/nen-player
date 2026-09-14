@@ -142,6 +142,8 @@ pub enum FfiTranslationStartError {
     AlreadyTargetLanguage,
     /// The row is catalogued but has no parsed document yet.
     NoDocument,
+    /// The selected provider model cannot produce strict structured output.
+    ProviderCapabilityMissing,
     /// The document could not be split into blocks under M5's fixed layout.
     LayoutRefused,
     /// `target_language` is not a BCP-47 tag this core can parse.
@@ -158,6 +160,7 @@ impl fmt::Display for FfiTranslationStartError {
             Self::UnknownSourceLanguage => "unknown_source_language",
             Self::AlreadyTargetLanguage => "already_target_language",
             Self::NoDocument => "no_document",
+            Self::ProviderCapabilityMissing => "provider_capability_missing",
             Self::LayoutRefused => "layout_refused",
             Self::InvalidTargetLanguage => "invalid_target_language",
             Self::StoreUnavailable => "store_unavailable",
@@ -175,6 +178,7 @@ impl From<StartRefusal> for FfiTranslationStartError {
             StartRefusal::UnknownSourceLanguage => Self::UnknownSourceLanguage,
             StartRefusal::AlreadyTargetLanguage => Self::AlreadyTargetLanguage,
             StartRefusal::NoDocument => Self::NoDocument,
+            StartRefusal::ProviderCapabilityMissing => Self::ProviderCapabilityMissing,
             StartRefusal::Layout(_) => Self::LayoutRefused,
         }
     }
