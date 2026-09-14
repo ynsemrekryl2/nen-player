@@ -41,11 +41,11 @@ pub struct ApiKey(Vec<u8>);
 
 impl ApiKey {
     pub fn new(value: &str) -> Result<Self, ApiKeyError> {
+        if value.chars().any(char::is_control) {
+            return Err(ApiKeyError::Invalid);
+        }
         let trimmed = value.trim();
-        if trimmed.is_empty()
-            || trimmed.chars().count() > 512
-            || trimmed.chars().any(char::is_control)
-        {
+        if trimmed.is_empty() || trimmed.chars().count() > 512 {
             return Err(ApiKeyError::Invalid);
         }
         Ok(Self(trimmed.as_bytes().to_vec()))
@@ -281,6 +281,7 @@ mod tests {
         assert!(ApiKey::new("").is_err());
         assert!(ApiKey::new(" \t ").is_err());
         assert!(ApiKey::new("line\nsecret").is_err());
+        assert!(ApiKey::new("\nsecret\n").is_err());
         assert!(ApiKey::new(&"x".repeat(513)).is_err());
         assert!(ApiKey::new(&"x".repeat(512)).is_ok());
     }

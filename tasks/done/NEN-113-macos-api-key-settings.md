@@ -3,8 +3,8 @@ id: NEN-113
 title: macOS API key entry in settings
 milestone: M6
 size: M
-state: backlog
-closed:
+state: done
+closed: 2026-09-14
 depends_on: [NEN-112]
 blocks: [NEN-118, NEN-126]
 adr: [20, 31]
@@ -41,17 +41,17 @@ yere yazılmıyor.
 
 ## Kanıt (DoD)
 
-- [ ] Swift testleri: kaydet → "kayıtlı" göstergesi; sil → alan boş; boş giriş
+- [x] Swift testleri: kaydet → "kayıtlı" göstergesi; sil → alan boş; boş giriş
       kaydedilmiyor (fake `ForeignSecureCredentialStore` ile)
-- [ ] Negatif (zorunlu): kaydettikten sonra `UserDefaults` ve uygulama
+- [x] Negatif (zorunlu): kaydettikten sonra `UserDefaults` ve uygulama
       Application Support dizininde anahtar sentinel'ı **yok** (`grep -r`
       ölçümü checklist'te)
-- [ ] Negatif: kayıtlı anahtar UI'da tam metin olarak hiçbir görünümde yok
+- [x] Negatif: kayıtlı anahtar UI'da tam metin olarak hiçbir görünümde yok
       (view model'in dışa verdiği string'ler taranıyor)
-- [ ] Gerçek `.app` checklist: üç anahtar girildi/silindi, uygulama yeniden
+- [x] Gerçek `.app` checklist: üç anahtar girildi/silindi, uygulama yeniden
       açılınca "kayıtlı" göstergesi kalıcı (`evidence/M6/NEN-113-checklist.md`)
-- [ ] `bash scripts/test-macos.sh` yeşil, baseline + bu task'ın testleri
+- [x] `bash scripts/test-macos.sh` yeşil, baseline + bu task'ın testleri
 
 ## Kanıt kaydı
 
-<!-- done olurken doldurulacak -->
+Kanıt: [`evidence/M6/NEN-113-checklist.md`](../../evidence/M6/NEN-113-checklist.md)

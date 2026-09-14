@@ -5,8 +5,8 @@
 > `tasks/done/` ve `history/`'de. Burada tekrar edilmez; **150 satırı aşamaz**
 > (`check-docs.sh` denetim 10).
 >
-> Son güncelleme: **2026-09-14** (**`NEN-112` kapandı** — macOS Keychain
-> credential adapter'ı gerçek Keychain ve reverse-FFI ile hazır.)
+> Son güncelleme: **2026-09-14** (**`NEN-113` kapandı** — macOS API key entry in
+> settings.)
 
 ## Nerede duruyoruz
 
@@ -14,15 +14,15 @@
 |---|---|
 | **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı — `docs/milestones/M6-real-providers.md`) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-112`** — macOS Keychain credential adapter. Ondan önce: `NEN-109` |
-| **Sıradaki READY** | `NEN-113`, `NEN-116`, `NEN-119`, `NEN-120`, `NEN-124`, `NEN-128` |
-| **Task sayısı** | 128 · done 110 · active 0 · blocked 0 · canceled 2 · backlog 16 |
+| **Son tamamlanan** | **`NEN-113`** — macOS API key entry in settings. Ondan önce: `NEN-112` |
+| **Sıradaki READY** | `NEN-116`, `NEN-119`, `NEN-120`, `NEN-124`, `NEN-128` |
+| **Task sayısı** | 128 · done 111 · active 0 · blocked 0 · canceled 2 · backlog 15 |
 
-**Son kapanış — `NEN-112` (2026-09-14):** `SecItem*` tabanlı, sabit service/account
-Keychain adapter'ı; gerçek test service izolasyonu, payload'sız hata eşlemesi,
-K23 guard'ı ve tek reverse-FFI composition root eklendi. Kanıt:
-`evidence/M6/NEN-112-checklist.md` ve
-`tasks/done/NEN-112-macos-keychain-credential-adapter.md`.
+**Son kapanış — `NEN-113` (2026-09-14):** macOS Ayarlar'a üç maskeli API key
+satırı, FFI-only lifecycle, typed validation/error surface ve plaintext negatif
+kanıt eklendi. Gerçek `.app` smoke akışı üç fixture için save → yeniden açılışta
+kayıtlı → delete olarak tamamlandı. Kanıt: `evidence/M6/NEN-113-checklist.md`
+ve `tasks/done/NEN-113-macos-api-key-settings.md`.
 
 ## Toolchain
 
@@ -67,10 +67,10 @@ Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
 
-2026-09-14'te `NEN-112` kapandı. `cargo test --workspace`, fmt/clippy/deny,
-`bash scripts/test-macos.sh` (**275/275**), gerçek Keychain suite'i, ad-hoc
-`.app` build + strict codesign, `bash scripts/test.sh` (**5/5**), M3 doctor ve
-`check-docs.sh` yeşil.
+2026-09-14'te `NEN-113` kapandı. `cargo test --workspace`, fmt/clippy/deny,
+`bash scripts/test-macos.sh` (**281/281**), credential suite'i, gerçek Keychain
+suite'i, ad-hoc `.app` build + strict codesign, `bash scripts/test.sh` (**6/6**),
+M3 doctor ve `check-docs.sh` yeşil.
 
 Önceki doğrulama girdileri ve toolchain kapısı geçmişi:
 `history/status-archive-2026-09.md`.
