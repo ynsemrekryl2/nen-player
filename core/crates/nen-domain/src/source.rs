@@ -521,6 +521,13 @@ impl fmt::Debug for SubtitleSourceId {
     }
 }
 
+/// Closed provider badges that are safe to project into a menu row.
+#[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
+pub struct SubtitleSourceBadges {
+    pub hearing_impaired: bool,
+    pub ai_translated: bool,
+}
+
 /// One entry of the subtitle catalog (product-spec §7, glossary).
 ///
 /// The label is what §8 shows next to the entry — very often a private
@@ -531,6 +538,7 @@ pub struct SubtitleSource {
     language: Option<LanguageTag>,
     label: String,
     translatable: bool,
+    badges: SubtitleSourceBadges,
 }
 
 impl SubtitleSource {
@@ -547,6 +555,7 @@ impl SubtitleSource {
             language,
             label: label.into(),
             translatable: true,
+            badges: SubtitleSourceBadges::default(),
         }
     }
 
@@ -578,6 +587,7 @@ impl SubtitleSource {
             language,
             label: self.label.clone(),
             translatable: self.translatable,
+            badges: self.badges,
         }
     }
 
@@ -591,6 +601,17 @@ impl SubtitleSource {
         self.translatable
     }
 
+    /// Closed provider badges, with no raw provider payload.
+    pub fn badges(&self) -> SubtitleSourceBadges {
+        self.badges
+    }
+
+    /// Returns a copy carrying the provider badges shown by the menu.
+    pub fn with_badges(mut self, badges: SubtitleSourceBadges) -> Self {
+        self.badges = badges;
+        self
+    }
+
     /// Returns a copy carrying a different translatability, keeping identity,
     /// language and label.
     pub fn with_translatable(&self, translatable: bool) -> Self {
@@ -599,6 +620,7 @@ impl SubtitleSource {
             language: self.language.clone(),
             label: self.label.clone(),
             translatable,
+            badges: self.badges,
         }
     }
 }
@@ -615,6 +637,8 @@ impl fmt::Debug for SubtitleSource {
             .field("language", &self.language)
             .field("label_len", &self.label.chars().count())
             .field("translatable", &self.translatable)
+            .field("hearing_impaired", &self.badges.hearing_impaired)
+            .field("ai_translated", &self.badges.ai_translated)
             .finish()
     }
 }

@@ -8,4 +8,5 @@ pub mod identity;
 pub mod persistence;
 pub mod playback;
 pub mod renderer;
+pub mod subtitle_candidates;
 pub mod translation;

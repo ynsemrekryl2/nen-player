@@ -5,23 +5,23 @@
 > `tasks/done/` ve `history/`'de. Burada tekrar edilmez; **150 satırı aşamaz**
 > (`check-docs.sh` denetim 10).
 >
-> Son güncelleme: **2026-09-14** (**`NEN-064` kapandı** — verified identity player chrome'a bağlandı.)
+> Son güncelleme: **2026-09-14** (**`NEN-121` tamamlandı** — OpenSubtitles adayları indirmeden kataloglanıyor.)
 
 ## Nerede duruyoruz
 
 | | |
 |---|---|
 | **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı — `docs/milestones/M6-real-providers.md`) |
-| **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-064`** — Verified media identity in player chrome. Ondan önce: `NEN-120` |
-| **Sıradaki READY** | `NEN-121`, `NEN-124`, `NEN-128` |
-| **Task sayısı** | 128 · done 117 · active 0 · blocked 0 · canceled 2 · backlog 9 |
+| **Aktif task** | Yok |
+| **Son tamamlanan** | **`NEN-121`** — OpenSubtitles candidates catalogued without download. Ondan önce: `NEN-064` |
+| **Sıradaki READY** | `NEN-122`, `NEN-124`, `NEN-128` |
+| **Task sayısı** | 128 · done 118 · active 0 · blocked 0 · canceled 2 · backlog 8 |
 
-**Son kapanış — `NEN-064` (2026-09-14):** Doğrulanmış film/dizi kimliği,
-basename fallback'i ve revision/shutdown guard ile player chrome'a bağlandı.
-Kompakt etiket ve 0,24 sn geçişi gerçek app build'i ile doğrulandı. Kanıt:
-`evidence/M6/NEN-064-checklist.md` ve
-`tasks/done/NEN-064-verified-media-identity-strip.md`.
+**Son kapanış — `NEN-121` (2026-09-14):** OpenSubtitles adayları 16 kayıt
+sınırı, normalize dil/release metadata'sı ve kapalı rozetleriyle indirmeden
+kataloglanıyor; private file ID app belleğiyle sınırlı ve otomatik seçim kapısı
+değişmedi. Kanıt: `evidence/M6/NEN-121-checklist.md` ve
+`tasks/done/NEN-121-opensubtitles-candidate-catalog.md`.
 
 ## Toolchain
 
@@ -66,7 +66,7 @@ Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
 
-2026-09-14'te `NEN-064` kapandı. `cargo test --workspace`, clippy, format,
+2026-09-14'te `NEN-121` kapandı. `cargo test --workspace`, clippy, format,
 deny, `bash scripts/build-macos-app.sh`, `bash scripts/test-macos.sh` (**295
 test / 36 suite**), `bash scripts/test.sh` (**6/6**),
 `bash scripts/check-docs.sh` (**10/10**) ve `git diff --check` yeşil.

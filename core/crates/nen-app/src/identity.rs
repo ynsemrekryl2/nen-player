@@ -5,7 +5,13 @@ use nen_identity::os_hash::OsHash;
 use nen_ports::credentials::{CredentialKind, CredentialStoreError, SecureCredentialStore};
 use nen_ports::http::HttpClient;
 use nen_ports::identity::{IdentityLookup, IdentityLookupError, MediaHash, MediaIdentityLookup};
-use nen_providers::opensubtitles::{OpenSubtitlesApiKey, OpenSubtitlesIdentityLookup};
+use nen_ports::subtitle_candidates::{
+    SubtitleCandidate, SubtitleCandidateSearch, SubtitleCandidateSearchError,
+    SubtitleCandidateSearchQuery, SubtitleCandidateSearchRequest,
+};
+use nen_providers::opensubtitles::{
+    OpenSubtitlesApiKey, OpenSubtitlesCandidateSearch, OpenSubtitlesIdentityLookup,
+};
 
 /// The evidence-level answer to an optional provider identity lookup.
 ///
@@ -27,6 +33,35 @@ pub enum ProviderIdentityError {
     Provider(IdentityLookupError),
     RemoteEvidence(crate::remote_evidence::RemoteEvidenceError),
 }
+
+/// The optional OpenSubtitles candidate catalog result. An empty candidate
+/// list is a successful search with no subtitles; `NoCredential` and
+/// `NoIdentity` are ordinary keyless/unidentifiable states.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ProviderCandidateOutcome {
+    Candidates(Vec<SubtitleCandidate>),
+    NoCredential,
+    NoIdentity,
+}
+
+/// Why the optional candidate catalog could not complete. Provider payloads,
+/// URLs and credential values remain inside their adapters.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProviderCandidateError {
+    CredentialStore(CredentialStoreError),
+    Provider(SubtitleCandidateSearchError),
+}
+
+impl std::fmt::Display for ProviderCandidateError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::CredentialStore(error) => error.fmt(f),
+            Self::Provider(error) => error.fmt(f),
+        }
+    }
+}
+
+impl std::error::Error for ProviderCandidateError {}
 
 impl std::fmt::Display for ProviderIdentityError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -142,6 +177,63 @@ pub fn lookup_opensubtitles_for_remote_url(
     let key = OpenSubtitlesApiKey::new(key.expose()).map_err(ProviderIdentityError::Provider)?;
     let lookup = OpenSubtitlesIdentityLookup::new(http, key);
     finish_provider_identity(evidence, &lookup)
+}
+
+/// Searches OpenSubtitles metadata using the ADR-0021 order: exact local hash
+/// first, then the already verified identity only when the exact search has no
+/// candidates. A missing hash and identity returns before credential or HTTP
+/// access. Search never downloads or attaches a subtitle document.
+pub fn search_opensubtitles_candidates(
+    hash: Option<MediaHash>,
+    identity: Option<nen_ports::identity::VerifiedMediaIdentity>,
+    languages: Vec<nen_domain::source::LanguageTag>,
+    credentials: &dyn SecureCredentialStore,
+    http: &dyn HttpClient,
+) -> Result<ProviderCandidateOutcome, ProviderCandidateError> {
+    if hash.is_none() && identity.is_none() {
+        return Ok(ProviderCandidateOutcome::NoIdentity);
+    }
+    let Some(key) = credentials
+        .get(CredentialKind::OpenSubtitles)
+        .map_err(ProviderCandidateError::CredentialStore)?
+    else {
+        return Ok(ProviderCandidateOutcome::NoCredential);
+    };
+    let key = OpenSubtitlesApiKey::new(key.expose()).map_err(|error| {
+        ProviderCandidateError::Provider(match error {
+            IdentityLookupError::InvalidCredential => SubtitleCandidateSearchError::InvalidRequest,
+            IdentityLookupError::Transport => SubtitleCandidateSearchError::Transport,
+            IdentityLookupError::HttpStatus => SubtitleCandidateSearchError::HttpStatus,
+            IdentityLookupError::InvalidResponse => SubtitleCandidateSearchError::InvalidResponse,
+            IdentityLookupError::ResponseTooLarge => SubtitleCandidateSearchError::ResponseTooLarge,
+            IdentityLookupError::RedirectRejected => SubtitleCandidateSearchError::RedirectRejected,
+        })
+    })?;
+    let search = OpenSubtitlesCandidateSearch::new(http, key);
+
+    if let Some(hash) = hash {
+        let request =
+            SubtitleCandidateSearchRequest::new(SubtitleCandidateSearchQuery::by_hash(hash))
+                .with_languages(languages.clone());
+        let candidates = search
+            .search(&request)
+            .map_err(ProviderCandidateError::Provider)?;
+        if !candidates.is_empty() || identity.is_none() {
+            return Ok(ProviderCandidateOutcome::Candidates(candidates));
+        }
+    }
+
+    let Some(identity) = identity else {
+        return Ok(ProviderCandidateOutcome::Candidates(Vec::new()));
+    };
+    let request = SubtitleCandidateSearchRequest::new(
+        SubtitleCandidateSearchQuery::by_verified_identity(identity),
+    )
+    .with_languages(languages);
+    search
+        .search(&request)
+        .map(ProviderCandidateOutcome::Candidates)
+        .map_err(ProviderCandidateError::Provider)
 }
 
 fn finish_provider_identity(

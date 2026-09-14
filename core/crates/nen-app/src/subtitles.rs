@@ -19,10 +19,12 @@
 use crate::subtitle_files::{self, FileRejection, LoadedFile, SourceDefect};
 use nen_catalog::{MenuGroup, SubtitleSourceCatalog};
 use nen_domain::source::{
-    LanguageTag, SubtitlePreferences, SubtitleSource, SubtitleSourceId, SubtitleSourceKind,
+    LanguageTag, SubtitlePreferences, SubtitleSource, SubtitleSourceBadges, SubtitleSourceId,
+    SubtitleSourceKind,
 };
 use nen_domain::subtitle::SubtitleDocument;
 use nen_ports::playback::TrackId;
+use nen_ports::subtitle_candidates::SubtitleCandidate;
 use std::collections::HashMap;
 use std::fmt;
 use std::path::Path;
@@ -76,6 +78,8 @@ pub struct MenuEntryView {
     /// Why this row cannot be used, when it cannot.
     pub defect: Option<SourceDefect>,
     pub translatable: bool,
+    pub hearing_impaired: bool,
+    pub ai_translated: bool,
 }
 
 impl fmt::Debug for MenuEntryView {
@@ -89,6 +93,8 @@ impl fmt::Debug for MenuEntryView {
             .field("has_label", &!self.label.is_empty())
             .field("defect", &self.defect)
             .field("translatable", &self.translatable)
+            .field("hearing_impaired", &self.hearing_impaired)
+            .field("ai_translated", &self.ai_translated)
             .finish()
     }
 }
@@ -116,6 +122,10 @@ pub struct SubtitleLibrary {
     /// resolved on every click.
     tokens: HashMap<SubtitleSourceId, u32>,
     by_token: Vec<SubtitleSourceId>,
+    /// OpenSubtitles' private download id, keyed by the public catalog id.
+    /// This map never crosses the FFI boundary and is intentionally absent
+    /// from `Debug` (ADR-0021, K23 #8).
+    opensubtitles_file_ids: HashMap<SubtitleSourceId, u64>,
 }
 
 impl SubtitleLibrary {
@@ -129,6 +139,36 @@ impl SubtitleLibrary {
             self.remember(source.id());
             self.catalog.insert(source);
         }
+    }
+
+    /// Catalogues OpenSubtitles metadata without downloading a subtitle.
+    ///
+    /// The public subtitle id becomes the catalog identity. The private file
+    /// id is retained only in this application-owned map for NEN-122's later
+    /// explicit selection flow; no document is attached and no download is
+    /// attempted here.
+    pub fn add_opensubtitles(&mut self, candidates: Vec<SubtitleCandidate>) -> Vec<u32> {
+        candidates
+            .into_iter()
+            .map(|candidate| {
+                let id = SubtitleSourceId::opensubtitles(&candidate.public_id);
+                let token = self.remember(&id);
+                self.opensubtitles_file_ids
+                    .insert(id.clone(), candidate.private_file_id);
+                let label = candidate
+                    .release_name
+                    .unwrap_or_else(|| "OpenSubtitles".to_owned());
+                let source = SubtitleSource::new(id.clone(), Some(candidate.language), label)
+                    .with_badges(SubtitleSourceBadges {
+                        hearing_impaired: candidate.hearing_impaired,
+                        ai_translated: candidate.ai_translated,
+                    });
+                self.defects.remove(&id);
+                self.documents.remove(&id);
+                self.catalog.insert(source);
+                token
+            })
+            .collect()
     }
 
     /// Gives a source its token, once and for good.
@@ -232,6 +272,17 @@ impl SubtitleLibrary {
     pub fn id_of(&self, token: u32) -> Option<&SubtitleSourceId> {
         self.by_token
             .get(usize::try_from(token.checked_sub(1)?).ok()?)
+    }
+
+    /// Resolves an OpenSubtitles private file id for the later explicit
+    /// download task. It is application-internal data and is not exposed by
+    /// `nen-ffi` or any menu record.
+    pub fn opensubtitles_file_id(&self, token: u32) -> Option<u64> {
+        let id = self.id_of(token)?;
+        if id.kind() != SubtitleSourceKind::OpenSubtitles {
+            return None;
+        }
+        self.opensubtitles_file_ids.get(id).copied()
     }
 
     /// The menu of §8, ready to draw.
@@ -363,6 +414,8 @@ impl SubtitleLibrary {
             label: source.label().to_owned(),
             defect: self.defect(source.id()),
             translatable: source.translatable(),
+            hearing_impaired: source.badges().hearing_impaired,
+            ai_translated: source.badges().ai_translated,
         }
     }
 }
@@ -378,6 +431,10 @@ impl fmt::Debug for SubtitleLibrary {
             .field("source_count", &self.catalog.len())
             .field("document_count", &self.documents.len())
             .field("defect_count", &self.defects.len())
+            .field(
+                "opensubtitles_file_id_count",
+                &self.opensubtitles_file_ids.len(),
+            )
             .finish()
     }
 }

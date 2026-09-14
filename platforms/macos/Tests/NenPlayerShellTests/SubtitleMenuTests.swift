@@ -534,7 +534,9 @@ struct SubtitleMenuTests {
             language: language,
             label: label,
             defect: defect,
-            translatable: true
+            translatable: true,
+            hearingImpaired: false,
+            aiTranslated: false
         )
     }
 

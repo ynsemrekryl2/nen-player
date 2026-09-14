@@ -164,6 +164,8 @@ pub struct FfiMenuEntry {
     /// A row carrying one is drawn dimmed and is **not** selectable.
     pub defect: Option<FfiSourceDefect>,
     pub translatable: bool,
+    pub hearing_impaired: bool,
+    pub ai_translated: bool,
 }
 
 impl From<MenuEntryView> for FfiMenuEntry {
@@ -175,6 +177,8 @@ impl From<MenuEntryView> for FfiMenuEntry {
             label: view.label,
             defect: view.defect.map(Into::into),
             translatable: view.translatable,
+            hearing_impaired: view.hearing_impaired,
+            ai_translated: view.ai_translated,
         }
     }
 }
@@ -190,6 +194,8 @@ impl fmt::Debug for FfiMenuEntry {
             .field("has_label", &!self.label.is_empty())
             .field("defect", &self.defect)
             .field("translatable", &self.translatable)
+            .field("hearing_impaired", &self.hearing_impaired)
+            .field("ai_translated", &self.ai_translated)
             .finish()
     }
 }
@@ -524,11 +530,42 @@ mod tests {
             label: "Inception.2010.tr.srt".to_owned(),
             defect: Some(FfiSourceDefect::Malformed),
             translatable: true,
+            hearing_impaired: false,
+            ai_translated: false,
         };
         let printed = format!("{entry:?}");
         assert!(!printed.contains("Inception"), "{printed}");
         assert!(!printed.contains(".srt"), "{printed}");
         assert!(printed.contains("Malformed"), "{printed}");
+    }
+
+    #[test]
+    fn provider_badges_cross_the_gate_without_private_download_identity() {
+        let library = FfiSubtitleLibrary::new();
+        library.with_mut(|library| {
+            library.add_opensubtitles(vec![
+                nen_app::ports::subtitle_candidates::SubtitleCandidate {
+                    public_id: "public-candidate".into(),
+                    private_file_id: 7001,
+                    language: LanguageTag::parse("en").expect("language"),
+                    release_name: Some("Fixture release".into()),
+                    hearing_impaired: true,
+                    ai_translated: true,
+                },
+            ])
+        });
+
+        let entry = library
+            .menu(None, None)
+            .into_iter()
+            .flat_map(|section| section.entries)
+            .find(|entry| entry.kind == FfiSubtitleSourceKind::OpenSubtitles)
+            .expect("provider entry");
+        assert!(entry.hearing_impaired);
+        assert!(entry.ai_translated);
+        let printed = format!("{entry:?}");
+        assert!(!printed.contains("Fixture release"), "{printed}");
+        assert!(!printed.contains("7001"), "{printed}");
     }
 
     #[test]

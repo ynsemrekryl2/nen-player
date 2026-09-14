@@ -1,0 +1,40 @@
+{
+  "data": [
+    {
+      "id": "candidate-en",
+      "attributes": {
+        "language": "en",
+        "release": "WEB-DL release",
+        "hearing_impaired": true,
+        "ai_translated": false,
+        "moviehash_match": true,
+        "files": [{"file_id": 7001}]
+      }
+    },
+    {
+      "id": "candidate-tr",
+      "attributes": {
+        "language_code": "tr",
+        "release_name": "BluRay release",
+        "hearing_impaired": false,
+        "ai_translated": true,
+        "moviehash_match": true,
+        "files": [{"file_id": "7002"}]
+      }
+    },
+    {
+      "id": "skipped-language",
+      "attributes": {
+        "language": "not-a-language",
+        "files": [{"file_id": 7003}]
+      }
+    },
+    {
+      "id": "skipped-file",
+      "attributes": {
+        "language": "en",
+        "release": "No file"
+      }
+    }
+  ]
+}

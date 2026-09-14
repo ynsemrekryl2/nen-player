@@ -7,7 +7,13 @@ use nen_ports::http::{HttpClient, HttpError, HttpHeader, HttpRequest};
 use nen_ports::identity::{
     IdentityLookup, IdentityLookupError, MediaHash, MediaIdentityLookup, VerifiedMediaIdentity,
 };
+use nen_ports::subtitle_candidates::{
+    SubtitleCandidate, SubtitleCandidateSearch, SubtitleCandidateSearchError,
+    SubtitleCandidateSearchQuery, SubtitleCandidateSearchRequest, MAX_CANDIDATES,
+    MAX_RELEASE_NAME_CHARS,
+};
 use serde_json::Value;
+use std::collections::HashSet;
 use std::fmt;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -66,6 +72,267 @@ impl MediaIdentityLookup for OpenSubtitlesIdentityLookup<'_> {
         let initial = format!("{SEARCH_ENDPOINT}?moviehash={hash}&moviehash_match=only");
         let response = request_following(self.http, &self.api_key, &initial)?;
         parse_response(&response.body)
+    }
+}
+
+/// Real OpenSubtitles metadata search adapter. It shares the official
+/// endpoint and credential boundary with the exact identity lookup, but
+/// returns only bounded catalog metadata; no subtitle bytes are requested.
+pub struct OpenSubtitlesCandidateSearch<'a> {
+    http: &'a dyn HttpClient,
+    api_key: OpenSubtitlesApiKey,
+}
+
+impl<'a> OpenSubtitlesCandidateSearch<'a> {
+    pub fn new(http: &'a dyn HttpClient, api_key: OpenSubtitlesApiKey) -> Self {
+        Self { http, api_key }
+    }
+}
+
+impl SubtitleCandidateSearch for OpenSubtitlesCandidateSearch<'_> {
+    fn search(
+        &self,
+        request: &SubtitleCandidateSearchRequest,
+    ) -> Result<Vec<SubtitleCandidate>, SubtitleCandidateSearchError> {
+        let is_exact_hash = matches!(request.query, SubtitleCandidateSearchQuery::Hash(_));
+        let url = candidate_search_url(request)?;
+        let response = candidate_request_following(self.http, &self.api_key, &url)?;
+        parse_candidates(&response.body, is_exact_hash)
+    }
+}
+
+fn candidate_search_url(
+    request: &SubtitleCandidateSearchRequest,
+) -> Result<String, SubtitleCandidateSearchError> {
+    let mut parameters = Vec::with_capacity(5);
+    match &request.query {
+        SubtitleCandidateSearchQuery::Hash(hash) => {
+            parameters.push(format!("moviehash={}", hex(*hash)));
+            parameters.push("moviehash_match=only".to_owned());
+        }
+        SubtitleCandidateSearchQuery::VerifiedIdentity(identity) => {
+            let title = identity.title.trim();
+            if title.is_empty()
+                || title.chars().count() > 512
+                || title.chars().any(char::is_control)
+            {
+                return Err(SubtitleCandidateSearchError::InvalidRequest);
+            }
+            parameters.push(format!("query={}", encode_query_component(title)));
+            if let Some(year) = identity.year {
+                parameters.push(format!("year={year}"));
+            }
+            if let Some(season) = identity.season {
+                parameters.push(format!("season_number={season}"));
+            }
+            if let Some(episode) = identity.episode {
+                parameters.push(format!("episode_number={episode}"));
+            }
+        }
+    }
+
+    let mut language_filters = Vec::new();
+    for language in request.languages.iter().take(2) {
+        if !language_filters.contains(&language.primary()) {
+            language_filters.push(language.primary());
+        }
+    }
+    if !language_filters.is_empty() {
+        parameters.push(format!("languages={}", language_filters.join(",")));
+    }
+    Ok(format!("{SEARCH_ENDPOINT}?{}", parameters.join("&")))
+}
+
+fn encode_query_component(value: &str) -> String {
+    let mut encoded = String::with_capacity(value.len());
+    for byte in value.as_bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~') {
+            encoded.push(*byte as char);
+        } else {
+            encoded.push('%');
+            encoded.push(char::from_digit((byte >> 4) as u32, 16).unwrap_or('0'));
+            encoded.push(char::from_digit((byte & 0x0f) as u32, 16).unwrap_or('0'));
+        }
+    }
+    encoded
+}
+
+fn candidate_request_following(
+    http: &dyn HttpClient,
+    api_key: &OpenSubtitlesApiKey,
+    initial: &str,
+) -> Result<nen_ports::http::HttpResponse, SubtitleCandidateSearchError> {
+    if !is_allowed_url(initial) {
+        return Err(SubtitleCandidateSearchError::RedirectRejected);
+    }
+
+    let mut current = initial.to_owned();
+    for redirect_count in 0..=MAX_REDIRECTS {
+        let request = HttpRequest::get(
+            &current,
+            vec![
+                HttpHeader {
+                    name: "Api-Key".into(),
+                    value: api_key.0.clone(),
+                },
+                HttpHeader {
+                    name: "User-Agent".into(),
+                    value: USER_AGENT.into(),
+                },
+                HttpHeader {
+                    name: "Accept".into(),
+                    value: "application/json".into(),
+                },
+            ],
+            MAX_RESPONSE_BYTES,
+        );
+        let response = http.send(request).map_err(|error| match error {
+            HttpError::Transport => SubtitleCandidateSearchError::Transport,
+            HttpError::ResponseTooLarge => SubtitleCandidateSearchError::ResponseTooLarge,
+        })?;
+        if is_redirect(response.status_code) {
+            if redirect_count == MAX_REDIRECTS {
+                return Err(SubtitleCandidateSearchError::RedirectRejected);
+            }
+            let location = response
+                .header("Location")
+                .ok_or(SubtitleCandidateSearchError::RedirectRejected)?;
+            current = resolve_redirect(&current, location)
+                .filter(|url| is_allowed_url(url))
+                .ok_or(SubtitleCandidateSearchError::RedirectRejected)?;
+            continue;
+        }
+        if !(200..300).contains(&response.status_code) {
+            return Err(SubtitleCandidateSearchError::HttpStatus);
+        }
+        if response.body.len() > MAX_RESPONSE_BYTES {
+            return Err(SubtitleCandidateSearchError::ResponseTooLarge);
+        }
+        return Ok(response);
+    }
+
+    Err(SubtitleCandidateSearchError::RedirectRejected)
+}
+
+fn parse_candidates(
+    body: &[u8],
+    exact_hash_only: bool,
+) -> Result<Vec<SubtitleCandidate>, SubtitleCandidateSearchError> {
+    if body.len() > MAX_RESPONSE_BYTES {
+        return Err(SubtitleCandidateSearchError::ResponseTooLarge);
+    }
+    let root: Value =
+        serde_json::from_slice(body).map_err(|_| SubtitleCandidateSearchError::InvalidResponse)?;
+    let rows = root
+        .get("data")
+        .and_then(Value::as_array)
+        .ok_or(SubtitleCandidateSearchError::InvalidResponse)?;
+
+    let mut candidates = Vec::new();
+    let mut public_ids = HashSet::new();
+    for row in rows {
+        let Some(attributes) = row.get("attributes").and_then(Value::as_object) else {
+            continue;
+        };
+        if exact_hash_only
+            && !attributes
+                .get("moviehash_match")
+                .or_else(|| attributes.get("movie_hash_match"))
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+        {
+            continue;
+        }
+        let Some(public_id) =
+            bounded_public_id(row.get("id").or_else(|| attributes.get("subtitle_id")))
+        else {
+            continue;
+        };
+        let Some(language) = attributes
+            .get("language")
+            .or_else(|| attributes.get("language_code"))
+            .and_then(Value::as_str)
+            .and_then(|value| nen_domain::source::LanguageTag::parse(value).ok())
+        else {
+            continue;
+        };
+        let Some(private_file_id) = attributes
+            .get("files")
+            .and_then(Value::as_array)
+            .and_then(|files| files.first())
+            .and_then(|file| file.get("file_id"))
+            .and_then(as_positive_u64)
+        else {
+            continue;
+        };
+        if !public_ids.insert(public_id.clone()) {
+            continue;
+        }
+        let release_name = attributes
+            .get("release")
+            .or_else(|| attributes.get("release_name"))
+            .and_then(Value::as_str)
+            .and_then(clean_release_name);
+        candidates.push(SubtitleCandidate {
+            public_id,
+            private_file_id,
+            language,
+            release_name,
+            hearing_impaired: attributes
+                .get("hearing_impaired")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
+            ai_translated: attributes
+                .get("ai_translated")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
+        });
+        if candidates.len() == MAX_CANDIDATES {
+            break;
+        }
+    }
+    Ok(candidates)
+}
+
+fn bounded_public_id(value: Option<&Value>) -> Option<String> {
+    let value = match value? {
+        Value::String(value) => value.clone(),
+        Value::Number(value) => value.to_string(),
+        _ => return None,
+    };
+    let value = value.trim();
+    if value.is_empty() || value.chars().count() > 128 || value.chars().any(char::is_control) {
+        None
+    } else {
+        Some(value.to_owned())
+    }
+}
+
+fn as_positive_u64(value: &Value) -> Option<u64> {
+    match value {
+        Value::Number(value) => value.as_u64().filter(|value| *value > 0),
+        Value::String(value) => value.parse().ok().filter(|value| *value > 0),
+        _ => None,
+    }
+}
+
+fn clean_release_name(value: &str) -> Option<String> {
+    let cleaned: String = value
+        .chars()
+        .map(|character| {
+            if character == '/' || character == '\\' || character == '?' || character == '#' {
+                ' '
+            } else {
+                character
+            }
+        })
+        .filter(|character| !character.is_control() && !is_bidi_control(*character))
+        .collect();
+    let cleaned = cleaned.trim();
+    if cleaned.is_empty() || cleaned.chars().count() > MAX_RELEASE_NAME_CHARS {
+        None
+    } else {
+        Some(cleaned.to_owned())
     }
 }
 
