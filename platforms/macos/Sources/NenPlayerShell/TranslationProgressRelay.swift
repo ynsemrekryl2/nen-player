@@ -1,26 +1,20 @@
 import Foundation
 import NenCore
 
-/// A translation job's progress, as shown on screen (`NEN-102`).
+/// A translation job's document-wide progress, as shown on screen (`NEN-107`).
 ///
-/// Deliberately **not** a document-wide percentage: `FfiTranslationProgress`
-/// is block-local (`core/crates/nen-translate/src/checkpoint.rs` forks a
-/// fresh `TranslationCall` at every block boundary and resets `done` to `0`
-/// there), and the FFI boundary does not carry the document's total cue
-/// count — the shell has nothing honest to divide by yet. A document-wide
-/// percentage is `NEN-107`'s job, planned to replace this type's `block`/
-/// `fraction` pair once the FFI surface carries a document-wide total.
+/// The provider still reports block-local progress behind the core delivery
+/// gate. `nen-translate` maps each block's offset into the document total and
+/// clamps repair/retry attempts to a shared high-water mark before this FFI
+/// value reaches the shell.
 public struct TranslationProgressState: Equatable, Sendable {
     public let phase: FfiTranslationPhase
-    /// 1-based — the first block reported is block 1, never block 0.
-    public let block: Int
-    /// This block's own `done` (ADR-0004 Karar 4's monotonic counter,
-    /// reset at each block boundary — not a running total).
+    /// Number of translated cues across the whole document.
     public let done: UInt32
-    /// This block's own cue count.
+    /// Total cues in the whole document.
     public let total: UInt32
 
-    /// This block's own completion fraction, not the document's.
+    /// Completion fraction for the whole document.
     public var fraction: Double {
         total == 0 ? 0 : Double(done) / Double(total)
     }
@@ -33,8 +27,8 @@ public struct TranslationProgressState: Equatable, Sendable {
 /// `AsyncStream` preserves yield order; a bare `Task { @MainActor in … }`
 /// spawned per callback would not — nothing guarantees the scheduler runs
 /// per-`Task` closures in creation order, and `PlayerRootView`'s indicator
-/// would then occasionally show a stale block or a `done` that briefly
-/// jumps backward and forward.
+/// would then occasionally show a stale count or a `done` that briefly jumps
+/// backward and forward.
 ///
 /// **Never calls back into the job this progress belongs to.**
 /// `onProgress` runs while `TranslationCall` holds its delivery gate's lock

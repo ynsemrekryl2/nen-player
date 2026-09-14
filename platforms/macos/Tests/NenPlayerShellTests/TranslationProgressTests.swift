@@ -23,6 +23,20 @@ import Testing
 @Suite("AI translation progress and cancellation (NEN-102)", .serialized)
 @MainActor
 struct TranslationProgressTests {
+    @Test("the progress copy presents the document count and percentage")
+    func progressCopyPresentsDocumentCountAndPercentage() {
+        let state = TranslationProgressState(
+            phase: .translating,
+            done: 42,
+            total: 95
+        )
+
+        #expect(
+            PlaybackPresentation.translationProgressMessage(for: state)
+                == "AI çevirisi · 42/95 · 44%"
+        )
+    }
+
     @Test("progress reaches the indicator in order, and clears when the job finishes")
     func progressReachesTheIndicatorInOrder() async throws {
         let store = TempFixture("translate-progress-order")
@@ -51,32 +65,16 @@ struct TranslationProgressTests {
         #expect(!observed.isEmpty, "a multi-block job reports at least one progress event")
         #expect(model.translationProgress == nil, "the indicator clears once the job finishes")
 
-        // Block sequence only ever advances by exactly one, at a `Preparing`/
-        // `done == 0` boundary (`checkpoint.rs`'s own contract) — never
-        // skips, never goes backward.
-        var lastBlock = 0
+        // The FFI sink receives the document total, and the document counter
+        // never resets when the worker starts another block or a retry.
+        var lastDone: UInt32 = 0
         for state in observed {
-            #expect(state.block == lastBlock || state.block == lastBlock + 1, "block sequence skipped or went backward")
-            lastBlock = state.block
+            #expect(state.total == 95, "progress uses the document total")
+            #expect(state.done >= lastDone, "document progress went backward")
+            #expect(state.done <= state.total, "document progress exceeded its total")
+            lastDone = state.done
         }
-        #expect(lastBlock == 3, "a 95-cue document with the default 40-cue block splits into 3 blocks")
-
-        // Within each block, `done` is monotonic (ADR-0004 Karar 4) and never
-        // exceeds `total`.
-        var withinBlock: [Int: [FfiTranslationProgress]] = [:]
-        for state in observed {
-            withinBlock[state.block, default: []].append(
-                FfiTranslationProgress(phase: state.phase, done: state.done, total: state.total)
-            )
-        }
-        for (_, events) in withinBlock {
-            var lastDone: UInt32 = 0
-            for event in events {
-                #expect(event.done >= lastDone, "done went backward within a block")
-                #expect(event.done <= event.total, "done exceeded total")
-                lastDone = event.done
-            }
-        }
+        #expect(lastDone == 95, "the document reaches its total")
     }
 
     @Test("cancelling mid-run stops the job, hides the indicator, and leaves no trace")

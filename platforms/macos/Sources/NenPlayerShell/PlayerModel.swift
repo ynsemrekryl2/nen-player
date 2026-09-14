@@ -721,22 +721,11 @@ public final class PlayerModel: ObservableObject {
                 }
             }.value
 
-            // Counts blocks by their own boundary — the first progress event
-            // of each block is `Preparing` with `done == 0`
-            // (`checkpoint.rs`'s own contract) — rather than trusting a
-            // counter the provider itself could get wrong.
-            var currentBlock = 0
             for await progress in stream {
                 guard !Task.isCancelled, let self else { break }
-                if progress.phase == .preparing, progress.done == 0 {
-                    currentBlock += 1
-                } else if currentBlock == 0 {
-                    currentBlock = 1
-                }
                 guard self.mediaPresentationRevision == revision else { continue }
                 self.translationProgress = TranslationProgressState(
                     phase: progress.phase,
-                    block: currentBlock,
                     done: progress.done,
                     total: progress.total
                 )

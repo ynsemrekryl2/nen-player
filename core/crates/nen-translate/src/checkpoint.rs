@@ -20,10 +20,13 @@
 //! Each block's provider work runs under its own [`TranslationCall::fork`]
 //! (NEN-106): a provider only ever sees one block's request, so it reports
 //! that block's own cue count as its progress `total`, which legitimately
-//! differs from block to block. A fork shares the run's single cancellation
-//! gate and progress sink but starts a fresh per-provider progress
-//! sequence, so [`TranslationCall::progress`]'s monotonic-`total` rule
-//! (ADR-0004 Karar 4) applies within a block, never across blocks.
+//! differs from block to block. The orchestration layer scopes each block
+//! call to the document's total and output offset. A fork shares the run's
+//! cancellation gate, progress sink and document-wide high-water mark, but
+//! starts a fresh per-provider progress sequence. Thus
+//! [`TranslationCall::progress`]'s monotonic-`total` rule (ADR-0004 Karar 4)
+//! remains provider-local while delivered progress is document-wide and
+//! retry-safe.
 
 use crate::blocks::{BlockLayout, TranslationBlock};
 use crate::repair::{self, BlockTranslationError};
@@ -360,17 +363,40 @@ pub fn translate_resumable(
         None => BlockCheckpoints::for_layout(layout),
     };
 
+    let document_total = document_progress_total(document).map_err(|error| {
+        ResumableTranslationError::Block(BlockTranslationError::Provider(error))
+    })?;
+    let mut document_offset: u32 = 0;
     for block in layout.blocks() {
+        let block_total = block_progress_total(document, block).map_err(|error| {
+            ResumableTranslationError::Block(BlockTranslationError::Provider(error))
+        })?;
         if checkpoints.is_checkpointed(block.index()) {
+            document_offset = document_offset.checked_add(block_total).ok_or(
+                ResumableTranslationError::Block(BlockTranslationError::Provider(
+                    TranslationProviderError::Permanent,
+                )),
+            )?;
             continue;
         }
         call.checkpoint()
             .map_err(|_| ResumableTranslationError::Cancelled)?;
         let request = request_for_block(document, block, plan);
+        let block_call = call
+            .with_document_progress(document_offset, document_total)
+            .map_err(|error| {
+                ResumableTranslationError::Block(BlockTranslationError::Provider(error))
+            })?;
         let validated =
-            repair::translate_block_with_repair(provider, document, block, &request, &call.fork())
+            repair::translate_block_with_repair(provider, document, block, &request, &block_call)
                 .map_err(ResumableTranslationError::Block)?;
         checkpoints.commit_persistent(call, validated, cache_key, store)?;
+        document_offset =
+            document_offset
+                .checked_add(block_total)
+                .ok_or(ResumableTranslationError::Block(
+                    BlockTranslationError::Provider(TranslationProviderError::Permanent),
+                ))?;
     }
 
     checkpoints
@@ -394,8 +420,19 @@ pub fn translate_checkpointed(
     call: &TranslationCall,
     checkpoints: &mut BlockCheckpoints,
 ) -> Result<(), TranslationRunError> {
+    let document_total = document_progress_total(document)
+        .map_err(|error| TranslationRunError::Block(BlockTranslationError::Provider(error)))?;
+    let mut document_offset: u32 = 0;
     for block in layout.blocks() {
+        let block_total = block_progress_total(document, block)
+            .map_err(|error| TranslationRunError::Block(BlockTranslationError::Provider(error)))?;
         if checkpoints.is_checkpointed(block.index()) {
+            document_offset =
+                document_offset
+                    .checked_add(block_total)
+                    .ok_or(TranslationRunError::Block(BlockTranslationError::Provider(
+                        TranslationProviderError::Permanent,
+                    )))?;
             continue;
         }
 
@@ -403,22 +440,36 @@ pub fn translate_checkpointed(
             .map_err(|_error| TranslationRunError::Cancelled)?;
 
         let request = request_for_block(document, block, plan);
-        // Each block gets its own forked progress sequence: a provider only
-        // sees its own block's request and honestly reports that block's own
-        // cue count as `total`, which legitimately differs block to block.
-        // `TranslationCall::progress` rightly rejects a changed `total`
-        // within one sequence, so blocks must not share one (NEN-106). The
-        // fork shares cancellation and progress delivery — only the
-        // per-provider progress sequence starts fresh.
+        let block_call = call
+            .with_document_progress(document_offset, document_total)
+            .map_err(|error| TranslationRunError::Block(BlockTranslationError::Provider(error)))?;
         let validated =
-            repair::translate_block_with_repair(provider, document, block, &request, &call.fork())
+            repair::translate_block_with_repair(provider, document, block, &request, &block_call)
                 .map_err(TranslationRunError::Block)?;
 
         checkpoints
             .commit(call, validated)
             .map_err(|_error| TranslationRunError::Cancelled)?;
+        document_offset =
+            document_offset
+                .checked_add(block_total)
+                .ok_or(TranslationRunError::Block(BlockTranslationError::Provider(
+                    TranslationProviderError::Permanent,
+                )))?;
     }
     Ok(())
+}
+
+fn document_progress_total(document: &SubtitleDocument) -> Result<u32, TranslationProviderError> {
+    u32::try_from(document.cues().len()).map_err(|_| TranslationProviderError::Permanent)
+}
+
+fn block_progress_total(
+    document: &SubtitleDocument,
+    block: &TranslationBlock,
+) -> Result<u32, TranslationProviderError> {
+    u32::try_from(block.output_cue_ids(document).len())
+        .map_err(|_| TranslationProviderError::Permanent)
 }
 
 fn request_for_block(
@@ -853,7 +904,7 @@ mod tests {
         }
     }
 
-    /// Records every delivered `TranslationProgress`, in delivery order.
+    /// Records every document-scoped `TranslationProgress`, in delivery order.
     #[derive(Default)]
     struct RecordingSink {
         events: Mutex<Vec<TranslationProgress>>,
@@ -897,21 +948,14 @@ mod tests {
         assert!(checkpoints.is_complete());
     }
 
-    /// Each block's progress sequence starts fresh at its own `total` and is
-    /// monotonic within itself — no event carries over a previous block's
-    /// `total` or `done`.
+    /// The sink now receives document-wide progress: each block's provider
+    /// sequence still starts fresh locally, but the delivered total stays at
+    /// the document cue count and done never resets at a block boundary.
     #[test]
-    fn each_blocks_progress_sequence_is_independently_monotonic() {
+    fn document_progress_is_monotonic_across_blocks() {
         let document = document(95);
         let layout = layout(&document);
-        let block_totals: Vec<u32> = layout
-            .blocks()
-            .iter()
-            .map(|block| {
-                u32::try_from(block.output_cue_ids(&document).len()).expect("small fixture")
-            })
-            .collect();
-        assert!(block_totals.len() >= 2, "fixture needs multiple blocks");
+        assert!(layout.blocks().len() >= 2, "fixture needs multiple blocks");
 
         let mut checkpoints = BlockCheckpoints::for_layout(&layout);
         let sink = Arc::new(RecordingSink::default());
@@ -928,35 +972,107 @@ mod tests {
         .expect("run completes");
 
         let events = sink.events();
-        // Split the flat event stream back into per-block runs by watching
-        // `done` reset to 0 (`Preparing`) at each block boundary, and check
-        // each run's own total matches that block's own cue count, and its
-        // `done` values are monotonically non-decreasing within the run.
-        let mut block_index = 0usize;
-        let mut previous_done: Option<u32> = None;
+        let total = u32::try_from(document.cues().len()).expect("small fixture");
+        let mut previous_done = 0;
         for event in &events {
-            if event.phase == TranslationProgressPhase::Preparing {
-                if previous_done.is_some() {
-                    block_index += 1;
+            assert_eq!(event.total, total, "sink receives the document total");
+            assert!(event.done >= previous_done, "document done regressed");
+            assert!(event.done <= event.total, "done exceeded document total");
+            previous_done = event.done;
+        }
+        assert_eq!(previous_done, total, "the document completed");
+    }
+
+    /// A first attempt completes its block locally, then a targeted repair
+    /// starts from zero. The document-facing sink must keep the high-water
+    /// mark instead of exposing that retry as a regression.
+    #[test]
+    fn repair_progress_never_regresses_document_done() {
+        struct RepairingProvider {
+            calls: Mutex<usize>,
+        }
+
+        impl TranslationProvider for RepairingProvider {
+            fn identity(&self) -> TranslationProviderIdentity {
+                TranslationProviderIdentity::new("test", "repair-progress").expect("identity")
+            }
+
+            fn translate(
+                &self,
+                request: &TranslationRequest,
+                call: &TranslationCall,
+            ) -> Result<TranslationResponse, TranslationProviderError> {
+                let attempt = {
+                    let mut calls = self.calls.lock().expect("lock");
+                    let attempt = *calls;
+                    *calls += 1;
+                    attempt
+                };
+                let total = u32::try_from(request.output_cue_ids.len()).expect("small fixture");
+                call.progress(TranslationProgress {
+                    phase: TranslationProgressPhase::Preparing,
+                    done: 0,
+                    total,
+                })?;
+                for (position, _) in request.output_cue_ids.iter().enumerate() {
+                    call.progress(TranslationProgress {
+                        phase: TranslationProgressPhase::Translating,
+                        done: u32::try_from(position + 1).expect("small fixture"),
+                        total,
+                    })?;
                 }
-                previous_done = None;
+                call.progress(TranslationProgress {
+                    phase: TranslationProgressPhase::Finalizing,
+                    done: total,
+                    total,
+                })?;
+
+                let output_cue_ids = if attempt == 0 {
+                    &request.output_cue_ids[..request.output_cue_ids.len() - 1]
+                } else {
+                    &request.output_cue_ids[..]
+                };
+                let cues = output_cue_ids
+                    .iter()
+                    .map(|cue_id| TranslatedCue {
+                        cue_id: *cue_id,
+                        text: format!("translated {}", cue_id.get()),
+                    })
+                    .collect();
+                call.finish(TranslationResponse { cues })
             }
-            assert_eq!(
-                event.total, block_totals[block_index],
-                "block {block_index}'s progress must carry its own total"
+        }
+
+        let document = document(95);
+        let layout = layout(&document);
+        let mut checkpoints = BlockCheckpoints::for_layout(&layout);
+        let sink = Arc::new(RecordingSink::default());
+        let call = TranslationCall::new(sink.clone());
+
+        translate_checkpointed(
+            &RepairingProvider {
+                calls: Mutex::new(0),
+            },
+            &document,
+            &layout,
+            &plan(),
+            &call,
+            &mut checkpoints,
+        )
+        .expect("targeted repair completes the document");
+
+        let events = sink.events();
+        let mut previous_done = 0;
+        for event in &events {
+            assert!(
+                event.done >= previous_done,
+                "repair regressed document done"
             );
-            if let Some(previous) = previous_done {
-                assert!(
-                    event.done >= previous,
-                    "done must not regress within a block"
-                );
-            }
-            previous_done = Some(event.done);
+            previous_done = event.done;
         }
         assert_eq!(
-            block_index + 1,
-            block_totals.len(),
-            "every block must have reported its own progress run"
+            previous_done,
+            u32::try_from(document.cues().len()).expect("small fixture")
         );
     }
 

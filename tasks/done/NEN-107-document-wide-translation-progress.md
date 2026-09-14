@@ -3,8 +3,8 @@ id: NEN-107
 title: Document-wide translation progress across the FFI boundary
 milestone: M6
 size: M
-state: backlog
-closed:
+state: done
+closed: 2026-09-14
 depends_on: [NEN-102]
 blocks: [NEN-118]
 adr: []
@@ -65,17 +65,30 @@ hangisi seçilirse ADR-0004 Karar 4'ün monotonluk kuralı bozulmadan.
 
 ## Kanıt (DoD)
 
-- [ ] Unit: çok bloklu bir belgede ilerleme raporları **belge geneline göre**
+- [x] Unit: çok bloklu bir belgede ilerleme raporları **belge geneline göre**
       monoton artıyor (blok sınırında sıfırlanmıyor)
-- [ ] Negatif (zorunlu): bir bloğun repair/full-block retry'ı sırasında
+- [x] Negatif (zorunlu): bir bloğun repair/full-block retry'ı sırasında
       belge-geneli `done` hiçbir koşulda **geri gitmiyor** — `NEN-106`'nın
       emsali, elle mutasyonla kırmızıya döndürülüp kanıtlanır
-- [ ] Kontrat testi: `nen-ports`'un mevcut monotonluk kuralı
+- [x] Kontrat testi: `nen-ports`'un mevcut monotonluk kuralı
       (`TranslationCall::progress`) bu yeni yol için de geçerli — gevşetilmedi
-- [ ] `NEN-102`'nin Swift testleri yeni paydayla güncellenip yeşil kalıyor
-- [ ] Gerçek `.app` checklist: ilerleme yüzdesi büyük bir belgede okunabilir
+- [x] `NEN-102`'nin Swift testleri yeni paydayla güncellenip yeşil kalıyor
+- [x] Gerçek `.app` checklist: ilerleme yüzdesi büyük bir belgede okunabilir
       şekilde artıyor
 
 ## Kanıt kaydı
 
-<!-- done olurken doldurulacak -->
+`evidence/M6/NEN-107-checklist.md`.
+
+`nen-ports`: `document_progress_maps_offsets_and_clamps_retry_regressions`
+belge offset'ini, toplamı ve paylaşılan high-water clamp'i doğrular.
+`nen-translate`: `document_progress_is_monotonic_across_blocks` çok bloklu
+95 cue akışında total=95 ve son done=95'i; `repair_progress_never_regresses_document_done`
+ilk denemesi tamamlanmış görünen bloğun repair'ında done geri gitmediğini
+doğrular. `TranslationCall::progress` içindeki provider-local phase/done/total
+monotonicity kapısı aynen korunmuştur.
+
+Gerçek `.app` smoke akışı aynı checklistte kaydedildi. M5 mock provider ara
+UI frame'inden hızlı tamamlandığı için canlı ara frame yerine Swift'in aynı
+FFI sink akışını kullanan deterministik progress-copy ve monotonicity testleri
+kanıt olarak tutuldu.

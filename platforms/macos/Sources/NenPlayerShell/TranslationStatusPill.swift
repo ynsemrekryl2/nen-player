@@ -14,8 +14,7 @@ struct TranslationStatusPill: View {
         HStack(spacing: 10) {
             Text(PlaybackPresentation.translationProgressMessage(for: state))
                 .font(.callout.weight(.medium))
-            // This block's own fraction, not the document's — `NEN-107`'s
-            // job (`TranslationProgressState`'s own doc comment).
+            // The document-wide fraction supplied by the FFI progress event.
             ProgressView(value: state.fraction)
                 .progressViewStyle(.linear)
                 .frame(width: 90)

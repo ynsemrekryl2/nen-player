@@ -120,12 +120,29 @@ pub enum TranslationProgressPhase {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TranslationProgress {
     pub phase: TranslationProgressPhase,
+    /// Provider-local when supplied to [`TranslationCall::progress`]. A
+    /// document-scoped call maps this to the document-wide offset before it
+    /// reaches the sink.
     pub done: u32,
+    /// Provider-local when supplied to [`TranslationCall::progress`]. A
+    /// document-scoped call replaces this with the document cue count for the
+    /// sink-facing value.
     pub total: u32,
 }
 
 pub trait TranslationProgressSink: Send + Sync {
     fn on_progress(&self, progress: TranslationProgress);
+}
+
+#[derive(Clone, Copy)]
+struct DocumentProgressScope {
+    offset: u32,
+    total: u32,
+}
+
+#[derive(Default)]
+struct DocumentProgressState {
+    last: Option<TranslationProgress>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -156,6 +173,8 @@ struct DeliveryState {
 pub struct TranslationCall {
     state: Arc<Mutex<DeliveryState>>,
     last_progress: Arc<Mutex<Option<TranslationProgress>>>,
+    document_progress: Arc<Mutex<DocumentProgressState>>,
+    document_scope: Option<DocumentProgressScope>,
 }
 
 impl TranslationCall {
@@ -174,18 +193,42 @@ impl TranslationCall {
                 sink,
             })),
             last_progress: Arc::new(Mutex::new(None)),
+            document_progress: Arc::new(Mutex::new(DocumentProgressState::default())),
+            document_scope: None,
         }
     }
 
     /// Create a retry call that shares cancellation and progress delivery but
     /// starts a fresh per-provider progress sequence. A repair request may
-    /// contain fewer cue IDs than the original request, so its progress total
-    /// legitimately differs from the preceding attempt.
+    /// contain fewer cue IDs than the original request, so its provider-facing
+    /// progress total legitimately differs from the preceding attempt. When
+    /// this call is document-scoped, its sink-facing high-water mark remains
+    /// shared with the retry.
     pub fn fork(&self) -> Self {
         Self {
             state: self.state.clone(),
             last_progress: Arc::new(Mutex::new(None)),
+            document_progress: self.document_progress.clone(),
+            document_scope: self.document_scope,
         }
+    }
+
+    /// Start a fresh provider progress sequence that reports into one
+    /// document-wide counter. `offset` is the number of output cues belonging
+    /// to preceding blocks; `total` is the whole document's output cue count.
+    /// The provider still reports its own block-local `done`/`total`, while a
+    /// sink attached to this scoped call receives the mapped document values.
+    pub fn with_document_progress(
+        &self,
+        offset: u32,
+        total: u32,
+    ) -> Result<Self, TranslationProviderError> {
+        if offset > total {
+            return Err(TranslationProviderError::Permanent);
+        }
+        let mut scoped = self.fork();
+        scoped.document_scope = Some(DocumentProgressScope { offset, total });
+        Ok(scoped)
     }
 
     pub fn cancel(&self) {
@@ -224,9 +267,13 @@ impl TranslationCall {
         {
             return Err(TranslationProviderError::Permanent);
         }
+        // Validate and remember the provider's local sequence first. The
+        // document-wide mapping below deliberately does not relax this
+        // provider contract; it only changes what a scoped sink receives.
+        let delivered = self.map_document_progress(progress)?;
         *last_progress = Some(progress);
         if let Some(sink) = state.sink.as_ref() {
-            sink.on_progress(progress);
+            sink.on_progress(delivered);
         }
         Ok(())
     }
@@ -270,6 +317,43 @@ impl TranslationCall {
                 state
             }
         }
+    }
+
+    fn map_document_progress(
+        &self,
+        progress: TranslationProgress,
+    ) -> Result<TranslationProgress, TranslationProviderError> {
+        let Some(scope) = self.document_scope else {
+            return Ok(progress);
+        };
+        let candidate = scope
+            .offset
+            .checked_add(progress.done)
+            .ok_or(TranslationProviderError::Permanent)?;
+        if candidate > scope.total {
+            return Err(TranslationProviderError::Permanent);
+        }
+
+        let mut state = self
+            .document_progress
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if state
+            .last
+            .is_some_and(|previous| previous.total != scope.total)
+        {
+            return Err(TranslationProviderError::Permanent);
+        }
+        let done = state
+            .last
+            .map_or(candidate, |previous| previous.done.max(candidate));
+        let delivered = TranslationProgress {
+            phase: progress.phase,
+            done,
+            total: scope.total,
+        };
+        state.last = Some(delivered);
+        Ok(delivered)
     }
 }
 
@@ -376,6 +460,47 @@ mod tests {
             }),
             Err(TranslationProviderError::Cancelled)
         );
+    }
+
+    #[test]
+    fn document_progress_maps_offsets_and_clamps_retry_regressions() {
+        #[derive(Default)]
+        struct RecordingSink {
+            updates: Mutex<Vec<TranslationProgress>>,
+        }
+
+        impl TranslationProgressSink for RecordingSink {
+            fn on_progress(&self, progress: TranslationProgress) {
+                self.updates.lock().expect("lock").push(progress);
+            }
+        }
+
+        let sink = Arc::new(RecordingSink::default());
+        let call = TranslationCall::new(sink.clone());
+        let scoped = call
+            .with_document_progress(4, 10)
+            .expect("valid document progress scope");
+        scoped
+            .progress(TranslationProgress {
+                phase: TranslationProgressPhase::Translating,
+                done: 3,
+                total: 3,
+            })
+            .expect("initial block progress");
+        scoped
+            .fork()
+            .progress(TranslationProgress {
+                phase: TranslationProgressPhase::Preparing,
+                done: 0,
+                total: 1,
+            })
+            .expect("retry starts a fresh provider sequence");
+
+        let updates = sink.updates.lock().expect("lock").clone();
+        assert_eq!(updates[0].done, 7, "offset is added to local progress");
+        assert_eq!(updates[0].total, 10, "sink receives the document total");
+        assert_eq!(updates[1].done, 7, "retry cannot lower document progress");
+        assert_eq!(updates[1].total, 10);
     }
 
     #[test]

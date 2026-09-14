@@ -74,9 +74,11 @@ impl From<TranslationProgressPhase> for FfiTranslationPhase {
     }
 }
 
-/// One progress report (mirrors [`TranslationProgress`]): a phase and two
-/// monotonic counters (ADR-0004 Karar 4), nothing else. `Debug` is derived —
-/// the same shape [`TranslationProgress`] itself already derives it for.
+/// One document-wide progress report (mirrors [`TranslationProgress`]): a
+/// phase and two monotonic counters (ADR-0004 Karar 4), nothing else. Normal
+/// translation jobs map provider block-local values to document-wide counters
+/// before this record crosses FFI. `Debug` is derived — the same shape
+/// [`TranslationProgress`] itself already derives it for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Record)]
 pub struct FfiTranslationProgress {
     pub phase: FfiTranslationPhase,

@@ -5,8 +5,8 @@
 > `tasks/done/` ve `history/`'de. Burada tekrar edilmez; **150 satırı aşamaz**
 > (`check-docs.sh` denetim 10).
 >
-> Son güncelleme: **2026-09-13** (**`NEN-127` kapandı** — STATUS 225 KB'tan
-> ~5 KB'a indi; 150 satır kapısı `check-docs.sh`'ta.)
+> Son güncelleme: **2026-09-14** (**`NEN-107` kapandı** — FFI artık
+> document-wide monotonic translation progress taşıyor.)
 
 ## Nerede duruyoruz
 
@@ -14,16 +14,16 @@
 |---|---|
 | **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı — `docs/milestones/M6-real-providers.md`) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-127`** — STATUS token diyeti ve boyut kapısı. Ondan önce: `NEN-115` |
-| **Sıradaki READY** | `NEN-107`, `NEN-109`, `NEN-112`, `NEN-116`, `NEN-119`, `NEN-120`, `NEN-124`, `NEN-128` |
-| **Task sayısı** | 128 · done 107 · active 0 · blocked 0 · canceled 2 · backlog 19 |
+| **Son tamamlanan** | **`NEN-107`** — FFI sınırında document-wide translation progress. Ondan önce: `NEN-127` |
+| **Sıradaki READY** | `NEN-109`, `NEN-112`, `NEN-116`, `NEN-119`, `NEN-120`, `NEN-124`, `NEN-128` |
+| **Task sayısı** | 128 · done 108 · active 0 · blocked 0 · canceled 2 · backlog 18 |
 
-**Son kapanış — `NEN-127` (2026-09-13):** `docs/STATUS.md` 3368 satır /
-225 KB'tan 98 satır / ~5 KB'a indi (oturum başına ~54k token); geçmiş
-kapanış anlatıları satırı satırına `docs/history/status-archive-2026-09.md`'ye
-taşındı (kayıp 0). `check-docs.sh` **denetim 10** dosyayı 150 satırla
-sınırlıyor; `/finish-task` artık önceki özeti siler, eklemez. Kanıt:
-`tasks/done/NEN-127-status-token-diet.md`.
+**Son kapanış — `NEN-107` (2026-09-14):** `nen-translate` blok-local
+provider progress'ini document offset'i ve paylaşılan high-water mark ile
+FFI'ya monotonic `done/total` olarak taşıyor; Swift kabuğu aynı paydayı ve
+yüzdeyi gösteriyor. Çok bloklu akış, repair retry, `nen-ports` kontratı ve
+268 macOS testi yeşil. Kanıt: `evidence/M6/NEN-107-checklist.md` ve
+`tasks/done/NEN-107-document-wide-translation-progress.md`.
 
 ## Toolchain
 
@@ -68,12 +68,10 @@ Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
 
-2026-09-13'te `NEN-127` kapandı (doküman + tooling; ürün kodu değişmedi).
-`bash scripts/check-docs.sh` çıkış 0 (denetim 10: "STATUS.md 98 satır");
-`bash scripts/test.sh` **4/4** — `check-docs.test.sh` yeni T18 (150 satır
-geçer) / T19 (151 satır → çıkış 1) dahil. Eski STATUS içeriğinin tamamı
-arşivde (`comm -23` → 0 eksik satır). Kanıt:
-`tasks/done/NEN-127-status-token-diet.md`.
+2026-09-14'te `NEN-107` kapandı. `cargo test --workspace`, clippy,
+`cargo deny check`, `bash scripts/test-macos.sh` (**268/268**), gerçek `.app`
+build, `check-docs.sh`, `bash scripts/test.sh` (**4/4**) ve `doctor.sh M3`
+yeşil.
 
 Önceki doğrulama girdileri ve toolchain kapısı geçmişi:
 `history/status-archive-2026-09.md`.

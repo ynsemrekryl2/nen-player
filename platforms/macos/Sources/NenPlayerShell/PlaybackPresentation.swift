@@ -170,15 +170,16 @@ public enum PlaybackPresentation {
         }
     }
 
-    /// What the user is told while a translation job is running (`NEN-102`).
-    /// Block sequence and that block's own count only — no document-wide
-    /// percentage (`TranslationProgressState`'s own doc comment, `NEN-107`),
-    /// no cue text, no provider name.
+    /// What the user is told while a translation job is running (`NEN-107`).
+    /// Document-wide count and percentage only — no cue text, no provider
+    /// name.
     public static func translationProgressMessage(for state: TranslationProgressState) -> String {
+        let percent = Int((state.fraction * 100).rounded())
+        let count = "\(state.done)/\(state.total) · \(percent)%"
         switch state.phase {
-        case .preparing: return "AI çevirisi hazırlanıyor… · \(state.block). blok"
-        case .translating: return "AI çevirisi · \(state.block). blok"
-        case .finalizing: return "AI çevirisi tamamlanıyor… · \(state.block). blok"
+        case .preparing: return "AI çevirisi hazırlanıyor… · \(count)"
+        case .translating: return "AI çevirisi · \(count)"
+        case .finalizing: return "AI çevirisi tamamlanıyor… · \(count)"
         }
     }
 }
