@@ -5,8 +5,8 @@
 > `tasks/done/` ve `history/`'de. Burada tekrar edilmez; **150 satırı aşamaz**
 > (`check-docs.sh` denetim 10).
 >
-> Son güncelleme: **2026-09-14** (**`NEN-113` kapandı** — macOS API key entry in
-> settings.)
+> Son güncelleme: **2026-09-14** (**`NEN-116` kapandı** — OpenAI Responses API
+> translation provider.)
 
 ## Nerede duruyoruz
 
@@ -14,15 +14,15 @@
 |---|---|
 | **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı — `docs/milestones/M6-real-providers.md`) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-113`** — macOS API key entry in settings. Ondan önce: `NEN-112` |
-| **Sıradaki READY** | `NEN-116`, `NEN-119`, `NEN-120`, `NEN-124`, `NEN-128` |
-| **Task sayısı** | 128 · done 111 · active 0 · blocked 0 · canceled 2 · backlog 15 |
+| **Son tamamlanan** | **`NEN-116`** — OpenAI Responses API translation provider. Ondan önce: `NEN-113` |
+| **Sıradaki READY** | `NEN-117`, `NEN-119`, `NEN-120`, `NEN-124`, `NEN-128` |
+| **Task sayısı** | 128 · done 112 · active 0 · blocked 0 · canceled 2 · backlog 14 |
 
-**Son kapanış — `NEN-113` (2026-09-14):** macOS Ayarlar'a üç maskeli API key
-satırı, FFI-only lifecycle, typed validation/error surface ve plaintext negatif
-kanıt eklendi. Gerçek `.app` smoke akışı üç fixture için save → yeniden açılışta
-kayıtlı → delete olarak tamamlandı. Kanıt: `evidence/M6/NEN-113-checklist.md`
-ve `tasks/done/NEN-113-macos-api-key-settings.md`.
+**Son kapanış — `NEN-116` (2026-09-14):** OpenAI Responses API adapter'ı
+structured JSON output, bounded retry/cancellation ve K23 redaction guard'larıyla
+eklendi. Deterministic fixture/contract suite'i ve tüm workspace kalite kapıları
+geçti. Kanıt: `evidence/M6/NEN-116-checklist.md` ve
+`tasks/done/NEN-116-openai-translation-provider.md`.
 
 ## Toolchain
 
@@ -67,10 +67,9 @@ Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
 
-2026-09-14'te `NEN-113` kapandı. `cargo test --workspace`, fmt/clippy/deny,
-`bash scripts/test-macos.sh` (**281/281**), credential suite'i, gerçek Keychain
-suite'i, ad-hoc `.app` build + strict codesign, `bash scripts/test.sh` (**6/6**),
-M3 doctor ve `check-docs.sh` yeşil.
+2026-09-14'te `NEN-116` kapandı. `cargo test --workspace`, fmt/clippy/deny,
+`bash scripts/test.sh` (**6/6**), M3 doctor ve `check-docs.sh` yeşil; NEN-116
+OpenAI fixture suite'i gerçek ağa çıkmadan tamamlandı.
 
 Önceki doğrulama girdileri ve toolchain kapısı geçmişi:
 `history/status-archive-2026-09.md`.

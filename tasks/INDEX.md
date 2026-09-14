@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **128** task · ✅ done 111 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 15
+Toplam **128** task · ✅ done 112 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 14
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -156,7 +156,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-113](done/NEN-113-macos-api-key-settings.md) | macOS API key entry in settings | M | ✅ done | NEN-112 |
 | [NEN-114](done/NEN-114-adr-real-translation-provider-boundary.md) | Decide the real translation provider boundary | S | ✅ done | NEN-090 |
 | [NEN-115](done/NEN-115-http-post-json-body.md) | HttpClient port carries POST with a JSON body | M | ✅ done | NEN-114 NEN-036 |
-| [NEN-116](backlog/NEN-116-openai-translation-provider.md) | OpenAI Responses API translation provider | M | ⚪ backlog | NEN-115 NEN-111 |
+| [NEN-116](done/NEN-116-openai-translation-provider.md) | OpenAI Responses API translation provider | M | ✅ done | NEN-115 NEN-111 |
 | [NEN-117](backlog/NEN-117-openrouter-provider-and-preflight.md) | OpenRouter translation provider with structured-output preflight | M | ⚪ backlog | NEN-116 |
 | [NEN-118](backlog/NEN-118-real-provider-environment-wiring.md) | Real provider selection wired into the translation environment | M | ⚪ backlog | NEN-116 NEN-117 NEN-113 NEN-107 |
 | [NEN-119](backlog/NEN-119-adr-opensubtitles-integration-boundaries.md) | Decide the OpenSubtitles integration boundaries | S | ⚪ backlog | NEN-033 |
@@ -174,7 +174,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 
 Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 
-- **NEN-116** — OpenAI Responses API translation provider
+- **NEN-117** — OpenRouter translation provider with structured-output preflight
 - **NEN-119** — Decide the OpenSubtitles integration boundaries
 - **NEN-120** — Verified identity lookup runs from the app
 - **NEN-124** — Decide filename privacy for AI-assisted normalization

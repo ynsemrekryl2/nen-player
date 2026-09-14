@@ -1,0 +1,13 @@
+{
+  "output": [
+    {
+      "type": "message",
+      "content": [
+        {
+          "type": "refusal",
+          "refusal": "fixture refusal"
+        }
+      ]
+    }
+  ]
+}

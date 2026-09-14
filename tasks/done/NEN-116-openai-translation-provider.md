@@ -3,8 +3,8 @@ id: NEN-116
 title: OpenAI Responses API translation provider
 milestone: M6
 size: M
-state: backlog
-closed:
+state: done
+closed: 2026-09-14
 depends_on: [NEN-115, NEN-111]
 blocks: [NEN-117, NEN-118, NEN-034]
 adr: [19]
@@ -50,20 +50,20 @@ düşmüyor.
 
 ## Kanıt (DoD)
 
-- [ ] `nen-ports` translation contract kiti (`NEN-090`) `FakeHttpClient` +
+- [x] `nen-ports` translation contract kiti (`NEN-090`) `FakeHttpClient` +
       fixture ile geçiyor
-- [ ] Golden: gönderilen istek gövdesi (`fixtures/providers/openai/request-*.golden`)
+- [x] Golden: gönderilen istek gövdesi (`fixtures/providers/openai/request-*.golden`)
       — prompt/schema versiyonu değişirse golden değişir
-- [ ] Negatif (zorunlu, K23): sentinel API anahtarı, sentinel diyalog ve raw
+- [x] Negatif (zorunlu, K23): sentinel API anahtarı, sentinel diyalog ve raw
       cevap gövdesi adapter tiplerinin/hatalarının `Debug`/`Display`'inde yok;
       kasıtlı `#[derive(Debug)]` ikizi sızdırıyor
-- [ ] Negatif: approved host dışı bir URL'e (test ile enjekte) istek çıkmıyor
+- [x] Negatif: approved host dışı bir URL'e (test ile enjekte) istek çıkmıyor
       (`send` sayacı 0, `Permanent`)
-- [ ] Negatif: 429/5xx → `Transient`, bozuk JSON → `Permanent`; retry
+- [x] Negatif: 429/5xx → `Transient`, bozuk JSON → `Permanent`; retry
       doğrulama hatasında **tetiklenmiyor** (sayaç)
-- [ ] Negatif: iptal edilmiş `TranslationCall` ile retry denemesi yapılmıyor
-- [ ] `cargo deny check` — yeni dış bağımlılık yoksa "yok", varsa gerekçe
+- [x] Negatif: iptal edilmiş `TranslationCall` ile retry denemesi yapılmıyor
+- [x] `cargo deny check` — yeni dış bağımlılık yoksa "yok", varsa gerekçe
 
 ## Kanıt kaydı
 
-<!-- done olurken doldurulacak -->
+[Kanıt: `evidence/M6/NEN-116-checklist.md`](../../evidence/M6/NEN-116-checklist.md)
