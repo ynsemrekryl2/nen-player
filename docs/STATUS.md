@@ -5,7 +5,7 @@
 > `tasks/done/` ve `history/`'de. Burada tekrar edilmez; **150 satırı aşamaz**
 > (`check-docs.sh` denetim 10).
 >
-> Son güncelleme: **2026-09-14** (**`NEN-119` kapandı** — ADR-0021 kabul edildi.)
+> Son güncelleme: **2026-09-14** (**`NEN-120` kapandı** — verified identity lookup app akışına bağlandı.)
 
 ## Nerede duruyoruz
 
@@ -13,16 +13,15 @@
 |---|---|
 | **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı — `docs/milestones/M6-real-providers.md`) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-119`** — Decide the OpenSubtitles integration boundaries. Ondan önce: `NEN-118` |
-| **Sıradaki READY** | `NEN-120`, `NEN-124`, `NEN-128` |
-| **Task sayısı** | 128 · done 115 · active 0 · blocked 0 · canceled 2 · backlog 12 |
+| **Son tamamlanan** | **`NEN-120`** — Verified identity lookup runs from the app. Ondan önce: `NEN-119` |
+| **Sıradaki READY** | `NEN-064`, `NEN-121`, `NEN-124`, `NEN-128` |
+| **Task sayısı** | 128 · done 116 · active 0 · blocked 0 · canceled 2 · backlog 10 |
 
-**Son kapanış — `NEN-119` (2026-09-14):** OpenSubtitles metadata araması,
-public/private kimlik ayrımı, yalnız açık seçimde indirme ve redirect/boyut/
-archive/content-type kapıları ADR-0021 ile kabul edildi. `docs/adr/README.md`,
-`docs/DECISIONS.md`, `security-policy.md` ve ilgili ADR Notlar girdileri
-hizalandı. Kanıt: `evidence/M6/NEN-119-checklist.md` ve
-`tasks/done/NEN-119-adr-opensubtitles-integration-boundaries.md`.
+**Son kapanış — `NEN-120` (2026-09-14):** OpenSubtitles hash kimlik sorgusu,
+credential kapısı, FFI sonucu ve playback'ten bağımsız macOS worker akışı
+bağlandı. Revision guard ve K23 Debug redaction testleriyle doğrulandı.
+Kanıt: `evidence/M6/NEN-120-checklist.md` ve
+`tasks/done/NEN-120-identity-lookup-from-the-app.md`.
 
 ## Toolchain
 
@@ -67,8 +66,10 @@ Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
 
-2026-09-14'te `NEN-119` kapandı. `bash scripts/check-docs.sh` (**10/10**)
-ve `git diff --check` yeşil; ADR-only task için kod kapıları gerekmedi.
+2026-09-14'te `NEN-120` kapandı. `cargo test --workspace`, clippy, format,
+deny, `bash scripts/build-apple.sh`, `bash scripts/test-macos.sh` (**287 test
+/ 35 suite**), `bash scripts/test.sh` (**6/6**), `bash scripts/check-docs.sh`
+(**10/10**) ve `git diff --check` yeşil.
 
 Önceki doğrulama girdileri ve toolchain kapısı geçmişi:
 `history/status-archive-2026-09.md`.

@@ -25,6 +25,81 @@ struct PlayerModelTests {
         #expect(model.mediaName == "contract-clip.mkv")
     }
 
+    @Test("identity lookup is optional evidence and publishes a verified match")
+    func identityMatchDoesNotDelayPlayback() async {
+        let fixture = FakeSession()
+        let url = URL(fileURLWithPath: "/fixtures/media/identity-clip.mkv")
+        let identity = FfiVerifiedMediaIdentity(
+            title: "Verified Film",
+            year: 2010,
+            season: nil,
+            episode: nil
+        )
+        let probe = IdentityLookupProbe(
+            results: [FfiIdentityLookupResult(status: .match, identity: identity)]
+        )
+        let model = makeModel(session: fixture, identityLookupRunner: { url in
+            try probe.run(url)
+        })
+
+        model.openMedia(at: url)
+
+        #expect(fixture.loadedLocators == [url.path])
+        await model.awaitIdentityLookup()
+
+        #expect(probe.urls == [url])
+        #expect(model.verifiedMediaIdentity?.title == "Verified Film")
+        #expect(model.verifiedMediaIdentity?.year == 2010)
+    }
+
+    @Test("an old identity answer cannot overwrite a newer medium")
+    func staleIdentityResultIsDiscarded() async throws {
+        let fixture = FakeSession()
+        let first = URL(fileURLWithPath: "/fixtures/media/first-identity.mkv")
+        let second = URL(fileURLWithPath: "/fixtures/media/second-identity.mkv")
+        let identity = FfiVerifiedMediaIdentity(
+            title: "Old Film",
+            year: 2001,
+            season: nil,
+            episode: nil
+        )
+        let probe = IdentityLookupProbe(
+            results: [
+                FfiIdentityLookupResult(status: .match, identity: identity),
+                FfiIdentityLookupResult(status: .noMatch, identity: nil),
+            ],
+            delaysNanoseconds: [100_000_000, 0]
+        )
+        let model = makeModel(session: fixture, identityLookupRunner: { url in
+            try probe.run(url)
+        })
+
+        model.openMedia(at: first)
+        model.openMedia(at: second)
+        await model.awaitIdentityLookup()
+        try await Task.sleep(nanoseconds: 150_000_000)
+
+        #expect(probe.urls == [first, second])
+        #expect(model.verifiedMediaIdentity == nil)
+    }
+
+    @Test("an identity transport error never fails playback")
+    func identityTransportErrorDoesNotAffectPlayback() async {
+        let fixture = FakeSession()
+        let model = makeModel(session: fixture, identityLookupRunner: { _ in
+            throw HandoffEvidenceFailure.unavailable
+        })
+        let url = URL(fileURLWithPath: "/fixtures/media/identity-clip.mkv")
+
+        model.openMedia(at: url)
+        model.consume([.stateChanged(state: .ready)])
+        await model.awaitIdentityLookup()
+
+        #expect(fixture.playCount == 1)
+        #expect(model.fatalMessage == nil)
+        #expect(model.verifiedMediaIdentity == nil)
+    }
+
     @Test("transport commands clamp seeks and volume")
     func transportCommands() {
         let fixture = FakeSession()
@@ -1017,7 +1092,8 @@ struct PlayerModelTests {
         controlsHideDelayNanoseconds: UInt64 = 2_500_000_000,
         transientMessageDurationNanoseconds: UInt64 = 3_000_000_000,
         seekGuardTimeoutNanoseconds: UInt64 = 1_500_000_000,
-        clock: TestClock = TestClock()
+        clock: TestClock = TestClock(),
+        identityLookupRunner: PlayerModel.IdentityLookupRunner? = nil
     ) -> PlayerModel {
         let model = PlayerModel(
             recentStore: store,
@@ -1031,6 +1107,7 @@ struct PlayerModelTests {
             // selection reads this, and a suite whose result depends on the
             // laptop's system language is not a suite.
             preferenceStore: MemoryPreferenceStore(),
+            identityLookupRunner: identityLookupRunner,
             sessionFactory: { _ in session }
         )
         model.attach(to: MPVVideoView.makePlaybackSurface())

@@ -43,6 +43,15 @@ pub const MIN_FILE_BYTES: u64 = 2 * CHUNK_BYTES as u64;
 pub struct OsHash([u8; 8]);
 
 impl OsHash {
+    /// Builds a hash from an already validated provider-boundary value.
+    ///
+    /// The constructor is intentionally explicit: callers may use it to keep
+    /// the hash inside an evidence object, but the value remains redacted by
+    /// this type's `Debug` and `Display` implementations.
+    pub const fn from_bytes(bytes: [u8; 8]) -> Self {
+        Self(bytes)
+    }
+
     /// The raw digest, for sending to a provider that expects it.
     ///
     /// Callers must not pass the result to a log or error message (K23 #8).

@@ -3,8 +3,8 @@ id: NEN-120
 title: Verified identity lookup runs from the app
 milestone: M6
 size: M
-state: backlog
-closed:
+state: done
+closed: 2026-09-14
 depends_on: [NEN-033, NEN-111]
 blocks: [NEN-064, NEN-121]
 adr: [40]
@@ -54,18 +54,32 @@ evidence'dır, oynatmayı bekletmez.
 
 ## Kanıt (DoD)
 
-- [ ] Unit (`nen-app`): fake credential store + `FakeMediaIdentityLookup` ile
+- [x] Unit (`nen-app`): fake credential store + `FakeMediaIdentityLookup` ile
       `Match` sonucu evidence'a giriyor; medya revision değiştiğinde geç sonuç
       **uygulanmıyor**
-- [ ] Negatif (zorunlu): anahtar yokken lookup `calls() == 0`; hash yokken
+- [x] Negatif (zorunlu): anahtar yokken lookup `calls() == 0`; hash yokken
       `calls() == 0` (`NEN-033`'ün mevcut testi bu yolda da geçerli)
-- [ ] `nen-ffi` testi: sorgu sonucu FFI kaydına eşleniyor; K23 guard —
+- [x] `nen-ffi` testi: sorgu sonucu FFI kaydına eşleniyor; K23 guard —
       `FfiVerifiedMediaIdentity` ve hata tiplerinin `Debug`'ında hash/anahtar
       sentinel'ı yok
-- [ ] Negatif: sorgunun `Transport` hatası playback oturumunu etkilemiyor
+- [x] Negatif: sorgunun `Transport` hatası playback oturumunu etkilemiyor
       (session testi — mevcut `PlaybackSession` üzerinde)
-- [ ] `bash scripts/build-apple.sh` binding'de yeni kayıt var
+- [x] `bash scripts/build-apple.sh` binding'de yeni kayıt var
 
 ## Kanıt kaydı
 
-<!-- done olurken doldurulacak -->
+2026-09-14:
+- `nen-app` unit testleri fake credential/provider ile exact match, missing
+  credential/hash ve evidence fallback davranışlarını doğruladı; 58/58 geçti.
+- `nen-ffi/tests/identity_lookup.rs` FFI eşlemesini, typed `NoCredential`,
+  erken hash kapısını ve K23 Debug redaction guard'ını doğruladı; 4/4 geçti.
+- macOS shell testleri lookup'ın playback'i bekletmeden başlattığını, eski
+  revision cevabını atladığını ve transport hatasında playback'i bozmadığını
+  doğruladı; `bash scripts/test-macos.sh` 287 test / 35 suite ile geçti.
+- `bash scripts/build-apple.sh` yeni `FfiVerifiedMediaIdentity` kaydını ve
+  `lookupVerifiedIdentityByHash` binding'ini üretti.
+- Kapılar: `cargo test --workspace`, `cargo fmt --all -- --check`,
+  `cargo clippy --workspace --all-targets -- -D warnings`, `cargo deny check`,
+  `bash scripts/test.sh` (6/6), `bash scripts/check-docs.sh` (10/10) ve
+  `git diff --check` başarılı. `cargo deny` yalnız mevcut duplicate crate
+  uyarılarını raporladı; advisories/bans/licenses/sources geçti.

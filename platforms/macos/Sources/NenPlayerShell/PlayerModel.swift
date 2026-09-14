@@ -20,6 +20,9 @@ public final class PlayerModel: ObservableObject {
     /// mid-block, so a test pauses here instead, the same rendezvous shape
     /// `core/crates/nen-ffi/tests/translation_gate.rs`'s `PausingSink` uses.
     public typealias TranslationProgressObserver = @Sendable (FfiTranslationProgress) -> Void
+    /// Runs the optional provider identity lookup away from the main actor.
+    /// Its errors are evidence-only and never become playback errors.
+    public typealias IdentityLookupRunner = @Sendable (URL) throws -> FfiIdentityLookupResult
 
     /// The Rust-owned UI credential object supplied by the application
     /// composition root. It is optional for headless shell tests; production
@@ -68,6 +71,10 @@ public final class PlayerModel: ObservableObject {
     /// available only to headless tests that do not inject a credential store.
     @Published public private(set) var translationProvider: TranslationProviderKind
     @Published public private(set) var translationModel: String
+    /// The last exact provider identity accepted for the current medium.
+    /// NEN-064 owns its presentation; this task only carries the bounded FFI
+    /// result into the shell.
+    @Published public private(set) var verifiedMediaIdentity: FfiVerifiedMediaIdentity?
     /// Whether a translation job started by `translateSelectedSubtitle()` is
     /// still running. The command's own gate — `NEN-102` adds progress and
     /// cancellation on top, not a second flag.
@@ -226,6 +233,7 @@ public final class PlayerModel: ObservableObject {
     private var pollTask: Task<Void, Never>?
     private var sidecarScanTask: Task<Void, Never>?
     private var handoffEvidenceTask: Task<Void, Never>?
+    private var identityLookupTask: Task<Void, Never>?
     private var translationTask: Task<Void, Never>?
     /// Tracks the running job for `cancelTranslation()` (`NEN-102`). One
     /// instance reused for the model's lifetime — `begin()` resets it per
@@ -234,6 +242,7 @@ public final class PlayerModel: ObservableObject {
     /// Test-only hook into every progress callback (`NEN-102`). `nil` in
     /// production — see `TranslationProgressObserver`'s own doc comment.
     private let translationProgressObserver: TranslationProgressObserver?
+    private let identityLookupRunner: IdentityLookupRunner?
     /// ADR-0031 Karar 4.3: automatic selection runs **once**, at the start.
     /// A source discovered later never re-triggers it, however well it matches.
     private var hasAutoSelected = false
@@ -275,6 +284,7 @@ public final class PlayerModel: ObservableObject {
         translationPreferenceStore: any TranslationPreferenceStoring = UserDefaultsTranslationPreferenceStore(),
         translationStoreRoot: URL = PlayerModel.defaultTranslationStoreRoot(),
         translationProgressObserver: TranslationProgressObserver? = nil,
+        identityLookupRunner: IdentityLookupRunner? = nil,
         handoffEvidenceCollector: HandoffEvidenceCollector? = nil,
         credentialStore: FfiSecureCredentialStore? = nil,
         sessionFactory: @escaping SessionFactory = { view in
@@ -301,6 +311,27 @@ public final class PlayerModel: ObservableObject {
         self.translationStoreRoot = translationStoreRoot
         self.translationProgressObserver = translationProgressObserver
         self.credentialStore = credentialStore
+        if let identityLookupRunner {
+            self.identityLookupRunner = identityLookupRunner
+        } else if let credentialStore {
+            let client = URLSessionRemoteEvidenceClient()
+            self.identityLookupRunner = { url in
+                if url.isFileURL {
+                    return try lookupVerifiedIdentityByHash(
+                        mediaHash: Self.mediaHash(for: url),
+                        credentialStore: credentialStore,
+                        httpClient: client
+                    )
+                }
+                return try lookupVerifiedRemoteIdentity(
+                    url: url.absoluteString,
+                    credentialStore: credentialStore,
+                    httpClient: client
+                )
+            }
+        } else {
+            self.identityLookupRunner = nil
+        }
         if let handoffEvidenceCollector {
             self.handoffEvidenceCollector = handoffEvidenceCollector
         } else {
@@ -384,11 +415,15 @@ public final class PlayerModel: ObservableObject {
         }
         currentMediaURL = url
         mediaPresentationRevision &+= 1
+        identityLookupTask?.cancel()
+        identityLookupTask = nil
+        verifiedMediaIdentity = nil
         // A translation job started against the outgoing medium must not
         // keep running unwatched, spending a real provider's credit on a
         // result the revision guard below would discard anyway (user
         // decision, NEN-102: switching media cancels the running job).
         cancelTranslation()
+        startIdentityLookup(for: url, revision: mediaPresentationRevision)
 
         mediaName = url.lastPathComponent
         fatalMessage = nil
@@ -489,6 +524,34 @@ public final class PlayerModel: ObservableObject {
     /// tests can prove that the call happened without making playback await it.
     func awaitHandoffEvidence() async {
         await handoffEvidenceTask?.value
+    }
+
+    /// Starts identity lookup as optional evidence after the medium is
+    /// accepted. It is deliberately detached from `session.load`: playback
+    /// has no reason to await a provider, and a late answer is checked against
+    /// the medium revision before it reaches shell state.
+    private func startIdentityLookup(for url: URL, revision: UInt64) {
+        guard let runner = identityLookupRunner else { return }
+        identityLookupTask = Task { [weak self] in
+            let result = try? await Task.detached(priority: .utility) {
+                try runner(url)
+            }.value
+            guard !Task.isCancelled,
+                let self,
+                self.mediaPresentationRevision == revision,
+                self.fatalMessage == nil,
+                let result,
+                result.status == .match,
+                let identity = result.identity
+            else { return }
+            self.verifiedMediaIdentity = identity
+        }
+    }
+
+    /// Waits for the current identity worker. Internal for the revision and
+    /// failure-policy tests; production playback never awaits it.
+    func awaitIdentityLookup() async {
+        await identityLookupTask?.value
     }
 
     /// Asks the user for a subtitle file and loads it.
@@ -1143,6 +1206,8 @@ public final class PlayerModel: ObservableObject {
         sidecarScanTask = nil
         handoffEvidenceTask?.cancel()
         handoffEvidenceTask = nil
+        identityLookupTask?.cancel()
+        identityLookupTask = nil
         translationTask?.cancel()
         translationTask = nil
         cancelTranslation()
@@ -1159,6 +1224,7 @@ public final class PlayerModel: ObservableObject {
         releaseSecurityScope()
         mediaName = nil
         currentMediaURL = nil
+        verifiedMediaIdentity = nil
         playbackState = .idle
         positionMilliseconds = 0
         durationMilliseconds = nil
@@ -1464,6 +1530,7 @@ public final class PlayerModel: ObservableObject {
     private func presentFatal(_ error: Error) {
         playbackState = .failed
         fatalMessage = PlaybackPresentation.errorMessage(for: error)
+        verifiedMediaIdentity = nil
         // Nothing is being shown, so nothing constrains the window: the fatal
         // state is one of the three ADR-0038 leaves free to resize.
         videoGeometry = nil

@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **128** task · ✅ done 115 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 11
+Toplam **128** task · ✅ done 116 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 10
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -160,7 +160,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-117](done/NEN-117-openrouter-provider-and-preflight.md) | OpenRouter translation provider with structured-output preflight | M | ✅ done | NEN-116 |
 | [NEN-118](done/NEN-118-real-provider-environment-wiring.md) | Real provider selection wired into the translation environment | M | ✅ done | NEN-116 NEN-117 NEN-113 NEN-107 |
 | [NEN-119](done/NEN-119-adr-opensubtitles-integration-boundaries.md) | Decide the OpenSubtitles integration boundaries | S | ✅ done | NEN-033 |
-| [NEN-120](backlog/NEN-120-identity-lookup-from-the-app.md) | Verified identity lookup runs from the app | M | ⚪ backlog | NEN-033 NEN-111 |
+| [NEN-120](done/NEN-120-identity-lookup-from-the-app.md) | Verified identity lookup runs from the app | M | ✅ done | NEN-033 NEN-111 |
 | [NEN-121](backlog/NEN-121-opensubtitles-candidate-catalog.md) | OpenSubtitles candidates catalogued without download | M | ⚪ backlog | NEN-119 NEN-120 NEN-035 |
 | [NEN-122](backlog/NEN-122-safe-download-on-selection.md) | Safe download on selection | M | ⚪ backlog | NEN-121 |
 | [NEN-123](backlog/NEN-123-macos-opensubtitles-menu-and-download.md) | macOS subtitle menu shows OpenSubtitles candidates and downloads on select | M | ⚪ backlog | NEN-122 |
@@ -174,6 +174,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 
 Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 
-- **NEN-120** — Verified identity lookup runs from the app
+- **NEN-064** — Verified media identity in player chrome
+- **NEN-121** — OpenSubtitles candidates catalogued without download
 - **NEN-124** — Decide filename privacy for AI-assisted normalization
 - **NEN-128** — Split the generated task index into open and archive tables

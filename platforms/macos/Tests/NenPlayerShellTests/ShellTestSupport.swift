@@ -127,6 +127,41 @@ final class HandoffEvidenceRecorder: @unchecked Sendable {
     }
 }
 
+/// A thread-safe identity lookup probe. Identity work runs off the main actor,
+/// so the shell tests observe calls through a lock rather than racing the
+/// detached worker.
+final class IdentityLookupProbe: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedURLs: [URL] = []
+    private let results: [FfiIdentityLookupResult]
+    private let delaysNanoseconds: [UInt64]
+
+    init(results: [FfiIdentityLookupResult], delaysNanoseconds: [UInt64] = []) {
+        self.results = results
+        self.delaysNanoseconds = delaysNanoseconds
+    }
+
+    var urls: [URL] {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedURLs
+    }
+
+    func run(_ url: URL) throws -> FfiIdentityLookupResult {
+        lock.lock()
+        let index = storedURLs.count
+        storedURLs.append(url)
+        let result = results[min(index, results.count - 1)]
+        let delay = index < delaysNanoseconds.count ? delaysNanoseconds[index] : 0
+        lock.unlock()
+
+        if delay > 0 {
+            Thread.sleep(forTimeInterval: Double(delay) / 1_000_000_000)
+        }
+        return result
+    }
+}
+
 /// The calls a test can make `MemoryRecentStore` fail.
 enum RecentStoreCall: Hashable { case save, resolve }
 
