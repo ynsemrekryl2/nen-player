@@ -13,7 +13,8 @@ Bu dosya hem insan hem agent için bağlayıcıdır. Her oturum burayı ve
 
 1. **`docs/STATUS.md`** — doğrulanmış bugün: milestone, aktif task, sıradaki
    READY, toolchain, blocker'lar.
-2. `tasks/INDEX.md` — genel durum.
+2. `tasks/INDEX.md` — açık task'ların genel durumu; geçmiş ayrıntısı gerekirse
+   `tasks/INDEX-done.md` arşivine bakılır.
 3. `tasks/active/` — devam eden iş var mı?
 4. İlgili **milestone / task / ADR** dosyaları.
 
@@ -32,7 +33,7 @@ Kararların durumu için `docs/DECISIONS.md`; açık sorular için
 | 6 | **Doğrulanmış kapanış commit edilir ve hemen push edilir** — yarım işe, kırmızı teste, eksik kanıta commit/push yok. Her doğrulanmış commit `origin/main`'e gider ve CI sonucu izlenir; geçmiş değiştirme kullanıcıya aittir → "Commit politikası". |
 | 7 | **Spike kodu ürün kodu değildir.** `core/spikes/` altında kalır, terfi etmez. |
 | 8 | **Testler gerçek provider kredisi/kotası kullanmaz.** Deterministic fake zorunlu. |
-| 9 | `tasks/INDEX.md` elle düzenlenmez — `scripts/task-index.sh` üretir. |
+| 9 | `tasks/INDEX.md` ve `tasks/INDEX-done.md` elle düzenlenmez — `scripts/task-index.sh` üretir. |
 
 ## Task yaşam döngüsü
 

@@ -1,6 +1,13 @@
 # Task Sistemi
 
-Kaynak gerçek burasıdır. `INDEX.md` üretilir — **elle düzenlenmez**.
+Kaynak gerçek burasıdır. `INDEX.md` ve `INDEX-done.md` üretilir — **elle
+düzenlenmez**.
+
+`INDEX.md` oturum başlangıcında okunacak açık görünümdür: backlog, active ve
+blocked task'ları, ayrıca milestone başına `done/total` özetini taşır.
+`INDEX-done.md` yalnız done/canceled task ayrıntılarının arşividir; geçmiş bir
+task'ın kanıtına ihtiyaç olduğunda okunur. İkisi de `bash scripts/task-index.sh`
+ile birlikte üretilir.
 
 ## Dosya adı ve kimlik
 
@@ -118,8 +125,8 @@ edilen bir kararın task kaydı da bu dizinde korunabilir.
 5. `depends_on` hedefleri var olan task'lara işaret ediyor
 6. Bağımlılık döngüsü yok
 7. `adr` alanı dolu olan `done` task'ın ADR'si `accepted`; canceled task bu kapıya girmez
-8. `INDEX.md` güncel
-9. `docs/STATUS.md`'nin "Sıradaki READY" satırı `INDEX.md` ile uyumlu
+8. `INDEX.md` ve `INDEX-done.md` güncel
+9. `docs/STATUS.md`'nin "Sıradaki READY" satırı açık `INDEX.md` ile uyumlu
 10. `docs/STATUS.md`'nin "Son doğrulama" tarihi en yeni done task'ın `closed`
     tarihinden bayat değil
 11. `docs/STATUS.md` 150 satırı aşmıyor — yalnız son kapanışı taşır, geçmiş

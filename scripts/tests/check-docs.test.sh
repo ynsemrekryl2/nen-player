@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # scripts/check-docs.sh denetim 3b/6/8/9/10 — canceled kaydı, ADR kapısı,
-# STATUS.md ↔ INDEX ready listesi, Son doğrulama tarihi ve STATUS boyutu.
+# STATUS.md ↔ açık INDEX ready listesi, iki index'in tazeliği, Son doğrulama
+# tarihi ve STATUS boyutu.
 #
 # Test kendi task fixture'ını kurar: canlı tasks/ ve INDEX.md OKUNMAZ. Sonuç
 # bu yüzden repo'nun o anki durumundan — aktif task var mı, ready listesi boş
-# mu — bağımsızdır. Denetim 8'in HER İKİ dalı ayrı ayrı doğrulanır.
+# mu — bağımsızdır. Ready listesinin dolu ve boş dalları ayrı doğrulanır.
 #
 # Gerçek repo dosyalarına dokunulmaz; T7 bunu içerik parmak iziyle kanıtlar.
 
@@ -22,11 +23,12 @@ fail() { printf '    FAIL %s\n' "$1" >&2; FAILURES=$((FAILURES + 1)); }
 # için, test başında içerik parmak izi alınır. (git status'a bakmak yanıltıcı:
 # dosya başka bir sebeple de commit'lenmemiş olabilir.)
 #
-# task-index.sh sandbox içinde $ROOT/tasks/INDEX.md'ye YAZAR — ROOT çözümlemesi
-# kaçarsa gerçek INDEX.md ezilir. Parmak izi bu yüzden task dosyalarını ve
+# task-index.sh sandbox içinde iki generated index'e YAZAR — ROOT çözümlemesi
+# kaçarsa gerçek index'ler ezilir. Parmak izi bu yüzden task dosyalarını ve
 # üreticinin kendisini de kapsar.
 real_fingerprint() {
   shasum "$ROOT/docs/STATUS.md" "$ROOT/tasks/INDEX.md" \
+         "$ROOT/tasks/INDEX-done.md" \
          "$ROOT/scripts/check-docs.sh" "$ROOT/scripts/task-index.sh" \
          "$ROOT"/tasks/*/NEN-*.md
 }
@@ -144,9 +146,9 @@ make_fixture() {
     *) echo "make_fixture: bilinmeyen mod '$1'" >&2; exit 1 ;;
   esac
 
-  # INDEX elle yazılmaz — üreticinin gerçek çıktısı kullanılır (CLAUDE.md kural
-  # 9). Denetim 7 böylece kendiliğinden geçer ve ready listesi testin varsayımı
-  # değil, task-index.sh'ın hesabı olur.
+  # Index'ler elle yazılmaz — üreticinin gerçek çıktısı kullanılır (CLAUDE.md
+  # kural 9). Denetim 7 böylece kendiliğinden geçer ve ready listesi testin
+  # varsayımı değil, task-index.sh'ın hesabı olur.
   bash "$REPO/scripts/task-index.sh" >/dev/null
 
   write_status
@@ -170,6 +172,18 @@ expect_index_ready() { # <beklenen liste — boş olabilir>
     pass "fixture ready listesi = '${1:-<boş>}'"
   else
     fail "fixture ready listesi '$got', beklenen '${1:-<boş>}'"
+  fi
+}
+
+expect_archive_layout() {
+  if ! grep -q '\[NEN-901\]' "$REPO/tasks/INDEX-done.md"; then
+    fail "archive index done task'ı taşımıyor"
+  elif grep -q '\[NEN-901\]' "$REPO/tasks/INDEX.md"; then
+    fail "açık index done task'ı taşıyor"
+  elif ! grep -q '\[NEN-902\]' "$REPO/tasks/INDEX.md"; then
+    fail "açık index backlog task'ını taşımıyor"
+  else
+    pass "açık index yalnız açık task'ı, archive index done task'ı taşıyor"
   fi
 }
 
@@ -230,6 +244,29 @@ expect() { # <beklenen rc> <çıktıda aranan> <açıklama>
 echo "  Fixture: ready listesi dolu (NEN-902 backlog)"
 make_fixture ready
 expect_index_ready "NEN-902"
+expect_archive_layout
+
+echo "  T0: iki generated index idempotent"
+BEFORE="$(shasum "$REPO/tasks/INDEX.md" "$REPO/tasks/INDEX-done.md")"
+bash "$REPO/scripts/task-index.sh" >/dev/null
+AFTER="$(shasum "$REPO/tasks/INDEX.md" "$REPO/tasks/INDEX-done.md")"
+if [ "$BEFORE" = "$AFTER" ]; then
+  pass "ikinci üretimde index diff'i yok"
+else
+  fail "ikinci üretimde generated index diff'i oluştu"
+fi
+
+echo "  T0a: archive index eksikse yakalanıyor"
+rm -f "$REPO/tasks/INDEX-done.md"
+run_check
+expect 1 "tasks/INDEX-done.md yok" "archive index eksik → hata"
+bash "$REPO/scripts/task-index.sh" >/dev/null
+
+echo "  T0b: archive index bayatsa yakalanıyor"
+printf '\n' >> "$REPO/tasks/INDEX-done.md"
+run_check
+expect 1 "tasks/INDEX-done.md bayat" "archive index bayat → hata"
+bash "$REPO/scripts/task-index.sh" >/dev/null
 
 echo "  T1: STATUS ready listesi INDEX ile uyumlu"
 set_status_row '`NEN-902`'
@@ -439,7 +476,7 @@ expect 1 "docs/STATUS.md 151 satır; sınır 150" "T19 sınırı aşan STATUS �
 
 echo "  T7: gerçek repo dosyaları değişmedi"
 if [ "$(real_fingerprint)" = "$FINGERPRINT_BEFORE" ]; then
-  pass "T7 gerçek STATUS.md / INDEX.md / task dosyaları / script'ler değişmedi"
+  pass "T7 gerçek STATUS.md / iki index / task dosyaları / script'ler değişmedi"
 else
   fail "T7 — test gerçek repo dosyalarını değiştirmiş!"
   diff <(printf '%s\n' "$FINGERPRINT_BEFORE") <(real_fingerprint) >&2

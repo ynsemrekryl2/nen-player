@@ -5,23 +5,21 @@
 > `tasks/done/` ve `history/`'de. Burada tekrar edilmez; **150 satırı aşamaz**
 > (`check-docs.sh` denetim 10).
 >
-> Son güncelleme: **2026-09-14** (**`NEN-034` kapandı** — AI filename normalization fallback'i doğrulandı.)
+> Son güncelleme: **2026-09-14** (**`NEN-128` kapandı** — task index açık/arşiv ayrımı doğrulandı.)
 
 ## Nerede duruyoruz
 
 | | |
 |---|---|
 | **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı — `docs/milestones/M6-real-providers.md`) |
-| **Aktif task** | Yok — `NEN-034` kapandı |
-| **Son tamamlanan** | **`NEN-034`** — AI-assisted release name normalization. Ondan önce: `NEN-124` |
-| **Sıradaki READY** | `NEN-125`, `NEN-126`, `NEN-128` |
-| **Task sayısı** | 128 · done 122 · active 0 · blocked 0 · canceled 2 · backlog 4 |
+| **Aktif task** | Yok — `NEN-128` kapandı |
+| **Son tamamlanan** | **`NEN-128`** — Split the generated task index into open and archive tables. Ondan önce: `NEN-034` |
+| **Sıradaki READY** | `NEN-125`, `NEN-126` |
+| **Task sayısı** | 128 · done 123 · active 0 · blocked 0 · canceled 2 · backlog 3 |
 
-**Son kapanış — `NEN-034` (2026-09-14):** deterministic identity `Unknown`
-sonrasında, medya-başına izinle çalışan filename normalization portu, fake
-provider ve seçili OpenAI/OpenRouter adapter yolları eklendi. LLM sonucu yalnız
-untrusted suggestion olarak kalıyor. Kanıt: `tasks/done/NEN-034-ai-release-name-normalization.md`
-ve `evidence/M6/NEN-034-checklist.md`.
+**Son kapanış — `NEN-128` (2026-09-14):** generated task index açık task'lar
+ve milestone `done/total` özetini `tasks/INDEX.md`'de, done/canceled ayrıntılarını
+`tasks/INDEX-done.md`'de taşıyor. Kanıt: `tasks/done/NEN-128-split-task-index-archive.md`.
 
 ## Toolchain
 
@@ -66,11 +64,11 @@ Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
 
-2026-09-14'te `NEN-034` kapandı. `cargo test --workspace --all-targets`,
-`cargo clippy --workspace --all-targets --all-features -- -D warnings`,
-`cargo deny check` ve `bash scripts/test.sh` yeşil. `bash scripts/check-docs.sh`
-(**10/10**), `bash scripts/task-index.sh --check` ve `git diff --check` de
-geçti. Ayrıntılı davranış kanıtı `evidence/M6/NEN-034-checklist.md` içindedir.
+2026-09-14'te `NEN-128` kapandı. `tasks/INDEX.md` **1552 byte**; `bash
+scripts/test.sh` (**6/6**), `bash scripts/check-docs.sh` (**10/10**),
+`bash scripts/task-index.sh --check` ve `git diff --check` geçti. Rust ve
+provider doğrulamaları önceki NEN-034 kapanışında yeşildi; NEN-128 kod ürünü
+değiştirmedi.
 
 Önceki doğrulama girdileri ve toolchain kapısı geçmişi:
 `history/status-archive-2026-09.md`.

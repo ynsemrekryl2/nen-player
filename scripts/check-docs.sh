@@ -202,12 +202,24 @@ $FILES
 EOF
 [ "$bad" = "0" ] && ok "done task'ların ADR'leri accepted"
 
-echo "== 7. INDEX.md güncelliği =="
-if bash "$ROOT/scripts/task-index.sh" --check >/dev/null 2>&1; then
-  ok "tasks/INDEX.md güncel"
-else
-  err "tasks/INDEX.md bayat."
+echo "== 7. generated task index'lerin güncelliği =="
+INDEX="$TASKS/INDEX.md"
+INDEX_DONE="$TASKS/INDEX-done.md"
+if [ ! -f "$INDEX" ]; then
+  err "tasks/INDEX.md yok."
   echo "      Yapılacak: bash scripts/task-index.sh" >&2
+elif [ ! -f "$INDEX_DONE" ]; then
+  err "tasks/INDEX-done.md yok."
+  echo "      Yapılacak: bash scripts/task-index.sh" >&2
+else
+  index_check="$(bash "$ROOT/scripts/task-index.sh" --check 2>&1)"
+  if [ "$?" = "0" ]; then
+    ok "tasks/INDEX.md ve tasks/INDEX-done.md güncel"
+  else
+    err "generated task index'lerden biri bayat."
+    printf '%s\n' "$index_check" | sed 's/^/      /' >&2
+    echo "      Yapılacak: bash scripts/task-index.sh" >&2
+  fi
 fi
 
 echo "== 8. STATUS.md ↔ INDEX ready listesi =="
