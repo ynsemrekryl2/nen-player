@@ -100,6 +100,48 @@ struct PlayerModelTests {
         #expect(model.verifiedMediaIdentity == nil)
     }
 
+    @Test("non-matching identity outcomes keep the basename")
+    func nonMatchOutcomesKeepBasename() async {
+        for status in [FfiIdentityLookupStatus.noMatch, .ambiguous] {
+            let fixture = FakeSession()
+            let model = makeModel(session: fixture, identityLookupRunner: { _ in
+                FfiIdentityLookupResult(status: status, identity: nil)
+            })
+            let url = URL(fileURLWithPath: "/fixtures/media/fallback-clip.mkv")
+
+            model.openMedia(at: url)
+            await model.awaitIdentityLookup()
+
+            #expect(model.mediaName == "fallback-clip.mkv")
+            #expect(model.verifiedMediaIdentity == nil)
+        }
+    }
+
+    @Test("shutdown rejects a late identity update")
+    func lateIdentityAfterShutdownIsIgnored() async throws {
+        let fixture = FakeSession()
+        let identity = FfiVerifiedMediaIdentity(
+            title: "Never Shown",
+            year: 2020,
+            season: nil,
+            episode: nil
+        )
+        let probe = IdentityLookupProbe(
+            results: [FfiIdentityLookupResult(status: .match, identity: identity)],
+            delaysNanoseconds: [100_000_000]
+        )
+        let model = makeModel(session: fixture, identityLookupRunner: { url in
+            try probe.run(url)
+        })
+
+        model.openMedia(at: URL(fileURLWithPath: "/fixtures/media/shutdown-clip.mkv"))
+        model.shutdown()
+        try await Task.sleep(nanoseconds: 150_000_000)
+
+        #expect(model.mediaName == nil)
+        #expect(model.verifiedMediaIdentity == nil)
+    }
+
     @Test("transport commands clamp seeks and volume")
     func transportCommands() {
         let fixture = FakeSession()

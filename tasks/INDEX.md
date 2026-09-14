@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **128** task · ✅ done 116 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 10
+Toplam **128** task · ✅ done 117 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 9
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -146,7 +146,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-034](backlog/NEN-034-ai-release-name-normalization.md) | AI-assisted release name normalization | M | ⚪ backlog | NEN-018 NEN-124 NEN-116 |
 | [NEN-035](done/NEN-035-identity-confidence-and-candidates.md) | Identity confidence scoring and candidate ranking | M | ✅ done | NEN-018 |
 | [NEN-038](backlog/NEN-038-preferred-language-auto-download.md) | Auto-download subtitles for the preferred language | M | ⚪ backlog | NEN-019 NEN-033 NEN-035 NEN-036 NEN-125 NEN-122 |
-| [NEN-064](backlog/NEN-064-verified-media-identity-strip.md) | Verified media identity in player chrome | L | ⚪ backlog | NEN-120 NEN-061 |
+| [NEN-064](done/NEN-064-verified-media-identity-strip.md) | Verified media identity in player chrome | L | ✅ done | NEN-120 NEN-061 |
 | [NEN-105](done/NEN-105-resumable-checkpoint-store.md) | Resumable checkpoint store for interrupted translation runs | M | ✅ done | NEN-096 |
 | [NEN-107](done/NEN-107-document-wide-translation-progress.md) | Document-wide translation progress across the FFI boundary | M | ✅ done | NEN-102 |
 | [NEN-109](done/NEN-109-remote-embedded-text-extraction.md) | Remote embedded text extraction | M | ✅ done | NEN-044 |
@@ -174,7 +174,6 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 
 Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 
-- **NEN-064** — Verified media identity in player chrome
 - **NEN-121** — OpenSubtitles candidates catalogued without download
 - **NEN-124** — Decide filename privacy for AI-assisted normalization
 - **NEN-128** — Split the generated task index into open and archive tables

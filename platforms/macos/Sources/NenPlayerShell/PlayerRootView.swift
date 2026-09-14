@@ -252,6 +252,21 @@ public struct PlayerRootView: View {
         return CGSize(width: CGFloat(geometry.width), height: CGFloat(geometry.height))
     }
 
+    @ViewBuilder
+    private var mediaIdentityTitle: some View {
+        if let identity = model.verifiedMediaIdentity {
+            Text(VerifiedMediaIdentityPresentation.label(for: identity))
+                // The payload-free id makes basename → verified title an
+                // insertion/removal, so the existing ease-out fade is used.
+                .id("verified-media-identity")
+                .transition(.opacity)
+        } else if let mediaName = model.mediaName {
+            Text(mediaName)
+                .id("media-basename")
+                .transition(.opacity)
+        }
+    }
+
     private func isPlayerWindow(_ object: Any?) -> Bool {
         (object as? NSWindow)?.identifier?.rawValue == "player"
     }
@@ -272,8 +287,8 @@ public struct PlayerRootView: View {
             .opacity(model.controlsVisible ? 1 : 0)
             .allowsHitTesting(false)
 
-            if let mediaName = model.mediaName {
-                Text(mediaName)
+            if model.mediaName != nil {
+                mediaIdentityTitle
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Color.white.opacity(0.96))
                     .lineLimit(1)
@@ -286,6 +301,10 @@ public struct PlayerRootView: View {
                     .opacity(model.controlsVisible ? 1 : 0)
                     .offset(y: model.controlsVisible ? 0 : -10)
                     .allowsHitTesting(false)
+                    .animation(
+                        .easeOut(duration: VerifiedMediaIdentityPresentation.transitionDuration),
+                        value: model.verifiedMediaIdentity
+                    )
             }
 
             if presentedPanel != nil {

@@ -5,7 +5,7 @@
 > `tasks/done/` ve `history/`'de. Burada tekrar edilmez; **150 satırı aşamaz**
 > (`check-docs.sh` denetim 10).
 >
-> Son güncelleme: **2026-09-14** (**`NEN-120` kapandı** — verified identity lookup app akışına bağlandı.)
+> Son güncelleme: **2026-09-14** (**`NEN-064` kapandı** — verified identity player chrome'a bağlandı.)
 
 ## Nerede duruyoruz
 
@@ -13,15 +13,15 @@
 |---|---|
 | **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı — `docs/milestones/M6-real-providers.md`) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-120`** — Verified identity lookup runs from the app. Ondan önce: `NEN-119` |
-| **Sıradaki READY** | `NEN-064`, `NEN-121`, `NEN-124`, `NEN-128` |
-| **Task sayısı** | 128 · done 116 · active 0 · blocked 0 · canceled 2 · backlog 10 |
+| **Son tamamlanan** | **`NEN-064`** — Verified media identity in player chrome. Ondan önce: `NEN-120` |
+| **Sıradaki READY** | `NEN-121`, `NEN-124`, `NEN-128` |
+| **Task sayısı** | 128 · done 117 · active 0 · blocked 0 · canceled 2 · backlog 9 |
 
-**Son kapanış — `NEN-120` (2026-09-14):** OpenSubtitles hash kimlik sorgusu,
-credential kapısı, FFI sonucu ve playback'ten bağımsız macOS worker akışı
-bağlandı. Revision guard ve K23 Debug redaction testleriyle doğrulandı.
-Kanıt: `evidence/M6/NEN-120-checklist.md` ve
-`tasks/done/NEN-120-identity-lookup-from-the-app.md`.
+**Son kapanış — `NEN-064` (2026-09-14):** Doğrulanmış film/dizi kimliği,
+basename fallback'i ve revision/shutdown guard ile player chrome'a bağlandı.
+Kompakt etiket ve 0,24 sn geçişi gerçek app build'i ile doğrulandı. Kanıt:
+`evidence/M6/NEN-064-checklist.md` ve
+`tasks/done/NEN-064-verified-media-identity-strip.md`.
 
 ## Toolchain
 
@@ -66,10 +66,10 @@ Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
 
-2026-09-14'te `NEN-120` kapandı. `cargo test --workspace`, clippy, format,
-deny, `bash scripts/build-apple.sh`, `bash scripts/test-macos.sh` (**287 test
-/ 35 suite**), `bash scripts/test.sh` (**6/6**), `bash scripts/check-docs.sh`
-(**10/10**) ve `git diff --check` yeşil.
+2026-09-14'te `NEN-064` kapandı. `cargo test --workspace`, clippy, format,
+deny, `bash scripts/build-macos-app.sh`, `bash scripts/test-macos.sh` (**295
+test / 36 suite**), `bash scripts/test.sh` (**6/6**),
+`bash scripts/check-docs.sh` (**10/10**) ve `git diff --check` yeşil.
 
 Önceki doğrulama girdileri ve toolchain kapısı geçmişi:
 `history/status-archive-2026-09.md`.

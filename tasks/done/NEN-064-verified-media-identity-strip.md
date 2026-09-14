@@ -3,7 +3,8 @@ id: NEN-064
 title: Verified media identity in player chrome
 milestone: M6
 size: L
-state: backlog
+state: done
+closed: 2026-09-14
 depends_on: [NEN-120, NEN-061]
 blocks: [NEN-126]
 adr: [9, 31]
@@ -47,18 +48,33 @@ doğrulanmış kimlik yoksa mevcut basename kalır.
 
 ## Kanıt (DoD)
 
-- [ ] Kesin fake hash eşleşmesi film ve dizi alanlarını FFI'dan eksiksiz
+- [x] Kesin fake hash eşleşmesi film ve dizi alanlarını FFI'dan eksiksiz
       geçiriyor ve kompakt etiketi üretiyor
-- [ ] `NoMatch`, `Ambiguous` ve typed hata basename fallback'ini koruyor;
+- [x] `NoMatch`, `Ambiguous` ve typed hata basename fallback'ini koruyor;
       playback kesilmiyor ve kullanıcıya hata gösterilmiyor
-- [ ] Medya revision'ı değiştikten sonra tamamlanan eski sorgu şeridi
+- [x] Medya revision'ı değiştikten sonra tamamlanan eski sorgu şeridi
       değiştirmiyor; shutdown sonrası late update yok
-- [ ] Negatif redaction testinde yol, query, hash, private ID ve özel filename
+- [x] Negatif redaction testinde yol, query, hash, private ID ve özel filename
       hiçbir `Debug`/log/kanıt çıktısında yok
-- [ ] Basename → doğrulanmış film/dizi etiketi 0,24 sn geçişle gerçek
+- [x] Basename → doğrulanmış film/dizi etiketi 0,24 sn geçişle gerçek
       `.app` üzerinde ve fixture medyayla doğrulanıyor
-- [ ] Workspace, macOS testleri ve doküman denetimleri yeşil
+- [x] Workspace, macOS testleri ve doküman denetimleri yeşil
 
 ## Kanıt kaydı
 
 <!-- done olurken gerçek test ve acceptance çıktısıyla doldurulur. -->
+
+2026-09-14: `VerifiedMediaIdentityPresentation` film/dizi kompakt etiketini,
+optional alan düşümünü, basename fallback'ini ve 0,24 sn ease-out geçiş
+kontratını doğrulayan testlerle kapandı. macOS model testleri exact match,
+`NoMatch`/`Ambiguous`, typed hata, eski revision ve shutdown sonrası late
+sonuç davranışlarını doğruladı. K23 negatif guard'ı hassas değerlerin
+Debug/log/kanıt yüzeyine çıkmadığını doğruladı.
+
+Kapılar: `bash scripts/build-macos-app.sh` PASS; gerçek libmpv fixture
+testleri dahil `bash scripts/test-macos.sh` PASS (295 test / 36 suite);
+`cargo test --workspace`, `cargo fmt --all -- --check`, `cargo clippy
+--workspace --all-targets -- -D warnings`, `cargo deny check`, `bash
+scripts/test.sh` (6/6), `bash scripts/check-docs.sh` (10/10) ve `git
+diff --check` PASS. `cargo deny` yalnız mevcut duplicate crate uyarılarını
+raporladı; advisories/bans/licenses/sources geçti.
