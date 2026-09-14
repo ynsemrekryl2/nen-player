@@ -5,8 +5,8 @@
 > `tasks/done/` ve `history/`'de. Burada tekrar edilmez; **150 satırı aşamaz**
 > (`check-docs.sh` denetim 10).
 >
-> Son güncelleme: **2026-09-14** (**`NEN-107` kapandı** — FFI artık
-> document-wide monotonic translation progress taşıyor.)
+> Son güncelleme: **2026-09-14** (**`NEN-109` kapandı** — Stremio HTTP
+> akışlarından bounded ve iptal edilebilir embedded text extraction hazır.)
 
 ## Nerede duruyoruz
 
@@ -14,16 +14,15 @@
 |---|---|
 | **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı — `docs/milestones/M6-real-providers.md`) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-107`** — FFI sınırında document-wide translation progress. Ondan önce: `NEN-127` |
-| **Sıradaki READY** | `NEN-109`, `NEN-112`, `NEN-116`, `NEN-119`, `NEN-120`, `NEN-124`, `NEN-128` |
-| **Task sayısı** | 128 · done 108 · active 0 · blocked 0 · canceled 2 · backlog 18 |
+| **Son tamamlanan** | **`NEN-109`** — Remote embedded text extraction. Ondan önce: `NEN-107` |
+| **Sıradaki READY** | `NEN-112`, `NEN-116`, `NEN-119`, `NEN-120`, `NEN-124`, `NEN-128` |
+| **Task sayısı** | 128 · done 109 · active 0 · blocked 0 · canceled 2 · backlog 16 |
 
-**Son kapanış — `NEN-107` (2026-09-14):** `nen-translate` blok-local
-provider progress'ini document offset'i ve paylaşılan high-water mark ile
-FFI'ya monotonic `done/total` olarak taşıyor; Swift kabuğu aynı paydayı ve
-yüzdeyi gösteriyor. Çok bloklu akış, repair retry, `nen-ports` kontratı ve
-268 macOS testi yeşil. Kanıt: `evidence/M6/NEN-107-checklist.md` ve
-`tasks/done/NEN-107-document-wide-translation-progress.md`.
+**Son kapanış — `NEN-109` (2026-09-14):** Stremio HTTP akışında 8 MiB
+bounded Range okuması, typed cap refusal ve out-of-band URLSession cancellation
+eklendi; gerçek EngineFS proxy kabul probu ve 271 macOS testi yeşil. Kanıt:
+`evidence/M6/NEN-109-checklist.md` ve
+`tasks/done/NEN-109-remote-embedded-text-extraction.md`.
 
 ## Toolchain
 
@@ -68,10 +67,10 @@ Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
 
-2026-09-14'te `NEN-107` kapandı. `cargo test --workspace`, clippy,
-`cargo deny check`, `bash scripts/test-macos.sh` (**268/268**), gerçek `.app`
-build, `check-docs.sh`, `bash scripts/test.sh` (**4/4**) ve `doctor.sh M3`
-yeşil.
+2026-09-14'te `NEN-109` kapandı. `cargo test --workspace`, fmt/clippy/deny,
+`bash scripts/test-macos.sh` (**271/271**), gerçek `.app` build,
+`bash scripts/test.sh` (**4/4**), M3 doctor, gerçek Stremio EngineFS proxy
+kabul probu ve `check-docs.sh` yeşil.
 
 Önceki doğrulama girdileri ve toolchain kapısı geçmişi:
 `history/status-archive-2026-09.md`.

@@ -168,6 +168,9 @@ pub enum PlaybackError {
     /// would be branching on the engine's identity by another name
     /// (product-spec §4).
     EngineFailure { code: i32 },
+    /// A remote embedded-text read would exceed the adapter's bounded byte
+    /// budget. The refusal carries no URL, response header or path.
+    RemoteResponseTooLarge,
 }
 
 impl PlaybackError {
@@ -183,7 +186,8 @@ impl PlaybackError {
             | Self::TrackCarriesNoText
             | Self::RateOutOfRange { .. }
             | Self::LoadFailed { .. }
-            | Self::EngineFailure { .. } => None,
+            | Self::EngineFailure { .. }
+            | Self::RemoteResponseTooLarge => None,
         }
     }
 }
@@ -212,6 +216,7 @@ impl fmt::Display for PlaybackError {
             } => write!(f, "rate {requested} outside [{min}, {max}]"),
             Self::LoadFailed { reason } => write!(f, "load failed: {reason}"),
             Self::EngineFailure { .. } => f.write_str("engine failure"),
+            Self::RemoteResponseTooLarge => f.write_str("remote response too large"),
         }
     }
 }

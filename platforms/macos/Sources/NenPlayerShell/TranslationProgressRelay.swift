@@ -77,6 +77,8 @@ final class TranslationCancellation: @unchecked Sendable {
     private let lock = NSLock()
     private var job: FfiTranslationJob?
     private var cancelRequested = false
+    private var preparationCancellation: (generation: UInt64, handler: () -> Void)?
+    private var generation: UInt64 = 0
 
     /// Starts tracking a new job. Called synchronously on the main actor,
     /// before the detached task that will eventually call `adopt(_:)` is
@@ -85,6 +87,8 @@ final class TranslationCancellation: @unchecked Sendable {
         lock.lock()
         job = nil
         cancelRequested = false
+        generation &+= 1
+        preparationCancellation = nil
         lock.unlock()
     }
 
@@ -115,6 +119,34 @@ final class TranslationCancellation: @unchecked Sendable {
         }
     }
 
+    /// Registers the cancellation hook for the preparation phase, before a
+    /// translation job exists. A registration that races with `cancel()` is
+    /// invoked synchronously, so a remote read cannot miss the user's request.
+    @discardableResult
+    func registerPreparationCancellation(_ handler: @escaping () -> Void) -> UInt64 {
+        lock.lock()
+        let registrationGeneration = generation
+        if cancelRequested {
+            lock.unlock()
+            handler()
+        } else {
+            preparationCancellation = (registrationGeneration, handler)
+            lock.unlock()
+        }
+        return registrationGeneration
+    }
+
+    /// Removes only the registration belonging to the preparation call that
+    /// installed it. This keeps a late completion from clearing a newer job's
+    /// cancellation hook if the lifecycle ever permits overlap.
+    func clearPreparationCancellation(_ generation: UInt64) {
+        lock.lock()
+        if preparationCancellation?.generation == generation {
+            preparationCancellation = nil
+        }
+        lock.unlock()
+    }
+
     /// Requests cancellation.
     ///
     /// Safe to call before a job exists (the request is remembered for
@@ -129,7 +161,9 @@ final class TranslationCancellation: @unchecked Sendable {
         lock.lock()
         cancelRequested = true
         let job = self.job
+        let preparation = preparationCancellation?.handler
         lock.unlock()
+        preparation?()
         job?.cancel()
     }
 }

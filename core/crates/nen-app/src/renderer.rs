@@ -225,7 +225,10 @@ fn render_error(error: PlaybackError, operation: Operation) -> RenderError {
         | PlaybackError::TrackCarriesNoText
         | PlaybackError::RateOutOfRange { .. }
         | PlaybackError::InsetOutOfRange { .. }
-        | PlaybackError::LoadFailed { .. } => RenderError::SurfaceFailure { operation, code: 0 },
+        | PlaybackError::LoadFailed { .. }
+        | PlaybackError::RemoteResponseTooLarge => {
+            RenderError::SurfaceFailure { operation, code: 0 }
+        }
     }
 }
 

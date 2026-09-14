@@ -83,6 +83,8 @@ public enum PlaybackPresentation {
             return "İşlem şu anda tamamlanamadı."
         case .EngineFailure:
             return "Medya oynatılamadı."
+        case .RemoteResponseTooLarge:
+            return "Uzak medya gömülü altyazı için çok büyük."
         }
     }
 
@@ -152,6 +154,7 @@ public enum PlaybackPresentation {
         case .UnknownTrack: return "Seçilen parça kullanılamıyor."
         case .TrackCarriesNoText: return "Bu parça metin taşımıyor."
         case .EngineFailure: return "Gömülü altyazı metni okunamadı."
+        case .RemoteResponseTooLarge: return "Uzak medya gömülü altyazı için çok büyük."
         case .Unparseable: return "Gömülü altyazı metni okunamadı."
         }
     }

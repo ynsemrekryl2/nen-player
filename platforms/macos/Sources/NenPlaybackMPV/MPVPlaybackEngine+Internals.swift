@@ -338,9 +338,12 @@ extension MPVPlaybackEngine {
         shutDown = true
         phase = .idle
         pending.removeAll()
+        let extractionCancellation = activeExtractionCancellation
+        activeExtractionCancellation = nil
         // Nothing is left to apply it to (ADR-0042 Karar 4).
         deferredSeekMs = nil
         lock.unlock()
+        extractionCancellation?.cancel()
 
         // Wakes the pump out of its blocking wait, then tears the core down.
         // `mpv_terminate_destroy` frees the handle, so it may run exactly once

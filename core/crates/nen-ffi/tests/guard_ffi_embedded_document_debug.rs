@@ -91,6 +91,7 @@ impl ForeignPlaybackEngine for SentinelEngine {
         // rather than reflect back — the exact input `Unparseable` exists for.
         Ok(format!("garbled: {DIALOGUE_SENTINEL}"))
     }
+    fn cancel_extract_text(&self) {}
     fn inject_subtitle(&self, _webvtt: String) -> Result<(), FfiPlaybackError> {
         Ok(())
     }
@@ -112,6 +113,7 @@ fn every_variant_prints_only_its_own_name() {
         FfiEmbeddedDocumentError::UnknownTrack,
         FfiEmbeddedDocumentError::TrackCarriesNoText,
         FfiEmbeddedDocumentError::EngineFailure,
+        FfiEmbeddedDocumentError::RemoteResponseTooLarge,
         FfiEmbeddedDocumentError::Unparseable,
     ];
     for variant in variants {

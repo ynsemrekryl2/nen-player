@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **128** task · ✅ done 108 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 18
+Toplam **128** task · ✅ done 109 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 17
 
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
 
@@ -149,7 +149,7 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | [NEN-064](backlog/NEN-064-verified-media-identity-strip.md) | Verified media identity in player chrome | L | ⚪ backlog | NEN-120 NEN-061 |
 | [NEN-105](done/NEN-105-resumable-checkpoint-store.md) | Resumable checkpoint store for interrupted translation runs | M | ✅ done | NEN-096 |
 | [NEN-107](done/NEN-107-document-wide-translation-progress.md) | Document-wide translation progress across the FFI boundary | M | ✅ done | NEN-102 |
-| [NEN-109](backlog/NEN-109-remote-embedded-text-extraction.md) | Remote embedded text extraction | M | ⚪ backlog | NEN-044 |
+| [NEN-109](done/NEN-109-remote-embedded-text-extraction.md) | Remote embedded text extraction | M | ✅ done | NEN-044 |
 | [NEN-110](done/NEN-110-adr-secure-credential-storage.md) | Decide the secure credential storage map | S | ✅ done | — |
 | [NEN-111](done/NEN-111-secure-credential-store-port.md) | SecureCredentialStore port with contract kit and in-memory fake | M | ✅ done | NEN-110 |
 | [NEN-112](backlog/NEN-112-macos-keychain-credential-adapter.md) | macOS Keychain credential adapter | M | ⚪ backlog | NEN-111 |
@@ -174,7 +174,6 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 
 Bağımlılıkları tamamlanmış, henüz başlanmamış task'lar:
 
-- **NEN-109** — Remote embedded text extraction
 - **NEN-112** — macOS Keychain credential adapter
 - **NEN-116** — OpenAI Responses API translation provider
 - **NEN-119** — Decide the OpenSubtitles integration boundaries

@@ -154,6 +154,8 @@ pub enum FfiEmbeddedDocumentError {
     TrackCarriesNoText,
     /// The engine failed for a reason of its own.
     EngineFailure,
+    /// A bounded remote embedded-text read exceeded its byte budget.
+    RemoteResponseTooLarge,
     /// The engine's answer could not be parsed as a subtitle document.
     /// Carries no detail: the answer was dialogue (K23 #4).
     Unparseable,
@@ -169,6 +171,7 @@ impl std::fmt::Display for FfiEmbeddedDocumentError {
             Self::UnknownTrack => "unknown_track",
             Self::TrackCarriesNoText => "track_carries_no_text",
             Self::EngineFailure => "engine_failure",
+            Self::RemoteResponseTooLarge => "remote_response_too_large",
             Self::Unparseable => "unparseable",
         })
     }
@@ -186,6 +189,7 @@ impl From<EmbeddedDocumentError> for FfiEmbeddedDocumentError {
                 PlaybackError::ShutDown { .. } => Self::ShutDown,
                 PlaybackError::UnknownTrack { .. } => Self::UnknownTrack,
                 PlaybackError::TrackCarriesNoText => Self::TrackCarriesNoText,
+                PlaybackError::RemoteResponseTooLarge => Self::RemoteResponseTooLarge,
                 // Nothing else can reach this call: extraction has no rate
                 // and no inset, and the medium has already loaded by the time
                 // a document is requested — so these collapse into the
@@ -342,6 +346,12 @@ impl FfiPlaybackSession {
             .with_mut(|library| self.inner.prepare_embedded_document(library, token))
             .map(Into::into)
             .map_err(Into::into)
+    }
+
+    /// Cancels a remote embedded-text read that is currently preparing a
+    /// document. This is a control-only call and returns immediately.
+    pub fn cancel_embedded_document_preparation(&self) {
+        self.inner.cancel_embedded_document_preparation();
     }
 
     /// Declares the share of the surface the shell's own chrome covers, so

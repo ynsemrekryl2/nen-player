@@ -209,6 +209,8 @@ pub enum FfiPlaybackError {
     /// The engine failed for a reason of its own. The code is opaque and must
     /// never be shown or branched on (product-spec §4).
     EngineFailure { code: i32 },
+    /// A bounded remote embedded-text read exceeded its byte budget.
+    RemoteResponseTooLarge,
 }
 
 impl std::fmt::Display for FfiPlaybackError {
@@ -229,6 +231,7 @@ impl std::fmt::Display for FfiPlaybackError {
             Self::InsetOutOfRange => "inset_out_of_range",
             Self::LoadFailed { .. } => "load_failed",
             Self::EngineFailure { .. } => "engine_failure",
+            Self::RemoteResponseTooLarge => "remote_response_too_large",
         })
     }
 }
@@ -265,6 +268,7 @@ impl From<PlaybackError> for FfiPlaybackError {
                 reason: reason.into(),
             },
             PlaybackError::EngineFailure { code } => Self::EngineFailure { code },
+            PlaybackError::RemoteResponseTooLarge => Self::RemoteResponseTooLarge,
         }
     }
 }
@@ -296,6 +300,7 @@ impl FfiPlaybackError {
                 reason: reason.into(),
             },
             Self::EngineFailure { code } => PlaybackError::EngineFailure { code },
+            Self::RemoteResponseTooLarge => PlaybackError::RemoteResponseTooLarge,
         }
     }
 }
@@ -501,6 +506,9 @@ pub trait ForeignPlaybackEngine: Send + Sync {
     fn set_volume(&self, volume: f32) -> Result<(), FfiPlaybackError>;
     /// Subtitle dialogue (K23 #4): displayable, never loggable.
     fn extract_text(&self, track: u32) -> Result<String, FfiPlaybackError>;
+    /// Cancels an in-flight embedded-text extraction. Idempotent and carries
+    /// no locator, text or engine detail across the boundary.
+    fn cancel_extract_text(&self);
     fn inject_subtitle(&self, webvtt: String) -> Result<(), FfiPlaybackError>;
     /// What the engine is drawing right now, if anything.
     ///
@@ -644,6 +652,10 @@ impl ShellEngine for ForeignEngineAdapter {
         self.inner
             .extract_text(track.index())
             .map_err(|error| error.into_port(Operation::ExtractText))
+    }
+
+    fn cancel_extract_text(&self) {
+        self.inner.cancel_extract_text();
     }
 
     fn inject_subtitle(&self, webvtt: String) -> Result<(), PlaybackError> {

@@ -352,6 +352,14 @@ impl PlaybackSession {
         Ok(PrepareOutcome::Ready)
     }
 
+    /// Requests cancellation of an extraction currently running outside the
+    /// session lock (`NEN-109`). Idempotent and intentionally not a port
+    /// operation: it must be callable while `prepare_embedded_document` is
+    /// blocked in the foreign adapter.
+    pub fn cancel_embedded_document_preparation(&self) {
+        lock(&self.engine).engine().cancel_extract_text();
+    }
+
     /// Declares the share of the surface the shell's own chrome covers, so
     /// the subtitle stays out of it (ADR-0037).
     ///

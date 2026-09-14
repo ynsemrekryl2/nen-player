@@ -138,6 +138,14 @@ public final class MPVPlaybackEngine: ForeignPlaybackEngine, @unchecked Sendable
     /// full path. It crosses to the core once, on `load`, and this is the
     /// only other place it is read.
     var currentLocator: String?
+    /// The one remote extraction this engine may currently be serving. It is
+    /// guarded by `lock`, but cancellation itself happens after unlocking so
+    /// URLSession can be stopped without waiting on the engine state lock.
+    var activeExtractionCancellation: EmbeddedTextExtractionCancellation?
+    /// URLSession configuration for remote extraction. Production uses the
+    /// per-engine ephemeral configuration; tests replace its protocol classes
+    /// with a deterministic HTTP stream without changing the adapter path.
+    var remoteExtractionConfiguration = URLSessionConfiguration.ephemeral
 
     /// Creates either a headless contract-test engine or an engine embedded in
     /// the shell's AppKit video view. The shell owns the view and the adapter
@@ -211,6 +219,7 @@ public final class MPVPlaybackEngine: ForeignPlaybackEngine, @unchecked Sendable
     }
 
     public func load(locator: String) throws {
+        cancelExtractText()
         try mutate(requireLoaded: false) {
             phase = .loading
             started = false
@@ -249,6 +258,7 @@ public final class MPVPlaybackEngine: ForeignPlaybackEngine, @unchecked Sendable
     }
 
     public func stop() throws {
+        cancelExtractText()
         try mutate { stopRequested = true }
         try command(["stop"])
         try mutate {
@@ -426,6 +436,16 @@ public final class MPVPlaybackEngine: ForeignPlaybackEngine, @unchecked Sendable
         shutdownOnce()
     }
 
+    /// Cancels a remote embedded-text read without entering the ordinary
+    /// playback command path. This is called by the core while preparation is
+    /// blocked in the adapter and is intentionally idempotent.
+    public func cancelExtractText() {
+        lock.lock()
+        let cancellation = activeExtractionCancellation
+        lock.unlock()
+        cancellation?.cancel()
+    }
+
     public func setRate(rate: Float) throws {
         // Lifecycle before validation: a shut-down engine refuses everything,
         // and answering `RateOutOfRange` there would describe the argument
@@ -490,27 +510,51 @@ public final class MPVPlaybackEngine: ForeignPlaybackEngine, @unchecked Sendable
         guard let match else {
             throw FfiPlaybackError.UnknownTrack(kind: .subtitle)
         }
-        guard let locator, Self.isLocalFile(locator) else {
-            // A remote medium: reading an entire remote container to demux
-            // one stream has no cancellation and no bound on how much it
-            // would download. `NEN-109` (backlog) owns the remote case; from
-            // this call's side, extraction from this locator is simply
-            // unsupported — the same refusal an engine that never declared
-            // the capability at all would give.
+        guard let locator else {
             throw FfiPlaybackError.Unsupported(capability: .embeddedTextExtraction)
         }
+        let cancellation: EmbeddedTextExtractionCancellation?
+        let remoteConfiguration: URLSessionConfiguration?
+        if Self.isLocalFile(locator) {
+            cancellation = nil
+            remoteConfiguration = nil
+        } else {
+            let created = EmbeddedTextExtractionCancellation()
+            lock.lock()
+            activeExtractionCancellation = created
+            remoteConfiguration = remoteExtractionConfiguration
+            lock.unlock()
+            cancellation = created
+        }
+        defer {
+            if let cancellation {
+                lock.lock()
+                if activeExtractionCancellation === cancellation {
+                    activeExtractionCancellation = nil
+                }
+                lock.unlock()
+                cancellation.clearHandler()
+            }
+        }
         do {
-            return try EmbeddedTextExtractor.extractText(
-                fromLocalFile: locator,
-                streamIndex: match.ffIndex
-            )
+            if let cancellation, let remoteConfiguration {
+                return try EmbeddedTextExtractor.extractText(
+                    fromRemoteURL: locator,
+                    streamIndex: match.ffIndex,
+                    cancellation: cancellation,
+                    configuration: remoteConfiguration
+                )
+            }
+            return try EmbeddedTextExtractor.extractText(fromLocalFile: locator, streamIndex: match.ffIndex)
         } catch let failure as EmbeddedTextExtractionFailure {
             switch failure {
             case .notASubtitleStream, .noText:
                 throw FfiPlaybackError.TrackCarriesNoText
+            case .remoteResponseTooLarge:
+                throw FfiPlaybackError.RemoteResponseTooLarge
             case let .cannotOpen(code), let .streamInfoUnavailable(code), let .decoderUnavailable(code):
                 throw FfiPlaybackError.EngineFailure(code: code)
-            case .noDecoder:
+            case .noDecoder, .cancelled, .remoteTransport, .temporaryFileUnavailable:
                 throw FfiPlaybackError.EngineFailure(code: 0)
             }
         }
@@ -644,6 +688,7 @@ final class DeadEngine: ForeignPlaybackEngine, @unchecked Sendable {
     func setRate(rate _: Float) throws { throw FfiPlaybackError.NotLoaded }
     func setVolume(volume _: Float) throws { throw FfiPlaybackError.NotLoaded }
     func extractText(track _: UInt32) throws -> String { throw FfiPlaybackError.NotLoaded }
+    func cancelExtractText() {}
     func injectSubtitle(webvtt _: String) throws { throw FfiPlaybackError.NotLoaded }
     func renderedSubtitleText() throws -> String? { throw FfiPlaybackError.NotLoaded }
     func setSubtitleBottomInset(fraction _: Float) throws { throw FfiPlaybackError.NotLoaded }

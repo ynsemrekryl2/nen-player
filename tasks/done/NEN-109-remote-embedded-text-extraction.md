@@ -3,11 +3,11 @@ id: NEN-109
 title: Remote embedded text extraction
 milestone: M6
 size: M
-state: backlog
-closed:
+state: done
+closed: 2026-09-14
 depends_on: [NEN-044]
 blocks: []
-adr: []
+adr: [0046]
 ---
 
 # NEN-109 — Remote embedded text extraction
@@ -52,12 +52,15 @@ kapsam sınırıydı — gerekçe:
 
 ## Kanıt (DoD)
 
-- [ ] Gerçek bir Stremio HTTP akışında gömülü metin track'i çıkarılabiliyor
-- [ ] İptal, sürmekte olan bir okumayı gerçekten durduruyor (gerçek testle
+- [x] Gerçek bir Stremio HTTP akışında gömülü metin track'i çıkarılabiliyor
+- [x] İptal, sürmekte olan bir okumayı gerçekten durduruyor (gerçek testle
       ölçülmüş)
-- [ ] Üst sınır aşıldığında tipli bir red — sessiz kesme yok
-- [ ] `NEN-044`'ün yerel-dosya testleri değişmeden yeşil kalıyor
+- [x] Üst sınır aşıldığında tipli bir red — sessiz kesme yok
+- [x] `NEN-044`'ün yerel-dosya testleri değişmeden yeşil kalıyor
 
 ## Kanıt kaydı
 
-<!-- done olurken doldurulacak -->
+Kanıt: `evidence/M6/NEN-109-checklist.md`. Gerçek Stremio EngineFS HTTP proxy
+akışı üzerinden embedded English track extraction geçti; bounded Range/cap,
+typed refusal, measured URLSession cancellation ve NEN-044 local regression
+testleri yeşil.

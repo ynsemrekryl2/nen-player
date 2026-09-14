@@ -350,6 +350,8 @@ final class FakeSession: PlaybackSessionClient, @unchecked Sendable {
         prepareEmbeddedDocumentCalls.append(token)
         return try prepareEmbeddedDocumentResult.get()
     }
+
+    func cancelEmbeddedDocumentPreparation() {}
     func hideSubtitle() throws {
         try refuse(.hideSubtitle)
         drawnSubtitles.append(.off)

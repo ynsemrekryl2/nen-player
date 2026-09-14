@@ -41,6 +41,8 @@ public protocol PlaybackSessionClient: AnyObject, Sendable {
         library: FfiSubtitleLibrary,
         token: UInt32
     ) throws -> FfiPrepareOutcome
+    /// Cancels an in-flight remote embedded-text preparation, if any.
+    func cancelEmbeddedDocumentPreparation()
     /// §8's `Kapalı`: nothing on screen, whatever was drawing it.
     func hideSubtitle() throws
     /// The share of the surface height this shell's own chrome covers, so the

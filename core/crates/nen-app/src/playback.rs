@@ -89,6 +89,10 @@ pub trait ShellEngine: Send + Sync {
     fn set_volume(&self, volume: f32) -> Result<(), PlaybackError>;
     /// The text is subtitle dialogue (K23 #4): displayable, never loggable.
     fn extract_text(&self, track: TrackId) -> Result<String, PlaybackError>;
+    /// Cancels an in-flight embedded-document preparation, if any. This is an
+    /// out-of-band control path because preparation itself may be blocking in
+    /// a foreign demuxer and cannot receive a second synchronous command.
+    fn cancel_extract_text(&self) {}
     /// The document, already serialized as WebVTT — the form an engine that
     /// renders external subtitles actually wants (NEN-027).
     fn inject_subtitle(&self, webvtt: String) -> Result<(), PlaybackError>;

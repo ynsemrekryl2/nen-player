@@ -124,6 +124,8 @@ impl ForeignPlaybackEngine for FakeForeignEngine {
         }
     }
 
+    fn cancel_extract_text(&self) {}
+
     fn inject_subtitle(&self, _webvtt: String) -> Result<(), FfiPlaybackError> {
         Ok(())
     }

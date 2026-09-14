@@ -678,12 +678,30 @@ public final class PlayerModel: ObservableObject {
                 guard let session else {
                     return .startFailed(.Unusable)
                 }
+                let preparationGeneration = cancellation.registerPreparationCancellation {
+                    session.cancelEmbeddedDocumentPreparation()
+                }
+                defer {
+                    cancellation.clearPreparationCancellation(preparationGeneration)
+                }
+                guard !cancellation.isCancelled else {
+                    return .joinFailed(.Cancelled)
+                }
                 do {
                     _ = try session.prepareEmbeddedDocument(library: library, token: token)
                 } catch let prepareError as FfiEmbeddedDocumentError {
+                    if cancellation.isCancelled {
+                        return .joinFailed(.Cancelled)
+                    }
                     return .prepareFailed(prepareError)
                 } catch {
+                    if cancellation.isCancelled {
+                        return .joinFailed(.Cancelled)
+                    }
                     return .prepareFailed(.EngineFailure)
+                }
+                guard !cancellation.isCancelled else {
+                    return .joinFailed(.Cancelled)
                 }
                 do {
                     // `FfiTranslationEngine` opens the root with `canonicalize`

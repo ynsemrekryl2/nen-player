@@ -200,6 +200,7 @@ pub enum ErrorKind {
     InsetOutOfRange,
     LoadFailed,
     EngineFailure,
+    RemoteResponseTooLarge,
 }
 
 impl ErrorKind {
@@ -215,6 +216,7 @@ impl ErrorKind {
             PlaybackError::InsetOutOfRange { .. } => Self::InsetOutOfRange,
             PlaybackError::LoadFailed { .. } => Self::LoadFailed,
             PlaybackError::EngineFailure { .. } => Self::EngineFailure,
+            PlaybackError::RemoteResponseTooLarge => Self::RemoteResponseTooLarge,
         }
     }
 }
