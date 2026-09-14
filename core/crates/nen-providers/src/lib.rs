@@ -2,6 +2,7 @@
 //!
 //! Crate sınırları ve izinli bağımlılıklar: ADR-0006.
 
+pub mod filename_normalization;
 pub mod openai;
 pub mod openrouter;
 pub mod opensubtitles;

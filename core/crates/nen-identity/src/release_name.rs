@@ -25,6 +25,27 @@
 
 use std::fmt;
 
+pub const MAX_FILENAME_STEM_CHARS: usize = 256;
+
+/// A sanitized basename stem that is safe to hand to the explicit AI
+/// normalization consent path. Its value is never included in `Debug`.
+#[derive(Clone, PartialEq, Eq)]
+pub struct FilenameStem(String);
+
+impl FilenameStem {
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Debug for FilenameStem {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FilenameStem")
+            .field("char_count", &self.0.chars().count())
+            .finish()
+    }
+}
+
 /// What kind of thing a name turned out to describe.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum MediaKind {
@@ -160,6 +181,21 @@ pub fn parse(name: &str) -> ParsedName {
     }
 
     result
+}
+
+/// Returns only a bounded basename stem. The caller must have already passed
+/// the name through the hostile-filename sanitizer; this helper does not
+/// accept paths and never returns an extension.
+pub fn filename_stem(name: &str) -> Option<FilenameStem> {
+    let stem = strip_extension(name).trim();
+    if stem.is_empty()
+        || stem.chars().count() > MAX_FILENAME_STEM_CHARS
+        || stem.chars().any(char::is_control)
+        || stem.contains(['/', '\\'])
+    {
+        return None;
+    }
+    Some(FilenameStem(stem.to_owned()))
 }
 
 /// Drops a leading `[Group]` tag, the anime-release convention. It is the one

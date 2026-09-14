@@ -5,24 +5,23 @@
 > `tasks/done/` ve `history/`'de. Burada tekrar edilmez; **150 satırı aşamaz**
 > (`check-docs.sh` denetim 10).
 >
-> Son güncelleme: **2026-09-14** (**`NEN-124` kapandı** — AI filename normalization gizlilik ADR'si kabul edildi.)
+> Son güncelleme: **2026-09-14** (**`NEN-034` kapandı** — AI filename normalization fallback'i doğrulandı.)
 
 ## Nerede duruyoruz
 
 | | |
 |---|---|
 | **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı — `docs/milestones/M6-real-providers.md`) |
-| **Aktif task** | Yok — `NEN-124` kapandı |
-| **Son tamamlanan** | **`NEN-124`** — Decide filename privacy for AI-assisted normalization. Ondan önce: `NEN-123` |
-| **Sıradaki READY** | `NEN-034`, `NEN-125`, `NEN-126`, `NEN-128` |
-| **Task sayısı** | 128 · done 121 · active 0 · blocked 0 · canceled 2 · backlog 6 |
+| **Aktif task** | Yok — `NEN-034` kapandı |
+| **Son tamamlanan** | **`NEN-034`** — AI-assisted release name normalization. Ondan önce: `NEN-124` |
+| **Sıradaki READY** | `NEN-125`, `NEN-126`, `NEN-128` |
+| **Task sayısı** | 128 · done 122 · active 0 · blocked 0 · canceled 2 · backlog 4 |
 
-**Son kapanış — `NEN-124` (2026-09-14):** AI filename normalization varsayılan
-olarak kapalı; yalnız medya-başına açık izinle, sanitize basename stem'i ve
-kullanıcının seçtiği translation provider üzerinden çalışabilecek. LLM sonucu
-yalnız düşük öncelikli untrusted evidence'tır. Kanıt:
-`tasks/done/NEN-124-adr-filename-privacy-for-ai-normalization.md` ve
-`docs/adr/0046-filename-privacy-for-ai-normalization.md`.
+**Son kapanış — `NEN-034` (2026-09-14):** deterministic identity `Unknown`
+sonrasında, medya-başına izinle çalışan filename normalization portu, fake
+provider ve seçili OpenAI/OpenRouter adapter yolları eklendi. LLM sonucu yalnız
+untrusted suggestion olarak kalıyor. Kanıt: `tasks/done/NEN-034-ai-release-name-normalization.md`
+ve `evidence/M6/NEN-034-checklist.md`.
 
 ## Toolchain
 
@@ -67,12 +66,11 @@ Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
 
-2026-09-14'te `NEN-124` kapandı. ADR-0046 yazıldı/kabul edildi; ADR-0009,
-güvenlik politikası ve karar sayaçları güncellendi. `bash scripts/check-docs.sh`
-(**10/10**), `bash scripts/task-index.sh --check` ve `git diff --check` yeşil.
-NEN-123'ün NEN-123 suite'i **4/4**, MenuFixture suite'i **3/3** ve gerçek
-`.app` derlemesi yeşildi; tam macOS suite'i mevcut `SubtitleRenderingTests`
-libmpv test-helper SIGSEGV'i nedeniyle hâlâ kapanmıyor.
+2026-09-14'te `NEN-034` kapandı. `cargo test --workspace --all-targets`,
+`cargo clippy --workspace --all-targets --all-features -- -D warnings`,
+`cargo deny check` ve `bash scripts/test.sh` yeşil. `bash scripts/check-docs.sh`
+(**10/10**), `bash scripts/task-index.sh --check` ve `git diff --check` de
+geçti. Ayrıntılı davranış kanıtı `evidence/M6/NEN-034-checklist.md` içindedir.
 
 Önceki doğrulama girdileri ve toolchain kapısı geçmişi:
 `history/status-archive-2026-09.md`.

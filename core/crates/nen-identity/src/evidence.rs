@@ -198,6 +198,15 @@ impl MediaEvidence {
         self.declared_name.is_some()
     }
 
+    /// Returns the consent-gated AI input, if a local or server-declared
+    /// basename exists. URL path hints are deliberately excluded by ADR-0046.
+    pub fn ai_filename_stem(&self) -> Option<release_name::FilenameStem> {
+        self.file_name
+            .as_deref()
+            .or(self.declared_name.as_deref())
+            .and_then(release_name::filename_stem)
+    }
+
     pub fn container(&self) -> Option<&ContainerMetadata> {
         self.container.as_ref()
     }
@@ -676,6 +685,22 @@ mod tests {
         let evidence = MediaEvidence::for_local_file("/x/Inception.2010.1080p.mkv");
         let printed = format!("{:?}", evidence.identity_candidates());
         assert!(!printed.contains("Inception"), "title leaked: {printed}");
+    }
+
+    #[test]
+    fn ai_input_is_only_the_sanitized_basename_stem() {
+        let evidence = MediaEvidence::for_local_file("/private/path/Private.Film.2024.mkv");
+        let stem = evidence.ai_filename_stem().expect("local basename");
+        assert_eq!(stem.as_str(), "Private.Film.2024");
+        assert!(!format!("{stem:?}").contains("Private.Film"));
+    }
+
+    #[test]
+    fn remote_url_path_is_not_an_ai_filename_input() {
+        let evidence = MediaEvidence::for_remote_url(
+            "https://private.example/Private.Film.2024.mkv?token=should-not-travel",
+        );
+        assert!(evidence.ai_filename_stem().is_none());
     }
 
     #[test]

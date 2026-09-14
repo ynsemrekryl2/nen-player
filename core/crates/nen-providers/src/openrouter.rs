@@ -5,8 +5,13 @@
 //! payloads cross the shared translation HTTP boundary and remain absent from
 //! errors and Debug output.
 
+use super::filename_normalization;
 use super::translation_http;
 use nen_ports::credentials::ApiKey;
+use nen_ports::filename_normalization::{
+    FilenameNormalizationError, FilenameNormalizationRequest, FilenameNormalizationResult,
+    FilenameNormalizer,
+};
 use nen_ports::http::{HttpClient, HttpHeader, HttpRequest};
 use nen_ports::translation::{
     TranslationCall, TranslationProgress, TranslationProgressPhase, TranslationProvider,
@@ -323,6 +328,30 @@ impl TranslationProvider for OpenRouterTranslationProvider<'_> {
     }
 }
 
+impl FilenameNormalizer for OpenRouterTranslationProvider<'_> {
+    fn normalize(
+        &self,
+        request: &FilenameNormalizationRequest,
+    ) -> Result<FilenameNormalizationResult, FilenameNormalizationError> {
+        let call = TranslationCall::without_progress();
+        self.preflight(&call).map_err(|error| match error {
+            OpenRouterPreflightError::Cancelled => FilenameNormalizationError::Cancelled,
+            OpenRouterPreflightError::Transient => FilenameNormalizationError::Transport,
+            OpenRouterPreflightError::Permanent => FilenameNormalizationError::HttpStatus,
+            OpenRouterPreflightError::CapabilityMissing => {
+                FilenameNormalizationError::CapabilityMissing
+            }
+        })?;
+        filename_normalization::normalize_openrouter(
+            self.http.as_ref(),
+            &self.api_key,
+            &self.identity,
+            request,
+            &call,
+        )
+    }
+}
+
 fn valid_model(model: &str) -> bool {
     !model.trim().is_empty()
         && model.len() <= 256
@@ -366,7 +395,9 @@ fn map_translation_error_to_preflight(error: TranslationProviderError) -> OpenRo
     match error {
         TranslationProviderError::Cancelled => OpenRouterPreflightError::Cancelled,
         TranslationProviderError::Transient => OpenRouterPreflightError::Transient,
-        TranslationProviderError::Permanent => OpenRouterPreflightError::Permanent,
+        TranslationProviderError::Permanent | TranslationProviderError::ResponseTooLarge => {
+            OpenRouterPreflightError::Permanent
+        }
     }
 }
 

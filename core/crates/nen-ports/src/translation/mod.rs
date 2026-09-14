@@ -150,6 +150,7 @@ pub enum TranslationProviderError {
     Cancelled,
     Transient,
     Permanent,
+    ResponseTooLarge,
 }
 
 impl fmt::Display for TranslationProviderError {
@@ -158,6 +159,7 @@ impl fmt::Display for TranslationProviderError {
             Self::Cancelled => "translation cancelled",
             Self::Transient => "translation provider temporarily unavailable",
             Self::Permanent => "translation provider failed",
+            Self::ResponseTooLarge => "translation provider response was too large",
         })
     }
 }

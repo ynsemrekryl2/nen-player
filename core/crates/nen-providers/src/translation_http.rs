@@ -73,7 +73,7 @@ pub(crate) fn send_with_retries(
         call.checkpoint()?;
         match http.send(request()) {
             Err(HttpError::ResponseTooLarge) => {
-                return Err(TranslationProviderError::Permanent);
+                return Err(TranslationProviderError::ResponseTooLarge);
             }
             Err(HttpError::Transport) => {
                 if retries == MAX_RETRIES {
@@ -248,7 +248,7 @@ struct ResponseCue {
     text: String,
 }
 
-fn extract_output_text(root: &Value) -> Option<&str> {
+pub(crate) fn extract_output_text(root: &Value) -> Option<&str> {
     if let Some(text) = root.get("output_text").and_then(Value::as_str) {
         return Some(text);
     }
@@ -283,7 +283,7 @@ fn extract_output_text(root: &Value) -> Option<&str> {
         })
 }
 
-fn contains_refusal(value: &Value) -> bool {
+pub(crate) fn contains_refusal(value: &Value) -> bool {
     match value {
         Value::Object(object) => {
             if object

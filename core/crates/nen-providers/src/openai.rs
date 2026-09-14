@@ -6,8 +6,13 @@
 //! validator. Request/response payloads stay inside the HTTP boundary and no
 //! provider-specific payload is carried by an error or a `Debug` surface.
 
+use super::filename_normalization;
 use super::translation_http;
 use nen_ports::credentials::ApiKey;
+use nen_ports::filename_normalization::{
+    FilenameNormalizationError, FilenameNormalizationRequest, FilenameNormalizationResult,
+    FilenameNormalizer,
+};
 use nen_ports::http::{HttpClient, HttpHeader, HttpRequest};
 use nen_ports::translation::{
     TranslationCall, TranslationProgress, TranslationProgressPhase, TranslationProvider,
@@ -175,6 +180,22 @@ impl TranslationProvider for OpenAiTranslationProvider<'_> {
             total,
         })?;
         call.finish(translated)
+    }
+}
+
+impl FilenameNormalizer for OpenAiTranslationProvider<'_> {
+    fn normalize(
+        &self,
+        request: &FilenameNormalizationRequest,
+    ) -> Result<FilenameNormalizationResult, FilenameNormalizationError> {
+        let call = TranslationCall::without_progress();
+        filename_normalization::normalize_openai(
+            self.http.as_ref(),
+            &self.api_key,
+            &self.identity,
+            request,
+            &call,
+        )
     }
 }
 
