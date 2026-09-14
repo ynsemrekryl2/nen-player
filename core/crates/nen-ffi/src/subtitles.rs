@@ -450,6 +450,21 @@ impl FfiSubtitleLibrary {
         lock(&self.inner).auto_selection(&preferences(primary, secondary))
     }
 
+    /// The NEN-038 opt-in selection form. OpenSubtitles is considered only
+    /// when the shell has already passed the user-setting, identity and daily
+    /// attempt gates; the catalog itself remains free of I/O and policy state.
+    pub fn auto_selection_with_opensubtitles(
+        &self,
+        primary: Option<String>,
+        secondary: Option<String>,
+        include_opensubtitles: bool,
+    ) -> Option<u32> {
+        lock(&self.inner).auto_selection_with_opensubtitles(
+            &preferences(primary, secondary),
+            include_opensubtitles,
+        )
+    }
+
     /// The engine track a row refers to, or `None` when the row is not one.
     ///
     /// `None` is the ordinary answer for a user file. Showing that file is

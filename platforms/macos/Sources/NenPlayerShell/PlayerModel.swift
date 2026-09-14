@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import CryptoKit
 import Foundation
 import NenCore
 import NenPlaybackMPV
@@ -73,6 +74,9 @@ public final class PlayerModel: ObservableObject {
     @Published public private(set) var selectedSubtitleToken: UInt32?
     /// Whether the sidecar scan is still running (ADR-0031 Karar 4).
     @Published public private(set) var isScanningSubtitles = false
+    /// Whether the user has explicitly enabled the NEN-038 automatic
+    /// OpenSubtitles download policy. The persisted default is off.
+    @Published public private(set) var automaticOpenSubtitlesDownloadEnabled: Bool
     /// The AI translation target language (§9, `NEN-101`), a plain primary
     /// subtag on the same terms as `subtitlePreferences` — published so the
     /// Settings picker and the "Altyazı" command stay in the same frame.
@@ -210,12 +214,26 @@ public final class PlayerModel: ObservableObject {
     /// running it — green on a Turkish laptop and red on an English one, for a
     /// reason that has nothing to do with the code.
     private let preferenceStore: any SubtitlePreferenceStoring
+    private static let automaticDownloadAttemptDefaultsKey =
+        "automaticOpenSubtitlesDownloadAttemptKeys"
+    private let automaticDownloadAttemptDefaults: UserDefaults
+    private let currentDay: () -> String
+    /// Hashed media/day keys only. The URL itself never leaves this model and
+    /// is never used in a log or user-facing record (K23).
+    private var automaticDownloadAttemptKeys: Set<String>
     /// The languages the menu hoists and auto-selection looks for.
     ///
     /// Published so the Settings scene's pickers and the menu stay in the
     /// same frame — a picker that only wrote to the store would need its own
     /// mechanism to notice a change made elsewhere.
     @Published public private(set) var subtitlePreferences: SubtitleLanguagePreferences
+    /// `ready` is required before a provider candidate may win: embedded
+    /// tracks must have had their first and only chance to outrank it.
+    private var isPlaybackReady = false
+    private var hasCandidateSearchFinished = false
+    private var identityAllowsAutomaticDownload = false
+    private var automaticDownloadInFlight = false
+    private var automaticDownloadUserOverride = false
     /// Where the AI translation target language lives (`NEN-101`), on the
     /// same "injected, not read from `Locale` at the point of use" terms as
     /// `preferenceStore`.
@@ -297,8 +315,13 @@ public final class PlayerModel: ObservableObject {
         transientMessageDurationNanoseconds: UInt64 = 3_000_000_000,
         seekGuardTimeoutNanoseconds: UInt64 = 1_500_000_000,
         now: @escaping () -> UInt64 = { DispatchTime.now().uptimeNanoseconds },
+        currentDay: @escaping () -> String = {
+            let components = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+            return "\(components.year ?? 0)-\(components.month ?? 0)-\(components.day ?? 0)"
+        },
         managesCursor: Bool = true,
         preferenceStore: any SubtitlePreferenceStoring = UserDefaultsSubtitlePreferenceStore(),
+        automaticDownloadAttemptDefaults: UserDefaults = .standard,
         translationPreferenceStore: any TranslationPreferenceStoring = UserDefaultsTranslationPreferenceStore(),
         translationStoreRoot: URL = PlayerModel.defaultTranslationStoreRoot(),
         translationProgressObserver: TranslationProgressObserver? = nil,
@@ -321,9 +344,18 @@ public final class PlayerModel: ObservableObject {
         self.transientMessageDurationNanoseconds = transientMessageDurationNanoseconds
         self.seekGuardTimeoutNanoseconds = seekGuardTimeoutNanoseconds
         self.now = now
+        self.currentDay = currentDay
         self.managesCursor = managesCursor
         self.preferenceStore = preferenceStore
         self.subtitlePreferences = preferenceStore.preferences
+        self.automaticOpenSubtitlesDownloadEnabled =
+            preferenceStore.automaticOpenSubtitlesDownloadEnabled
+        self.automaticDownloadAttemptDefaults = automaticDownloadAttemptDefaults
+        self.automaticDownloadAttemptKeys = Set(
+            automaticDownloadAttemptDefaults.stringArray(
+                forKey: Self.automaticDownloadAttemptDefaultsKey
+            ) ?? []
+        )
         self.translationPreferenceStore = translationPreferenceStore
         self.translationTargetLanguage = translationPreferenceStore.targetLanguage
         self.translationProvider = translationPreferenceStore.providerKind
@@ -476,6 +508,11 @@ public final class PlayerModel: ObservableObject {
         subtitleDownloadTask = nil
         isDownloadingSubtitle = false
         verifiedMediaIdentity = nil
+        identityAllowsAutomaticDownload = false
+        hasCandidateSearchFinished = false
+        isPlaybackReady = false
+        automaticDownloadInFlight = false
+        automaticDownloadUserOverride = false
         // A translation job started against the outgoing medium must not
         // keep running unwatched, spending a real provider's credit on a
         // result the revision guard below would discard anyway (user
@@ -603,6 +640,10 @@ public final class PlayerModel: ObservableObject {
                 result.status == .match,
                 let identity = result.identity
             else { return }
+            // The identity service's exact verified-hash match is its
+            // strongest existing Automatic confidence result. We do not
+            // widen this gate for a weaker title/year candidate.
+            self.identityAllowsAutomaticDownload = true
             self.verifiedMediaIdentity = identity
         }
     }
@@ -612,7 +653,11 @@ public final class PlayerModel: ObservableObject {
     /// identity lookup returns no match; all outcomes are evidence-only and
     /// therefore stay silent on the playback surface.
     private func startSubtitleCandidateSearch(for url: URL, revision: UInt64) {
-        guard let runner = subtitleCandidateSearchRunner else { return }
+        guard let runner = subtitleCandidateSearchRunner else {
+            hasCandidateSearchFinished = true
+            applyAutoSelectionIfNeeded()
+            return
+        }
         let identityTask = identityLookupTask
         let languages = [subtitlePreferences.primary, subtitlePreferences.secondary]
             .compactMap { $0 }
@@ -625,12 +670,13 @@ public final class PlayerModel: ObservableObject {
             let catalog = try? await Task.detached(priority: .utility) {
                 try runner(url, identity, languages)
             }.value
-            guard !Task.isCancelled,
-                  self.mediaPresentationRevision == revision,
-                  let catalog
-            else { return }
-            self.subtitles.mergeOpensubtitles(source: catalog)
+            guard !Task.isCancelled, self.mediaPresentationRevision == revision else { return }
+            if let catalog {
+                self.subtitles.mergeOpensubtitles(source: catalog)
+            }
+            self.hasCandidateSearchFinished = true
             self.refreshSubtitleMenu()
+            self.applyAutoSelectionIfNeeded()
         }
     }
 
@@ -724,6 +770,7 @@ public final class PlayerModel: ObservableObject {
             guard !Task.isCancelled, let self else { return }
             self.isScanningSubtitles = false
             self.refreshSubtitleMenu()
+            self.applyAutoSelectionIfNeeded()
         }
     }
 
@@ -764,12 +811,54 @@ public final class PlayerModel: ObservableObject {
 
     private func applyAutoSelectionIfNeeded() {
         guard !hasAutoSelected else { return }
-        hasAutoSelected = true
-        guard let token = subtitles.autoSelection(
+        guard isPlaybackReady, !isScanningSubtitles else { return }
+        if selectedSubtitleToken != nil {
+            hasAutoSelected = true
+            return
+        }
+        if let token = subtitles.autoSelection(
             primary: subtitlePreferences.primary,
             secondary: subtitlePreferences.secondary
-        ) else { return }
-        selectSubtitle(token: token)
+        ) {
+            hasAutoSelected = true
+            selectSubtitle(token: token)
+            return
+        }
+
+        guard automaticOpenSubtitlesDownloadEnabled,
+              hasCandidateSearchFinished,
+              identityAllowsAutomaticDownload,
+              let media = currentMediaURL
+        else {
+            // Once all local and candidate work has settled, a disabled
+            // setting or an unqualified identity is a final Closed result for
+            // this medium. It must not become a later retry trigger.
+            if hasCandidateSearchFinished {
+                hasAutoSelected = true
+            }
+            return
+        }
+
+        let attemptKey = automaticDownloadAttemptKey(for: media)
+        guard !automaticDownloadAttemptKeys.contains(attemptKey) else {
+            hasAutoSelected = true
+            return
+        }
+        guard let token = subtitles.autoSelectionWithOpensubtitles(
+            primary: subtitlePreferences.primary,
+            secondary: subtitlePreferences.secondary,
+            includeOpensubtitles: true
+        ) else {
+            hasAutoSelected = true
+            return
+        }
+        hasAutoSelected = true
+        automaticDownloadAttemptKeys.insert(attemptKey)
+        automaticDownloadAttemptDefaults.set(
+            automaticDownloadAttemptKeys.sorted(),
+            forKey: Self.automaticDownloadAttemptDefaultsKey
+        )
+        startOpenSubtitlesDownload(token: token, automatic: true)
     }
 
     /// Changes the two preferred languages (NEN-037's Settings scene).
@@ -785,6 +874,14 @@ public final class PlayerModel: ObservableObject {
         preferenceStore.save(normalized)
         subtitlePreferences = normalized
         refreshSubtitleMenu()
+    }
+
+    /// Enables or disables the NEN-038 automatic OpenSubtitles download
+    /// policy. Changing the setting never swaps a subtitle already on screen;
+    /// it applies to the next medium opened by the player.
+    public func updateAutomaticOpenSubtitlesDownload(_ enabled: Bool) {
+        preferenceStore.saveAutomaticOpenSubtitlesDownload(enabled: enabled)
+        automaticOpenSubtitlesDownloadEnabled = enabled
     }
 
     // MARK: - Translation (§9, NEN-101)
@@ -1043,6 +1140,16 @@ public final class PlayerModel: ObservableObject {
         }
     }
 
+    /// Produces a stable, redaction-safe key for the per-media/per-day
+    /// automatic-download budget. The raw locator never enters UserDefaults,
+    /// logs or an FFI record; only this digest and the injected day number do.
+    private func automaticDownloadAttemptKey(for media: URL) -> String {
+        let digest = SHA256.hash(data: Data(media.absoluteString.utf8))
+            .map { String(format: "%02x", $0) }
+            .joined()
+        return "\(currentDay())-\(digest)"
+    }
+
     // MARK: - Menu actions
 
     /// Points column two at a heading. Shows nothing, changes nothing.
@@ -1057,6 +1164,10 @@ public final class PlayerModel: ObservableObject {
     /// §8's `Kapalı`: the subtitle goes away and column two says so.
     public func turnSubtitlesOff() {
         guard accepted({ try $0.hideSubtitle() }) else { return }
+        hasAutoSelected = true
+        if automaticDownloadInFlight {
+            automaticDownloadUserOverride = true
+        }
         selectedSubtitleToken = nil
         browsedSubtitleGroup = .closed
     }
@@ -1071,12 +1182,17 @@ public final class PlayerModel: ObservableObject {
     /// because it is marked broken, changes nothing and says nothing: that is
     /// an outcome, not a failure (ADR-0031 Karar 5).
     public func selectSubtitle(token: UInt32) {
+        if automaticDownloadInFlight {
+            automaticDownloadUserOverride = true
+        }
         if let entry = subtitleMenuEntry(for: token),
            entry.kind == .openSubtitles,
            !subtitles.hasDocument(token: token) {
-            startOpenSubtitlesDownload(token: token)
+            hasAutoSelected = true
+            startOpenSubtitlesDownload(token: token, automatic: false)
             return
         }
+        hasAutoSelected = true
         var shown = true
         guard accepted({ shown = try $0.showSubtitle(library: self.subtitles, token: token) == .shown })
         else { return }
@@ -1096,14 +1212,20 @@ public final class PlayerModel: ObservableObject {
     /// until the worker succeeds. This preserves the current selection on all
     /// failures and makes the revision check meaningful even while a request
     /// is still blocked in the platform HTTP adapter.
-    private func startOpenSubtitlesDownload(token: UInt32) {
+    private func startOpenSubtitlesDownload(token: UInt32, automatic: Bool) {
         guard subtitleDownloadTask == nil else { return }
         guard let runner = subtitleDownloadRunner
         else {
-            presentTransient("OpenSubtitles için Ayarlar'dan API anahtarı girin.")
+            if !automatic {
+                presentTransient("OpenSubtitles için Ayarlar'dan API anahtarı girin.")
+            }
             return
         }
         guard let workerLibrary = subtitles.copyOpensubtitles(token: token) else { return }
+        if automatic {
+            automaticDownloadInFlight = true
+            automaticDownloadUserOverride = false
+        }
 
         let revision = mediaPresentationRevision
         // `copyOpensubtitles` intentionally contains exactly one row, so its
@@ -1128,15 +1250,23 @@ public final class PlayerModel: ObservableObject {
             self.subtitleDownloadTask = nil
             guard self.mediaPresentationRevision == revision else { return }
             if let failure {
-                self.presentTransient(PlaybackPresentation.subtitleDownloadMessage(for: failure))
+                self.automaticDownloadInFlight = false
+                self.automaticDownloadUserOverride = false
+                if !automatic {
+                    self.presentTransient(PlaybackPresentation.subtitleDownloadMessage(for: failure))
+                }
                 return
             }
+            self.automaticDownloadInFlight = false
             self.subtitles.mergeOpensubtitles(source: workerLibrary)
             self.refreshSubtitleMenu()
             // The live library now owns the validated document. Calling the
             // normal path keeps session routing and highlight updates in one
             // place; its provider branch is bypassed by `hasDocument`.
-            self.selectSubtitle(token: token)
+            if !automatic || (!self.automaticDownloadUserOverride && self.selectedSubtitleToken == nil) {
+                self.selectSubtitle(token: token)
+            }
+            self.automaticDownloadUserOverride = false
         }
     }
 
@@ -1382,6 +1512,11 @@ public final class PlayerModel: ObservableObject {
         mediaName = nil
         currentMediaURL = nil
         verifiedMediaIdentity = nil
+        identityAllowsAutomaticDownload = false
+        hasCandidateSearchFinished = false
+        isPlaybackReady = false
+        automaticDownloadInFlight = false
+        automaticDownloadUserOverride = false
         playbackState = .idle
         positionMilliseconds = 0
         durationMilliseconds = nil
@@ -1491,6 +1626,7 @@ public final class PlayerModel: ObservableObject {
         // literal: the menu holds `Kapalı` plus the embedded tracks from the
         // first frame, with no scan having finished.
         if state == .ready {
+            isPlaybackReady = true
             catalogEmbeddedTracks()
             // Every medium that opens gets one redraw, whether or not it has a
             // picture — because the one that has none would otherwise get no

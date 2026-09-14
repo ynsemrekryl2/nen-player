@@ -144,6 +144,7 @@ Açık task görünümü: [tasks/INDEX.md](INDEX.md)
 | [NEN-033](done/NEN-033-opensubtitles-hash-lookup.md) | OpenSubtitles hash-based identity lookup | M | ✅ done | NEN-018 |
 | [NEN-034](done/NEN-034-ai-release-name-normalization.md) | AI-assisted release name normalization | M | ✅ done | NEN-018 NEN-124 NEN-116 |
 | [NEN-035](done/NEN-035-identity-confidence-and-candidates.md) | Identity confidence scoring and candidate ranking | M | ✅ done | NEN-018 |
+| [NEN-038](done/NEN-038-preferred-language-auto-download.md) | Auto-download subtitles for the preferred language | M | ✅ done | NEN-019 NEN-033 NEN-035 NEN-036 NEN-125 NEN-122 |
 | [NEN-064](done/NEN-064-verified-media-identity-strip.md) | Verified media identity in player chrome | L | ✅ done | NEN-120 NEN-061 |
 | [NEN-105](done/NEN-105-resumable-checkpoint-store.md) | Resumable checkpoint store for interrupted translation runs | M | ✅ done | NEN-096 |
 | [NEN-107](done/NEN-107-document-wide-translation-progress.md) | Document-wide translation progress across the FFI boundary | M | ✅ done | NEN-102 |

@@ -485,6 +485,22 @@ impl SubtitleLibrary {
             .and_then(|source| self.token_of(source.id()))
     }
 
+    /// The NEN-038 opt-in form of [`Self::auto_selection`]. The caller owns
+    /// the user setting, identity-confidence and daily-attempt gates; this
+    /// wrapper only projects the pure catalog decision to a token.
+    pub fn auto_selection_with_opensubtitles(
+        &self,
+        preferences: &SubtitlePreferences,
+        include_opensubtitles: bool,
+    ) -> Option<u32> {
+        nen_catalog::auto_selection_with_opensubtitles(
+            &self.catalog,
+            preferences,
+            include_opensubtitles,
+        )
+        .and_then(|source| self.token_of(source.id()))
+    }
+
     /// Whether the row a token names may be shown.
     ///
     /// `false` for a token nothing was ever given, which is the answer a shell

@@ -3,7 +3,7 @@
 use crate::catalog::SubtitleSourceCatalog;
 use nen_domain::source::{SubtitlePreferences, SubtitleSource, SubtitleSourceKind};
 
-/// The kinds auto-selection may pick, most preferred first.
+/// The kinds auto-selection may pick by default, most preferred first.
 ///
 /// The full tier order decided by ADR-0010 Karar 9 is
 /// `embedded` → `user` → `opensubtitles`; **the third tier is deliberately not
@@ -25,6 +25,15 @@ use nen_domain::source::{SubtitlePreferences, SubtitleSource, SubtitleSourceKind
 pub const AUTO_SELECTABLE_KINDS: &[SubtitleSourceKind] =
     &[SubtitleSourceKind::Embedded, SubtitleSourceKind::User];
 
+/// The opt-in tiers used by NEN-038 once the caller has checked the identity,
+/// preference and daily-attempt gates. Keeping this separate from the default
+/// list makes an OpenSubtitles download impossible to trigger accidentally.
+pub const AUTO_SELECTABLE_KINDS_WITH_OPENSUBTITLES: &[SubtitleSourceKind] = &[
+    SubtitleSourceKind::Embedded,
+    SubtitleSourceKind::User,
+    SubtitleSourceKind::OpenSubtitles,
+];
+
 /// Picks the subtitle to show when playback starts, or `None` for "off".
 ///
 /// Only the preferred languages are considered, primary before secondary; no
@@ -43,8 +52,35 @@ pub fn auto_selection<'a>(
     catalog: &'a SubtitleSourceCatalog,
     preferences: &SubtitlePreferences,
 ) -> Option<&'a SubtitleSource> {
+    auto_selection_with_kinds(catalog, preferences, AUTO_SELECTABLE_KINDS)
+}
+
+/// Picks from the local tiers and, when explicitly enabled by the caller,
+/// the OpenSubtitles tier. This function remains pure: it does not decide
+/// whether an identity is safe, whether the user enabled the feature, or
+/// whether the daily attempt budget is available. Those gates belong to the
+/// application/session owner; once they pass, this is the one source of tier
+/// ordering (NEN-038, ADR-0047).
+pub fn auto_selection_with_opensubtitles<'a>(
+    catalog: &'a SubtitleSourceCatalog,
+    preferences: &SubtitlePreferences,
+    include_opensubtitles: bool,
+) -> Option<&'a SubtitleSource> {
+    let kinds = if include_opensubtitles {
+        AUTO_SELECTABLE_KINDS_WITH_OPENSUBTITLES
+    } else {
+        AUTO_SELECTABLE_KINDS
+    };
+    auto_selection_with_kinds(catalog, preferences, kinds)
+}
+
+fn auto_selection_with_kinds<'a>(
+    catalog: &'a SubtitleSourceCatalog,
+    preferences: &SubtitlePreferences,
+    kinds: &[SubtitleSourceKind],
+) -> Option<&'a SubtitleSource> {
     for language in preferences.ordered() {
-        for kind in AUTO_SELECTABLE_KINDS {
+        for kind in kinds {
             // Primary subtag on both sides (ADR-0030): a `tr` preference has to
             // find a `tr-tr` track, and a `tr-TR` preference coming from the
             // system locale has to find the ordinary `tr` ones.
@@ -185,6 +221,29 @@ mod tests {
         let prefs = SubtitlePreferences::new(Some(tag("tr")), None);
         assert!(auto_selection(&catalog, &prefs).is_none());
         assert!(!AUTO_SELECTABLE_KINDS.contains(&SubtitleSourceKind::OpenSubtitles));
+    }
+
+    #[test]
+    fn opensubtitles_is_selected_only_by_the_opt_in_policy() {
+        let catalog: SubtitleSourceCatalog = [opensubtitles("os-1", "tr")].into_iter().collect();
+        let prefs = SubtitlePreferences::new(Some(tag("tr")), None);
+        assert!(auto_selection_with_opensubtitles(&catalog, &prefs, false).is_none());
+        let picked = auto_selection_with_opensubtitles(&catalog, &prefs, true).expect("a pick");
+        assert_eq!(picked.kind(), SubtitleSourceKind::OpenSubtitles);
+    }
+
+    #[test]
+    fn opt_in_opensubtitles_still_loses_to_local_sources() {
+        let catalog: SubtitleSourceCatalog = [
+            opensubtitles("os-1", "tr"),
+            user(1, "tr", "Movie.tr.srt"),
+            embedded(0, "tr", "Türkçe"),
+        ]
+        .into_iter()
+        .collect();
+        let prefs = SubtitlePreferences::new(Some(tag("tr")), None);
+        let picked = auto_selection_with_opensubtitles(&catalog, &prefs, true).expect("a pick");
+        assert_eq!(picked.kind(), SubtitleSourceKind::Embedded);
     }
 
     #[test]

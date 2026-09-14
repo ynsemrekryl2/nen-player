@@ -228,13 +228,23 @@ final class MemoryRecentStore: RecentMediaStoring {
 /// running it (NEN-037, same reasoning as `preferredSubtitleLanguage` below).
 final class MemoryPreferenceStore: SubtitlePreferenceStoring {
     var preferences: SubtitleLanguagePreferences
+    var automaticOpenSubtitlesDownloadEnabled: Bool
 
-    init(primary: String? = nil, secondary: String? = nil) {
+    init(
+        primary: String? = nil,
+        secondary: String? = nil,
+        automaticOpenSubtitlesDownloadEnabled: Bool = false
+    ) {
         preferences = SubtitleLanguagePreferences(primary: primary, secondary: secondary).normalized()
+        self.automaticOpenSubtitlesDownloadEnabled = automaticOpenSubtitlesDownloadEnabled
     }
 
     func save(_ preferences: SubtitleLanguagePreferences) {
         self.preferences = preferences.normalized()
+    }
+
+    func saveAutomaticOpenSubtitlesDownload(enabled: Bool) {
+        automaticOpenSubtitlesDownloadEnabled = enabled
     }
 }
 

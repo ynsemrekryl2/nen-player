@@ -31,7 +31,9 @@ public struct SubtitleLanguagePreferences: Equatable, Sendable {
 
 public protocol SubtitlePreferenceStoring: AnyObject {
     var preferences: SubtitleLanguagePreferences { get }
+    var automaticOpenSubtitlesDownloadEnabled: Bool { get }
     func save(_ preferences: SubtitleLanguagePreferences)
+    func saveAutomaticOpenSubtitlesDownload(enabled: Bool)
 }
 
 /// Persists the two preferred languages (NEN-037), on the same terms as
@@ -48,6 +50,7 @@ public final class UserDefaultsSubtitlePreferenceStore: SubtitlePreferenceStorin
         static let primary = "subtitlePrimaryLanguage"
         static let secondary = "subtitleSecondaryLanguage"
         static let seeded = "subtitlePreferencesSeeded"
+        static let automaticOpenSubtitlesDownload = "automaticOpenSubtitlesDownloadEnabled"
     }
 
     private let defaults: UserDefaults
@@ -74,10 +77,20 @@ public final class UserDefaultsSubtitlePreferenceStore: SubtitlePreferenceStorin
         ).normalized()
     }
 
+    /// Defaults to false so opening a medium never creates an OpenSubtitles
+    /// download unless the user has explicitly enabled it (ADR-0047).
+    public var automaticOpenSubtitlesDownloadEnabled: Bool {
+        defaults.bool(forKey: Key.automaticOpenSubtitlesDownload)
+    }
+
     public func save(_ preferences: SubtitleLanguagePreferences) {
         let normalized = preferences.normalized()
         defaults.set(normalized.primary, forKey: Key.primary)
         defaults.set(normalized.secondary, forKey: Key.secondary)
+    }
+
+    public func saveAutomaticOpenSubtitlesDownload(enabled: Bool) {
+        defaults.set(enabled, forKey: Key.automaticOpenSubtitlesDownload)
     }
 
     /// Writes the system language as the primary preference, but only the

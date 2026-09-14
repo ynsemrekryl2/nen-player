@@ -7,6 +7,181 @@ import Testing
 @Suite("OpenSubtitles selection (NEN-123)")
 @MainActor
 struct OpenSubtitlesSelectionTests {
+    @Test("opt-in automatic download falls back from the first to the second preference")
+    func automaticDownloadUsesSecondaryPreference() async throws {
+        let (defaults, cleanup) = isolatedDefaults()
+        defer { cleanup() }
+        let (model, fixture, http, _) = makeModel(
+            primary: "fr",
+            secondary: "en",
+            automaticDownloadEnabled: true,
+            automaticDownloadAttemptDefaults: defaults
+        )
+        defer { fixture.remove() }
+        let media = fixture.write("Film.mkv", "not really a video")
+
+        model.openMedia(at: media)
+        model.consume([.stateChanged(state: .ready)])
+        await model.awaitSubtitleCandidateSearch()
+        await model.awaitSidecarScan()
+        await model.awaitSubtitleDownload()
+
+        let row = try #require(providerEntry(in: model))
+        #expect(row.language == "en")
+        #expect(model.selectedSubtitleToken == row.token)
+        #expect(http.downloadRequests == 2, "download link and subtitle body")
+    }
+
+    @Test("when neither preferred language has a candidate, automatic selection closes")
+    func automaticDownloadClosesWithoutCandidate() async throws {
+        let (defaults, cleanup) = isolatedDefaults()
+        defer { cleanup() }
+        let (model, fixture, http, _) = makeModel(
+            primary: "fr",
+            secondary: "de",
+            automaticDownloadEnabled: true,
+            noCandidates: true,
+            automaticDownloadAttemptDefaults: defaults
+        )
+        defer { fixture.remove() }
+        let media = fixture.write("Film.mkv", "not really a video")
+
+        model.openMedia(at: media)
+        model.consume([.stateChanged(state: .ready)])
+        await model.awaitSubtitleCandidateSearch()
+        await model.awaitSidecarScan()
+        await model.awaitSubtitleDownload()
+
+        #expect(providerEntry(in: model) == nil)
+        #expect(model.selectedSubtitleToken == nil)
+        #expect(http.downloadRequests == 0)
+    }
+
+    @Test("disabled automatic download leaves provider candidates unselected")
+    func disabledAutomaticDownloadDoesNotDownload() async throws {
+        let (model, fixture, http, _) = makeModel()
+        defer { fixture.remove() }
+        let media = fixture.write("Film.mkv", "not really a video")
+
+        model.openMedia(at: media)
+        model.consume([.stateChanged(state: .ready)])
+        await model.awaitSubtitleCandidateSearch()
+        await model.awaitSidecarScan()
+        await model.awaitSubtitleDownload()
+
+        #expect(providerEntry(in: model) != nil)
+        #expect(model.selectedSubtitleToken == nil)
+        #expect(!model.isDownloadingSubtitle)
+        #expect(http.downloadRequests == 0)
+    }
+
+    @Test("an identity below the automatic gate never downloads")
+    func unqualifiedIdentityDoesNotDownload() async throws {
+        let (defaults, cleanup) = isolatedDefaults()
+        defer { cleanup() }
+        let (model, fixture, http, _) = makeModel(
+            automaticDownloadEnabled: true,
+            identityStatus: .noMatch,
+            automaticDownloadAttemptDefaults: defaults
+        )
+        defer { fixture.remove() }
+        let media = fixture.write("Film.mkv", "not really a video")
+
+        model.openMedia(at: media)
+        model.consume([.stateChanged(state: .ready)])
+        await model.awaitSubtitleCandidateSearch()
+        await model.awaitSidecarScan()
+        await model.awaitSubtitleDownload()
+
+        #expect(providerEntry(in: model) != nil)
+        #expect(model.selectedSubtitleToken == nil)
+        #expect(http.downloadRequests == 0)
+    }
+
+    @Test("a local source always wins over an automatic provider download")
+    func localSourceWinsBeforeAutomaticDownload() async throws {
+        let (defaults, cleanup) = isolatedDefaults()
+        defer { cleanup() }
+        let (model, fixture, http, _) = makeModel(
+            automaticDownloadEnabled: true,
+            automaticDownloadAttemptDefaults: defaults
+        )
+        defer { fixture.remove() }
+        let media = fixture.write("Film.mkv", "not really a video")
+        _ = fixture.write("Film.en.srt", TempFixture.validSrt)
+
+        model.openMedia(at: media)
+        model.consume([.stateChanged(state: .ready)])
+        await model.awaitSubtitleCandidateSearch()
+        await model.awaitSidecarScan()
+
+        let local = try #require(
+            model.subtitleMenu.flatMap(\.entries).first { $0.kind == .user }
+        )
+        #expect(model.selectedSubtitleToken == local.token)
+        #expect(http.downloadRequests == 0)
+    }
+
+    @Test("the automatic download budget allows one attempt per media and day")
+    func automaticDownloadDoesNotRetrySameMediaOnReopen() async throws {
+        let (defaults, cleanup) = isolatedDefaults()
+        defer { cleanup() }
+        let (model, fixture, http, _) = makeModel(
+            automaticDownloadEnabled: true,
+            automaticDownloadAttemptDefaults: defaults
+        )
+        defer { fixture.remove() }
+        let media = fixture.write("Film.mkv", "not really a video")
+        http.failDownloads = true
+
+        model.openMedia(at: media)
+        model.consume([.stateChanged(state: .ready)])
+        await model.awaitSubtitleCandidateSearch()
+        await model.awaitSidecarScan()
+        await model.awaitSubtitleDownload()
+        #expect(http.downloadRequests == 1)
+
+        model.openMedia(at: media)
+        model.consume([.stateChanged(state: .ready)])
+        await model.awaitSubtitleCandidateSearch()
+        await model.awaitSidecarScan()
+        await model.awaitSubtitleDownload()
+
+        #expect(http.downloadRequests == 1)
+        #expect(model.selectedSubtitleToken == nil)
+    }
+
+    @Test("an automatic result never overwrites a subtitle selected while downloading")
+    func automaticDownloadPreservesUserChoice() async throws {
+        let (defaults, cleanup) = isolatedDefaults()
+        defer { cleanup() }
+        let gate = DownloadGate()
+        let (model, fixture, _, _) = makeModel(
+            downloadGate: gate,
+            automaticDownloadEnabled: true,
+            automaticDownloadAttemptDefaults: defaults
+        )
+        defer { fixture.remove() }
+        let media = fixture.write("Film.mkv", "not really a video")
+        let manual = fixture.write("Manual.en.srt", TempFixture.validSrt)
+
+        model.openMedia(at: media)
+        model.consume([.stateChanged(state: .ready)])
+        await model.awaitSubtitleCandidateSearch()
+        await model.awaitSidecarScan()
+        await gate.waitForStart()
+
+        model.loadSubtitleFile(at: manual)
+        let local = try #require(
+            model.subtitleMenu.flatMap(\.entries).first { $0.kind == .user }
+        )
+        model.selectSubtitle(token: local.token)
+        gate.proceed.signal()
+        await model.awaitSubtitleDownload()
+
+        #expect(model.selectedSubtitleToken == local.token)
+    }
+
     @Test("a provider row downloads first, then becomes the selected subtitle")
     func providerSelectionDownloadsBeforeShowing() async throws {
         let (model, fixture, http, session) = makeModel()
@@ -105,7 +280,13 @@ struct OpenSubtitlesSelectionTests {
     }
 
     private func makeModel(
-        downloadGate: DownloadGate? = nil
+        downloadGate: DownloadGate? = nil,
+        primary: String? = "en",
+        secondary: String? = nil,
+        automaticDownloadEnabled: Bool = false,
+        identityStatus: FfiIdentityLookupStatus = .match,
+        noCandidates: Bool = false,
+        automaticDownloadAttemptDefaults: UserDefaults = .standard
     ) -> (PlayerModel, TempFixture, FixtureHTTPClient, FakeSession) {
         let fixture = TempFixture("opensubtitles-selection")
         let http = FixtureHTTPClient()
@@ -121,21 +302,29 @@ struct OpenSubtitlesSelectionTests {
             recentStore: MemoryRecentStore(),
             startsPolling: false,
             managesCursor: false,
-            preferenceStore: MemoryPreferenceStore(primary: "en"),
+            preferenceStore: MemoryPreferenceStore(
+                primary: primary,
+                secondary: secondary,
+                automaticOpenSubtitlesDownloadEnabled: automaticDownloadEnabled
+            ),
+            automaticDownloadAttemptDefaults: automaticDownloadAttemptDefaults,
             identityLookupRunner: { _ in
-                FfiIdentityLookupResult(status: .match, identity: identity)
+                FfiIdentityLookupResult(
+                    status: identityStatus,
+                    identity: identityStatus == .match ? identity : nil
+                )
             },
-            subtitleCandidateSearchRunner: { url, identity, languages in
+            subtitleCandidateSearchRunner: { url, verifiedIdentity, languages in
                 // The second medium in the stale-result test intentionally
                 // has no provider candidates of its own; any row observed
                 // there would therefore be the old worker's mutation.
-                if url.lastPathComponent == "Second.mkv" {
+                if noCandidates || url.lastPathComponent == "Second.mkv" {
                     return FfiSubtitleLibrary()
                 }
                 let library = FfiSubtitleLibrary()
                 _ = try searchOpensubtitlesCandidates(
                     mediaHash: nil,
-                    identity: identity,
+                    identity: verifiedIdentity ?? identity,
                     languages: languages,
                     credentialStore: credentialStore,
                     httpClient: http,
@@ -160,6 +349,12 @@ struct OpenSubtitlesSelectionTests {
         model.attach(to: MPVVideoView.makePlaybackSurface())
         return (model, fixture, http, session)
     }
+}
+
+private func isolatedDefaults() -> (UserDefaults, () -> Void) {
+    let suiteName = "player.nen.tests.automatic-subtitles.\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suiteName)!
+    return (defaults, { defaults.removePersistentDomain(forName: suiteName) })
 }
 
 private final class FixtureHTTPClient: ForeignHttpClient, @unchecked Sendable {

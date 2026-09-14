@@ -21,6 +21,9 @@ pub mod auto_select;
 pub mod catalog;
 pub mod menu;
 
-pub use auto_select::{auto_selection, AUTO_SELECTABLE_KINDS};
+pub use auto_select::{
+    auto_selection, auto_selection_with_opensubtitles, AUTO_SELECTABLE_KINDS,
+    AUTO_SELECTABLE_KINDS_WITH_OPENSUBTITLES,
+};
 pub use catalog::SubtitleSourceCatalog;
 pub use menu::{project, MenuGroup, MenuSection, SubtitleMenu};

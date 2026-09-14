@@ -25,6 +25,10 @@ public struct SubtitlePreferencesSettingsView: View {
         Form {
             picker("Birinci tercih edilen dil", selection: primaryBinding)
             picker("İkinci tercih edilen dil", selection: secondaryBinding)
+            Toggle(
+                "Tercih dilinde OpenSubtitles'ı otomatik indir",
+                isOn: automaticOpenSubtitlesDownloadBinding
+            )
             picker("AI çeviri hedef dili", selection: translationTargetBinding)
             Picker("AI çeviri sağlayıcısı", selection: providerBinding) {
                 ForEach(TranslationProviderKind.allCases) { provider in
@@ -104,6 +108,13 @@ public struct SubtitlePreferencesSettingsView: View {
         Binding(
             get: { model.translationTargetLanguage },
             set: { model.updateTranslationTargetLanguage($0) }
+        )
+    }
+
+    private var automaticOpenSubtitlesDownloadBinding: Binding<Bool> {
+        Binding(
+            get: { model.automaticOpenSubtitlesDownloadEnabled },
+            set: { model.updateAutomaticOpenSubtitlesDownload($0) }
         )
     }
 

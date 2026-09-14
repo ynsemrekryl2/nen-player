@@ -5,7 +5,7 @@
 > `tasks/done/` ve `history/`'de. Burada tekrar edilmez; **150 satırı aşamaz**
 > (`check-docs.sh` denetim 10).
 >
-> Son güncelleme: **2026-09-14** (**`NEN-125` kapandı**.)
+> Son güncelleme: **2026-09-14** (**`NEN-038` kapandı**.)
 
 ## Nerede duruyoruz
 
@@ -13,13 +13,14 @@
 |---|---|
 | **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı — `docs/milestones/M6-real-providers.md`) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-125`** — Decide the preferred-language auto-download contract. Ondan önce: `NEN-128` |
-| **Sıradaki READY** | `NEN-038`, `NEN-126` |
-| **Task sayısı** | 128 · done 124 · active 0 · blocked 0 · canceled 2 · backlog 2 |
+| **Son tamamlanan** | **`NEN-038`** — Auto-download subtitles for the preferred language. Ondan önce: `NEN-125` |
+| **Sıradaki READY** | `NEN-126` |
+| **Task sayısı** | 128 · done 125 · active 0 · blocked 0 · canceled 2 · backlog 1 |
 
-**Son kapanış — `NEN-125` (2026-09-14):** ADR-0047, tercih dilinde koşullu
-OpenSubtitles otomatik indirme sözleşmesini kabul etti; implementasyon kapısı
-`NEN-038`'e devredildi. Kanıt: `tasks/done/NEN-125-adr-preferred-language-auto-download.md`.
+**Son kapanış — `NEN-038` (2026-09-14):** tercih dilinde yerel kaynak yoksa,
+ayar ve kesin identity kapıları sağlandığında OpenSubtitles otomatik indirmesi;
+ikincil dil fallback'i, günlük tek deneme ve kullanıcı seçimi koruması
+uygulandı. Kanıt: `evidence/M6/NEN-038-checklist.md`.
 
 ## Toolchain
 
@@ -64,10 +65,9 @@ Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
 
-2026-09-14'te `NEN-125` kapandı. `tasks/INDEX.md` **1240 byte**; `bash
-scripts/check-docs.sh` (**10/10**), `bash scripts/task-index.sh --check` ve
-`git diff --check` geçti. CI run **34886476167**'de Rust/provider ve shell
-doğrulamaları da yeşil.
+2026-09-14'te `NEN-038` kapandı. `tasks/INDEX.md` yeniden üretildi;
+`bash scripts/check-docs.sh` (**10/10**), `bash scripts/task-index.sh --check`
+ve `git diff --check` geçti. NEN-038 CI sonucu push sonrasında izlenecek.
 
 Önceki doğrulama girdileri ve toolchain kapısı geçmişi:
 `history/status-archive-2026-09.md`.

@@ -61,6 +61,19 @@ struct SubtitlePreferenceStoreTests {
 
         #expect(store.preferences == SubtitleLanguagePreferences(primary: "tr", secondary: nil))
     }
+
+    @Test("automatic OpenSubtitles download is off by default and survives restart")
+    func automaticDownloadPreferenceIsExplicit() throws {
+        let (defaults, cleanup) = freshDefaults()
+        defer { cleanup() }
+
+        let writer = UserDefaultsSubtitlePreferenceStore(defaults: defaults, systemLanguage: { nil })
+        #expect(!writer.automaticOpenSubtitlesDownloadEnabled)
+        writer.saveAutomaticOpenSubtitlesDownload(enabled: true)
+
+        let reader = UserDefaultsSubtitlePreferenceStore(defaults: defaults, systemLanguage: { nil })
+        #expect(reader.automaticOpenSubtitlesDownloadEnabled)
+    }
 }
 
 @Suite("SubtitleLanguagePreferences normalization")
