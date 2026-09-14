@@ -1,7 +1,8 @@
 //! OpenSubtitles hash lookup (NEN-033, ADR-0040).
 //!
-//! This module only asks the metadata search endpoint for an exact hash match.
-//! Subtitle downloads and catalog projection belong to later tasks.
+//! This module owns the bounded OpenSubtitles identity, candidate-search and
+//! explicit subtitle-download adapters. Catalog projection and parsing remain
+//! in the application layer.
 
 use nen_ports::http::{HttpClient, HttpError, HttpHeader, HttpRequest};
 use nen_ports::identity::{
@@ -12,12 +13,17 @@ use nen_ports::subtitle_candidates::{
     SubtitleCandidateSearchQuery, SubtitleCandidateSearchRequest, MAX_CANDIDATES,
     MAX_RELEASE_NAME_CHARS,
 };
+use nen_ports::subtitle_download::{
+    DownloadedSubtitle, SubtitleDownloadError, SubtitleDownloadRequest, SubtitleDownloader,
+    MAX_DOWNLOAD_BYTES, MAX_DOWNLOAD_METADATA_BYTES, MAX_DOWNLOAD_REDIRECTS,
+};
 use serde_json::Value;
 use std::collections::HashSet;
 use std::fmt;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 const SEARCH_ENDPOINT: &str = "https://api.opensubtitles.com/api/v1/subtitles";
+const DOWNLOAD_ENDPOINT: &str = "https://api.opensubtitles.com/api/v1/download";
 const USER_AGENT: &str = "Nen Player/0.1";
 const MAX_REDIRECTS: u8 = 5;
 const MAX_RESPONSE_BYTES: usize = 1024 * 1024;
@@ -99,6 +105,217 @@ impl SubtitleCandidateSearch for OpenSubtitlesCandidateSearch<'_> {
         let response = candidate_request_following(self.http, &self.api_key, &url)?;
         parse_candidates(&response.body, is_exact_hash)
     }
+}
+
+/// Real OpenSubtitles download adapter. It exchanges the private file id for a
+/// temporary link, validates every link hop, then returns bounded bytes for the
+/// application to decode and parse. It never writes to disk.
+pub struct OpenSubtitlesDownloader<'a> {
+    http: &'a dyn HttpClient,
+    api_key: OpenSubtitlesApiKey,
+}
+
+impl<'a> OpenSubtitlesDownloader<'a> {
+    pub fn new(http: &'a dyn HttpClient, api_key: OpenSubtitlesApiKey) -> Self {
+        Self { http, api_key }
+    }
+}
+
+impl SubtitleDownloader for OpenSubtitlesDownloader<'_> {
+    fn download(
+        &self,
+        request: SubtitleDownloadRequest,
+    ) -> Result<DownloadedSubtitle, SubtitleDownloadError> {
+        if request.private_file_id == 0 {
+            return Err(SubtitleDownloadError::InvalidRequest);
+        }
+
+        let body = format!(r#"{{"file_id":{}}}"#, request.private_file_id).into_bytes();
+        let metadata_request = HttpRequest::post_json(
+            DOWNLOAD_ENDPOINT,
+            vec![
+                HttpHeader {
+                    name: "Api-Key".into(),
+                    value: self.api_key.0.clone(),
+                },
+                HttpHeader {
+                    name: "User-Agent".into(),
+                    value: USER_AGENT.into(),
+                },
+                HttpHeader {
+                    name: "Accept".into(),
+                    value: "application/json".into(),
+                },
+            ],
+            body,
+            MAX_DOWNLOAD_METADATA_BYTES,
+            15_000,
+        );
+        let metadata = self
+            .http
+            .send(metadata_request)
+            .map_err(map_metadata_http_error)?;
+        if metadata.status_code == 429 {
+            return Err(SubtitleDownloadError::QuotaExhausted);
+        }
+        if metadata.status_code == 401 || metadata.status_code == 403 {
+            return Err(SubtitleDownloadError::Unauthorized);
+        }
+        if is_redirect(metadata.status_code) {
+            return Err(SubtitleDownloadError::RedirectRejected);
+        }
+        if !(200..300).contains(&metadata.status_code) {
+            return Err(SubtitleDownloadError::HttpStatus);
+        }
+        if metadata.body.len() > MAX_DOWNLOAD_METADATA_BYTES {
+            return Err(SubtitleDownloadError::ResponseTooLarge);
+        }
+        let link = parse_download_link(&metadata.body)?;
+        let content = download_link_following(self.http, &link)?;
+        if !is_allowed_content_type(content.header("Content-Type")) {
+            return Err(SubtitleDownloadError::UnexpectedContentType);
+        }
+        if has_archive_magic(&content.body) {
+            return Err(SubtitleDownloadError::ArchiveRejected);
+        }
+        DownloadedSubtitle::new(content.body)
+    }
+}
+
+fn map_metadata_http_error(error: HttpError) -> SubtitleDownloadError {
+    match error {
+        HttpError::Transport => SubtitleDownloadError::Transport,
+        HttpError::ResponseTooLarge => SubtitleDownloadError::ResponseTooLarge,
+    }
+}
+
+fn map_content_http_error(error: HttpError) -> SubtitleDownloadError {
+    match error {
+        HttpError::Transport => SubtitleDownloadError::Transport,
+        HttpError::ResponseTooLarge => SubtitleDownloadError::ContentTooLarge,
+    }
+}
+
+fn parse_download_link(body: &[u8]) -> Result<String, SubtitleDownloadError> {
+    let root: Value =
+        serde_json::from_slice(body).map_err(|_| SubtitleDownloadError::InvalidResponse)?;
+    if response_is_quota(&root) {
+        return Err(SubtitleDownloadError::QuotaExhausted);
+    }
+    let Some(link) = root
+        .get("link")
+        .or_else(|| root.get("download_url"))
+        .and_then(Value::as_str)
+    else {
+        return Err(SubtitleDownloadError::InvalidResponse);
+    };
+    if link.is_empty() || link.chars().count() > 2048 || link.chars().any(char::is_control) {
+        return Err(SubtitleDownloadError::InvalidResponse);
+    }
+    Ok(link.to_owned())
+}
+
+fn response_is_quota(root: &Value) -> bool {
+    let remaining_is_zero = [
+        root.get("remaining"),
+        root.get("requests")
+            .and_then(|value| value.get("remaining")),
+        root.get("quota").and_then(|value| value.get("remaining")),
+    ]
+    .into_iter()
+    .flatten()
+    .any(|value| value.as_u64() == Some(0));
+    if remaining_is_zero {
+        return true;
+    }
+    [root.get("status"), root.get("message")]
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .map(str::to_ascii_lowercase)
+        .any(|value| value.contains("quota") || value.contains("download limit"))
+}
+
+fn download_link_following(
+    http: &dyn HttpClient,
+    initial: &str,
+) -> Result<nen_ports::http::HttpResponse, SubtitleDownloadError> {
+    if !is_allowed_download_url(initial) {
+        return Err(SubtitleDownloadError::RedirectRejected);
+    }
+
+    let mut current = initial.to_owned();
+    for redirect_count in 0..=MAX_DOWNLOAD_REDIRECTS {
+        let request = HttpRequest::get(
+            &current,
+            vec![HttpHeader {
+                name: "Accept".into(),
+                value: "text/plain, application/x-subrip, text/srt".into(),
+            }],
+            MAX_DOWNLOAD_BYTES,
+        );
+        let response = http.send(request).map_err(map_content_http_error)?;
+        if is_redirect(response.status_code) {
+            if redirect_count == MAX_DOWNLOAD_REDIRECTS {
+                return Err(SubtitleDownloadError::RedirectRejected);
+            }
+            let location = response
+                .header("Location")
+                .ok_or(SubtitleDownloadError::RedirectRejected)?;
+            current = resolve_redirect(&current, location)
+                .filter(|url| is_allowed_download_url(url))
+                .ok_or(SubtitleDownloadError::RedirectRejected)?;
+            continue;
+        }
+        if response.status_code == 401 || response.status_code == 403 {
+            return Err(SubtitleDownloadError::Unauthorized);
+        }
+        if !(200..300).contains(&response.status_code) {
+            return Err(SubtitleDownloadError::HttpStatus);
+        }
+        if let Some(length) = response.header("Content-Length") {
+            let length = length
+                .parse::<u64>()
+                .map_err(|_| SubtitleDownloadError::InvalidResponse)?;
+            if length > MAX_DOWNLOAD_BYTES as u64 {
+                return Err(SubtitleDownloadError::ContentTooLarge);
+            }
+        }
+        if response.body.len() > MAX_DOWNLOAD_BYTES {
+            return Err(SubtitleDownloadError::ContentTooLarge);
+        }
+        return Ok(response);
+    }
+
+    Err(SubtitleDownloadError::RedirectRejected)
+}
+
+fn is_allowed_content_type(value: Option<&str>) -> bool {
+    let Some(value) = value else {
+        return false;
+    };
+    let media_type = value.split(';').next().unwrap_or_default().trim();
+    media_type.eq_ignore_ascii_case("text/plain")
+        || media_type.eq_ignore_ascii_case("text/srt")
+        || media_type.eq_ignore_ascii_case("application/x-subrip")
+}
+
+fn has_archive_magic(bytes: &[u8]) -> bool {
+    const SIGNATURES: [&[u8]; 8] = [
+        b"PK\x03\x04",
+        b"PK\x05\x06",
+        b"PK\x07\x08",
+        b"Rar!\x1A\x07\x00",
+        b"Rar!\x1A\x07\x01\x00",
+        b"\x1F\x8B",
+        b"7z\xBC\xAF\x27\x1C",
+        b"BZh",
+    ];
+    SIGNATURES
+        .iter()
+        .any(|signature| bytes.starts_with(signature))
+        || bytes.starts_with(b"\xFD7zXZ\x00")
+        || bytes.starts_with(b"\x28\xB5\x2F\xFD")
 }
 
 fn candidate_search_url(
@@ -509,6 +726,28 @@ fn is_allowed_url(url: &str) -> bool {
         .unwrap_or_default();
     matches!(host, "api.opensubtitles.com" | "vip-api.opensubtitles.com")
         && path == "/api/v1/subtitles"
+}
+
+fn is_allowed_download_url(url: &str) -> bool {
+    if url.chars().any(char::is_control) {
+        return false;
+    }
+    let Some(rest) = url.strip_prefix("https://") else {
+        return false;
+    };
+    let Some(path_start) = rest.find('/') else {
+        return false;
+    };
+    let host = &rest[..path_start];
+    let path = rest[path_start..]
+        .split(['?', '#'])
+        .next()
+        .unwrap_or_default();
+    matches!(
+        host,
+        "api.opensubtitles.com" | "vip-api.opensubtitles.com" | "dl.opensubtitles.com"
+    ) && path != "/"
+        && !path.is_empty()
 }
 
 fn resolve_redirect(current: &str, location: &str) -> Option<String> {

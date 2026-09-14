@@ -17,16 +17,21 @@
 //! hand-written — there is nothing for a derive to leak. The library object
 //! itself derives none, for the reason [`crate::session`] gives.
 
+use crate::credentials::FfiSecureCredentialStore;
 use crate::playback::FfiTrackDescriptor;
+use crate::remote_evidence::{adapt_http_client, ForeignHttpClient};
 use nen_app::catalog::MenuGroup;
 use nen_app::domain::source::{LanguageTag, SubtitlePreferences, SubtitleSourceKind};
 use nen_app::embedded::embedded_sources;
 use nen_app::ports::playback::TrackDescriptor;
+use nen_app::ports::subtitle_download::SubtitleDownloadError;
 use nen_app::subtitle_files::{FileRejection, SourceDefect};
-use nen_app::subtitles::{AddOutcome, MenuEntryView, MenuSectionView, SubtitleLibrary};
+use nen_app::subtitles::{
+    AddOutcome, DownloadRefusal, MenuEntryView, MenuSectionView, SubtitleLibrary,
+};
 use std::fmt;
 use std::path::Path;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 /// Why a catalogued source cannot be used (ADR-0031 Karar 5).
 ///
@@ -92,6 +97,99 @@ impl From<AddOutcome> for FfiSubtitleOutcome {
             AddOutcome::Rejected(rejection) => Self::Rejected {
                 reason: rejection.into(),
             },
+        }
+    }
+}
+
+/// Flat, payload-free errors from an explicit OpenSubtitles download.
+///
+/// Provider URLs, response bodies, credentials, private file ids and parser
+/// dialogue never cross this boundary (K23).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Error)]
+pub enum FfiDownloadError {
+    NotOpenSubtitles,
+    MissingCredential,
+    CredentialStoreUnavailable,
+    CredentialStoreDenied,
+    CredentialStoreCorrupt,
+    InvalidCredential,
+    InvalidRequest,
+    Transport,
+    HttpStatus,
+    Unauthorized,
+    InvalidResponse,
+    QuotaExhausted,
+    ResponseTooLarge,
+    RedirectRejected,
+    ContentTooLarge,
+    UnexpectedContentType,
+    ArchiveRejected,
+    InvalidEncoding,
+    MalformedSubtitle,
+    Cancelled,
+}
+
+impl fmt::Display for FfiDownloadError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let name = match self {
+            Self::NotOpenSubtitles => "not_opensubtitles",
+            Self::MissingCredential => "missing_credential",
+            Self::CredentialStoreUnavailable => "credential_store_unavailable",
+            Self::CredentialStoreDenied => "credential_store_denied",
+            Self::CredentialStoreCorrupt => "credential_store_corrupt",
+            Self::InvalidCredential => "invalid_credential",
+            Self::InvalidRequest => "invalid_request",
+            Self::Transport => "transport",
+            Self::HttpStatus => "http_status",
+            Self::Unauthorized => "unauthorized",
+            Self::InvalidResponse => "invalid_response",
+            Self::QuotaExhausted => "quota_exhausted",
+            Self::ResponseTooLarge => "response_too_large",
+            Self::RedirectRejected => "redirect_rejected",
+            Self::ContentTooLarge => "content_too_large",
+            Self::UnexpectedContentType => "unexpected_content_type",
+            Self::ArchiveRejected => "archive_rejected",
+            Self::InvalidEncoding => "invalid_encoding",
+            Self::MalformedSubtitle => "malformed_subtitle",
+            Self::Cancelled => "cancelled",
+        };
+        f.write_str(name)
+    }
+}
+
+impl From<DownloadRefusal> for FfiDownloadError {
+    fn from(value: DownloadRefusal) -> Self {
+        match value {
+            DownloadRefusal::NotOpenSubtitles => Self::NotOpenSubtitles,
+            DownloadRefusal::CredentialStore(error) => match error {
+                nen_app::ports::credentials::CredentialStoreError::Unavailable => {
+                    Self::CredentialStoreUnavailable
+                }
+                nen_app::ports::credentials::CredentialStoreError::Denied => {
+                    Self::CredentialStoreDenied
+                }
+                nen_app::ports::credentials::CredentialStoreError::Corrupt => {
+                    Self::CredentialStoreCorrupt
+                }
+            },
+            DownloadRefusal::MissingCredential => Self::MissingCredential,
+            DownloadRefusal::InvalidCredential => Self::InvalidCredential,
+            DownloadRefusal::Provider(error) => match error {
+                SubtitleDownloadError::InvalidRequest => Self::InvalidRequest,
+                SubtitleDownloadError::Transport => Self::Transport,
+                SubtitleDownloadError::HttpStatus => Self::HttpStatus,
+                SubtitleDownloadError::Unauthorized => Self::Unauthorized,
+                SubtitleDownloadError::InvalidResponse => Self::InvalidResponse,
+                SubtitleDownloadError::QuotaExhausted => Self::QuotaExhausted,
+                SubtitleDownloadError::ResponseTooLarge => Self::ResponseTooLarge,
+                SubtitleDownloadError::RedirectRejected => Self::RedirectRejected,
+                SubtitleDownloadError::ContentTooLarge => Self::ContentTooLarge,
+                SubtitleDownloadError::UnexpectedContentType => Self::UnexpectedContentType,
+                SubtitleDownloadError::ArchiveRejected => Self::ArchiveRejected,
+            },
+            DownloadRefusal::InvalidEncoding => Self::InvalidEncoding,
+            DownloadRefusal::MalformedSubtitle => Self::MalformedSubtitle,
+            DownloadRefusal::Cancelled => Self::Cancelled,
         }
     }
 }
@@ -279,6 +377,24 @@ impl FfiSubtitleLibrary {
     pub fn add_embedded(&self, tracks: Vec<FfiTrackDescriptor>) {
         let tracks: Vec<TrackDescriptor> = tracks.into_iter().map(Into::into).collect();
         lock(&self.inner).add_embedded(embedded_sources(&tracks));
+    }
+
+    /// Downloads one explicitly selected OpenSubtitles row and keeps the
+    /// parsed document in memory. The platform owns the secure store and the
+    /// one-request HTTP transport; neither provider payloads nor subtitle
+    /// dialogue are returned by this gate.
+    pub fn download_opensubtitles(
+        &self,
+        token: u32,
+        credential_store: Arc<FfiSecureCredentialStore>,
+        http_client: Arc<dyn ForeignHttpClient>,
+    ) -> Result<(), FfiDownloadError> {
+        let credentials =
+            credential_store.as_ref() as &dyn nen_app::ports::credentials::SecureCredentialStore;
+        let http = adapt_http_client(http_client);
+        lock(&self.inner)
+            .download_opensubtitles(token, credentials, http.as_ref())
+            .map_err(Into::into)
     }
 
     /// §8's menu, ready to draw.

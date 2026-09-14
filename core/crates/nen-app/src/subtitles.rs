@@ -23,11 +23,50 @@ use nen_domain::source::{
     SubtitleSourceKind,
 };
 use nen_domain::subtitle::SubtitleDocument;
+use nen_ports::credentials::{CredentialKind, CredentialStoreError, SecureCredentialStore};
+use nen_ports::http::HttpClient;
 use nen_ports::playback::TrackId;
 use nen_ports::subtitle_candidates::SubtitleCandidate;
+use nen_ports::subtitle_download::{
+    SubtitleDownloadError, SubtitleDownloadRequest, SubtitleDownloader,
+};
+use nen_providers::opensubtitles::{OpenSubtitlesApiKey, OpenSubtitlesDownloader};
 use std::collections::HashMap;
 use std::fmt;
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+/// Why an explicit OpenSubtitles subtitle selection could not attach a
+/// document. Every variant is payload-free: URLs, provider payloads,
+/// credentials, private ids and subtitle dialogue stay inside the adapters.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DownloadRefusal {
+    NotOpenSubtitles,
+    CredentialStore(CredentialStoreError),
+    MissingCredential,
+    InvalidCredential,
+    Provider(SubtitleDownloadError),
+    InvalidEncoding,
+    MalformedSubtitle,
+    Cancelled,
+}
+
+impl fmt::Display for DownloadRefusal {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NotOpenSubtitles => f.write_str("source is not an OpenSubtitles row"),
+            Self::CredentialStore(error) => error.fmt(f),
+            Self::MissingCredential => f.write_str("OpenSubtitles credential is missing"),
+            Self::InvalidCredential => f.write_str("OpenSubtitles credential is invalid"),
+            Self::Provider(error) => error.fmt(f),
+            Self::InvalidEncoding => f.write_str("subtitle encoding was invalid"),
+            Self::MalformedSubtitle => f.write_str("subtitle format was malformed"),
+            Self::Cancelled => f.write_str("subtitle download was cancelled"),
+        }
+    }
+}
+
+impl std::error::Error for DownloadRefusal {}
 
 /// What adding one file did.
 ///
@@ -283,6 +322,80 @@ impl SubtitleLibrary {
             return None;
         }
         self.opensubtitles_file_ids.get(id).copied()
+    }
+
+    /// Downloads and attaches the selected OpenSubtitles document in memory.
+    ///
+    /// The operation is deliberately synchronous at this core seam: the
+    /// platform supplies the bounded transport, while the caller supplies a
+    /// media revision to make a late response harmless. A row with an already
+    /// attached document is idempotent and never reads credentials or sends a
+    /// second request.
+    pub fn download_opensubtitles(
+        &mut self,
+        token: u32,
+        credentials: &dyn SecureCredentialStore,
+        http: &dyn HttpClient,
+    ) -> Result<(), DownloadRefusal> {
+        let revision = AtomicU64::new(0);
+        self.download_opensubtitles_if_current(token, 0, &revision, credentials, http)
+    }
+
+    /// The revision-aware form used by a playback/session owner. No document
+    /// is committed unless the media is still the one selected at request
+    /// start and every byte gate, decoder and strict SRT parser has passed.
+    pub fn download_opensubtitles_if_current(
+        &mut self,
+        token: u32,
+        expected_revision: u64,
+        current_revision: &AtomicU64,
+        credentials: &dyn SecureCredentialStore,
+        http: &dyn HttpClient,
+    ) -> Result<(), DownloadRefusal> {
+        if self.document_of(token).is_some() {
+            return Ok(());
+        }
+
+        let id = self
+            .id_of(token)
+            .cloned()
+            .ok_or(DownloadRefusal::NotOpenSubtitles)?;
+        if id.kind() != SubtitleSourceKind::OpenSubtitles {
+            return Err(DownloadRefusal::NotOpenSubtitles);
+        }
+        let private_file_id = self
+            .opensubtitles_file_ids
+            .get(&id)
+            .copied()
+            .ok_or(DownloadRefusal::NotOpenSubtitles)?;
+        if current_revision.load(Ordering::Acquire) != expected_revision {
+            return Err(DownloadRefusal::Cancelled);
+        }
+
+        let api_key = credentials
+            .get(CredentialKind::OpenSubtitles)
+            .map_err(DownloadRefusal::CredentialStore)?
+            .ok_or(DownloadRefusal::MissingCredential)?;
+        let api_key = OpenSubtitlesApiKey::new(api_key.expose())
+            .map_err(|_| DownloadRefusal::InvalidCredential)?;
+        let downloader = OpenSubtitlesDownloader::new(http, api_key);
+        let downloaded = downloader
+            .download(SubtitleDownloadRequest::new(private_file_id))
+            .map_err(DownloadRefusal::Provider)?;
+        if current_revision.load(Ordering::Acquire) != expected_revision {
+            return Err(DownloadRefusal::Cancelled);
+        }
+
+        let text = nen_subtitle::encoding::decode(downloaded.bytes())
+            .map_err(|_| DownloadRefusal::InvalidEncoding)?;
+        let document =
+            nen_subtitle::srt::parse(&text).map_err(|_| DownloadRefusal::MalformedSubtitle)?;
+        if current_revision.load(Ordering::Acquire) != expected_revision {
+            return Err(DownloadRefusal::Cancelled);
+        }
+
+        self.documents.insert(id, document);
+        Ok(())
     }
 
     /// The menu of §8, ready to draw.

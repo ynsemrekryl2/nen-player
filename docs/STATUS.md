@@ -5,23 +5,22 @@
 > `tasks/done/` ve `history/`'de. Burada tekrar edilmez; **150 satırı aşamaz**
 > (`check-docs.sh` denetim 10).
 >
-> Son güncelleme: **2026-09-14** (**`NEN-121` tamamlandı** — OpenSubtitles adayları indirmeden kataloglanıyor.)
+> Son güncelleme: **2026-09-14** (**`NEN-122` kapandı** — OpenSubtitles seçimi güvenli indirme kapılarından geçiyor.)
 
 ## Nerede duruyoruz
 
 | | |
 |---|---|
 | **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı — `docs/milestones/M6-real-providers.md`) |
-| **Aktif task** | Yok |
-| **Son tamamlanan** | **`NEN-121`** — OpenSubtitles candidates catalogued without download. Ondan önce: `NEN-064` |
-| **Sıradaki READY** | `NEN-122`, `NEN-124`, `NEN-128` |
-| **Task sayısı** | 128 · done 118 · active 0 · blocked 0 · canceled 2 · backlog 8 |
+| **Aktif task** | yok |
+| **Son tamamlanan** | **`NEN-122`** — Safe download on selection. Ondan önce: `NEN-121` |
+| **Sıradaki READY** | `NEN-123`, `NEN-124`, `NEN-125`, `NEN-128` |
+| **Task sayısı** | 128 · done 119 · active 0 · blocked 0 · canceled 2 · backlog 7 |
 
-**Son kapanış — `NEN-121` (2026-09-14):** OpenSubtitles adayları 16 kayıt
-sınırı, normalize dil/release metadata'sı ve kapalı rozetleriyle indirmeden
-kataloglanıyor; private file ID app belleğiyle sınırlı ve otomatik seçim kapısı
-değişmedi. Kanıt: `evidence/M6/NEN-121-checklist.md` ve
-`tasks/done/NEN-121-opensubtitles-candidate-catalog.md`.
+**Son kapanış — `NEN-122` (2026-09-14):** Seçilen OpenSubtitles adayı yalnız
+HTTPS/approved-host, redirect, boyut, content-type/magic-byte, encoding ve
+strict SRT kapılarından geçince belleğe bağlanıyor; kota, credential, parse ve
+medya-revizyonu retleri payload'sız. Kanıt: `tasks/done/NEN-122-safe-download-on-selection.md`.
 
 ## Toolchain
 
@@ -66,10 +65,11 @@ Hiçbiri sıradaki task'ları bloke etmiyor.
 
 ## Son doğrulama
 
-2026-09-14'te `NEN-121` kapandı. `cargo test --workspace`, clippy, format,
-deny, `bash scripts/build-macos-app.sh`, `bash scripts/test-macos.sh` (**295
-test / 36 suite**), `bash scripts/test.sh` (**6/6**),
-`bash scripts/check-docs.sh` (**10/10**) ve `git diff --check` yeşil.
+2026-09-14'te `NEN-122` kapandı. `cargo test --workspace`, clippy, format,
+deny, `bash scripts/build-macos-app.sh`, `bash scripts/test.sh` (**6/6**),
+`bash scripts/check-docs.sh` (**10/10**) ve `git diff --check` yeşil. Tam
+macOS Swift suite'i mevcut libmpv test-helper SIGSEGV'i nedeniyle kapanmadı;
+bağlama ve uygulama derlemesi geçti, izole MPV menu suite'i yeşil.
 
 Önceki doğrulama girdileri ve toolchain kapısı geçmişi:
 `history/status-archive-2026-09.md`.
