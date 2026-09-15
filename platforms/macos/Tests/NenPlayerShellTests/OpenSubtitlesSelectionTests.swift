@@ -111,14 +111,40 @@ struct OpenSubtitlesSelectionTests {
         _ = fixture.write("Film.en.srt", TempFixture.validSrt)
 
         model.openMedia(at: media)
+        await model.awaitSidecarScan()
         model.consume([.stateChanged(state: .ready)])
         await model.awaitSubtitleCandidateSearch()
-        await model.awaitSidecarScan()
 
         let local = try #require(
             model.subtitleMenu.flatMap(\.entries).first { $0.kind == .user }
         )
         #expect(model.selectedSubtitleToken == local.token)
+        #expect(http.downloadRequests == 0)
+    }
+
+    @Test("a local source arriving after ready suppresses provider download without opening")
+    func lateLocalSourceSuppressesAutomaticDownloadWithoutOpening() async throws {
+        let (defaults, cleanup) = isolatedDefaults()
+        defer { cleanup() }
+        let (model, fixture, http, session) = makeModel(
+            automaticDownloadEnabled: true,
+            automaticDownloadAttemptDefaults: defaults
+        )
+        defer { fixture.remove() }
+        let media = fixture.write("Film.mkv", "not really a video")
+        _ = fixture.write("Film.en.srt", TempFixture.validSrt)
+
+        model.openMedia(at: media)
+        model.consume([.stateChanged(state: .ready)])
+        #expect(model.selectedSubtitleToken == nil, "the local scan has not landed")
+
+        await model.awaitSubtitleCandidateSearch()
+        await model.awaitSidecarScan()
+        await model.awaitSubtitleDownload()
+
+        #expect(model.subtitleMenu.flatMap(\.entries).contains { $0.kind == .user })
+        #expect(model.selectedSubtitleToken == nil)
+        #expect(session.drawnSubtitles.isEmpty)
         #expect(http.downloadRequests == 0)
     }
 

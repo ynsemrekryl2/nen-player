@@ -167,3 +167,4 @@ Açık task görünümü: [tasks/INDEX.md](INDEX.md)
 | [NEN-125](done/NEN-125-adr-preferred-language-auto-download.md) | Decide the preferred-language auto-download contract | S | ✅ done | NEN-035 NEN-122 |
 | [NEN-127](done/NEN-127-status-token-diet.md) | STATUS.md token diet and size guard | S | ✅ done | — |
 | [NEN-128](done/NEN-128-split-task-index-archive.md) | Split the generated task index into open and archive tables | S | ✅ done | NEN-127 |
+| [NEN-130](done/NEN-130-late-sidecar-auto-selection-regression.md) | Restore one-shot local subtitle auto-selection | S | ✅ done | NEN-038 |

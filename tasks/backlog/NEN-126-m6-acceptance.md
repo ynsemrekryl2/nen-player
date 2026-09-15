@@ -3,9 +3,9 @@ id: NEN-126
 title: Real providers acceptance
 milestone: M6
 size: S
-state: backlog
+state: blocked
 closed:
-depends_on: [NEN-118, NEN-123, NEN-113]
+depends_on: [NEN-118, NEN-123, NEN-113, NEN-129]
 blocks: []
 adr: []
 ---
@@ -29,6 +29,12 @@ sağlayıcısının anahtarı yeterlidir; ChatGPT Plus veya canlı OpenAI bakiye
 önkoşul değildir. M5'te mock'un anlık bitişi
 yüzünden canlı gözlenemeyen ilerleme/iptal (`NEN-101`/`102`/`104` kayıtları)
 burada ilk kez insan-zamanlı gözlenir.
+
+## Blokaj
+
+2026-09-15 — `NEN-129`, canlı kabulde ölçülecek çeviri prompt'u ve provider
+çağrı akışını değiştireceği için bu task beklemeye alındı. `NEN-129` kapanıp
+ADR-0048 kabul edilmeden M6 canlı kalite kanıtı nihai sayılmaz.
 
 ## Kapsam
 

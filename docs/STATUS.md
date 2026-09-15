@@ -5,7 +5,7 @@
 > `tasks/done/` ve `history/`'de. Burada tekrar edilmez; **150 satırı aşamaz**
 > (`check-docs.sh` denetim 10).
 >
-> Son güncelleme: **2026-09-14** (**`NEN-038` kapandı**.)
+> Son güncelleme: **2026-09-16** (**`NEN-130` tamamlandı; NEN-129 yeniden READY**.)
 
 ## Nerede duruyoruz
 
@@ -13,14 +13,14 @@
 |---|---|
 | **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı — `docs/milestones/M6-real-providers.md`) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-038`** — Auto-download subtitles for the preferred language. Ondan önce: `NEN-125` |
-| **Sıradaki READY** | `NEN-126` |
-| **Task sayısı** | 128 · done 125 · active 0 · blocked 0 · canceled 2 · backlog 1 |
+| **Son tamamlanan** | **`NEN-130`** — Restore one-shot local subtitle auto-selection. Ondan önce: `NEN-038` |
+| **Sıradaki READY** | **`NEN-129`** — Two-stage model-assisted subtitle translation |
+| **Task sayısı** | 130 · done 126 · active 0 · blocked 1 · canceled 2 · backlog 1 |
 
-**Son kapanış — `NEN-038` (2026-09-14):** tercih dilinde yerel kaynak yoksa,
-ayar ve kesin identity kapıları sağlandığında OpenSubtitles otomatik indirmesi;
-ikincil dil fallback'i, günlük tek deneme ve kullanıcı seçimi koruması
-uygulandı. Kanıt: `evidence/M6/NEN-038-checklist.md`.
+**Son kapanış — `NEN-130` (2026-09-16):** yerel bir kez-seçim penceresi ile
+provider otomatik-indirme kapıları ayrıldı. `ready` sonrası gelen sidecar menüye
+giriyor fakat açılmıyor; provider indirmesini yine bastırıyor. Tam macOS kapısı
+player-shell 241/241, libmpv 57/57 ve Keychain 4/4 geçti.
 
 ## Toolchain
 
@@ -46,8 +46,10 @@ kurmaz (`scripts/tests/doctor.test.sh` S7). Kurulum geçmişi:
 
 ## Blocker'lar
 
-**Gerçek blocker yok.** M1 ve M3 kapıları açık. Çözülmüş B1–B4 kaydı:
-`history/status-archive-2026-09.md`.
+**Toolchain blocker'ı yok.** `NEN-130`, NEN-129'un macOS test kapısını açtı.
+`NEN-126` çeviri akışı tamamlanana kadar `NEN-129` bağımlılığı üzerinden
+blocked durumunda.
+Çözülmüş B1–B4 kaydı: `history/status-archive-2026-09.md`.
 
 ## Kullanıcı kararı bekleyenler
 
@@ -60,14 +62,14 @@ kurmaz (`scripts/tests/doctor.test.sh` S7). Kurulum geçmişi:
 | **S9** | Birden fazla AI artifact'in UI'da gösterimi | M5 |
 | **S11** | İleride public dağıtım | M3 sonrası |
 | **S12** | Gerçek lisans seçimi | ADR-0012 sonrası |
-
-Hiçbiri sıradaki task'ları bloke etmiyor.
+Hiçbiri sıradaki `NEN-129`un uygulamasını bloke etmiyor.
 
 ## Son doğrulama
 
-2026-09-14'te `NEN-038` kapandı. `tasks/INDEX.md` yeniden üretildi;
+2026-09-16'da `NEN-130` kapandı. `bash scripts/test-macos.sh` player-shell
+**241/241**, gerçek libmpv **57/57**, Keychain **4/4** geçti;
 `bash scripts/check-docs.sh` (**10/10**), `bash scripts/task-index.sh --check`
-ve `git diff --check` geçti. NEN-038 CI sonucu push sonrasında izlenecek.
+ve `git diff --check` çıkış 0 verdi.
 
 Önceki doğrulama girdileri ve toolchain kapısı geçmişi:
 `history/status-archive-2026-09.md`.
@@ -75,7 +77,7 @@ ve `git diff --check` geçti. NEN-038 CI sonucu push sonrasında izlenecek.
 ## Repository
 
 `core/` Cargo workspace (Rust 1.98.0, UniFFI) · `platforms/` (macOS SwiftPM; diğerleri iskelet) ·
-`scripts/` shell tooling + testleri · `fixtures/` · `docs/adr/` (38 ADR).
+`scripts/` shell tooling + testleri · `fixtures/` · `docs/adr/` (39 ADR).
 Depo kökünde **`LICENSE` bilerek yok** — bkz. `licensing.md`. Remote:
 `github.com/ynsemrekryl2/nen-player` (private). Bu dosya commit hash'i tutmaz;
 git geçmişi kanoniktir.

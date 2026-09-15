@@ -282,6 +282,9 @@ public final class PlayerModel: ObservableObject {
     /// ADR-0031 Karar 4.3: automatic selection runs **once**, at the start.
     /// A source discovered later never re-triggers it, however well it matches.
     private var hasAutoSelected = false
+    /// Whether the one-shot embedded/user selection window has already closed.
+    /// Provider auto-download may still be waiting for its own async gates.
+    private var hasAttemptedLocalAutoSelection = false
     private var controlsTask: Task<Void, Never>?
     private(set) var controlsPinned = false
     private var transientTask: Task<Void, Never>?
@@ -741,6 +744,7 @@ public final class PlayerModel: ObservableObject {
         selectedSubtitleToken = nil
         browsedSubtitleGroup = .closed
         hasAutoSelected = false
+        hasAttemptedLocalAutoSelection = false
         isScanningSubtitles = false
         refreshSubtitleMenu()
     }
@@ -811,19 +815,31 @@ public final class PlayerModel: ObservableObject {
 
     private func applyAutoSelectionIfNeeded() {
         guard !hasAutoSelected else { return }
-        guard isPlaybackReady, !isScanningSubtitles else { return }
+        guard isPlaybackReady else { return }
         if selectedSubtitleToken != nil {
             hasAutoSelected = true
             return
         }
-        if let token = subtitles.autoSelection(
-            primary: subtitlePreferences.primary,
-            secondary: subtitlePreferences.secondary
-        ) {
+
+        if !hasAttemptedLocalAutoSelection {
+            hasAttemptedLocalAutoSelection = true
+            if let token = localAutoSelection() {
+                hasAutoSelected = true
+                selectSubtitle(token: token)
+                return
+            }
+        } else if localAutoSelection() != nil {
+            // The local source arrived after playback became ready. It still
+            // outranks and suppresses a provider download, but ADR-0031's
+            // one-shot rule forbids switching it on after playback started.
             hasAutoSelected = true
-            selectSubtitle(token: token)
             return
         }
+
+        // A provider download may only start after the local scan has had its
+        // chance to suppress it. This wait does not reopen the local selection
+        // window above.
+        guard !isScanningSubtitles else { return }
 
         guard automaticOpenSubtitlesDownloadEnabled,
               hasCandidateSearchFinished,
@@ -859,6 +875,13 @@ public final class PlayerModel: ObservableObject {
             forKey: Self.automaticDownloadAttemptDefaultsKey
         )
         startOpenSubtitlesDownload(token: token, automatic: true)
+    }
+
+    private func localAutoSelection() -> UInt32? {
+        subtitles.autoSelection(
+            primary: subtitlePreferences.primary,
+            secondary: subtitlePreferences.secondary
+        )
     }
 
     /// Changes the two preferred languages (NEN-037's Settings scene).
@@ -1537,6 +1560,7 @@ public final class PlayerModel: ObservableObject {
         selectedSubtitleToken = nil
         browsedSubtitleGroup = .closed
         hasAutoSelected = false
+        hasAttemptedLocalAutoSelection = false
         isScanningSubtitles = false
     }
 
