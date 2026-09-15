@@ -3,8 +3,8 @@ id: NEN-129
 title: Two-stage model-assisted subtitle translation
 milestone: M6
 size: L
-state: backlog
-closed:
+state: done
+closed: 2026-09-16
 depends_on: [NEN-105, NEN-118, NEN-130]
 blocks: [NEN-126]
 adr: [15, 16, 18, 19, 48]
@@ -120,31 +120,69 @@ kapısını geçirdi; NEN-129 yeniden READY durumundadır ve uygulama değişikl
 
 ## Kanıt (DoD)
 
-- [ ] ADR-0048 kullanıcı onayıyla `accepted`; ADR-0015 ve ADR-0019'a eklenen
+- [x] ADR-0048 kullanıcı onayıyla `accepted`; ADR-0015 ve ADR-0019'a eklenen
       M6 sınırları açık, prompt/schema/cache/resume kararları çelişkisiz
-- [ ] Contract: yeni çeviride çağrı sırası tam olarak `analysis -> block...`;
+- [x] Contract: yeni çeviride çağrı sırası tam olarak `analysis -> block...`;
       analysis tüm initial/repair isteklerinde byte-for-byte aynı ve çağrı
       sayısı **1**
-- [ ] Resume contract: analysis + ilk doğrulanmış bloktan restart, analysis'i
+- [x] Resume contract: analysis + ilk doğrulanmış bloktan restart, analysis'i
       veya checkpoint'li bloğu yeniden istemeden sonraki bloktan devam ediyor
-- [ ] Golden: OpenAI ve OpenRouter için analysis + initial + targeted repair +
+- [x] Golden: OpenAI ve OpenRouter için analysis + initial + targeted repair +
       full retry gövdeleri; iki provider'ın semantik payload'ı aynı
-- [ ] Negatif: analysis şema dışı/boş/oversize/refusal ise blok POST sayısı 0,
+- [x] Negatif: analysis şema dışı/boş/oversize/refusal ise blok POST sayısı 0,
       checkpoint/final artifact yok
-- [ ] Negatif: blok cevabında eksik/fazla/duplicate/unknown cue, boş text ve
+- [x] Negatif: blok cevabında eksik/fazla/duplicate/unknown cue, boş text ve
       sıra bozukluğu mevcut bounded repair + authoritative local validation
       tarafından yakalanıyor
-- [ ] Negatif K23: subtitle diyaloğu, analysis özeti/karakter/glossary metni,
+- [x] Negatif K23: subtitle diyaloğu, analysis özeti/karakter/glossary metni,
       raw cevap ve credential hiçbir `Debug`/`Display`/hata
       yüzeyinde yok; path/basename/URL/hash/timing provider gövdesinde yok
-- [ ] Cache negatifleri: eski prompt/schema/pipeline sürümü ve farklı analysis
+- [x] Cache negatifleri: eski prompt/schema/pipeline sürümü ve farklı analysis
       sözleşmesi yeni artifact/resume kaydıyla hit üretmiyor
-- [ ] `cargo test --workspace`, `bash scripts/test-macos.sh`,
+- [x] `cargo test --workspace`, `bash scripts/test-macos.sh`,
       `bash scripts/check-docs.sh`, `bash scripts/task-index.sh --check` ve
       `git diff --check` geçiyor
-- [ ] `NEN-126` canlı OpenRouter/Luna EN->TR koşusu bu task tamamlandıktan sonra
+- [x] `NEN-126` canlı OpenRouter/Luna EN->TR koşusu bu task tamamlandıktan sonra
       yeniden başlıyor; canlı ağ sonucu bu task'ın otomatik test kanıtı değil
 
 ## Kanıt kaydı
 
-<!-- Task done olurken GERÇEK çıktı ile doldurulur. -->
+- ADR-0048 `accepted` (2026-09-15); ADR-0015/0016/0018/0019 notları ve
+  `docs/architecture.md` iki-aşamalı analysis → block sözleşmesiyle güncel.
+- `cargo test -p nen-translate --test two_stage_translation
+  --test checkpoint_cancellation_negative --test artifact_negative` — çıkış 0:
+  **14/14** geçti. `a_fresh_run_calls_analysis_once_before_blocks_and_reuses_it_byte_for_byte`
+  tek analysis çağrısını ve bütün blok/repair isteklerinde aynı değeri;
+  `restart_reuses_persisted_analysis_and_skips_the_checkpointed_prefix` restart'ta
+  analysis ile doğrulanmış prefix'in yeniden istenmediğini kanıtladı.
+- `cargo test -p nen-providers` — çıkış 0: OpenAI **16/16**, OpenRouter
+  **16/16**, ortak çeviri provider contract'ı **6/6** ve provider semantik
+  eşitliği **2/2** geçti. İki provider için analysis, initial, targeted repair
+  ve full retry golden'ları doğrulandı.
+- Analysis negatifleri `invalid_empty_refused_or_oversized_analysis_is_a_permanent_local_failure`
+  ve `invalid_empty_refused_or_oversized_analysis_never_sends_a_block_post` ile;
+  eksik/duplicate/unknown/boş/sıra blok ihlalleri mevcut authoritative yerel
+  validation + bounded repair testleriyle geçti. Hatalı analysis'te blok çağrısı,
+  resume checkpoint'i ve final artifact üretilmedi.
+- `cargo test -p nen-persist` — çıkış 0: crate **28/28**, K23 guard
+  **6/6**, offline lookup **1/1** geçti. Resume wire v2 doğrulanmış analysis'i
+  round-trip etti; v1, bilinmeyen alan ve boş analysis kayıtları `Corrupt`
+  olarak reddedildi.
+- K23 negatifleri analysis özeti/karakter/glossary, subtitle diyaloğu, raw
+  provider cevabı ve credential sentinel'larının `Debug`/`Display`/hata
+  yüzeylerinde bulunmadığını; golden gövdeler path/basename/URL/hash/timing
+  taşımadığını doğruladı.
+- `PROMPT_VERSION = 2`, `SCHEMA_VERSION = 2`, `PIPELINE_VERSION = 2`;
+  `adr_0048_versions_invalidate_the_single_stage_contract` ve cache identity
+  negatifleri eski tek-aşamalı artifact/resume hit'ini engelledi.
+- `cargo test --workspace` — çıkış 0; `cargo fmt --all -- --check` ve
+  `cargo clippy --workspace -- -D warnings` — çıkış 0.
+- `cargo deny check` — çıkış 0: advisories, bans, licenses ve sources `ok`;
+  yalnız kabul edilen `hashbrown`/`syn` duplicate uyarıları var.
+- `bash scripts/test-macos.sh` — çıkış 0: player-shell **241/241**, gerçek
+  libmpv **57/57**, Keychain **4/4** geçti; yalnız mevcut OpenGL ve deployment
+  target uyarıları kaldı.
+- `bash scripts/check-docs.sh` — **10/10**; `bash scripts/task-index.sh --check`
+  ve `git diff --check` — çıkış 0.
+- `NEN-126`, bu kapanışla bağımlılık engelinden çıkarılıp READY durumuna alındı;
+  canlı OpenRouter/Luna EN→TR koşusu otomatik test kanıtına dahil edilmedi.

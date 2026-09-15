@@ -96,6 +96,19 @@ fn a_run_that_never_fully_checkpointed_cannot_reach_assembly() {
             TranslationProviderIdentity::new("test", "cancel-after-first").expect("identity")
         }
 
+        fn analyze_document(
+            &self,
+            _request: &nen_ports::translation::DocumentAnalysisRequest,
+            call: &TranslationCall,
+        ) -> Result<nen_ports::translation::DocumentAnalysis, TranslationProviderError> {
+            call.checkpoint()?;
+            Ok(nen_ports::translation::DocumentAnalysis {
+                summary: "Artifact negative test analysis".into(),
+                characters: Vec::new(),
+                glossary: Vec::new(),
+            })
+        }
+
         fn translate(
             &self,
             request: &TranslationRequest,

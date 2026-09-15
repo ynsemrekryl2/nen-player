@@ -9,8 +9,8 @@ use nen_app::ports::credentials::{ApiKey, InMemoryCredentialStore, SecureCredent
 use nen_app::ports::http::{HttpClient, HttpError, HttpRequest, HttpResponse};
 use nen_app::ports::identity::MediaHash;
 use nen_app::ports::translation::{
-    TranslationCall, TranslationProvider, TranslationProviderError, TranslationProviderIdentity,
-    TranslationRequest, TranslationResponse,
+    DocumentAnalysis, DocumentAnalysisRequest, TranslationCall, TranslationProvider,
+    TranslationProviderError, TranslationProviderIdentity, TranslationRequest, TranslationResponse,
 };
 use nen_app::subtitles::{AddOutcome, SubtitleLibrary};
 use nen_app::translation::{ProviderChoice, StartRefusal, TranslationEnvironment};
@@ -65,14 +65,14 @@ fn library(root: &Path) -> (SubtitleLibrary, u32) {
 #[derive(Default)]
 struct RecordingHttpClient {
     calls: AtomicUsize,
-    response: Mutex<Option<HttpResponse>>,
+    responses: Mutex<Vec<HttpResponse>>,
 }
 
 impl RecordingHttpClient {
-    fn with_response(response: HttpResponse) -> Self {
+    fn with_responses(responses: Vec<HttpResponse>) -> Self {
         Self {
             calls: AtomicUsize::new(0),
-            response: Mutex::new(Some(response)),
+            responses: Mutex::new(responses),
         }
     }
 
@@ -84,11 +84,12 @@ impl RecordingHttpClient {
 impl HttpClient for RecordingHttpClient {
     fn send(&self, _request: HttpRequest) -> Result<HttpResponse, HttpError> {
         self.calls.fetch_add(1, Ordering::SeqCst);
-        self.response
-            .lock()
-            .expect("response lock")
-            .clone()
-            .ok_or(HttpError::Transport)
+        let mut responses = self.responses.lock().expect("response lock");
+        if responses.is_empty() {
+            Err(HttpError::Transport)
+        } else {
+            Ok(responses.remove(0))
+        }
     }
 }
 
@@ -141,13 +142,22 @@ fn openai_environment_reads_secure_key_and_writes_an_artifact() {
             ApiKey::new("fixture-key").expect("key"),
         )
         .expect("store key");
-    let http = Arc::new(RecordingHttpClient::with_response(HttpResponse {
-        status_code: 200,
-        headers: Vec::new(),
-        body: r#"{"output_text":"{\"cues\":[{\"cue_id\":1,\"text\":\"İlk fixture satırı\"},{\"cue_id\":2,\"text\":\"İkinci fixture satırı\"}]}"}"#
-            .as_bytes()
-            .to_vec(),
-    }));
+    let http = Arc::new(RecordingHttpClient::with_responses(vec![
+        HttpResponse {
+            status_code: 200,
+            headers: Vec::new(),
+            body: r#"{"output_text":"{\"summary\":\"İki fixture satırı\",\"characters\":[],\"glossary\":[]}"}"#
+                .as_bytes()
+                .to_vec(),
+        },
+        HttpResponse {
+            status_code: 200,
+            headers: Vec::new(),
+            body: r#"{"output_text":"{\"translations\":[{\"cueId\":1,\"text\":\"İlk fixture satırı\"},{\"cueId\":2,\"text\":\"İkinci fixture satırı\"}]}"}"#
+                .as_bytes()
+                .to_vec(),
+        },
+    ]));
     let environment = TranslationEnvironment::new(
         root.path(),
         ProviderChoice::OpenAi {
@@ -170,7 +180,7 @@ fn openai_environment_reads_secure_key_and_writes_an_artifact() {
         .join()
         .expect("job completes");
     assert!(!outcome.from_cache);
-    assert_eq!(http.calls(), 1);
+    assert_eq!(http.calls(), 2);
     let artifacts: Vec<_> = fs::read_dir(root.path().join("artifacts"))
         .expect("artifacts")
         .map(|entry| entry.expect("entry").path())
@@ -202,6 +212,14 @@ impl CountingProvider {
 impl TranslationProvider for CountingProvider {
     fn identity(&self) -> TranslationProviderIdentity {
         self.inner.identity()
+    }
+
+    fn analyze_document(
+        &self,
+        request: &DocumentAnalysisRequest,
+        call: &TranslationCall,
+    ) -> Result<DocumentAnalysis, TranslationProviderError> {
+        self.inner.analyze_document(request, call)
     }
 
     fn translate(

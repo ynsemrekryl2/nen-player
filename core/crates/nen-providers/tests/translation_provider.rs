@@ -2,9 +2,10 @@ use nen_domain::source::LanguageTag;
 use nen_domain::subtitle::CueId;
 use nen_ports::translation::contract::{self, ContractViolation};
 use nen_ports::translation::{
-    TranslatedCue, TranslationCall, TranslationCue, TranslationProgress, TranslationProgressPhase,
-    TranslationProgressSink, TranslationProvider, TranslationProviderError,
-    TranslationProviderIdentity, TranslationRequest, TranslationResponse,
+    DocumentAnalysis, DocumentAnalysisRequest, TranslatedCue, TranslationCall, TranslationCue,
+    TranslationMode, TranslationProgress, TranslationProgressPhase, TranslationProgressSink,
+    TranslationProvider, TranslationProviderError, TranslationProviderIdentity, TranslationRequest,
+    TranslationResponse,
 };
 use nen_providers::translation_mock::{MockCallGate, MockTranslationProvider};
 use std::sync::{Arc, Mutex};
@@ -25,6 +26,22 @@ fn request() -> TranslationRequest {
             },
         ],
         output_cue_ids: vec![CueId::new(10), CueId::new(20)],
+        analysis: DocumentAnalysis {
+            summary: "Deterministic provider contract analysis".into(),
+            characters: Vec::new(),
+            glossary: Vec::new(),
+        },
+        block_index: 1,
+        block_count: 1,
+        mode: TranslationMode::Initial,
+    }
+}
+
+fn analysis_request() -> DocumentAnalysisRequest {
+    DocumentAnalysisRequest {
+        source_language: LanguageTag::parse("en").expect("source language"),
+        target_language: LanguageTag::parse("tr").expect("target language"),
+        transcript: request().context_cues,
         context_terms: vec!["PrivateName".into()],
     }
 }
@@ -79,6 +96,27 @@ fn same_request_has_the_same_identity_response_and_progress() {
 }
 
 #[test]
+fn mock_analysis_is_deterministic_and_honours_cancellation() {
+    let provider = MockTranslationProvider::new();
+    let request = analysis_request();
+    let first = provider
+        .analyze_document(&request, &TranslationCall::without_progress())
+        .expect("first analysis");
+    let second = provider
+        .analyze_document(&request, &TranslationCall::without_progress())
+        .expect("second analysis");
+    assert_eq!(first, second);
+    assert_eq!(provider.analysis_calls(), 2);
+
+    let cancelled = TranslationCall::without_progress();
+    cancelled.cancel();
+    assert_eq!(
+        provider.analyze_document(&request, &cancelled),
+        Err(TranslationProviderError::Cancelled)
+    );
+}
+
+#[test]
 fn cancelling_an_in_flight_call_delivers_no_late_result_or_progress() {
     let gate = Arc::new(MockCallGate::default());
     let provider = Arc::new(MockTranslationProvider::with_call_gate(gate.clone()));
@@ -116,6 +154,19 @@ struct DefectProvider;
 impl TranslationProvider for DefectProvider {
     fn identity(&self) -> TranslationProviderIdentity {
         TranslationProviderIdentity::new("defect", "missing-cue").expect("identity")
+    }
+
+    fn analyze_document(
+        &self,
+        _request: &DocumentAnalysisRequest,
+        call: &TranslationCall,
+    ) -> Result<DocumentAnalysis, TranslationProviderError> {
+        call.checkpoint()?;
+        Ok(DocumentAnalysis {
+            summary: "Defect provider analysis".into(),
+            characters: Vec::new(),
+            glossary: Vec::new(),
+        })
     }
 
     fn translate(

@@ -15,8 +15,9 @@ use nen_ports::filename_normalization::{
 };
 use nen_ports::http::{HttpClient, HttpHeader, HttpRequest};
 use nen_ports::translation::{
-    TranslationCall, TranslationProgress, TranslationProgressPhase, TranslationProvider,
-    TranslationProviderError, TranslationProviderIdentity, TranslationRequest, TranslationResponse,
+    DocumentAnalysis, DocumentAnalysisRequest, TranslationCall, TranslationProgress,
+    TranslationProgressPhase, TranslationProvider, TranslationProviderError,
+    TranslationProviderIdentity, TranslationRequest, TranslationResponse,
 };
 use serde::Serialize;
 use serde_json::Value;
@@ -123,6 +124,41 @@ impl TranslationProvider for OpenAiTranslationProvider<'_> {
         self.identity.clone()
     }
 
+    fn analyze_document(
+        &self,
+        request: &DocumentAnalysisRequest,
+        call: &TranslationCall,
+    ) -> Result<DocumentAnalysis, TranslationProviderError> {
+        if self.endpoint != OPENAI_RESPONSES_ENDPOINT || request.transcript.is_empty() {
+            return Err(TranslationProviderError::Permanent);
+        }
+        let body = build_analysis_request_body(&self.identity, request)?;
+        if body.len() > MAX_PROVIDER_BODY_BYTES {
+            return Err(TranslationProviderError::Permanent);
+        }
+
+        call.checkpoint()?;
+        let response = translation_http::send_with_retries(
+            self.http.as_ref(),
+            call,
+            self.sleeper.as_ref(),
+            || {
+                HttpRequest::post_json(
+                    &self.endpoint,
+                    vec![HttpHeader {
+                        name: "Authorization".to_owned(),
+                        value: format!("Bearer {}", self.api_key.expose()),
+                    }],
+                    body.clone(),
+                    MAX_PROVIDER_BODY_BYTES,
+                    PROVIDER_TIMEOUT_MS,
+                )
+            },
+        )?;
+        call.checkpoint()?;
+        translation_http::parse_analysis_response_body(&response.body)
+    }
+
     fn translate(
         &self,
         request: &TranslationRequest,
@@ -137,7 +173,7 @@ impl TranslationProvider for OpenAiTranslationProvider<'_> {
         if total == 0 {
             return Err(TranslationProviderError::Permanent);
         }
-        let body = build_request_body(&self.identity, request)?;
+        let body = build_translation_request_body(&self.identity, request)?;
         if body.len() > MAX_PROVIDER_BODY_BYTES {
             return Err(TranslationProviderError::Permanent);
         }
@@ -168,7 +204,7 @@ impl TranslationProvider for OpenAiTranslationProvider<'_> {
         )?;
 
         call.checkpoint()?;
-        let translated = translation_http::parse_response_body(&response.body)?;
+        let translated = translation_http::parse_translation_response_body(&response.body)?;
         call.progress(TranslationProgress {
             phase: TranslationProgressPhase::Translating,
             done: total,
@@ -203,7 +239,7 @@ impl FilenameNormalizer for OpenAiTranslationProvider<'_> {
 struct ResponsesRequest<'a> {
     model: &'a str,
     store: bool,
-    instructions: &'static str,
+    instructions: String,
     input: String,
     text: ResponsesText,
 }
@@ -222,22 +258,50 @@ struct ResponsesFormat {
     schema: Value,
 }
 
-fn build_request_body(
+fn build_analysis_request_body(
+    identity: &TranslationProviderIdentity,
+    request: &DocumentAnalysisRequest,
+) -> Result<Vec<u8>, TranslationProviderError> {
+    build_request_body(
+        identity,
+        translation_http::analysis_system_instructions(request),
+        translation_http::analysis_prompt_input(request)?,
+        translation_http::ANALYSIS_SCHEMA_NAME,
+        translation_http::analysis_response_schema(),
+    )
+}
+
+fn build_translation_request_body(
     identity: &TranslationProviderIdentity,
     request: &TranslationRequest,
 ) -> Result<Vec<u8>, TranslationProviderError> {
-    let input = translation_http::prompt_input(request)?;
+    build_request_body(
+        identity,
+        translation_http::translation_system_instructions(request),
+        translation_http::translation_prompt_input(request)?,
+        translation_http::TRANSLATION_SCHEMA_NAME,
+        translation_http::translation_response_schema(&request.output_cue_ids),
+    )
+}
+
+fn build_request_body(
+    identity: &TranslationProviderIdentity,
+    instructions: String,
+    input: String,
+    schema_name: &'static str,
+    schema: Value,
+) -> Result<Vec<u8>, TranslationProviderError> {
     let payload = ResponsesRequest {
         model: identity.model(),
         store: false,
-        instructions: translation_http::SYSTEM_INSTRUCTIONS,
+        instructions,
         input,
         text: ResponsesText {
             format: ResponsesFormat {
                 format_type: "json_schema",
-                name: translation_http::RESPONSE_SCHEMA_NAME,
+                name: schema_name,
                 strict: true,
-                schema: translation_http::response_schema(),
+                schema,
             },
         },
     };

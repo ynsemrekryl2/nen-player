@@ -5,7 +5,7 @@
 > `tasks/done/` ve `history/`'de. Burada tekrar edilmez; **150 satırı aşamaz**
 > (`check-docs.sh` denetim 10).
 >
-> Son güncelleme: **2026-09-16** (**`NEN-130` tamamlandı; NEN-129 yeniden READY**.)
+> Son güncelleme: **2026-09-16** (**`NEN-129` tamamlandı; NEN-126 READY**.)
 
 ## Nerede duruyoruz
 
@@ -13,14 +13,15 @@
 |---|---|
 | **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı — `docs/milestones/M6-real-providers.md`) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-130`** — Restore one-shot local subtitle auto-selection. Ondan önce: `NEN-038` |
-| **Sıradaki READY** | **`NEN-129`** — Two-stage model-assisted subtitle translation |
-| **Task sayısı** | 130 · done 126 · active 0 · blocked 1 · canceled 2 · backlog 1 |
+| **Son tamamlanan** | **`NEN-129`** — Two-stage model-assisted subtitle translation. Ondan önce: `NEN-130` |
+| **Sıradaki READY** | **`NEN-126`** — Real providers acceptance |
+| **Task sayısı** | 130 · done 127 · active 0 · blocked 0 · canceled 2 · backlog 1 |
 
-**Son kapanış — `NEN-130` (2026-09-16):** yerel bir kez-seçim penceresi ile
-provider otomatik-indirme kapıları ayrıldı. `ready` sonrası gelen sidecar menüye
-giriyor fakat açılmıyor; provider indirmesini yine bastırıyor. Tam macOS kapısı
-player-shell 241/241, libmpv 57/57 ve Keychain 4/4 geçti.
+**Son kapanış — `NEN-129` (2026-09-16):** OpenAI ve OpenRouter çevirileri
+bloklardan önce tek, doğrulanmış belge analizi üretiyor; aynı analysis restart,
+initial, targeted repair ve full retry boyunca korunuyor. Strict şema, yerel
+authoritative doğrulama, resume v2, cache invalidasyonu ve K23 negatifleri
+otomatik testlerle kapandı.
 
 ## Toolchain
 
@@ -46,28 +47,27 @@ kurmaz (`scripts/tests/doctor.test.sh` S7). Kurulum geçmişi:
 
 ## Blocker'lar
 
-**Toolchain blocker'ı yok.** `NEN-130`, NEN-129'un macOS test kapısını açtı.
-`NEN-126` çeviri akışı tamamlanana kadar `NEN-129` bağımlılığı üzerinden
-blocked durumunda.
+**Toolchain veya task blocker'ı yok.** `NEN-129` kapandığı için `NEN-126`
+bağımlılık engelinden çıktı ve gerçek provider kabul koşusuna READY.
 Çözülmüş B1–B4 kaydı: `history/status-archive-2026-09.md`.
 
 ## Kullanıcı kararı bekleyenler
 
 | # | Konu | Ne zaman gerekiyor |
 |---|---|---|
-| **S3** | Çeviri kalite hedefinin operasyonel ölçütü | M5 |
 | **S4** | Offline/uçak modu birinci sınıf mı? S8'in "cloud sync non-goal" cevabı bunu doğrudan etkiliyor — sync yoksa offline davranış tamamen yerel cache'e bağlı | M5–M6 |
 | **S6** | Local ASR modeli ve cihaz kaynak bütçesi *(privacy kısmı cevaplandı)* | M8 |
 | **S7** | Android TV minimum API seviyesi ve hedef cihaz sınıfı | M10 |
-| **S9** | Birden fazla AI artifact'in UI'da gösterimi | M5 |
 | **S11** | İleride public dağıtım | M3 sonrası |
 | **S12** | Gerçek lisans seçimi | ADR-0012 sonrası |
-Hiçbiri sıradaki `NEN-129`un uygulamasını bloke etmiyor.
+Hiçbiri sıradaki `NEN-126` kabul task'ının başlangıcını bloke etmiyor; task'ın
+gerçek ağ koşusu ayrıca kullanıcı onayı ve kullanıcıya ait credential gerektiriyor.
 
 ## Son doğrulama
 
-2026-09-16'da `NEN-130` kapandı. `bash scripts/test-macos.sh` player-shell
-**241/241**, gerçek libmpv **57/57**, Keychain **4/4** geçti;
+2026-09-16'da `NEN-129` kapandı. `cargo test --workspace`, fmt, clippy ve
+`cargo deny check` çıkış 0; `bash scripts/test-macos.sh` player-shell
+**241/241**, gerçek libmpv **57/57**, Keychain **4/4** geçti.
 `bash scripts/check-docs.sh` (**10/10**), `bash scripts/task-index.sh --check`
 ve `git diff --check` çıkış 0 verdi.
 

@@ -474,6 +474,12 @@ fn run_job(
     )
     .map_err(|error| match error {
         ResumableTranslationError::Cancelled => TranslationError::Cancelled,
+        ResumableTranslationError::Analysis(TranslationProviderError::Cancelled) => {
+            TranslationError::Cancelled
+        }
+        ResumableTranslationError::Analysis(inner) => {
+            TranslationError::Failed(BlockTranslationError::Provider(inner))
+        }
         // A cancellation observed *inside* an in-flight provider call
         // (ADR-0004 Karar 3's cooperative checkpoint) surfaces from
         // `translate_resumable` as an ordinary block failure, not its own

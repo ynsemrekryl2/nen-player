@@ -13,8 +13,8 @@ use std::path::{Path, PathBuf};
 use nen_domain::source::LanguageTag;
 use nen_domain::subtitle::SubtitleDocument;
 use nen_ports::translation::{
-    TranslatedCue, TranslationCall, TranslationProvider, TranslationProviderError,
-    TranslationProviderIdentity, TranslationRequest, TranslationResponse,
+    DocumentAnalysis, DocumentAnalysisRequest, TranslatedCue, TranslationCall, TranslationProvider,
+    TranslationProviderError, TranslationProviderIdentity, TranslationRequest, TranslationResponse,
 };
 use nen_subtitle::srt;
 use nen_translate::artifact::{
@@ -109,6 +109,19 @@ impl TranslationProvider for EchoTranslationProvider {
     fn identity(&self) -> TranslationProviderIdentity {
         TranslationProviderIdentity::new("nen-test", "echo-golden")
             .expect("static test identity is valid")
+    }
+
+    fn analyze_document(
+        &self,
+        _request: &DocumentAnalysisRequest,
+        call: &TranslationCall,
+    ) -> Result<DocumentAnalysis, TranslationProviderError> {
+        call.checkpoint()?;
+        Ok(DocumentAnalysis {
+            summary: "Deterministic test analysis".to_owned(),
+            characters: Vec::new(),
+            glossary: Vec::new(),
+        })
     }
 
     fn translate(

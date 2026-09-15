@@ -299,3 +299,9 @@ Karar hazırlanırken doğrulanan güncel kayıtlar:
 User glossary bu ADR'nin kapsamı dışındadır; `GlossaryIdentity::none()` M6'da
 kalır. Streaming/SSE, otomatik provider fallback'i, serbest model kataloğu ve
 hosted backend de kapsam dışıdır.
+
+2026-09-15 — [ADR-0048](0048-two-stage-model-assisted-translation.md), OpenAI
+ve OpenRouter payload'ını ortak iki aşamalı sözleşmeyle genişletti: önce tek
+strict-schema belge analizi, sonra aynı analysis'i taşıyan initial/targeted/full
+blok istekleri. Bu ADR'nin approved host, 60 saniye, 1 MiB, sıfır redirect,
+bounded retry, OpenRouter upstream ve capability-preflight sınırları değişmedi.

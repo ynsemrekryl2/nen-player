@@ -129,3 +129,9 @@ bir çeviri hattının karşılaştırmalı incelemesinden türetildi — bkz. o
 `translation/pipeline.ts` (`inspectBlock`, `translateBlockWithRepair`)
 dosyasındaki taksonomi ve zaman/ID hiç göndermeme deseni. Kod taşınmadı,
 yalnız buradaki beş karara giren fikirler değerlendirildi.
+
+2026-09-15 — [ADR-0048](0048-two-stage-model-assisted-translation.md), analysis
+ve blok için strict structured-output şemaları ekledi. Bu yardımcı kapılar bu
+ADR'nin authoritative yerel doğrulamasını değiştirmiyor: exact count, allowed
+ve unique cue ID, non-empty text ve sıra hâlâ yerelde denetleniyor; targeted
+repair ve full retry aynı doğrulanmış analysis'i taşıyor.

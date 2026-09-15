@@ -1,9 +1,9 @@
 //! Deterministic, network-free translation provider used by M5.
 
 use nen_ports::translation::{
-    TranslatedCue, TranslationCall, TranslationProgress, TranslationProgressPhase,
-    TranslationProvider, TranslationProviderError, TranslationProviderIdentity, TranslationRequest,
-    TranslationResponse,
+    AnalysisGlossaryEntry, DocumentAnalysis, DocumentAnalysisRequest, TranslatedCue,
+    TranslationCall, TranslationProgress, TranslationProgressPhase, TranslationProvider,
+    TranslationProviderError, TranslationProviderIdentity, TranslationRequest, TranslationResponse,
 };
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
@@ -65,6 +65,7 @@ impl MockCallGate {
 #[derive(Default)]
 pub struct MockTranslationProvider {
     calls: AtomicUsize,
+    analysis_calls: AtomicUsize,
     call_gate: Option<Arc<MockCallGate>>,
 }
 
@@ -76,6 +77,7 @@ impl MockTranslationProvider {
     pub fn with_call_gate(call_gate: Arc<MockCallGate>) -> Self {
         Self {
             calls: AtomicUsize::new(0),
+            analysis_calls: AtomicUsize::new(0),
             call_gate: Some(call_gate),
         }
     }
@@ -83,12 +85,46 @@ impl MockTranslationProvider {
     pub fn calls(&self) -> usize {
         self.calls.load(Ordering::Relaxed)
     }
+
+    pub fn analysis_calls(&self) -> usize {
+        self.analysis_calls.load(Ordering::Relaxed)
+    }
 }
 
 impl TranslationProvider for MockTranslationProvider {
     fn identity(&self) -> TranslationProviderIdentity {
         TranslationProviderIdentity::new(PROVIDER_ID, MODEL_ID)
             .expect("static mock identity is valid")
+    }
+
+    fn analyze_document(
+        &self,
+        request: &DocumentAnalysisRequest,
+        call: &TranslationCall,
+    ) -> Result<DocumentAnalysis, TranslationProviderError> {
+        call.checkpoint()?;
+        self.analysis_calls.fetch_add(1, Ordering::Relaxed);
+        if request.transcript.is_empty() {
+            return Err(TranslationProviderError::Permanent);
+        }
+        let analysis = DocumentAnalysis {
+            summary: "Deterministic whole-document subtitle context".to_owned(),
+            characters: Vec::new(),
+            glossary: request
+                .context_terms
+                .iter()
+                .map(|term| AnalysisGlossaryEntry {
+                    source: term.clone(),
+                    target: format!("[{}] {term}", request.target_language.as_str()),
+                    note: "Deterministic local candidate term".to_owned(),
+                })
+                .collect(),
+        };
+        analysis
+            .validate()
+            .map_err(|_| TranslationProviderError::Permanent)?;
+        call.checkpoint()?;
+        Ok(analysis)
     }
 
     fn translate(

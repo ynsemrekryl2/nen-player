@@ -4,7 +4,7 @@ source_language	en
 target_language	tr
 provider	nen-test
 model	echo-golden
-pipeline_version	1
+pipeline_version	2
 block_layout_version	1
 cue_count	95
 --- webvtt ---

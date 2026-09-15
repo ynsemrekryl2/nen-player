@@ -485,6 +485,11 @@ mod tests {
         ResumeRecord {
             cache_key: CacheKey::from_bytes(*blake3::hash(marker.as_bytes()).as_bytes()),
             total_blocks: 3,
+            analysis: nen_ports::translation::DocumentAnalysis {
+                summary: format!("analysis {marker}"),
+                characters: Vec::new(),
+                glossary: Vec::new(),
+            },
             blocks: vec![ResumeBlock {
                 block_index: 0,
                 cues: vec![ResumeCue {

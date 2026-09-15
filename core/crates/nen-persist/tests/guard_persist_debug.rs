@@ -194,6 +194,11 @@ fn no_resume_debug_surface_leaks_dialogue_or_its_file_key() {
     let record = ResumeRecord {
         cache_key: CacheKey::from_bytes([0xef; 32]),
         total_blocks: 2,
+        analysis: nen_ports::translation::DocumentAnalysis {
+            summary: SENTINEL.to_owned(),
+            characters: Vec::new(),
+            glossary: Vec::new(),
+        },
         blocks: vec![ResumeBlock {
             block_index: 0,
             cues: vec![ResumeCue {

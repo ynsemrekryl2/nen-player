@@ -138,3 +138,10 @@ bir çeviri hattının karşılaştırmalı incelemesinden türetildi — bkz. o
 fonksiyonunun bileşen listesi. Serileştirme yöntemi (`JSON.stringify` +
 `sha256`) kasıtlı olarak taşınmadı; yerine `nen_subtitle::fingerprint`
 (ADR-0007) ile aynı kanonik byte kodlaması deseni benimsendi.
+
+2026-09-15 — [ADR-0048](0048-two-stage-model-assisted-translation.md) ile
+belge-geneli analysis prompt/schema/pipeline sözleşmesinin parçası oldu.
+`PROMPT_VERSION`, `SCHEMA_VERSION` ve `PIPELINE_VERSION` 2'ye yükseltildi;
+`BLOCK_LAYOUT_VERSION` ile `TRANSLATION_SESSION_VERSION` değişmedi. Resume wire
+formatı analysis'i zorunlu taşıyan v2'ye geçti; eski tek aşamalı artifact ve
+resume kayıtları yeni semantikte hit olamaz.

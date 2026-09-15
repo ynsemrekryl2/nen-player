@@ -574,6 +574,19 @@ mod tests {
             TranslationProviderIdentity::new("test", "echo").expect("identity")
         }
 
+        fn analyze_document(
+            &self,
+            _request: &nen_ports::translation::DocumentAnalysisRequest,
+            call: &TranslationCall,
+        ) -> Result<nen_ports::translation::DocumentAnalysis, TranslationProviderError> {
+            call.checkpoint()?;
+            Ok(nen_ports::translation::DocumentAnalysis {
+                summary: "Deterministic artifact test analysis".to_owned(),
+                characters: Vec::new(),
+                glossary: Vec::new(),
+            })
+        }
+
         fn translate(
             &self,
             request: &TranslationRequest,

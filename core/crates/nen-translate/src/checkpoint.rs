@@ -37,7 +37,8 @@ use nen_ports::persistence::{
     CacheKey, ResumeBlock, ResumeCue, ResumeRecord, ResumeStore, ResumeStoreError,
 };
 use nen_ports::translation::{
-    TranslationCall, TranslationCue, TranslationProvider, TranslationProviderError,
+    DocumentAnalysis, DocumentAnalysisRequest, TranslationCall, TranslationCue, TranslationMode,
+    TranslationProgress, TranslationProgressPhase, TranslationProvider, TranslationProviderError,
     TranslationRequest,
 };
 use std::fmt;
@@ -69,6 +70,7 @@ impl fmt::Debug for TranslationPlan {
 /// that closes the late-commit gap.
 #[derive(Clone)]
 pub struct BlockCheckpoints {
+    analysis: Option<DocumentAnalysis>,
     slots: Vec<Option<ValidatedBlock>>,
 }
 
@@ -77,6 +79,7 @@ impl BlockCheckpoints {
     /// [`TranslationBlock::index`].
     pub fn for_layout(layout: &BlockLayout) -> Self {
         Self {
+            analysis: None,
             slots: (0..layout.blocks().len()).map(|_| None).collect(),
         }
     }
@@ -121,6 +124,7 @@ impl BlockCheckpoints {
     fn record(&self, cache_key: CacheKey) -> Result<ResumeRecord, ResumeStoreError> {
         let total_blocks =
             u32::try_from(self.slots.len()).map_err(|_| ResumeStoreError::Corrupt)?;
+        let analysis = self.analysis.clone().ok_or(ResumeStoreError::Corrupt)?;
         let mut blocks = Vec::with_capacity(self.checkpointed_count());
         for block in self.slots.iter().flatten() {
             let block_index =
@@ -140,6 +144,7 @@ impl BlockCheckpoints {
         Ok(ResumeRecord {
             cache_key,
             total_blocks,
+            analysis,
             blocks,
         })
     }
@@ -159,7 +164,12 @@ impl BlockCheckpoints {
             return Err(ResumeStoreError::Corrupt);
         }
 
+        record
+            .analysis
+            .validate()
+            .map_err(|_| ResumeStoreError::Corrupt)?;
         let mut checkpoints = Self::for_layout(layout);
+        checkpoints.analysis = Some(record.analysis);
         for (expected_index, stored) in record.blocks.into_iter().enumerate() {
             let expected_u32 =
                 u32::try_from(expected_index).map_err(|_| ResumeStoreError::Corrupt)?;
@@ -215,6 +225,41 @@ impl BlockCheckpoints {
         .map_err(ResumableTranslationError::Store)
     }
 
+    fn commit_analysis(
+        &mut self,
+        call: &TranslationCall,
+        analysis: DocumentAnalysis,
+    ) -> Result<(), TranslationProviderError> {
+        call.commit(|| {
+            self.analysis = Some(analysis);
+        })
+    }
+
+    fn commit_analysis_persistent(
+        &mut self,
+        call: &TranslationCall,
+        analysis: DocumentAnalysis,
+        cache_key: CacheKey,
+        store: &dyn ResumeStore,
+    ) -> Result<(), ResumableTranslationError> {
+        call.commit(|| {
+            let mut candidate = self.clone();
+            candidate.analysis = Some(analysis);
+            let record = candidate.record(cache_key)?;
+            store.save(&record)?;
+            *self = candidate;
+            Ok::<(), ResumeStoreError>(())
+        })
+        .map_err(|_| ResumableTranslationError::Cancelled)?
+        .map_err(ResumableTranslationError::Store)
+    }
+
+    fn analysis(&self) -> Result<&DocumentAnalysis, TranslationProviderError> {
+        self.analysis
+            .as_ref()
+            .ok_or(TranslationProviderError::Permanent)
+    }
+
     /// Consume this checkpoint set. Succeeds only when every block in the
     /// layout is checkpointed — the type-level enforcement of "no partial
     /// document" (`docs/product-spec.md` §10).
@@ -236,6 +281,7 @@ impl BlockCheckpoints {
 impl fmt::Debug for BlockCheckpoints {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("BlockCheckpoints")
+            .field("has_analysis", &self.analysis.is_some())
             .field("checkpointed", &self.checkpointed_count())
             .field("total_blocks", &self.total_blocks())
             .finish()
@@ -325,6 +371,7 @@ impl std::error::Error for TranslationRunError {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ResumableTranslationError {
     Cancelled,
+    Analysis(TranslationProviderError),
     Block(BlockTranslationError),
     Store(ResumeStoreError),
     Incomplete,
@@ -334,6 +381,7 @@ impl fmt::Display for ResumableTranslationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Cancelled => f.write_str("translation run cancelled"),
+            Self::Analysis(error) => error.fmt(f),
             Self::Block(error) => error.fmt(f),
             Self::Store(error) => error.fmt(f),
             Self::Incomplete => f.write_str("translation run did not complete every block"),
@@ -366,6 +414,31 @@ pub fn translate_resumable(
     let document_total = document_progress_total(document).map_err(|error| {
         ResumableTranslationError::Block(BlockTranslationError::Provider(error))
     })?;
+    if checkpoints.analysis.is_none() {
+        let analysis_call = call
+            .with_document_progress(0, document_total)
+            .map_err(ResumableTranslationError::Analysis)?;
+        analysis_call
+            .progress(TranslationProgress {
+                phase: TranslationProgressPhase::Preparing,
+                done: 0,
+                total: document_total,
+            })
+            .map_err(|error| match error {
+                TranslationProviderError::Cancelled => ResumableTranslationError::Cancelled,
+                other => ResumableTranslationError::Analysis(other),
+            })?;
+        let analysis = provider
+            .analyze_document(&analysis_request(document, plan), &analysis_call.fork())
+            .map_err(|error| match error {
+                TranslationProviderError::Cancelled => ResumableTranslationError::Cancelled,
+                other => ResumableTranslationError::Analysis(other),
+            })?;
+        analysis.validate().map_err(|_| {
+            ResumableTranslationError::Analysis(TranslationProviderError::Permanent)
+        })?;
+        checkpoints.commit_analysis_persistent(call, analysis, cache_key, store)?;
+    }
     let mut document_offset: u32 = 0;
     for block in layout.blocks() {
         let block_total = block_progress_total(document, block).map_err(|error| {
@@ -381,7 +454,18 @@ pub fn translate_resumable(
         }
         call.checkpoint()
             .map_err(|_| ResumableTranslationError::Cancelled)?;
-        let request = request_for_block(document, block, plan);
+        let request = request_for_block(
+            document,
+            block,
+            layout,
+            plan,
+            checkpoints
+                .analysis()
+                .map_err(ResumableTranslationError::Analysis)?,
+        )
+        .map_err(|error| {
+            ResumableTranslationError::Block(BlockTranslationError::Provider(error))
+        })?;
         let block_call = call
             .with_document_progress(document_offset, document_total)
             .map_err(|error| {
@@ -422,6 +506,35 @@ pub fn translate_checkpointed(
 ) -> Result<(), TranslationRunError> {
     let document_total = document_progress_total(document)
         .map_err(|error| TranslationRunError::Block(BlockTranslationError::Provider(error)))?;
+    if checkpoints.analysis.is_none() {
+        let analysis_call = call
+            .with_document_progress(0, document_total)
+            .map_err(|error| TranslationRunError::Block(BlockTranslationError::Provider(error)))?;
+        analysis_call
+            .progress(TranslationProgress {
+                phase: TranslationProgressPhase::Preparing,
+                done: 0,
+                total: document_total,
+            })
+            .map_err(|error| match error {
+                TranslationProviderError::Cancelled => TranslationRunError::Cancelled,
+                other => TranslationRunError::Block(BlockTranslationError::Provider(other)),
+            })?;
+        let analysis = provider
+            .analyze_document(&analysis_request(document, plan), &analysis_call.fork())
+            .map_err(|error| match error {
+                TranslationProviderError::Cancelled => TranslationRunError::Cancelled,
+                other => TranslationRunError::Block(BlockTranslationError::Provider(other)),
+            })?;
+        analysis.validate().map_err(|_| {
+            TranslationRunError::Block(BlockTranslationError::Provider(
+                TranslationProviderError::Permanent,
+            ))
+        })?;
+        checkpoints
+            .commit_analysis(call, analysis)
+            .map_err(|_| TranslationRunError::Cancelled)?;
+    }
     let mut document_offset: u32 = 0;
     for block in layout.blocks() {
         let block_total = block_progress_total(document, block)
@@ -439,7 +552,16 @@ pub fn translate_checkpointed(
         call.checkpoint()
             .map_err(|_error| TranslationRunError::Cancelled)?;
 
-        let request = request_for_block(document, block, plan);
+        let request = request_for_block(
+            document,
+            block,
+            layout,
+            plan,
+            checkpoints.analysis().map_err(|error| {
+                TranslationRunError::Block(BlockTranslationError::Provider(error))
+            })?,
+        )
+        .map_err(|error| TranslationRunError::Block(BlockTranslationError::Provider(error)))?;
         let block_call = call
             .with_document_progress(document_offset, document_total)
             .map_err(|error| TranslationRunError::Block(BlockTranslationError::Provider(error)))?;
@@ -472,11 +594,32 @@ fn block_progress_total(
         .map_err(|_| TranslationProviderError::Permanent)
 }
 
+fn analysis_request(
+    document: &SubtitleDocument,
+    plan: &TranslationPlan,
+) -> DocumentAnalysisRequest {
+    DocumentAnalysisRequest {
+        source_language: plan.source_language.clone(),
+        target_language: plan.target_language.clone(),
+        transcript: document
+            .cues()
+            .iter()
+            .map(|cue| TranslationCue {
+                cue_id: cue.id(),
+                text: cue.lines().join("\n"),
+            })
+            .collect(),
+        context_terms: plan.context_terms.clone(),
+    }
+}
+
 fn request_for_block(
     document: &SubtitleDocument,
     block: &TranslationBlock,
+    layout: &BlockLayout,
     plan: &TranslationPlan,
-) -> TranslationRequest {
+    analysis: &DocumentAnalysis,
+) -> Result<TranslationRequest, TranslationProviderError> {
     let cues = document.cues();
     let context_cues = block
         .context_positions()
@@ -486,13 +629,20 @@ fn request_for_block(
             text: cue.lines().join("\n"),
         })
         .collect();
-    TranslationRequest {
+    Ok(TranslationRequest {
         source_language: plan.source_language.clone(),
         target_language: plan.target_language.clone(),
         context_cues,
         output_cue_ids: block.output_cue_ids(document),
-        context_terms: plan.context_terms.clone(),
-    }
+        analysis: analysis.clone(),
+        block_index: u32::try_from(block.index())
+            .ok()
+            .and_then(|index| index.checked_add(1))
+            .ok_or(TranslationProviderError::Permanent)?,
+        block_count: u32::try_from(layout.blocks().len())
+            .map_err(|_| TranslationProviderError::Permanent)?,
+        mode: TranslationMode::Initial,
+    })
 }
 
 #[cfg(test)]
@@ -532,6 +682,15 @@ mod tests {
         }
     }
 
+    fn test_analysis(call: &TranslationCall) -> Result<DocumentAnalysis, TranslationProviderError> {
+        call.checkpoint()?;
+        Ok(DocumentAnalysis {
+            summary: "Deterministic checkpoint test analysis".to_owned(),
+            characters: Vec::new(),
+            glossary: Vec::new(),
+        })
+    }
+
     /// Always returns a translation identical (as text) to the source cue
     /// text, so every block validates on the first attempt.
     #[derive(Clone)]
@@ -554,6 +713,14 @@ mod tests {
     impl TranslationProvider for EchoProvider {
         fn identity(&self) -> TranslationProviderIdentity {
             TranslationProviderIdentity::new("test", "echo").expect("identity")
+        }
+
+        fn analyze_document(
+            &self,
+            _request: &DocumentAnalysisRequest,
+            call: &TranslationCall,
+        ) -> Result<DocumentAnalysis, TranslationProviderError> {
+            test_analysis(call)
         }
 
         fn translate(
@@ -582,6 +749,14 @@ mod tests {
             TranslationProviderIdentity::new("test", "invalid").expect("identity")
         }
 
+        fn analyze_document(
+            &self,
+            _request: &DocumentAnalysisRequest,
+            call: &TranslationCall,
+        ) -> Result<DocumentAnalysis, TranslationProviderError> {
+            test_analysis(call)
+        }
+
         fn translate(
             &self,
             request: &TranslationRequest,
@@ -607,6 +782,7 @@ mod tests {
         ResumeRecord {
             cache_key: key,
             total_blocks: u32::try_from(layout.blocks().len()).expect("small layout"),
+            analysis: test_analysis(&TranslationCall::without_progress()).expect("analysis"),
             blocks: vec![ResumeBlock {
                 block_index: 0,
                 cues: layout.blocks()[0]
@@ -736,6 +912,14 @@ mod tests {
         impl TranslationProvider for CancelAfterNCalls {
             fn identity(&self) -> TranslationProviderIdentity {
                 self.inner.identity()
+            }
+
+            fn analyze_document(
+                &self,
+                request: &DocumentAnalysisRequest,
+                call: &TranslationCall,
+            ) -> Result<DocumentAnalysis, TranslationProviderError> {
+                self.inner.analyze_document(request, call)
             }
 
             fn translate(
@@ -877,6 +1061,14 @@ mod tests {
             TranslationProviderIdentity::new("test", "progress").expect("identity")
         }
 
+        fn analyze_document(
+            &self,
+            _request: &DocumentAnalysisRequest,
+            call: &TranslationCall,
+        ) -> Result<DocumentAnalysis, TranslationProviderError> {
+            test_analysis(call)
+        }
+
         fn translate(
             &self,
             request: &TranslationRequest,
@@ -997,6 +1189,14 @@ mod tests {
                 TranslationProviderIdentity::new("test", "repair-progress").expect("identity")
             }
 
+            fn analyze_document(
+                &self,
+                _request: &DocumentAnalysisRequest,
+                call: &TranslationCall,
+            ) -> Result<DocumentAnalysis, TranslationProviderError> {
+                test_analysis(call)
+            }
+
             fn translate(
                 &self,
                 request: &TranslationRequest,
@@ -1096,6 +1296,14 @@ mod tests {
         impl TranslationProvider for CancelAfterNCalls {
             fn identity(&self) -> TranslationProviderIdentity {
                 TranslationProviderIdentity::new("test", "cancel-after-n").expect("identity")
+            }
+
+            fn analyze_document(
+                &self,
+                request: &DocumentAnalysisRequest,
+                call: &TranslationCall,
+            ) -> Result<DocumentAnalysis, TranslationProviderError> {
+                ProgressReportingProvider.analyze_document(request, call)
             }
 
             fn translate(

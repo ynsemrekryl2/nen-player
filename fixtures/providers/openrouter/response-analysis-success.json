@@ -1,0 +1,11 @@
+{
+  "choices": [
+    {
+      "message": {
+        "role": "assistant",
+        "content": "{\"summary\":\"Two speakers discuss a fixture.\",\"characters\":[{\"name\":\"PrivateName\",\"description\":\"A concise speaker\"}],\"glossary\":[{\"source\":\"fixture\",\"target\":\"örnek\",\"note\":\"Keep the technical meaning\"}]}",
+        "refusal": null
+      }
+    }
+  ]
+}

@@ -3,7 +3,7 @@ id: NEN-126
 title: Real providers acceptance
 milestone: M6
 size: S
-state: blocked
+state: backlog
 closed:
 depends_on: [NEN-118, NEN-123, NEN-113, NEN-129]
 blocks: []
@@ -35,6 +35,10 @@ burada ilk kez insan-zamanlı gözlenir.
 2026-09-15 — `NEN-129`, canlı kabulde ölçülecek çeviri prompt'u ve provider
 çağrı akışını değiştireceği için bu task beklemeye alındı. `NEN-129` kapanıp
 ADR-0048 kabul edilmeden M6 canlı kalite kanıtı nihai sayılmaz.
+
+2026-09-16 — `NEN-129` doğrulanarak kapandı; ADR-0048 kabul edilmiş durumda ve
+iki-aşamalı provider akışı bütün otomatik kapılardan geçti. Bağımlılık engeli
+çözüldü; bu task yeniden READY.
 
 ## Kapsam
 

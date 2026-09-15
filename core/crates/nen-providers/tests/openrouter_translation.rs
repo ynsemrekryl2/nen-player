@@ -6,8 +6,9 @@ use nen_ports::http::{
 };
 use nen_ports::translation::contract;
 use nen_ports::translation::{
-    TranslationCall, TranslationCue, TranslationProvider, TranslationProviderError,
-    TranslationRequest,
+    AnalysisCharacter, AnalysisGlossaryEntry, DocumentAnalysis, DocumentAnalysisRequest,
+    TranslationCall, TranslationCue, TranslationMode, TranslationProvider,
+    TranslationProviderError, TranslationRequest,
 };
 use nen_providers::openrouter::{
     Clock, OpenRouterPreflightError, OpenRouterTranslationProvider, RetrySleeper,
@@ -36,6 +37,33 @@ fn request() -> TranslationRequest {
             },
         ],
         output_cue_ids: vec![CueId::new(10), CueId::new(20)],
+        analysis: fixture_analysis(),
+        block_index: 1,
+        block_count: 1,
+        mode: TranslationMode::Initial,
+    }
+}
+
+fn fixture_analysis() -> DocumentAnalysis {
+    DocumentAnalysis {
+        summary: "Two speakers discuss a fixture.".into(),
+        characters: vec![AnalysisCharacter {
+            name: "PrivateName".into(),
+            description: "A concise speaker".into(),
+        }],
+        glossary: vec![AnalysisGlossaryEntry {
+            source: "fixture".into(),
+            target: "örnek".into(),
+            note: "Keep the technical meaning".into(),
+        }],
+    }
+}
+
+fn analysis_request() -> DocumentAnalysisRequest {
+    DocumentAnalysisRequest {
+        source_language: LanguageTag::parse("en").expect("source language"),
+        target_language: LanguageTag::parse("tr").expect("target language"),
+        transcript: request().context_cues,
         context_terms: vec!["PrivateName".into()],
     }
 }
@@ -452,6 +480,127 @@ fn chat_request_matches_golden_and_declares_openai_routing() {
 }
 
 #[test]
+fn analysis_request_matches_golden_and_maps_the_validated_result() {
+    let client = SequenceClient::new(vec![
+        Ok(response(
+            200,
+            include_str!(
+                "../../../../fixtures/providers/openrouter/response-analysis-success.json"
+            ),
+        )),
+        supported(),
+    ]);
+    let provider = provider(
+        &client,
+        Arc::new(RecordingSleeper::default()),
+        Arc::new(TestClock::new(100)),
+    );
+    let actual_analysis = provider
+        .analyze_document(&analysis_request(), &TranslationCall::without_progress())
+        .expect("analysis");
+    assert_eq!(actual_analysis, fixture_analysis());
+
+    let requests = client.requests();
+    assert_eq!(requests[0].method, HttpMethod::Get);
+    let actual: Value =
+        serde_json::from_slice(requests[1].body.as_ref().expect("analysis request body"))
+            .expect("request JSON");
+    let expected: Value = serde_json::from_str(include_str!(
+        "../../../../fixtures/providers/openrouter/request-analysis.golden"
+    ))
+    .expect("golden JSON");
+    assert_eq!(actual, expected, "analysis request differs from golden");
+}
+
+#[test]
+fn targeted_and_full_retry_requests_match_their_dynamic_schema_goldens() {
+    let mut targeted = request();
+    targeted.output_cue_ids = vec![CueId::new(20)];
+    targeted.mode = TranslationMode::TargetedRepair;
+    let mut full = request();
+    full.mode = TranslationMode::FullRetry;
+
+    for (request, golden) in [
+        (
+            targeted,
+            include_str!(
+                "../../../../fixtures/providers/openrouter/request-targeted-repair.golden"
+            ),
+        ),
+        (
+            full,
+            include_str!("../../../../fixtures/providers/openrouter/request-full-retry.golden"),
+        ),
+    ] {
+        let client = SequenceClient::new(vec![chat_success(), supported()]);
+        provider(
+            &client,
+            Arc::new(RecordingSleeper::default()),
+            Arc::new(TestClock::new(100)),
+        )
+        .translate(&request, &TranslationCall::without_progress())
+        .expect("translation request");
+        let requests = client.requests();
+        let actual: Value =
+            serde_json::from_slice(requests[1].body.as_ref().expect("translation request body"))
+                .expect("request JSON");
+        let expected: Value = serde_json::from_str(golden).expect("golden JSON");
+        assert_eq!(actual, expected, "mode request differs from golden");
+    }
+}
+
+#[test]
+fn invalid_empty_refused_or_oversized_analysis_never_sends_a_block_post() {
+    for body in [
+        r#"{"choices":[{"message":{"content":"{\"summary\":\"   \",\"characters\":[],\"glossary\":[]}","refusal":null}}]}"#,
+        r#"{"choices":[{"message":{"content":"{\"summary\":\"valid\",\"characters\":[],\"glossary\":[],\"extra\":true}","refusal":null}}]}"#,
+        r#"{"choices":[{"message":{"content":"{}","refusal":"fixture refusal"}}]}"#,
+    ] {
+        let client = SequenceClient::new(vec![Ok(response(200, body)), supported()]);
+        let provider = provider(
+            &client,
+            Arc::new(RecordingSleeper::default()),
+            Arc::new(TestClock::new(100)),
+        );
+        assert_eq!(
+            provider.analyze_document(&analysis_request(), &TranslationCall::without_progress()),
+            Err(TranslationProviderError::Permanent)
+        );
+        assert_eq!(client.method_count(HttpMethod::Post), 1);
+    }
+
+    let oversized_response = SequenceClient::new(vec![
+        Ok(response(200, vec![b'x'; MAX_PROVIDER_BODY_BYTES + 1])),
+        supported(),
+    ]);
+    let oversized_provider = provider(
+        &oversized_response,
+        Arc::new(RecordingSleeper::default()),
+        Arc::new(TestClock::new(100)),
+    );
+    assert_eq!(
+        oversized_provider
+            .analyze_document(&analysis_request(), &TranslationCall::without_progress()),
+        Err(TranslationProviderError::Permanent)
+    );
+    assert_eq!(oversized_response.method_count(HttpMethod::Post), 1);
+
+    let mut oversized = analysis_request();
+    oversized.transcript[0].text = "x".repeat(MAX_PROVIDER_BODY_BYTES);
+    let client = SequenceClient::new(vec![supported()]);
+    let provider = provider(
+        &client,
+        Arc::new(RecordingSleeper::default()),
+        Arc::new(TestClock::new(100)),
+    );
+    assert_eq!(
+        provider.analyze_document(&oversized, &TranslationCall::without_progress()),
+        Err(TranslationProviderError::Permanent)
+    );
+    assert_eq!(client.method_count(HttpMethod::Post), 0);
+}
+
+#[test]
 fn success_response_uses_shared_parser_and_identity() {
     let client = SequenceClient::new(vec![chat_success(), supported()]);
     let provider = provider(
@@ -577,7 +726,10 @@ fn sensitive_openrouter_surfaces_are_shape_only() {
             cue_id: CueId::new(10),
             text: dialogue.into(),
         }],
-        context_terms: vec![secret.into()],
+        analysis: DocumentAnalysis {
+            summary: secret.into(),
+            ..fixture_analysis()
+        },
         ..request()
     };
     let http_request = HttpRequest::post_json(

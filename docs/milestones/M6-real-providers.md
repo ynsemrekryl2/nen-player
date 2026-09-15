@@ -24,6 +24,8 @@ OpenSubtitles, OpenAI ve OpenRouter'ın gerçek entegrasyonu ve kullanıcı API 
   normalizasyonu (gizlilik ADR'siyle), tercih dilinde otomatik indirme (kendi
   ADR'siyle) — kullanıcı kararıyla M6'da (2026-09-11)
 - Uzak medyada gömülü metin çıkarımı (`NEN-044`'ün kapsam dışı bıraktığı yol)
+- Model destekli belge-geneli analiz ve analysis/glossary bağlamlı, repair-kipi
+  açık blok prompt'ları (`NEN-129`)
 
 ## Kapsam dışı
 
@@ -46,6 +48,8 @@ OpenSubtitles, OpenAI ve OpenRouter'ın gerçek entegrasyonu ve kullanıcı API 
 - [ ] Testler kayıtlı fixture ile çalışıyor, ağa çıkmıyor
 - [ ] Belge-geneli çeviri ilerlemesi gerçek (ağ gecikmeli) bir koşuda okunabilir artıyor, geri gitmiyor
 - [ ] Yarıda kesilen bir çeviri yeniden açılışta kaldığı bloktan devam ediyor; yarım artifact görünmüyor
+- [ ] Belge-geneli model analizi bloklardan önce bir kez yapılıyor; aynı
+      doğrulanmış analiz bütün blok ve repair çağrılarında kullanılıyor
 
 ## Kırılım öncesi kapanan kararlar
 
@@ -64,7 +68,7 @@ Kırılım üretilmeden önce dört soru kullanıcı kararıyla kapandı (2026-0
 `NEN-114` · `NEN-115` · `NEN-116` · `NEN-117` · `NEN-107` · `NEN-118` ·
 `NEN-119` · `NEN-120` · `NEN-064` · `NEN-121` · `NEN-122` · `NEN-123` ·
 `NEN-035` · `NEN-124` · `NEN-034` · `NEN-125` · `NEN-038` · `NEN-105` ·
-`NEN-109` · `NEN-126`
+`NEN-109` · `NEN-129` · `NEN-126`
 
 ```
 110 ADR-0020 ─▶ 111 port+fake ─┬─▶ 112 Keychain ─▶ 113 ayarlar UI ─────────────────────┐
@@ -72,22 +76,22 @@ Kırılım üretilmeden önce dört soru kullanıcı kararıyla kapandı (2026-0
                                ├─▶ 120 kimlik uygulamada ─▶ 064 kimlik şeridi ─────────┤
                                │        │                                              │
 114 ADR-0019 ─▶ 115 HTTP POST ─┴─▶ 116 OpenAI ─▶ 117 OpenRouter ─┐                     │
-                                                                  ├─▶ 118 gerçek env ─┬┴─▶ 126 kabul
-102 ─▶ 107 belge-geneli ilerleme ─────────────────────────────────┘                   │
-                                                                                      │
-119 ADR-0021 ─┬─▶ 121 aday katalog ─▶ 122 güvenli indirme ─▶ 123 macOS menü ──────────┘
+102 ─▶ 107 belge-geneli ilerleme ────────────────────────────────┴─▶ 118 gerçek env ─┐ │
+096 ─▶ 105 kalıcı checkpoint ───────────────────────────────────────────────────────┴─▶ 129 iki-aşama ─┬─▶ 126 kabul
+119 ADR-0021 ─┬─▶ 121 aday katalog ─▶ 122 güvenli indirme ─▶ 123 macOS menü ────────────────────────────┘
 120 ──────────┤                              │
 035 skor ─────┘                              └─▶ 125 ADR-0047 ─▶ 038 auto-download
 124 ADR-0046 ─┬─▶ 034 AI release-name
 116 ──────────┘
-096 ─▶ 105 kalıcı checkpoint        044 ─▶ 109 uzak gömülü metin   (bağımsız)
+044 ─▶ 109 uzak gömülü metin   (bağımsız)
 ```
 
 Üç kol var ve üçü de credential kapısına (`NEN-110`/`NEN-111`) bağlanıyor:
 **kimlik** (120 → 064 → 121), **OpenSubtitles** (119 → 121 → 122 → 123) ve
-**çeviri** (114 → 115 → 116 → 117 → 118). `NEN-107` gerçek sağlayıcıdan
+**çeviri** (114 → 115 → 116 → 117 → 118 → 129). `NEN-107` gerçek sağlayıcıdan
 **önce** gelir — dakikalarca süren bir işte kullanıcı blok sırası değil yüzde
-görmeli. `NEN-105`, `NEN-109`, `NEN-035` kritik yolun dışında.
+görmeli. `NEN-105`, `NEN-129` ile resume edilen analysis için kritik yola
+bağlanır; `NEN-109` ve `NEN-035` kritik yolun dışında.
 
 ### Çıkış kriteri → kanıt eşlemesi
 
@@ -101,6 +105,7 @@ görmeli. `NEN-105`, `NEN-109`, `NEN-035` kritik yolun dışında.
 | Testler fixture ile, ağa çıkmıyor | `NEN-116` / `NEN-117` / `NEN-121` / `NEN-122` (`fixtures/providers/` redakte replay); `NEN-126`'nın tek manuel koşusu test değil |
 | Belge-geneli ilerleme okunabilir, geri gitmiyor | `NEN-107` (negatif: retry'da geri gitmez) · `NEN-126` (gerçek gecikmeyle) |
 | Yarıda kesilen çeviri devam ediyor | `NEN-105` (negatif: yarım artifact yok) |
+| Belge analizi tek çağrı, blok/repair bağlamı tutarlı | `NEN-129` (contract + golden + negatifler) · `NEN-126` (canlı EN→TR) |
 
 ### ADR'ler
 
@@ -111,10 +116,11 @@ görmeli. `NEN-105`, `NEN-109`, `NEN-035` kritik yolun dışında.
 | **0021** | OpenSubtitles entegrasyon sınırları: opaque public ID, arama, seçimde indirme, indirme güvenliği | `NEN-119` |
 | **0040** | OpenSubtitles hash kimlik provider sınırı (`accepted`, 2026-09-06) | `NEN-033` |
 | **0046** | Dosya adının AI normalizasyonuna gönderilmesi — gizlilik | `NEN-124` |
-| **0047** | Tercih dilinde otomatik indirme sözleşmesi (ADR-0010 Karar 9'un üçüncü basamağı) | `NEN-125` |
+| **0047** | Tercih dilinde otomatik altyazı indirme sözleşmesi (ADR-0010 Karar 9'un üçüncü basamağı) | `NEN-125` |
+| **0048** | Model destekli belge-geneli analiz, iki-aşamalı prompt ve resume/cache sınırı | `NEN-129` |
 
-Açılışta 0040 dışındakiler yazılmamış; her biri kendi task'ında `proposed`
-yazılır, kullanıcı onayıyla `accepted` olur (Kural 4).
+ADR-0048 `NEN-129` başlarken yazıldı ve kullanıcı onayıyla `accepted` oldu;
+üretim koduna bu onaydan sonra geçildi (Kural 4).
 
 ## Bağımlılıklar
 

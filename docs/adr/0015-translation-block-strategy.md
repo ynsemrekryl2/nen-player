@@ -174,3 +174,9 @@ Bağlam çıkarım kuralı (madde 3) ve overlap doğrulama kapısı (madde 1), t
 `NEN-089`'un kendi ön koşulunun ("ne tutulur, ne kadar büyür") ilk taslakta
 eksik bıraktığı iki nokta olarak 2026-09-08'de kullanıcı kararıyla eklendi;
 ADR'nin geri kalanı ilk taslaktan değişmedi.
+
+2026-09-15 — [ADR-0048](0048-two-stage-model-assisted-translation.md), bu
+ADR'nin M6'ya ertelediği model destekli belge analizini açtı. Madde 3'teki
+deterministik yerel terimler kaldırılmadı: tam transcript ile birlikte analysis
+isteğine aday bağlam olarak giriyor. Doğrulanmış model analysis'i ise resume
+kaydında saklanıp bütün blok ve repair isteklerinde aynen kullanılıyor.

@@ -234,9 +234,11 @@ handoff / dosya seçimi
                             └─────────► AI çeviri komutunun KAYNAĞI olur
   → kullanıcı açıkça "AI ile çevir" der
       → TranslationOrchestrator(job)
-      → context analizi
+      → yerel context adayları
+      → provider belge analizi (tam transcript, strict schema)
+      → doğrulanmış analysis atomik resume kaydına yazılır
       → overlapping blocklar (40 / overlap 6)
-      → her blok: strict validation → checkpoint
+      → her blok/repair: aynı analysis → strict local validation → checkpoint
       → TÜM belge doğrulandı
       → atomik artifact commit
   → artifact hedef dil grubuna eklenir  (zorla geçiş YOK)
@@ -269,13 +271,18 @@ ilgili kaynağı hatalı işaretler.
 
 | Port | Sorumluluk | İlk adapter |
 |---|---|---|
-| `TranslationProvider` | Cue ID + metin tabanlı untrusted blok cevabı; caller-owned cancellation/progress gate; payload'sız transient/permanent hata sınıfı | `nen-providers::translation_mock::MockTranslationProvider` (deterministic, ağsız) |
+| `TranslationProvider` | Tek belge-geneli analysis çağrısı + Cue ID/metin tabanlı blok çağrıları; caller-owned cancellation/progress gate; payload'sız transient/permanent hata sınıfı | `nen-providers::translation_mock::MockTranslationProvider` (deterministic, ağsız) |
 | `TranslationProvider` · OpenAI | Responses API `/v1/responses`; `store: false`; strict `text.format.json_schema`; ortak payload ve local validation | `nen-providers` OpenAI adapter'ı (`NEN-116`); credential `SecureCredentialStore`'dan gelir |
 | `TranslationProvider` · OpenRouter | Chat Completions `/api/v1/chat/completions`; strict `response_format.json_schema`; `OpenAI` upstream sabitlemesi; `structured_outputs` preflight | `nen-providers` OpenRouter adapter'ı (`NEN-117`); varsayılan `openai/gpt-5.6-luna` |
 
 Translation provider portu senkron ve object-safe'tir; worker/job yaşam
 döngüsü caller'a aittir ([ADR-0004](adr/0004-async-cancellation-progress.md)).
-Provider'a `TimeSpan` verilmez; cevap yalnız `CueId + text` taşır ve yerel
-doğrulama geçene kadar güvenilmez (`NEN-091`, ADR-0016).
+Cache miss'te tam transcript önce bir kez analiz edilir; doğrulanmış
+`DocumentAnalysis` blok 0'dan önce resume kaydına yazılır ve initial,
+targeted-repair ve full-retry isteklerinin tamamında aynen kullanılır
+([ADR-0048](adr/0048-two-stage-model-assisted-translation.md)). Provider'a
+`TimeSpan`, medya başlığı, path, URL veya hash verilmez; blok cevabı yalnız
+`CueId + text` taşır ve yerel doğrulama geçene kadar güvenilmez (`NEN-091`,
+ADR-0016).
 
 Ok yönü tek yönlüdür; `nen-domain` hiçbir şeye bağlı değildir.

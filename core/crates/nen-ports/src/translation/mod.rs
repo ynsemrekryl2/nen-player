@@ -11,6 +11,11 @@ use nen_domain::subtitle::CueId;
 use std::fmt;
 use std::sync::{Arc, Mutex, MutexGuard};
 
+/// Cache-visible contract versions shared by pipeline and provider adapters
+/// (ADR-0048). Keeping them at the port boundary prevents wire/pipeline drift.
+pub const PROMPT_VERSION: u32 = 2;
+pub const SCHEMA_VERSION: u32 = 2;
+
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct TranslationProviderIdentity {
     provider: String,
@@ -62,12 +67,131 @@ impl fmt::Debug for TranslationCue {
 }
 
 #[derive(Clone, PartialEq, Eq)]
+pub struct AnalysisCharacter {
+    pub name: String,
+    pub description: String,
+}
+
+impl fmt::Debug for AnalysisCharacter {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AnalysisCharacter")
+            .field("name_len", &self.name.chars().count())
+            .field("description_len", &self.description.chars().count())
+            .finish()
+    }
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub struct AnalysisGlossaryEntry {
+    pub source: String,
+    pub target: String,
+    pub note: String,
+}
+
+impl fmt::Debug for AnalysisGlossaryEntry {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AnalysisGlossaryEntry")
+            .field("source_len", &self.source.chars().count())
+            .field("target_len", &self.target.chars().count())
+            .field("note_len", &self.note.chars().count())
+            .finish()
+    }
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub struct DocumentAnalysis {
+    pub summary: String,
+    pub characters: Vec<AnalysisCharacter>,
+    pub glossary: Vec<AnalysisGlossaryEntry>,
+}
+
+impl DocumentAnalysis {
+    /// Re-validates provider and disk data before it can become block context.
+    pub fn validate(&self) -> Result<(), DocumentAnalysisValidationError> {
+        if self.summary.trim().is_empty() {
+            return Err(DocumentAnalysisValidationError::EmptySummary);
+        }
+        if self.characters.iter().any(|character| {
+            character.name.trim().is_empty() || character.description.trim().is_empty()
+        }) {
+            return Err(DocumentAnalysisValidationError::EmptyCharacterField);
+        }
+        if self.glossary.iter().any(|entry| {
+            entry.source.trim().is_empty()
+                || entry.target.trim().is_empty()
+                || entry.note.trim().is_empty()
+        }) {
+            return Err(DocumentAnalysisValidationError::EmptyGlossaryField);
+        }
+        Ok(())
+    }
+}
+
+impl fmt::Debug for DocumentAnalysis {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("DocumentAnalysis")
+            .field("summary_len", &self.summary.chars().count())
+            .field("character_count", &self.characters.len())
+            .field("glossary_count", &self.glossary.len())
+            .finish()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DocumentAnalysisValidationError {
+    EmptySummary,
+    EmptyCharacterField,
+    EmptyGlossaryField,
+}
+
+impl fmt::Display for DocumentAnalysisValidationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::EmptySummary => "document analysis summary is empty",
+            Self::EmptyCharacterField => "document analysis character field is empty",
+            Self::EmptyGlossaryField => "document analysis glossary field is empty",
+        })
+    }
+}
+
+impl std::error::Error for DocumentAnalysisValidationError {}
+
+#[derive(Clone, PartialEq, Eq)]
+pub struct DocumentAnalysisRequest {
+    pub source_language: LanguageTag,
+    pub target_language: LanguageTag,
+    pub transcript: Vec<TranslationCue>,
+    pub context_terms: Vec<String>,
+}
+
+impl fmt::Debug for DocumentAnalysisRequest {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("DocumentAnalysisRequest")
+            .field("source_language", &self.source_language)
+            .field("target_language", &self.target_language)
+            .field("transcript_cue_count", &self.transcript.len())
+            .field("context_term_count", &self.context_terms.len())
+            .finish()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TranslationMode {
+    Initial,
+    TargetedRepair,
+    FullRetry,
+}
+
+#[derive(Clone, PartialEq, Eq)]
 pub struct TranslationRequest {
     pub source_language: LanguageTag,
     pub target_language: LanguageTag,
     pub context_cues: Vec<TranslationCue>,
     pub output_cue_ids: Vec<CueId>,
-    pub context_terms: Vec<String>,
+    pub analysis: DocumentAnalysis,
+    pub block_index: u32,
+    pub block_count: u32,
+    pub mode: TranslationMode,
 }
 
 impl fmt::Debug for TranslationRequest {
@@ -77,7 +201,10 @@ impl fmt::Debug for TranslationRequest {
             .field("target_language", &self.target_language)
             .field("context_cue_count", &self.context_cues.len())
             .field("output_cue_count", &self.output_cue_ids.len())
-            .field("context_term_count", &self.context_terms.len())
+            .field("analysis", &self.analysis)
+            .field("block_index", &self.block_index)
+            .field("block_count", &self.block_count)
+            .field("mode", &self.mode)
             .finish()
     }
 }
@@ -274,7 +401,7 @@ impl TranslationCall {
         // provider contract; it only changes what a scoped sink receives.
         let delivered = self.map_document_progress(progress)?;
         *last_progress = Some(progress);
-        if let Some(sink) = state.sink.as_ref() {
+        if let (Some(sink), Some(delivered)) = (state.sink.as_ref(), delivered) {
             sink.on_progress(delivered);
         }
         Ok(())
@@ -324,9 +451,9 @@ impl TranslationCall {
     fn map_document_progress(
         &self,
         progress: TranslationProgress,
-    ) -> Result<TranslationProgress, TranslationProviderError> {
+    ) -> Result<Option<TranslationProgress>, TranslationProviderError> {
         let Some(scope) = self.document_scope else {
-            return Ok(progress);
+            return Ok(Some(progress));
         };
         let candidate = scope
             .offset
@@ -354,8 +481,11 @@ impl TranslationCall {
             done,
             total: scope.total,
         };
+        if state.last == Some(delivered) {
+            return Ok(None);
+        }
         state.last = Some(delivered);
-        Ok(delivered)
+        Ok(Some(delivered))
     }
 }
 
@@ -369,6 +499,12 @@ impl fmt::Debug for TranslationCall {
 
 pub trait TranslationProvider: Send + Sync {
     fn identity(&self) -> TranslationProviderIdentity;
+
+    fn analyze_document(
+        &self,
+        request: &DocumentAnalysisRequest,
+        call: &TranslationCall,
+    ) -> Result<DocumentAnalysis, TranslationProviderError>;
 
     fn translate(
         &self,
@@ -517,7 +653,21 @@ mod tests {
             target_language: LanguageTag::parse("tr").expect("language"),
             context_cues: vec![cue.clone()],
             output_cue_ids: vec![cue.cue_id],
-            context_terms: vec![secret.into()],
+            analysis: DocumentAnalysis {
+                summary: secret.into(),
+                characters: vec![AnalysisCharacter {
+                    name: secret.into(),
+                    description: secret.into(),
+                }],
+                glossary: vec![AnalysisGlossaryEntry {
+                    source: secret.into(),
+                    target: secret.into(),
+                    note: secret.into(),
+                }],
+            },
+            block_index: 1,
+            block_count: 1,
+            mode: TranslationMode::Initial,
         };
         let response = TranslationResponse {
             cues: vec![TranslatedCue {
@@ -533,6 +683,43 @@ mod tests {
         ] {
             assert!(!output.contains(secret));
         }
+    }
+
+    #[test]
+    fn document_analysis_rejects_every_empty_required_text_field() {
+        let valid = DocumentAnalysis {
+            summary: "summary".into(),
+            characters: vec![AnalysisCharacter {
+                name: "name".into(),
+                description: "description".into(),
+            }],
+            glossary: vec![AnalysisGlossaryEntry {
+                source: "source".into(),
+                target: "target".into(),
+                note: "note".into(),
+            }],
+        };
+        assert_eq!(valid.validate(), Ok(()));
+
+        let mut empty_summary = valid.clone();
+        empty_summary.summary = " \n ".into();
+        let mut empty_character = valid.clone();
+        empty_character.characters[0].description.clear();
+        let mut empty_glossary = valid;
+        empty_glossary.glossary[0].target.clear();
+
+        assert_eq!(
+            empty_summary.validate(),
+            Err(DocumentAnalysisValidationError::EmptySummary)
+        );
+        assert_eq!(
+            empty_character.validate(),
+            Err(DocumentAnalysisValidationError::EmptyCharacterField)
+        );
+        assert_eq!(
+            empty_glossary.validate(),
+            Err(DocumentAnalysisValidationError::EmptyGlossaryField)
+        );
     }
 
     #[test]

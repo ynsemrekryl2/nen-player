@@ -15,8 +15,8 @@ use std::time::Duration;
 use nen_domain::source::LanguageTag;
 use nen_domain::subtitle::{Cue, CueId, SubtitleDocument, TimeSpan};
 use nen_ports::translation::{
-    TranslatedCue, TranslationCall, TranslationProvider, TranslationProviderError,
-    TranslationProviderIdentity, TranslationRequest, TranslationResponse,
+    DocumentAnalysis, DocumentAnalysisRequest, TranslatedCue, TranslationCall, TranslationProvider,
+    TranslationProviderError, TranslationProviderIdentity, TranslationRequest, TranslationResponse,
 };
 use nen_translate::blocks::{BlockLayout, BlockLayoutConfig};
 use nen_translate::checkpoint::{
@@ -65,6 +65,19 @@ struct StallOnceProvider {
 impl TranslationProvider for StallOnceProvider {
     fn identity(&self) -> TranslationProviderIdentity {
         TranslationProviderIdentity::new("test", "stall-once").expect("identity")
+    }
+
+    fn analyze_document(
+        &self,
+        _request: &DocumentAnalysisRequest,
+        call: &TranslationCall,
+    ) -> Result<DocumentAnalysis, TranslationProviderError> {
+        call.checkpoint()?;
+        Ok(DocumentAnalysis {
+            summary: "Cancellation test analysis".to_owned(),
+            characters: Vec::new(),
+            glossary: Vec::new(),
+        })
     }
 
     fn translate(
@@ -220,6 +233,19 @@ fn run_error_debug_and_display_never_leak_cue_text() {
     impl TranslationProvider for EmptyTextProvider {
         fn identity(&self) -> TranslationProviderIdentity {
             TranslationProviderIdentity::new("test", "empty").expect("identity")
+        }
+
+        fn analyze_document(
+            &self,
+            _request: &DocumentAnalysisRequest,
+            call: &TranslationCall,
+        ) -> Result<DocumentAnalysis, TranslationProviderError> {
+            call.checkpoint()?;
+            Ok(DocumentAnalysis {
+                summary: "Redaction test analysis".to_owned(),
+                characters: Vec::new(),
+                glossary: Vec::new(),
+            })
         }
 
         fn translate(

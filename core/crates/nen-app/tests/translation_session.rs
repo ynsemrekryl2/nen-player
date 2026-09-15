@@ -32,8 +32,8 @@ use nen_persist::FilesystemArtifactStore;
 use nen_ports::persistence::{ArtifactIndex, ArtifactStore, ResumeRecord, ResumeStore};
 use nen_ports::translation::TranslationProvider;
 use nen_ports::translation::{
-    TranslationCall, TranslationProviderError, TranslationProviderIdentity, TranslationRequest,
-    TranslationResponse,
+    DocumentAnalysis, DocumentAnalysisRequest, TranslationCall, TranslationProviderError,
+    TranslationProviderIdentity, TranslationRequest, TranslationResponse,
 };
 use nen_providers::translation_mock::MockTranslationProvider;
 use nen_translate::artifact::{ArtifactId, ArtifactTimestamp, GlossaryIdentity};
@@ -150,6 +150,14 @@ impl FailAfterOneProvider {
 impl TranslationProvider for FailAfterOneProvider {
     fn identity(&self) -> TranslationProviderIdentity {
         self.inner.identity()
+    }
+
+    fn analyze_document(
+        &self,
+        request: &DocumentAnalysisRequest,
+        call: &TranslationCall,
+    ) -> Result<DocumentAnalysis, TranslationProviderError> {
+        self.inner.analyze_document(request, call)
     }
 
     fn translate(
@@ -311,6 +319,11 @@ fn a_cache_hit_never_calls_the_provider_while_a_changed_block_layout_does() {
         .save(&ResumeRecord {
             cache_key: first.record.cache_identity,
             total_blocks: 1,
+            analysis: DocumentAnalysis {
+                summary: "Stale resume analysis".into(),
+                characters: Vec::new(),
+                glossary: Vec::new(),
+            },
             blocks: Vec::new(),
         })
         .expect("stale resume fixture");

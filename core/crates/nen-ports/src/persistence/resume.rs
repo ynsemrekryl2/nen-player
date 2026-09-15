@@ -4,6 +4,7 @@ use nen_domain::subtitle::CueId;
 use std::fmt;
 
 use super::CacheKey;
+use crate::translation::DocumentAnalysis;
 
 /// A defensive upper bound for one resume snapshot read from untrusted disk.
 pub const MAX_RESUME_BYTES: usize = 16 * 1024 * 1024;
@@ -45,6 +46,7 @@ impl fmt::Debug for ResumeBlock {
 pub struct ResumeRecord {
     pub cache_key: CacheKey,
     pub total_blocks: u32,
+    pub analysis: DocumentAnalysis,
     pub blocks: Vec<ResumeBlock>,
 }
 
@@ -53,6 +55,7 @@ impl fmt::Debug for ResumeRecord {
         f.debug_struct("ResumeRecord")
             .field("cache_key", &self.cache_key)
             .field("total_blocks", &self.total_blocks)
+            .field("analysis", &self.analysis)
             .field("checkpointed_blocks", &self.blocks.len())
             .finish()
     }

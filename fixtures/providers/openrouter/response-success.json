@@ -5,7 +5,7 @@
       "index": 0,
       "message": {
         "role": "assistant",
-        "content": "{\"cues\":[{\"cue_id\":10,\"text\":\"İlk OpenRouter satırı\"},{\"cue_id\":20,\"text\":\"İkinci OpenRouter satırı\"}]}",
+        "content": "{\"translations\":[{\"cueId\":10,\"text\":\"İlk OpenRouter satırı\"},{\"cueId\":20,\"text\":\"İkinci OpenRouter satırı\"}]}",
         "refusal": null
       }
     }

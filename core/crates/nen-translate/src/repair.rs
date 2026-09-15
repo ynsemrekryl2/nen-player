@@ -10,7 +10,7 @@ use crate::blocks::TranslationBlock;
 use crate::validation::{validate_block, BlockViolation, ValidatedBlock};
 use nen_domain::subtitle::SubtitleDocument;
 use nen_ports::translation::{
-    TranslatedCue, TranslationCall, TranslationProvider, TranslationProviderError,
+    TranslatedCue, TranslationCall, TranslationMode, TranslationProvider, TranslationProviderError,
     TranslationRequest, TranslationResponse,
 };
 use std::fmt;
@@ -134,8 +134,10 @@ pub fn translate_block_with_repair(
     }
 
     let full_block_retries = MAX_FULL_BLOCK_RETRIES;
+    let mut full_retry_request = request.clone();
+    full_retry_request.mode = TranslationMode::FullRetry;
     let retry_response = provider
-        .translate(request, &call.fork())
+        .translate(&full_retry_request, &call.fork())
         .map_err(BlockTranslationError::Provider)?;
     match validate_block(document, block, &retry_response) {
         Ok(validated) => Ok(validated),
@@ -154,6 +156,7 @@ fn request_for_ids(
 ) -> TranslationRequest {
     let mut repair_request = request.clone();
     repair_request.output_cue_ids = cue_ids.to_vec();
+    repair_request.mode = TranslationMode::TargetedRepair;
     repair_request
 }
 
@@ -179,7 +182,8 @@ mod tests {
     use nen_domain::source::LanguageTag;
     use nen_domain::subtitle::{Cue, CueId, TimeSpan};
     use nen_ports::translation::{
-        TranslationCue, TranslationProgress, TranslationProgressPhase, TranslationProviderIdentity,
+        DocumentAnalysis, DocumentAnalysisRequest, TranslationCue, TranslationProgress,
+        TranslationProgressPhase, TranslationProviderIdentity,
     };
     use std::sync::{Arc, Mutex};
 
@@ -223,7 +227,14 @@ mod tests {
                 },
             ],
             output_cue_ids: vec![CueId::new(1), CueId::new(2), CueId::new(3)],
-            context_terms: vec!["Name".into()],
+            analysis: DocumentAnalysis {
+                summary: "Repair test analysis".into(),
+                characters: Vec::new(),
+                glossary: Vec::new(),
+            },
+            block_index: 1,
+            block_count: 1,
+            mode: TranslationMode::Initial,
         }
     }
 
@@ -284,6 +295,19 @@ mod tests {
     impl TranslationProvider for ScriptedProvider {
         fn identity(&self) -> TranslationProviderIdentity {
             TranslationProviderIdentity::new("test", "scripted").expect("identity")
+        }
+
+        fn analyze_document(
+            &self,
+            _request: &DocumentAnalysisRequest,
+            call: &TranslationCall,
+        ) -> Result<DocumentAnalysis, TranslationProviderError> {
+            call.checkpoint()?;
+            Ok(DocumentAnalysis {
+                summary: "Repair test analysis".into(),
+                characters: Vec::new(),
+                glossary: Vec::new(),
+            })
         }
 
         fn translate(
@@ -396,11 +420,12 @@ mod tests {
         assert_eq!(targeted.source_language, request().source_language);
         assert_eq!(targeted.target_language, request().target_language);
         assert_eq!(targeted.context_cues, request().context_cues);
-        assert_eq!(targeted.context_terms, request().context_terms);
+        assert_eq!(targeted.analysis, request().analysis);
+        assert_eq!(targeted.mode, TranslationMode::TargetedRepair);
     }
 
     #[test]
-    fn unknown_only_response_skips_targeted_repair_and_uses_full_retry() {
+    fn unknown_only_response_repairs_the_full_missing_set_as_targeted() {
         let provider = ScriptedProvider::new(vec![
             TranslationResponse {
                 cues: vec![TranslatedCue {
@@ -426,6 +451,7 @@ mod tests {
                 vec![CueId::new(1), CueId::new(2), CueId::new(3)],
             ]
         );
+        assert_eq!(provider.requests()[1].mode, TranslationMode::TargetedRepair);
     }
 
     #[test]
@@ -452,6 +478,19 @@ mod tests {
         assert_eq!(error.targeted_repairs(), Some(2));
         assert_eq!(error.full_block_retries(), Some(1));
         assert!(error.violations().is_some());
+        assert_eq!(
+            provider
+                .requests()
+                .iter()
+                .map(|request| request.mode)
+                .collect::<Vec<_>>(),
+            vec![
+                TranslationMode::Initial,
+                TranslationMode::TargetedRepair,
+                TranslationMode::TargetedRepair,
+                TranslationMode::FullRetry,
+            ]
+        );
     }
 
     #[test]

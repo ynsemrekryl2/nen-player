@@ -1,3 +1,3 @@
 {
-  "output_text": "{\"cues\":[{\"cue_id\":10,\"text\":\"İlk tekrar\"},{\"cue_id\":10,\"text\":\"İkinci tekrar\"}]}"
+  "output_text": "{\"translations\":[{\"cueId\":10,\"text\":\"İlk tekrar\"},{\"cueId\":10,\"text\":\"İkinci tekrar\"}]}"
 }

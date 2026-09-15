@@ -6,8 +6,9 @@ use nen_ports::http::{
 };
 use nen_ports::translation::contract;
 use nen_ports::translation::{
-    TranslationCall, TranslationCue, TranslationProvider, TranslationProviderError,
-    TranslationRequest,
+    AnalysisCharacter, AnalysisGlossaryEntry, DocumentAnalysis, DocumentAnalysisRequest,
+    TranslationCall, TranslationCue, TranslationMode, TranslationProvider,
+    TranslationProviderError, TranslationRequest,
 };
 use nen_providers::openai::{
     OpenAiTranslationProvider, RetrySleeper, MAX_PROVIDER_BODY_BYTES, OPENAI_RESPONSES_ENDPOINT,
@@ -34,6 +35,33 @@ fn request() -> TranslationRequest {
             },
         ],
         output_cue_ids: vec![CueId::new(10), CueId::new(20)],
+        analysis: fixture_analysis(),
+        block_index: 1,
+        block_count: 1,
+        mode: TranslationMode::Initial,
+    }
+}
+
+fn fixture_analysis() -> DocumentAnalysis {
+    DocumentAnalysis {
+        summary: "Two speakers discuss a fixture.".into(),
+        characters: vec![AnalysisCharacter {
+            name: "PrivateName".into(),
+            description: "A concise speaker".into(),
+        }],
+        glossary: vec![AnalysisGlossaryEntry {
+            source: "fixture".into(),
+            target: "örnek".into(),
+            note: "Keep the technical meaning".into(),
+        }],
+    }
+}
+
+fn analysis_request() -> DocumentAnalysisRequest {
+    DocumentAnalysisRequest {
+        source_language: LanguageTag::parse("en").expect("source language"),
+        target_language: LanguageTag::parse("tr").expect("target language"),
+        transcript: request().context_cues,
         context_terms: vec!["PrivateName".into()],
     }
 }
@@ -223,6 +251,115 @@ fn request_matches_golden_and_uses_the_approved_transport_shape() {
     ))
     .expect("golden JSON");
     assert!(actual == expected, "request JSON differs from golden");
+}
+
+#[test]
+fn analysis_request_matches_golden_and_maps_the_validated_result() {
+    let client = SequenceClient::new(vec![Ok(response(
+        200,
+        include_str!("../../../../fixtures/providers/openai/response-analysis-success.json"),
+    ))]);
+    let actual_analysis = provider(&client, Arc::new(RecordingSleeper::default()))
+        .analyze_document(&analysis_request(), &TranslationCall::without_progress())
+        .expect("analysis");
+    assert_eq!(actual_analysis, fixture_analysis());
+
+    let sent = client.first_request();
+    let actual: Value =
+        serde_json::from_slice(sent.body.as_ref().expect("request body")).expect("request JSON");
+    let expected: Value = serde_json::from_str(include_str!(
+        "../../../../fixtures/providers/openai/request-analysis.golden"
+    ))
+    .expect("golden JSON");
+    assert_eq!(actual, expected, "analysis request differs from golden");
+
+    let input: Value = serde_json::from_str(actual["input"].as_str().expect("input JSON"))
+        .expect("embedded input JSON");
+    for forbidden in [
+        "title",
+        "path",
+        "basename",
+        "url",
+        "mediaHash",
+        "startTime",
+        "endTime",
+    ] {
+        assert!(
+            input.get(forbidden).is_none(),
+            "forbidden field {forbidden}"
+        );
+    }
+}
+
+#[test]
+fn targeted_and_full_retry_requests_match_their_dynamic_schema_goldens() {
+    let mut targeted = request();
+    targeted.output_cue_ids = vec![CueId::new(20)];
+    targeted.mode = TranslationMode::TargetedRepair;
+    let mut full = request();
+    full.mode = TranslationMode::FullRetry;
+
+    for (request, golden) in [
+        (
+            targeted,
+            include_str!("../../../../fixtures/providers/openai/request-targeted-repair.golden"),
+        ),
+        (
+            full,
+            include_str!("../../../../fixtures/providers/openai/request-full-retry.golden"),
+        ),
+    ] {
+        let client = SequenceClient::new(vec![Ok(response(
+            200,
+            include_str!("../../../../fixtures/providers/openai/response-success.json"),
+        ))]);
+        provider(&client, Arc::new(RecordingSleeper::default()))
+            .translate(&request, &TranslationCall::without_progress())
+            .expect("translation request");
+        let actual: Value =
+            serde_json::from_slice(client.first_request().body.as_ref().expect("request body"))
+                .expect("request JSON");
+        let expected: Value = serde_json::from_str(golden).expect("golden JSON");
+        assert_eq!(actual, expected, "mode request differs from golden");
+    }
+}
+
+#[test]
+fn invalid_empty_refused_or_oversized_analysis_is_a_permanent_local_failure() {
+    for body in [
+        r#"{"output_text":"{\"summary\":\"   \",\"characters\":[],\"glossary\":[]}"}"#,
+        r#"{"output_text":"{\"summary\":\"valid\",\"characters\":[],\"glossary\":[],\"extra\":true}"}"#,
+        include_str!("../../../../fixtures/providers/openai/response-refusal.json"),
+    ] {
+        let client = SequenceClient::new(vec![Ok(response(200, body))]);
+        assert_eq!(
+            provider(&client, Arc::new(RecordingSleeper::default()))
+                .analyze_document(&analysis_request(), &TranslationCall::without_progress()),
+            Err(TranslationProviderError::Permanent)
+        );
+        assert_eq!(client.request_count(), 1);
+    }
+
+    let oversized_response = SequenceClient::new(vec![Ok(response(
+        200,
+        vec![b'x'; MAX_PROVIDER_BODY_BYTES + 1],
+    ))]);
+    assert_eq!(
+        provider(&oversized_response, Arc::new(RecordingSleeper::default()))
+            .analyze_document(&analysis_request(), &TranslationCall::without_progress()),
+        Err(TranslationProviderError::Permanent)
+    );
+    assert_eq!(oversized_response.request_count(), 1);
+
+    let mut oversized = analysis_request();
+    oversized.transcript[0].text = "x".repeat(MAX_PROVIDER_BODY_BYTES);
+    let client = SequenceClient::new(Vec::new());
+    assert_eq!(
+        provider(&client, Arc::new(RecordingSleeper::default()))
+            .analyze_document(&oversized, &TranslationCall::without_progress()),
+        Err(TranslationProviderError::Permanent)
+    );
+    assert_eq!(client.request_count(), 0, "oversized analysis is not sent");
 }
 
 #[test]
@@ -501,7 +638,10 @@ fn sensitive_provider_surfaces_are_shape_only() {
             cue_id: CueId::new(10),
             text: dialogue.into(),
         }],
-        context_terms: vec![secret.into()],
+        analysis: DocumentAnalysis {
+            summary: secret.into(),
+            ..fixture_analysis()
+        },
         ..request()
     };
     let provider_client = SequenceClient::new(Vec::new());

@@ -6,7 +6,7 @@
       "content": [
         {
           "type": "output_text",
-          "text": "{\"cues\":[{\"cue_id\":10,\"text\":\"İlk fixture satırı\"},{\"cue_id\":20,\"text\":\"İkinci fixture satırı\"}]}"
+          "text": "{\"translations\":[{\"cueId\":10,\"text\":\"İlk fixture satırı\"},{\"cueId\":20,\"text\":\"İkinci fixture satırı\"}]}"
         }
       ]
     }
