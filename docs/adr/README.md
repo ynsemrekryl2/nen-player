@@ -45,6 +45,7 @@ Süreç: [`0001-adr-process.md`](0001-adr-process.md) · Şablon:
 | [0045](0045-embedded-text-demux-path.md) | Gömülü altyazı metninin demux yolu | ✅ accepted | M5 |
 | [0046](0046-filename-privacy-for-ai-normalization.md) | Dosya adının AI destekli normalizasyona gönderilmesi — gizlilik ve izin modeli | ✅ accepted | M6 |
 | [0047](0047-preferred-language-auto-download.md) | Tercih dilinde otomatik altyazı indirme sözleşmesi | ✅ accepted | M6 |
+| [0048](0048-two-stage-model-assisted-translation.md) | İki aşamalı model destekli altyazı çevirisi | ✅ accepted | M6 |
 | [0002](0002-core-language.md) | Shared core dili — go/no-go kapısı | ✅ accepted | M1 |
 | [0027](0027-performance-budget.md) | Performans bütçeleri — M1 baseline'larından marjlı kabul | ✅ accepted | M1 sonrası |
 
