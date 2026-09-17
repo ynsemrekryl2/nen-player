@@ -493,17 +493,16 @@ fn remote_declared_name_is_used_without_query_or_host_data() {
         responses: Mutex::new(vec![
             HttpResponse {
                 status_code: 200,
-                headers: vec![
-                    HttpHeader {
-                        name: "Content-Disposition".into(),
-                        value: "attachment; filename=Remote.Movie.2024.mkv".into(),
-                    },
-                    HttpHeader {
-                        name: "Accept-Ranges".into(),
-                        value: "none".into(),
-                    },
-                ],
+                headers: vec![HttpHeader {
+                    name: "Content-Disposition".into(),
+                    value: "attachment; filename=Remote.Movie.2024.mkv".into(),
+                }],
                 body: Vec::new(),
+            },
+            HttpResponse {
+                status_code: 200,
+                headers: Vec::new(),
+                body: vec![0; nen_identity::os_hash::CHUNK_BYTES],
             },
             one_candidate_response(false),
         ]),
@@ -524,8 +523,9 @@ fn remote_declared_name_is_used_without_query_or_host_data() {
     assert_eq!(attempted, vec![CandidateSearchMethod::ParsedIdentity]);
     let requests = client.requests.lock().expect("request lock");
     assert_eq!(requests[0].method, HttpMethod::Head);
-    assert!(requests[1].url.contains("query=Remote%20Movie"));
-    assert!(requests[1].url.contains("year=2024"));
-    assert!(!requests[1].url.contains("SECRET"));
-    assert!(!requests[1].url.contains("private.example"));
+    assert_eq!(requests[1].method, HttpMethod::Get);
+    assert!(requests[2].url.contains("query=Remote%20Movie"));
+    assert!(requests[2].url.contains("year=2024"));
+    assert!(!requests[2].url.contains("SECRET"));
+    assert!(!requests[2].url.contains("private.example"));
 }

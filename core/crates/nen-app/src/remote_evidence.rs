@@ -60,7 +60,9 @@ impl std::error::Error for RemoteEvidenceError {}
 
 /// Collects the remote evidence that can be obtained without downloading the
 /// media. Range support is optional: a server that says `Accept-Ranges: none`
-/// produces name/size evidence and simply has no hash.
+/// produces name/size evidence and simply has no hash. A missing declaration
+/// is probed with a bounded request because HTTP permits range support without
+/// advertising it first.
 pub fn collect_remote_evidence(
     client: &dyn HttpClient,
     url: &str,
@@ -103,16 +105,18 @@ pub fn collect_with_policy(
             size = head_window.as_ref().and_then(|window| window.total_size);
         }
 
-        if let Some(total) = size {
-            tail_window = range_window(
-                client,
-                &final_url,
-                ByteRange::Suffix {
-                    length: os_hash::CHUNK_BYTES as u64,
-                },
-                Some(total),
-                policy,
-            )?;
+        if head_window.is_some() {
+            if let Some(total) = size {
+                tail_window = range_window(
+                    client,
+                    &final_url,
+                    ByteRange::Suffix {
+                        length: os_hash::CHUNK_BYTES as u64,
+                    },
+                    Some(total),
+                    policy,
+                )?;
+            }
         }
     }
 
@@ -150,7 +154,15 @@ fn range_window(
     policy: RemoteEvidencePolicy,
 ) -> Result<Option<RangeWindow>, RemoteEvidenceError> {
     let (final_url, response) =
-        request_following(client, HttpMethod::Get, url, Some(range), policy)?;
+        match request_following(client, HttpMethod::Get, url, Some(range), policy) {
+            Ok(result) => result,
+            // A server may advertise ranges and then ignore the bounded
+            // request. The adapter still enforces the cap; at the evidence
+            // layer this means only that the optional hash window is
+            // unavailable, not that filename/path evidence must be discarded.
+            Err(RemoteEvidenceError::ResponseTooLarge) => return Ok(None),
+            Err(error) => return Err(error),
+        };
     if final_url != url || response.status_code != 206 {
         return Ok(None);
     }
@@ -326,11 +338,22 @@ mod tests {
     use std::sync::Mutex;
 
     struct Fake {
-        expected: Mutex<Vec<(HttpRequest, HttpResponse)>>,
+        expected: Mutex<Vec<(HttpRequest, Result<HttpResponse, HttpError>)>>,
     }
 
     impl Fake {
         fn new(expected: Vec<(HttpRequest, HttpResponse)>) -> Self {
+            Self {
+                expected: Mutex::new(
+                    expected
+                        .into_iter()
+                        .map(|(request, response)| (request, Ok(response)))
+                        .collect(),
+                ),
+            }
+        }
+
+        fn with_results(expected: Vec<(HttpRequest, Result<HttpResponse, HttpError>)>) -> Self {
             Self {
                 expected: Mutex::new(expected),
             }
@@ -346,7 +369,7 @@ mod tests {
             if wanted != &request {
                 return Err(HttpError::Transport);
             }
-            Ok(expected.remove(0).1)
+            expected.remove(0).1
         }
     }
 
@@ -441,6 +464,78 @@ mod tests {
         assert_eq!(evidence.size_bytes(), None);
         assert_eq!(evidence.os_hash(), None);
         assert_eq!(evidence.resolve().title.as_deref(), Some("Film"));
+    }
+
+    #[test]
+    fn ignored_range_keeps_declared_name_and_stops_after_the_first_window() {
+        let url = "http://127.0.0.1:11470/opaque/stream";
+        let fake = Fake::new(vec![
+            (
+                HttpRequest::head(url),
+                response(
+                    200,
+                    &[(
+                        "Content-Disposition",
+                        "attachment; filename=Remote.Movie.2024.mkv",
+                    )],
+                    Vec::new(),
+                ),
+            ),
+            (
+                HttpRequest::range(
+                    url,
+                    ByteRange::Inclusive {
+                        start: 0,
+                        end: 65_535,
+                    },
+                ),
+                response(200, &[], vec![0; os_hash::CHUNK_BYTES]),
+            ),
+        ]);
+
+        let evidence =
+            collect_remote_evidence(&fake, url).expect("ignored range keeps filename evidence");
+        assert_eq!(evidence.os_hash(), None);
+        assert_eq!(evidence.resolve().title.as_deref(), Some("Remote Movie"));
+        assert_eq!(evidence.resolve().year, Some(2024));
+    }
+
+    #[test]
+    fn oversized_advertised_range_is_an_optional_hash_miss() {
+        let url = "http://127.0.0.1:11470/opaque/stream";
+        let fake = Fake::with_results(vec![
+            (
+                HttpRequest::head(url),
+                Ok(response(
+                    200,
+                    &[
+                        ("Content-Length", "131072"),
+                        ("Accept-Ranges", "bytes"),
+                        (
+                            "Content-Disposition",
+                            "attachment; filename=Remote.Movie.2024.mkv",
+                        ),
+                    ],
+                    Vec::new(),
+                )),
+            ),
+            (
+                HttpRequest::range(
+                    url,
+                    ByteRange::Inclusive {
+                        start: 0,
+                        end: 65_535,
+                    },
+                ),
+                Err(HttpError::ResponseTooLarge),
+            ),
+        ]);
+
+        let evidence = collect_remote_evidence(&fake, url)
+            .expect("oversized optional range keeps filename evidence");
+        assert_eq!(evidence.os_hash(), None);
+        assert_eq!(evidence.size_bytes(), Some(131_072));
+        assert_eq!(evidence.resolve().title.as_deref(), Some("Remote Movie"));
     }
 
     #[test]

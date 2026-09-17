@@ -68,7 +68,7 @@ Kırılım üretilmeden önce dört soru kullanıcı kararıyla kapandı (2026-0
 `NEN-114` · `NEN-115` · `NEN-116` · `NEN-117` · `NEN-107` · `NEN-118` ·
 `NEN-119` · `NEN-120` · `NEN-064` · `NEN-121` · `NEN-122` · `NEN-123` ·
 `NEN-035` · `NEN-124` · `NEN-034` · `NEN-125` · `NEN-038` · `NEN-105` ·
-`NEN-109` · `NEN-129` · `NEN-131` · `NEN-132` · `NEN-126`
+`NEN-109` · `NEN-129` · `NEN-131` · `NEN-132` · `NEN-133` · `NEN-126`
 
 ```
 110 ADR-0020 ─▶ 111 port+fake ─┬─▶ 112 Keychain ─▶ 113 ayarlar UI ─────────────────────┐
@@ -85,7 +85,7 @@ Kırılım üretilmeden önce dört soru kullanıcı kararıyla kapandı (2026-0
 116 ──────────┘
 044 ─▶ 109 uzak gömülü metin   (bağımsız)
 131 olay günlüğü ───────────────────────────────────────────────────────────────┐
-034/120/121/123 ─▶ 132 dosya adı fan-in + provider araması ─────────────────────┴─▶ 126 kabul
+034/120/121/123 ─▶ 132 dosya adı fan-in + provider araması ─▶ 133 remote range fallback ─▶ 126 kabul
 ```
 
 Üç kol var ve üçü de credential kapısına (`NEN-110`/`NEN-111`) bağlanıyor:
@@ -126,7 +126,9 @@ bağlanır; `NEN-109` ve `NEN-035` kritik yolun dışında.
 ADR-0048 `NEN-129` başlarken yazıldı ve kullanıcı onayıyla `accepted` oldu;
 üretim koduna bu onaydan sonra geçildi (Kural 4).
 ADR-0049 kullanıcı onayıyla `accepted` oldu; `NEN-132` dosya adı fan-in'ini ve
-provider fallback zincirini bu karara göre kapattı. `NEN-126` artık READY.
+provider fallback zincirini bu karara göre kapattı. Gerçek Stremio akışında
+bulunan unsupported-range regresyonu `NEN-133` ile kapandı; `NEN-126` yeniden
+READY.
 
 ## Bağımlılıklar
 

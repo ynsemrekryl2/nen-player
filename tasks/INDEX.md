@@ -3,7 +3,7 @@
 <!-- ÜRETİLEN DOSYA — elle düzenlemeyin.
      Yenilemek için: bash scripts/task-index.sh -->
 
-Toplam **132** task · ✅ done 129 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 1
+Toplam **133** task · ✅ done 130 · 🔵 active 0 · ⛔ blocked 0 · 🚫 canceled 2 · ⚪ backlog 1
 
 Açık görünüm: backlog/active/blocked · Arşiv: [tasks/INDEX-done.md](INDEX-done.md)
 Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/roadmap.md](../docs/roadmap.md)
@@ -18,13 +18,13 @@ Format ve kurallar: [tasks/README.md](README.md) · Milestone planı: [docs/road
 | M3 | 44/46 | 46 |
 | M4 | 10/10 | 10 |
 | M5 | 20/20 | 20 |
-| M6 | 30/31 | 31 |
+| M6 | 31/32 | 32 |
 
 ## M6 — Real Providers
 
 | ID | Başlık | Boyut | Durum | Bağımlılık |
 |---|---|---|---|---|
-| [NEN-126](backlog/NEN-126-m6-acceptance.md) | Real providers acceptance | S | ⚪ backlog | NEN-118 NEN-123 NEN-113 NEN-129 NEN-132 |
+| [NEN-126](backlog/NEN-126-m6-acceptance.md) | Real providers acceptance | S | ⚪ backlog | NEN-118 NEN-123 NEN-113 NEN-129 NEN-132 NEN-133 |
 
 ## Sıradaki uygun task'lar
 

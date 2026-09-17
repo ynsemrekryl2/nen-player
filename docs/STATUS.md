@@ -5,7 +5,7 @@
 > `tasks/done/` ve `history/`'de. Burada tekrar edilmez; **150 satırı aşamaz**
 > (`check-docs.sh` denetim 10).
 >
-> Son güncelleme: **2026-09-17** (**`NEN-132` tamamlandı; `NEN-126` yeniden
+> Son güncelleme: **2026-09-17** (**`NEN-133` tamamlandı; `NEN-126` yeniden
 > READY**.)
 
 ## Nerede duruyoruz
@@ -14,15 +14,14 @@
 |---|---|
 | **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı — `docs/milestones/M6-real-providers.md`) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-132`** — Filename-backed provider search. Ondan önce: `NEN-131` |
+| **Son tamamlanan** | **`NEN-133`** — Tolerate unsupported remote ranges. Ondan önce: `NEN-132` |
 | **Sıradaki READY** | **`NEN-126`** — Real providers acceptance |
-| **Task sayısı** | 132 · done 129 · active 0 · blocked 0 · canceled 2 · backlog 1 |
+| **Task sayısı** | 133 · done 130 · active 0 · blocked 0 · canceled 2 · backlog 1 |
 
-**Son kapanış — `NEN-132` (2026-09-17):** Deterministik dosya adı ayrıştırma,
-kanonik IMDb/parent IMDb fan-in'i ve exact hash sonrası fallback zinciri
-OpenSubtitles aday aramasına bağlandı. Remote basename kanıtı query/fragment/host
-verisini dışarıda bırakıyor; AI filename normalizasyonu açık izin ve sanitize
-edilmiş basename ile sınırlı; kataloglama/indirme seçim kapıları korundu.
+**Son kapanış — `NEN-133` (2026-09-17):** Uzak sunucu bounded range isteğini
+yok saydığında veya body cap'i aştığında hash kanıtı artık opsiyonel miss olur;
+filename/path kanıtı korunur ve parsed OpenSubtitles aday araması devam eder.
+İlk pencere alınamadığında gereksiz tail isteği de yapılmaz.
 
 ## Toolchain
 
@@ -48,8 +47,8 @@ kurmaz (`scripts/tests/doctor.test.sh` S7). Kurulum geçmişi:
 
 ## Blocker'lar
 
-**Toolchain blocker'ı yok.** `NEN-132` tamamlandı, ADR-0049 accepted ve
-`NEN-126` gerçek provider kabul koşusu için READY. Çözülmüş B1–B4 kaydı:
+**Toolchain blocker'ı yok.** `NEN-133` tamamlandı ve `NEN-126` gerçek provider
+kabul koşusu için yeniden READY. Çözülmüş B1–B4 kaydı:
 `history/status-archive-2026-09.md`.
 
 ## Kullanıcı kararı bekleyenler
@@ -61,16 +60,16 @@ kurmaz (`scripts/tests/doctor.test.sh` S7). Kurulum geçmişi:
 | **S7** | Android TV minimum API seviyesi ve hedef cihaz sınıfı | M10 |
 | **S11** | İleride public dağıtım | M3 sonrası |
 | **S12** | Gerçek lisans seçimi | ADR-0012 sonrası |
-S4/S6/S7/S11/S12 mevcut `NEN-132` implementasyonunu bloke etmiyor. `NEN-126`
+S4/S6/S7/S11/S12 mevcut `NEN-126` kabulünü bloke etmiyor. `NEN-126`
 gerçek ağ koşusu ayrıca kullanıcı onayı ve kullanıcıya ait credential gerektiriyor.
 
 ## Son doğrulama
 
-2026-09-17'de `NEN-132` tamamlandı. `cargo test --workspace`, fmt, clippy ve
-`cargo deny check` çıkış 0; `bash scripts/test-macos.sh` shell **258/258**,
-gerçek libmpv/contract **57/57**, Keychain **4/4** geçti. `bash
-scripts/check-docs.sh`, `bash scripts/task-index.sh --check` ve `git diff --check`
-çıkış 0 verdi.
+2026-09-17'de `NEN-133` tamamlandı. Hedefli remote evidence testleri 12/12,
+remote parsed candidate regresyonu 1/1 geçti; `cargo test --workspace`, fmt,
+clippy ve `cargo deny check` çıkış 0 verdi. `bash scripts/test-macos.sh`, `bash
+scripts/test.sh`, `bash scripts/check-docs.sh`, `bash scripts/task-index.sh
+--check` ve `git diff --check` çıkış 0 verdi.
 
 Önceki doğrulama girdileri ve toolchain kapısı geçmişi:
 `history/status-archive-2026-09.md`.

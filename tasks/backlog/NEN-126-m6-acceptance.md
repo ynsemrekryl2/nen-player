@@ -5,7 +5,7 @@ milestone: M6
 size: S
 state: backlog
 closed:
-depends_on: [NEN-118, NEN-123, NEN-113, NEN-129, NEN-132]
+depends_on: [NEN-118, NEN-123, NEN-113, NEN-129, NEN-132, NEN-133]
 blocks: []
 adr: []
 ---
@@ -39,6 +39,13 @@ ADR-0048 kabul edilmeden M6 canlı kalite kanıtı nihai sayılmaz.
 2026-09-16 — `NEN-129` doğrulanarak kapandı; ADR-0048 kabul edilmiş durumda ve
 iki-aşamalı provider akışı bütün otomatik kapılardan geçti. Bağımlılık engeli
 çözüldü; bu task yeniden READY.
+
+2026-09-17 — Gerçek Stremio akışında bounded range reddinin filename fallback
+aday aramasını kestiği görüldü. Regresyon `NEN-133` ile giderilene kadar kabul
+yeniden beklemededir.
+
+2026-09-17 — `NEN-133` doğrulanarak kapandı; remote range başarısızlığı artık
+filename/path kanıtını kesmiyor. Bu task yeniden READY.
 
 ## Kapsam
 
