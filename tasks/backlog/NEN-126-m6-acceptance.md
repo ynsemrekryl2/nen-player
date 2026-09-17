@@ -5,7 +5,7 @@ milestone: M6
 size: S
 state: backlog
 closed:
-depends_on: [NEN-118, NEN-123, NEN-113, NEN-129, NEN-132, NEN-133, NEN-134, NEN-135]
+depends_on: [NEN-118, NEN-123, NEN-113, NEN-129, NEN-132, NEN-133, NEN-134, NEN-135, NEN-137]
 blocks: []
 adr: []
 ---

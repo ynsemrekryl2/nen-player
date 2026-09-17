@@ -69,7 +69,7 @@ Kırılım üretilmeden önce dört soru kullanıcı kararıyla kapandı (2026-0
 `NEN-119` · `NEN-120` · `NEN-064` · `NEN-121` · `NEN-122` · `NEN-123` ·
 `NEN-035` · `NEN-124` · `NEN-034` · `NEN-125` · `NEN-038` · `NEN-105` ·
 `NEN-109` · `NEN-129` · `NEN-131` · `NEN-132` · `NEN-133` · `NEN-134` ·
-`NEN-135` · `NEN-136` · `NEN-126`
+`NEN-135` · `NEN-136` · `NEN-137` · `NEN-126`
 
 ```
 110 ADR-0020 ─▶ 111 port+fake ─┬─▶ 112 Keychain ─▶ 113 ayarlar UI ─────────────────────┐
@@ -86,7 +86,7 @@ Kırılım üretilmeden önce dört soru kullanıcı kararıyla kapandı (2026-0
 116 ──────────┘
 044 ─▶ 109 uzak gömülü metin   (bağımsız)
 131 olay günlüğü ───────────────────────────────────────────────────────────────┐
-034/120/121/123 ─▶ 132 dosya adı fan-in + provider araması ─▶ 133 range fallback ─▶ 134 kota/olay ─▶ 135 resmî download hostu ─▶ 136 kimlik fallback'i ─▶ 126 kabul
+034/120/121/123 ─▶ 132 dosya adı fan-in + provider araması ─▶ 133 range fallback ─▶ 134 kota/olay ─▶ 135 resmî download hostu ─▶ 136 kimlik fallback'i ─▶ 137 üst şerit hizası ─▶ 126 kabul
 ```
 
 Üç kol var ve üçü de credential kapısına (`NEN-110`/`NEN-111`) bağlanıyor:

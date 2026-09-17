@@ -175,3 +175,4 @@ Açık task görünümü: [tasks/INDEX.md](INDEX.md)
 | [NEN-134](done/NEN-134-download-quota-and-identity-wording.md) | Accept final quota download and clarify hash identity events | L | ✅ done | NEN-122 NEN-131 |
 | [NEN-135](done/NEN-135-accept-official-opensubtitles-download-host.md) | Accept official OpenSubtitles download host | S | ✅ done | NEN-134 |
 | [NEN-136](done/NEN-136-filename-backed-media-identity.md) | Filename-backed media identity fallback | L | ✅ done | NEN-132 NEN-135 |
+| [NEN-137](done/NEN-137-align-media-identity-with-traffic-lights.md) | Align media identity with traffic lights | S | ✅ done | NEN-136 |

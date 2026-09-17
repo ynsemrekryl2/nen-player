@@ -6,6 +6,12 @@ public extension Notification.Name {
     static let nenPlayerWindowReopened = Notification.Name("player.nen.macos.window-reopened")
 }
 
+enum PlayerChromeLayout {
+    /// The title starts beside the traffic lights, not below the hidden titlebar.
+    static let mediaIdentityTopPadding: CGFloat = 0
+    static let mediaIdentityLeadingPadding: CGFloat = 92
+}
+
 public struct PlayerRootView: View {
     @ObservedObject private var model: PlayerModel
     private let onTransportLayout: (([TransportLayoutElement: CGRect]) -> Void)?
@@ -290,8 +296,9 @@ public struct PlayerRootView: View {
             .frame(height: 116)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             // The top shade belongs to the window, including the traffic-light
-            // safe area. The title below remains in the safe area so it never
-            // competes with the system buttons.
+            // safe area. The title also reaches that area: its leading inset
+            // starts it after the system buttons, and its baseline can share
+            // their row instead of sitting below it.
             .ignoresSafeArea(.container, edges: .top)
             .opacity(model.controlsVisible ? 1 : 0)
             .allowsHitTesting(false)
@@ -303,10 +310,11 @@ public struct PlayerRootView: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
                     .shadow(color: .black.opacity(0.50), radius: 6, y: 1)
-                    .padding(.leading, 92)
+                    .padding(.leading, PlayerChromeLayout.mediaIdentityLeadingPadding)
                     .padding(.trailing, 22)
-                    .padding(.top, 18)
+                    .padding(.top, PlayerChromeLayout.mediaIdentityTopPadding)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .ignoresSafeArea(.container, edges: .top)
                     .opacity(model.controlsVisible ? 1 : 0)
                     .offset(y: model.controlsVisible ? 0 : -10)
                     .allowsHitTesting(false)

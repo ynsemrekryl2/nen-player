@@ -9,6 +9,12 @@ import Testing
 @Suite("Transport controls layout")
 @MainActor
 struct TransportControlsLayoutTests {
+    @Test("media identity shares the traffic-light titlebar row")
+    func mediaIdentityUsesTitlebarRow() {
+        #expect(PlayerChromeLayout.mediaIdentityTopPadding == 0)
+        #expect(PlayerChromeLayout.mediaIdentityLeadingPadding == 92)
+    }
+
     @Test("the player root advertises the aspect-correct chrome minimum")
     func playerRootAdvertisesTheWindowMinimum() {
         let cases: [(geometry: FfiVideoGeometry?, expected: CGSize)] = [
