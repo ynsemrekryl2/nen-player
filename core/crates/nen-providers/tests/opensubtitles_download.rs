@@ -8,6 +8,7 @@ use std::sync::Mutex;
 
 const DOWNLOAD_ENDPOINT: &str = "https://api.opensubtitles.com/api/v1/download";
 const LINK: &str = "https://dl.opensubtitles.com/subtitles/fixture";
+const WWW_LINK: &str = "https://www.opensubtitles.com/download/fixture/subfile/fixture.srt";
 const KEY: &str = "fixture-key";
 
 fn response(status_code: u16, headers: Vec<HttpHeader>, body: Vec<u8>) -> HttpResponse {
@@ -161,6 +162,52 @@ fn final_quota_download_uses_the_valid_link_before_the_remaining_count_reaches_z
 }
 
 #[test]
+fn official_www_download_link_is_accepted_without_reusing_key() {
+    let client = SequenceClient::new(
+        vec![DOWNLOAD_ENDPOINT.into(), WWW_LINK.into()],
+        vec![Ok(metadata(WWW_LINK)), Ok(text_response(&srt()))],
+    );
+
+    let downloaded = downloader(&client)
+        .download(SubtitleDownloadRequest::new(7001))
+        .expect("official www download");
+
+    assert_eq!(downloaded.bytes(), srt().as_slice());
+    let requests = client.requests();
+    assert_eq!(requests.len(), 2);
+    assert!(requests[1]
+        .headers
+        .iter()
+        .all(|header| header.name != "Api-Key"));
+}
+
+#[test]
+fn redirect_to_official_www_download_link_is_followed() {
+    let client = SequenceClient::new(
+        vec![DOWNLOAD_ENDPOINT.into(), LINK.into(), WWW_LINK.into()],
+        vec![
+            Ok(metadata(LINK)),
+            Ok(response(
+                302,
+                vec![HttpHeader {
+                    name: "Location".into(),
+                    value: WWW_LINK.into(),
+                }],
+                Vec::new(),
+            )),
+            Ok(text_response(&srt())),
+        ],
+    );
+
+    let downloaded = downloader(&client)
+        .download(SubtitleDownloadRequest::new(7001))
+        .expect("official redirect");
+
+    assert_eq!(downloaded.bytes(), srt().as_slice());
+    assert_eq!(client.requests().len(), 3);
+}
+
+#[test]
 fn an_unapproved_link_host_never_receives_a_get() {
     let client = SequenceClient::new(
         vec![DOWNLOAD_ENDPOINT.into()],
@@ -179,6 +226,51 @@ fn an_http_link_is_rejected_before_get() {
         vec![DOWNLOAD_ENDPOINT.into()],
         vec![Ok(metadata(
             "http://dl.opensubtitles.com/subtitles/fixture",
+        ))],
+    );
+    assert_eq!(
+        downloader(&client).download(SubtitleDownloadRequest::new(7001)),
+        Err(SubtitleDownloadError::RedirectRejected)
+    );
+    assert_eq!(client.requests().len(), 1);
+}
+
+#[test]
+fn www_host_is_limited_to_download_paths() {
+    let client = SequenceClient::new(
+        vec![DOWNLOAD_ENDPOINT.into()],
+        vec![Ok(metadata(
+            "https://www.opensubtitles.com/subtitles/fixture.srt",
+        ))],
+    );
+    assert_eq!(
+        downloader(&client).download(SubtitleDownloadRequest::new(7001)),
+        Err(SubtitleDownloadError::RedirectRejected)
+    );
+    assert_eq!(client.requests().len(), 1);
+}
+
+#[test]
+fn a_www_lookalike_host_is_rejected_before_get() {
+    let client = SequenceClient::new(
+        vec![DOWNLOAD_ENDPOINT.into()],
+        vec![Ok(metadata(
+            "https://www.opensubtitles.com.evil.example/download/fixture.srt",
+        ))],
+    );
+    assert_eq!(
+        downloader(&client).download(SubtitleDownloadRequest::new(7001)),
+        Err(SubtitleDownloadError::RedirectRejected)
+    );
+    assert_eq!(client.requests().len(), 1);
+}
+
+#[test]
+fn an_http_www_link_is_rejected_before_get() {
+    let client = SequenceClient::new(
+        vec![DOWNLOAD_ENDPOINT.into()],
+        vec![Ok(metadata(
+            "http://www.opensubtitles.com/download/fixture.srt",
         ))],
     );
     assert_eq!(

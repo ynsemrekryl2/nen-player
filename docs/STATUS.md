@@ -5,7 +5,7 @@
 > `tasks/done/` ve `history/`'de. Burada tekrar edilmez; **150 satırı aşamaz**
 > (`check-docs.sh` denetim 10).
 >
-> Son güncelleme: **2026-09-17** (**`NEN-134` tamamlandı; `NEN-126` yeniden
+> Son güncelleme: **2026-09-17** (**`NEN-135` tamamlandı; `NEN-126` yeniden
 > READY**.)
 
 ## Nerede duruyoruz
@@ -14,14 +14,14 @@
 |---|---|
 | **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı — `docs/milestones/M6-real-providers.md`) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-134`** — Accept final quota download and clarify hash identity events. Ondan önce: `NEN-133` |
+| **Son tamamlanan** | **`NEN-135`** — Accept official OpenSubtitles download host. Ondan önce: `NEN-134` |
 | **Sıradaki READY** | **`NEN-126`** — Real providers acceptance |
-| **Task sayısı** | 134 · done 131 · active 0 · blocked 0 · canceled 2 · backlog 1 |
+| **Task sayısı** | 135 · done 132 · active 0 · blocked 0 · canceled 2 · backlog 1 |
 
-**Son kapanış — `NEN-134` (2026-09-17):** OpenSubtitles geçerli indirme linkiyle
-`remaining: 0` döndürdüğünde son hak artık yanlışlıkla kota hatasına çevrilmiyor;
-link izlenip altyazı indiriliyor. Olay günlüğü hash kimliği eşleşmemesini,
-diğer kanıtlarla başarılı olabilen aday aramasından açıkça ayırıyor.
+**Son kapanış — `NEN-135` (2026-09-17):** OpenSubtitles'ın resmî
+`www.opensubtitles.com/download/...` geçici linki, yalnız tam host ve
+`/download/` path eşleşmesiyle kabul ediliyor; redirect, boyut, content-type,
+archive ve credential kapıları korunuyor.
 
 ## Toolchain
 
@@ -47,7 +47,7 @@ kurmaz (`scripts/tests/doctor.test.sh` S7). Kurulum geçmişi:
 
 ## Blocker'lar
 
-**Toolchain blocker'ı yok.** `NEN-134` tamamlandı ve `NEN-126` gerçek provider
+**Toolchain blocker'ı yok.** `NEN-135` tamamlandı ve `NEN-126` gerçek provider
 kabul koşusu için yeniden READY. Çözülmüş B1–B4 kaydı:
 `history/status-archive-2026-09.md`.
 
@@ -65,10 +65,9 @@ gerçek ağ koşusu ayrıca kullanıcı onayı ve kullanıcıya ait credential g
 
 ## Son doğrulama
 
-2026-09-17'de `NEN-134` tamamlandı. Hedefli OpenSubtitles indirme testleri
-12/12; macOS shell 258/258, libmpv 57/57, Keychain 4/4 ve remote evidence 6/6
-geçti. `cargo test --workspace`, fmt, clippy ve `cargo deny check`; `bash
-scripts/test.sh`, `bash scripts/check-docs.sh`, `bash scripts/task-index.sh
+2026-09-17'de `NEN-135` tamamlandı. Hedefli OpenSubtitles indirme testleri
+17/17 ve tüm Rust workspace testleri geçti. Fmt, clippy ve `cargo deny check`;
+`bash scripts/test.sh`, `bash scripts/check-docs.sh`, `bash scripts/task-index.sh
 --check` ve `git diff --check` çıkış 0 verdi.
 
 Önceki doğrulama girdileri ve toolchain kapısı geçmişi:
@@ -77,7 +76,7 @@ scripts/test.sh`, `bash scripts/check-docs.sh`, `bash scripts/task-index.sh
 ## Repository
 
 `core/` Cargo workspace (Rust 1.98.0, UniFFI) · `platforms/` (macOS SwiftPM; diğerleri iskelet) ·
-`scripts/` shell tooling + testleri · `fixtures/` · `docs/adr/` (39 ADR).
+`scripts/` shell tooling + testleri · `fixtures/` · `docs/adr/` (44 ADR).
 Depo kökünde **`LICENSE` bilerek yok** — bkz. `licensing.md`. Remote:
 `github.com/ynsemrekryl2/nen-player` (private). Bu dosya commit hash'i tutmaz;
 git geçmişi kanoniktir.

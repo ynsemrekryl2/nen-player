@@ -787,11 +787,15 @@ fn is_allowed_download_url(url: &str) -> bool {
         .split(['?', '#'])
         .next()
         .unwrap_or_default();
-    matches!(
-        host,
-        "api.opensubtitles.com" | "vip-api.opensubtitles.com" | "dl.opensubtitles.com"
-    ) && path != "/"
-        && !path.is_empty()
+    match host {
+        "api.opensubtitles.com" | "vip-api.opensubtitles.com" | "dl.opensubtitles.com" => {
+            path != "/" && !path.is_empty()
+        }
+        "www.opensubtitles.com" => path
+            .strip_prefix("/download/")
+            .is_some_and(|suffix| !suffix.is_empty()),
+        _ => false,
+    }
 }
 
 fn resolve_redirect(current: &str, location: &str) -> Option<String> {

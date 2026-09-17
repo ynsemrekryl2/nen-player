@@ -5,7 +5,7 @@ milestone: M6
 size: S
 state: backlog
 closed:
-depends_on: [NEN-118, NEN-123, NEN-113, NEN-129, NEN-132, NEN-133, NEN-134]
+depends_on: [NEN-118, NEN-123, NEN-113, NEN-129, NEN-132, NEN-133, NEN-134, NEN-135]
 blocks: []
 adr: []
 ---
@@ -54,6 +54,15 @@ yanlışlıkla reddediliyor; hash miss olay metni de filename fallback sonucuyla
 2026-09-17 — `NEN-134` doğrulanarak kapandı; geçerli link taşıyan son kota
 yanıtı artık indiriliyor ve olay metni hash kimliği ile aday bulmayı ayırıyor.
 Bu task yeniden READY.
+
+2026-09-17 — Canlı indirme yanıtının resmî
+`www.opensubtitles.com/download/...` linki mevcut approved-host listesinde
+olmadığı için `RedirectRejected` üretiyor. `ADR-0050` kabul edilip `NEN-135`
+tamamlanana kadar kabul yeniden beklemededir.
+
+2026-09-17 — `ADR-0050` kabul edildi ve `NEN-135` doğrulanarak kapandı; resmî
+`www` download linki mevcut bounded güvenlik kapılarıyla indiriliyor. Bu task
+yeniden READY.
 
 ## Kapsam
 

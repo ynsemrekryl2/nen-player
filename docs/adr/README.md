@@ -31,7 +31,7 @@ Süreç: [`0001-adr-process.md`](0001-adr-process.md) · Şablon:
 | [0038](0038-video-display-geometry.md) | Video display geometry playback portundan geçer | ✅ accepted | M3 |
 | [0039](0039-remote-media-http-boundary.md) | Uzak medya HTTP sınırı ve macOS adapter'ı | ✅ accepted | M3 |
 | [0040](0040-opensubtitles-identity-provider-boundary.md) | OpenSubtitles hash kimlik provider sınırı | ✅ accepted | M6 |
-| [0021](0021-opensubtitles-integration-boundaries.md) | OpenSubtitles entegrasyon sınırları | ✅ accepted | M6 |
+| [0021](0021-opensubtitles-integration-boundaries.md) | OpenSubtitles entegrasyon sınırları | ✅ accepted; §3 host listesi ADR-0050 ile superseded | M6 |
 | [0020](0020-secure-credential-storage.md) | Secure credential storage haritası — port, macOS Keychain adapter'ı, secret yaşam döngüsü | ✅ accepted | M6 |
 | [0019](0019-real-translation-provider-boundary.md) | Gerçek çeviri sağlayıcı sınırı — OpenRouter varsayılanı, structured output, retry, preflight, S3 · S9 | ✅ accepted | M6 |
 | [0041](0041-sidecar-discovery-scope.md) | Sidecar keşfi medyanın dizinini bir kez listeler | ✅ accepted | M3 |
@@ -46,6 +46,7 @@ Süreç: [`0001-adr-process.md`](0001-adr-process.md) · Şablon:
 | [0046](0046-filename-privacy-for-ai-normalization.md) | Dosya adının AI destekli normalizasyona gönderilmesi — gizlilik ve izin modeli | ✅ accepted | M6 |
 | [0047](0047-preferred-language-auto-download.md) | Tercih dilinde otomatik altyazı indirme sözleşmesi | ✅ accepted | M6 |
 | [0048](0048-two-stage-model-assisted-translation.md) | İki aşamalı model destekli altyazı çevirisi | ✅ accepted | M6 |
+| [0050](0050-opensubtitles-official-download-hosts.md) | OpenSubtitles resmî indirme hostları | ✅ accepted | M6 |
 | [0002](0002-core-language.md) | Shared core dili — go/no-go kapısı | ✅ accepted | M1 |
 | [0027](0027-performance-budget.md) | Performans bütçeleri — M1 baseline'larından marjlı kabul | ✅ accepted | M1 sonrası |
 

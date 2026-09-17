@@ -69,7 +69,7 @@ Kırılım üretilmeden önce dört soru kullanıcı kararıyla kapandı (2026-0
 `NEN-119` · `NEN-120` · `NEN-064` · `NEN-121` · `NEN-122` · `NEN-123` ·
 `NEN-035` · `NEN-124` · `NEN-034` · `NEN-125` · `NEN-038` · `NEN-105` ·
 `NEN-109` · `NEN-129` · `NEN-131` · `NEN-132` · `NEN-133` · `NEN-134` ·
-`NEN-126`
+`NEN-135` · `NEN-126`
 
 ```
 110 ADR-0020 ─▶ 111 port+fake ─┬─▶ 112 Keychain ─▶ 113 ayarlar UI ─────────────────────┐
@@ -86,7 +86,7 @@ Kırılım üretilmeden önce dört soru kullanıcı kararıyla kapandı (2026-0
 116 ──────────┘
 044 ─▶ 109 uzak gömülü metin   (bağımsız)
 131 olay günlüğü ───────────────────────────────────────────────────────────────┐
-034/120/121/123 ─▶ 132 dosya adı fan-in + provider araması ─▶ 133 range fallback ─▶ 134 kota/olay ─▶ 126 kabul
+034/120/121/123 ─▶ 132 dosya adı fan-in + provider araması ─▶ 133 range fallback ─▶ 134 kota/olay ─▶ 135 resmî download hostu ─▶ 126 kabul
 ```
 
 Üç kol var ve üçü de credential kapısına (`NEN-110`/`NEN-111`) bağlanıyor:
@@ -123,6 +123,7 @@ bağlanır; `NEN-109` ve `NEN-035` kritik yolun dışında.
 | **0047** | Tercih dilinde otomatik altyazı indirme sözleşmesi (ADR-0010 Karar 9'un üçüncü basamağı) | `NEN-125` |
 | **0048** | Model destekli belge-geneli analiz, iki-aşamalı prompt ve resume/cache sınırı | `NEN-129` |
 | **0049** | Kanıt fan-in'i ve dosya adı destekli provider aday araması (`accepted`, 2026-09-17) | `NEN-132` |
+| **0050** | OpenSubtitles resmî geçici indirme hostları (`accepted`, 2026-09-17) | `NEN-135` |
 
 ADR-0048 `NEN-129` başlarken yazıldı ve kullanıcı onayıyla `accepted` oldu;
 üretim koduna bu onaydan sonra geçildi (Kural 4).
@@ -130,7 +131,8 @@ ADR-0049 kullanıcı onayıyla `accepted` oldu; `NEN-132` dosya adı fan-in'ini 
 provider fallback zincirini bu karara göre kapattı. Gerçek Stremio akışında
 bulunan unsupported-range regresyonu `NEN-133` ile kapandı. Son indirme hakkının
 yanlış kota reddi ve hash-kimliği olay metni de `NEN-134` ile kapandı;
-`NEN-126` yeniden READY.
+canlı provider'ın `www` download hostu için `ADR-0050` kabul edildi;
+`NEN-135` bu karara göre doğrulandı ve `NEN-126` yeniden READY.
 
 ## Bağımlılıklar
 
