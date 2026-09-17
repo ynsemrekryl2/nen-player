@@ -72,9 +72,14 @@ public enum PipelineEventKind: Equatable, Sendable {
     /// provider itself reports one, the billed cost) that job's provider
     /// calls consumed. `.zero` on `translationFailed`/`translationCancelled`
     /// means no provider call was ever made, not that one was free.
-    case translationFinished(usage: FfiTokenUsage)
-    case translationCancelled(usage: FfiTokenUsage)
-    case translationFailed(error: String, usage: FfiTokenUsage)
+    ///
+    /// `duration` (`NEN-140`) is the wall-clock time since the matching
+    /// `translationStarted` row — checkpoint/resume and retry waits
+    /// included, since that is the time the user actually waited, not a
+    /// provider's own server-side processing time.
+    case translationFinished(usage: FfiTokenUsage, duration: TimeInterval)
+    case translationCancelled(usage: FfiTokenUsage, duration: TimeInterval)
+    case translationFailed(error: String, usage: FfiTokenUsage, duration: TimeInterval)
 
     /// The usage a terminal translation event carries, for
     /// `PipelineEventLog.sessionTokenUsage` (`NEN-139`) to sum without
@@ -82,9 +87,9 @@ public enum PipelineEventKind: Equatable, Sendable {
     /// live `translationPhase` row, which never carries usage.
     var terminalTranslationUsage: FfiTokenUsage? {
         switch self {
-        case let .translationFinished(usage): usage
-        case let .translationCancelled(usage): usage
-        case let .translationFailed(_, usage): usage
+        case let .translationFinished(usage, _): usage
+        case let .translationCancelled(usage, _): usage
+        case let .translationFailed(_, usage, _): usage
         default: nil
         }
     }
@@ -290,11 +295,11 @@ public enum PipelineEventPresentation {
             return "Çeviri başladı: \(source) → \(target) · \(provider)/\(model) · \(label)"
         case let .translationPhase(phase, done, total):
             return "Çeviri — \(phaseLabel(phase)) · \(done)/\(total)"
-        case .translationFinished(_):
+        case .translationFinished(_, _):
             return "Çeviri tamamlandı"
-        case .translationCancelled(_):
+        case .translationCancelled(_, _):
             return "Çeviri iptal edildi"
-        case let .translationFailed(error, _):
+        case let .translationFailed(error, _, _):
             return "Çeviri başarısız: \(error)"
         }
     }
@@ -379,12 +384,14 @@ public enum PipelineEventPresentation {
         case let .translationPhase(phase, done, total):
             let percent = total == 0 ? 0 : Int((Double(done) / Double(total) * 100).rounded())
             return [Detail("Faz", phaseLabel(phase)), Detail("İlerleme", "\(done)/\(total) · %\(percent)")]
-        case let .translationFinished(usage):
-            return [Detail("Sonuç", "çeviri menüye eklendi")] + usageDetails(usage)
-        case let .translationCancelled(usage):
-            return [Detail("Sonuç", "yarım artifact bırakılmadı")] + usageDetails(usage)
-        case let .translationFailed(error, usage):
-            return [Detail("Hata", error)] + usageDetails(usage)
+        case let .translationFinished(usage, duration):
+            return [Detail("Sonuç", "çeviri menüye eklendi"), Detail("Süre", formattedDuration(duration))]
+                + usageDetails(usage)
+        case let .translationCancelled(usage, duration):
+            return [Detail("Sonuç", "yarım artifact bırakılmadı"), Detail("Süre", formattedDuration(duration))]
+                + usageDetails(usage)
+        case let .translationFailed(error, usage, duration):
+            return [Detail("Hata", error), Detail("Süre", formattedDuration(duration))] + usageDetails(usage)
         }
     }
 
@@ -411,6 +418,21 @@ public enum PipelineEventPresentation {
         String(format: "$%.4f", costUsd)
     }
 
+    /// `12,4s` under a minute, `1dk 03s` at or above one (`NEN-140`) — never
+    /// the raw `TimeInterval`, and never negative (a `duration` this row
+    /// computes from two real timestamps cannot go backwards, but clamping
+    /// here keeps the presentation layer honest on its own terms).
+    static func formattedDuration(_ duration: TimeInterval) -> String {
+        let totalSeconds = max(0, duration)
+        guard totalSeconds >= 60 else {
+            let text = String(format: "%.1f", totalSeconds).replacingOccurrences(of: ".", with: ",")
+            return "\(text)s"
+        }
+        let minutes = Int(totalSeconds) / 60
+        let seconds = Int(totalSeconds.rounded()) % 60
+        return String(format: "%ddk %02ds", minutes, seconds)
+    }
+
     /// The small header line `PipelineEventLogView` shows above the list
     /// (`NEN-139`) — `nil` while the session has made no provider call yet,
     /// same "no measurement, no line" rule as `usageDetails`.
@@ -432,7 +454,7 @@ public enum PipelineEventPresentation {
              .translationStarted, .translationPhase, .subtitlesTurnedOff, .sidecarScanFinished,
              .embeddedTracksCataloged:
             return .info
-        case .playbackReady, .subtitleSelected, .downloadFinished, .translationFinished(_):
+        case .playbackReady, .subtitleSelected, .downloadFinished, .translationFinished(_, _):
             return .success
         case let .identityLookupFinished(status, _):
             return status == .match ? .success : .warning
@@ -441,10 +463,10 @@ public enum PipelineEventPresentation {
         case let .autoSelection(decision):
             if case .skipped = decision { return .warning }
             return .success
-        case .downloadUnavailable, .translationCancelled(_):
+        case .downloadUnavailable, .translationCancelled(_, _):
             return .warning
         case .playbackFailed, .identityLookupFailed, .candidateSearchFailed, .downloadFailed,
-             .translationFailed(_, _):
+             .translationFailed(_, _, _):
             return .failure
         }
     }

@@ -5,7 +5,7 @@
 > `tasks/done/` ve `history/`'de. Burada tekrar edilmez; **150 satırı aşamaz**
 > (`check-docs.sh` denetim 10).
 >
-> Son güncelleme: **2026-09-17** (**`NEN-139` tamamlandı; `NEN-126` READY**.)
+> Son güncelleme: **2026-09-17** (**`NEN-140` tamamlandı; `NEN-126` READY**.)
 
 ## Nerede duruyoruz
 
@@ -13,14 +13,13 @@
 |---|---|
 | **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı — `docs/milestones/M6-real-providers.md`) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-139`** — Show translation token usage and cost in pipeline event log. Ondan önce: `NEN-138` |
+| **Son tamamlanan** | **`NEN-140`** — Show translation duration in pipeline event log. Ondan önce: `NEN-139` |
 | **Sıradaki READY** | **`NEN-126`** — Real providers acceptance |
-| **Task sayısı** | 139 · done 136 · active 0 · blocked 0 · canceled 2 · backlog 1 |
+| **Task sayısı** | 140 · done 138 · active 0 · blocked 0 · canceled 2 · backlog 1 |
 
-**Son kapanış — `NEN-139` (2026-09-17):** Olaylar penceresindeki çeviri
-satırı (tamamlandı/iptal/hata — üçü de) tükettiği input/cache/output token
-sayısını ve sağlayıcı bildiriyorsa tahmini maliyeti gösteriyor; pencerenin
-üstünde oturum-kümülatif bir özet satırı var.
+**Son kapanış — `NEN-140` (2026-09-17):** Olaylar penceresindeki çeviri
+satırı (tamamlandı/iptal/hata) artık işin ne kadar sürdüğünü de gösteriyor
+— duvar-saati süresi, `translationStarted`'dan terminal olaya kadar.
 
 ## Toolchain
 
@@ -46,7 +45,7 @@ kurmaz (`scripts/tests/doctor.test.sh` S7). Kurulum geçmişi:
 
 ## Blocker'lar
 
-**Toolchain blocker'ı yok.** `NEN-139` doğrulanarak kapandı; `NEN-126` gerçek
+**Toolchain blocker'ı yok.** `NEN-140` doğrulanarak kapandı; `NEN-126` gerçek
 provider kabulü READY. Çözülmüş B1–B4 kaydı: `history/status-archive-2026-09.md`.
 
 ## Kullanıcı kararı bekleyenler
@@ -63,8 +62,8 @@ gerçek ağ koşusu ayrıca kullanıcı onayı ve kullanıcıya ait credential g
 
 ## Son doğrulama
 
-2026-09-17'de `NEN-139` tamamlandı. `bash scripts/test-macos.sh` ile 264
-shell/player testi (yeni 4'ü dahil), 57 playback/contract ve 4 Keychain
+2026-09-17'de `NEN-140` tamamlandı. `bash scripts/test-macos.sh` ile 265
+shell/player testi (yeni 1'i dahil), 57 playback/contract ve 4 Keychain
 testi; `bash scripts/build-macos-app.sh`, `bash scripts/check-docs.sh`,
 `bash scripts/task-index.sh --check` ve `git diff --check` çıkış 0 verdi.
 

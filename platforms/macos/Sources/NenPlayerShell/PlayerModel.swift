@@ -1028,6 +1028,10 @@ public final class PlayerModel: ObservableObject {
         let model = translationModel
         let mediaURL = currentMediaURL
         let credentialStore = self.credentialStore
+        // Wall-clock start (NEN-140): includes checkpoint/resume and retry
+        // waits — the whole time the user actually waited, not a provider's
+        // own server-side processing time.
+        let startedAt = Date()
         events.record(.translationStarted(
             provider: provider.title,
             model: model,
@@ -1178,22 +1182,33 @@ public final class PlayerModel: ObservableObject {
             self.isTranslating = false
             self.translationProgress = nil
             guard self.mediaPresentationRevision == revision else { return }
+            // NEN-140: the wall-clock time between the `translationStarted`
+            // row above and whichever terminal row this switch records —
+            // the same duration for every branch, so it lives once here
+            // rather than being recomputed per case.
+            let duration = Date().timeIntervalSince(startedAt)
             switch result {
             case let .succeeded(job):
-                self.events.record(.translationFinished(usage: job.totalUsage()))
+                self.events.record(.translationFinished(usage: job.totalUsage(), duration: duration))
                 _ = job.catalogInto(library: library)
                 self.refreshSubtitleMenu()
             case let .prepareFailed(error):
-                self.events.record(.translationFailed(error: PipelineEventLog.errorName(error), usage: .zero))
+                self.events.record(.translationFailed(
+                    error: PipelineEventLog.errorName(error), usage: .zero, duration: duration
+                ))
                 self.presentTransient(PlaybackPresentation.prepareEmbeddedDocumentMessage(for: error))
             case let .startFailed(error):
-                self.events.record(.translationFailed(error: PipelineEventLog.errorName(error), usage: .zero))
+                self.events.record(.translationFailed(
+                    error: PipelineEventLog.errorName(error), usage: .zero, duration: duration
+                ))
                 self.presentTransient(PlaybackPresentation.translationStartMessage(for: error))
             case let .joinFailed(error, usage):
                 if error == .Cancelled {
-                    self.events.record(.translationCancelled(usage: usage))
+                    self.events.record(.translationCancelled(usage: usage, duration: duration))
                 } else {
-                    self.events.record(.translationFailed(error: PipelineEventLog.errorName(error), usage: usage))
+                    self.events.record(.translationFailed(
+                        error: PipelineEventLog.errorName(error), usage: usage, duration: duration
+                    ))
                 }
                 self.presentTransient(PlaybackPresentation.translationJoinMessage(for: error))
             }

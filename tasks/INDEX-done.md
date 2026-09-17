@@ -178,3 +178,4 @@ Açık task görünümü: [tasks/INDEX.md](INDEX.md)
 | [NEN-137](done/NEN-137-align-media-identity-with-traffic-lights.md) | Align media identity with traffic lights | S | ✅ done | NEN-136 |
 | [NEN-138](done/NEN-138-translation-token-usage-capture.md) | Capture provider token usage in translation pipeline | L | ✅ done | NEN-116 NEN-117 |
 | [NEN-139](done/NEN-139-pipeline-log-token-usage-display.md) | Show translation token usage and cost in pipeline event log | M | ✅ done | NEN-131 NEN-138 |
+| [NEN-140](done/NEN-140-pipeline-log-translation-duration.md) | Show translation duration in pipeline event log | S | ✅ done | NEN-139 |
