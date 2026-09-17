@@ -244,6 +244,36 @@ pub enum TranslationProgressPhase {
     Finalizing,
 }
 
+/// Tokens (and, when the provider itself reports one, a billed cost) one or
+/// more provider calls consumed. Reported through
+/// [`TranslationCall::report_usage`] and read back with
+/// [`TranslationCall::total_usage`] (NEN-138).
+///
+/// `cost_usd` is `None` unless the provider's own response carries a billed
+/// figure (OpenRouter's `usage.cost`) — this type never estimates a cost from
+/// a maintained price table, which would drift as models change.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct TokenUsage {
+    pub input_tokens: u64,
+    pub cached_input_tokens: u64,
+    pub output_tokens: u64,
+    pub cost_usd: Option<f64>,
+}
+
+impl TokenUsage {
+    fn accumulate(&mut self, other: Self) {
+        self.input_tokens += other.input_tokens;
+        self.cached_input_tokens += other.cached_input_tokens;
+        self.output_tokens += other.output_tokens;
+        self.cost_usd = match (self.cost_usd, other.cost_usd) {
+            (Some(a), Some(b)) => Some(a + b),
+            (Some(a), None) => Some(a),
+            (None, Some(b)) => Some(b),
+            (None, None) => None,
+        };
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TranslationProgress {
     pub phase: TranslationProgressPhase,
@@ -304,6 +334,7 @@ pub struct TranslationCall {
     last_progress: Arc<Mutex<Option<TranslationProgress>>>,
     document_progress: Arc<Mutex<DocumentProgressState>>,
     document_scope: Option<DocumentProgressScope>,
+    usage: Arc<Mutex<TokenUsage>>,
 }
 
 impl TranslationCall {
@@ -324,6 +355,7 @@ impl TranslationCall {
             last_progress: Arc::new(Mutex::new(None)),
             document_progress: Arc::new(Mutex::new(DocumentProgressState::default())),
             document_scope: None,
+            usage: Arc::new(Mutex::new(TokenUsage::default())),
         }
     }
 
@@ -332,13 +364,16 @@ impl TranslationCall {
     /// contain fewer cue IDs than the original request, so its provider-facing
     /// progress total legitimately differs from the preceding attempt. When
     /// this call is document-scoped, its sink-facing high-water mark remains
-    /// shared with the retry.
+    /// shared with the retry. Usage accounting (`usage`) always stays shared
+    /// with every fork, regardless of document scope — a repair or retry
+    /// attempt's tokens belong to the same job's total (NEN-138).
     pub fn fork(&self) -> Self {
         Self {
             state: self.state.clone(),
             last_progress: Arc::new(Mutex::new(None)),
             document_progress: self.document_progress.clone(),
             document_scope: self.document_scope,
+            usage: self.usage.clone(),
         }
     }
 
@@ -417,6 +452,29 @@ impl TranslationCall {
         } else {
             Ok(response)
         }
+    }
+
+    /// Records tokens (and cost, when the provider reports one) a single
+    /// provider call already consumed. Adds into the running total shared by
+    /// this call and every one of its forks (NEN-138) — deliberately **not**
+    /// gated on cancellation: a provider response that already came back and
+    /// was billed is not un-billed just because the gate closed afterward.
+    pub fn report_usage(&self, usage: TokenUsage) {
+        let mut total = self
+            .usage
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        total.accumulate(usage);
+    }
+
+    /// The sum of every [`Self::report_usage`] call made through this call or
+    /// any of its forks so far. Safe to read at any time, including after an
+    /// `Err` or a cancellation — see [`Self::report_usage`].
+    pub fn total_usage(&self) -> TokenUsage {
+        *self
+            .usage
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 
     /// Run `f` under the same delivery gate that guards progress and result

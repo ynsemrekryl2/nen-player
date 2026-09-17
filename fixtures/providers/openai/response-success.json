@@ -10,5 +10,11 @@
         }
       ]
     }
-  ]
+  ],
+  "usage": {
+    "input_tokens": 210,
+    "input_tokens_details": { "cached_tokens": 50 },
+    "output_tokens": 60,
+    "total_tokens": 270
+  }
 }

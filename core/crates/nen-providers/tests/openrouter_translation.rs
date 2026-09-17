@@ -803,3 +803,96 @@ fn retry_after_is_clamped_on_chat_failures() {
         "retry-after is clamped"
     );
 }
+
+#[test]
+fn translate_and_analyze_report_token_usage_including_billed_cost() {
+    let translate_client = SequenceClient::new(vec![chat_success(), supported()]);
+    let translate_call = TranslationCall::without_progress();
+    provider(
+        &translate_client,
+        Arc::new(RecordingSleeper::default()),
+        Arc::new(TestClock::new(100)),
+    )
+    .translate(&request(), &translate_call)
+    .expect("translation");
+    assert_eq!(
+        translate_call.total_usage(),
+        nen_ports::translation::TokenUsage {
+            input_tokens: 150,
+            cached_input_tokens: 30,
+            output_tokens: 45,
+            cost_usd: Some(0.0021),
+        },
+        "OpenRouter reports its own billed cost"
+    );
+
+    let analysis_client = SequenceClient::new(vec![
+        Ok(response(
+            200,
+            include_str!(
+                "../../../../fixtures/providers/openrouter/response-analysis-success.json"
+            ),
+        )),
+        supported(),
+    ]);
+    let analysis_call = TranslationCall::without_progress();
+    provider(
+        &analysis_client,
+        Arc::new(RecordingSleeper::default()),
+        Arc::new(TestClock::new(100)),
+    )
+    .analyze_document(&analysis_request(), &analysis_call)
+    .expect("analysis");
+    assert_eq!(
+        analysis_call.total_usage(),
+        nen_ports::translation::TokenUsage {
+            input_tokens: 300,
+            cached_input_tokens: 0,
+            output_tokens: 80,
+            cost_usd: Some(0.0038),
+        }
+    );
+}
+
+#[test]
+fn request_asks_openrouter_to_include_billed_usage() {
+    let client = SequenceClient::new(vec![chat_success(), supported()]);
+    provider(
+        &client,
+        Arc::new(RecordingSleeper::default()),
+        Arc::new(TestClock::new(100)),
+    )
+    .translate(&request(), &TranslationCall::without_progress())
+    .expect("translation");
+    let requests = client.requests();
+    let sent: Value =
+        serde_json::from_slice(requests[1].body.as_ref().expect("body")).expect("json");
+    assert_eq!(sent["usage"]["include"].as_bool(), Some(true));
+}
+
+#[test]
+fn missing_usage_defaults_to_zero_without_failing_the_call() {
+    let client = SequenceClient::new(vec![
+        Ok(response(
+            200,
+            r#"{"choices":[{"message":{"content":"{\"translations\":[{\"cueId\":10,\"text\":\"x\"},{\"cueId\":20,\"text\":\"y\"}]}","refusal":null}}]}"#,
+        )),
+        supported(),
+    ]);
+    let call = TranslationCall::without_progress();
+    let result = provider(
+        &client,
+        Arc::new(RecordingSleeper::default()),
+        Arc::new(TestClock::new(100)),
+    )
+    .translate(&request(), &call);
+    assert!(
+        result.is_ok(),
+        "a response with no usage field still succeeds"
+    );
+    assert_eq!(
+        call.total_usage(),
+        nen_ports::translation::TokenUsage::default(),
+        "no usage object means every counter stays at zero, not an error"
+    );
+}

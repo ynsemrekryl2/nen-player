@@ -8,8 +8,8 @@
 use nen_ports::http::{HttpClient, HttpError, HttpHeader, HttpMethod, HttpRequest, HttpResponse};
 use nen_ports::translation::{
     AnalysisCharacter, AnalysisGlossaryEntry, DocumentAnalysis, DocumentAnalysisRequest,
-    TranslatedCue, TranslationCall, TranslationMode, TranslationProviderError, TranslationRequest,
-    TranslationResponse,
+    TokenUsage, TranslatedCue, TranslationCall, TranslationMode, TranslationProviderError,
+    TranslationRequest, TranslationResponse,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -381,8 +381,8 @@ pub(crate) fn translation_response_schema(output_cue_ids: &[nen_domain::subtitle
 
 pub(crate) fn parse_analysis_response_body(
     body: &[u8],
-) -> Result<DocumentAnalysis, TranslationProviderError> {
-    let payload = response_payload(body, "summary")?;
+) -> Result<(DocumentAnalysis, TokenUsage), TranslationProviderError> {
+    let (payload, usage) = response_payload(body, "summary")?;
     let payload: AnalysisResponsePayload =
         serde_json::from_value(payload).map_err(|_| TranslationProviderError::Permanent)?;
     let analysis = DocumentAnalysis {
@@ -408,16 +408,16 @@ pub(crate) fn parse_analysis_response_body(
     analysis
         .validate()
         .map_err(|_| TranslationProviderError::Permanent)?;
-    Ok(analysis)
+    Ok((analysis, usage))
 }
 
 pub(crate) fn parse_translation_response_body(
     body: &[u8],
-) -> Result<TranslationResponse, TranslationProviderError> {
-    let payload = response_payload(body, "translations")?;
+) -> Result<(TranslationResponse, TokenUsage), TranslationProviderError> {
+    let (payload, usage) = response_payload(body, "translations")?;
     let payload: TranslationResponsePayload =
         serde_json::from_value(payload).map_err(|_| TranslationProviderError::Permanent)?;
-    Ok(TranslationResponse {
+    let response = TranslationResponse {
         cues: payload
             .translations
             .into_iter()
@@ -426,10 +426,14 @@ pub(crate) fn parse_translation_response_body(
                 text: cue.text,
             })
             .collect(),
-    })
+    };
+    Ok((response, usage))
 }
 
-fn response_payload(body: &[u8], direct_field: &str) -> Result<Value, TranslationProviderError> {
+fn response_payload(
+    body: &[u8],
+    direct_field: &str,
+) -> Result<(Value, TokenUsage), TranslationProviderError> {
     if body.len() > MAX_PROVIDER_BODY_BYTES {
         return Err(TranslationProviderError::Permanent);
     }
@@ -438,13 +442,57 @@ fn response_payload(body: &[u8], direct_field: &str) -> Result<Value, Translatio
     if contains_refusal(&root) {
         return Err(TranslationProviderError::Permanent);
     }
+    let usage = extract_usage(&root);
 
-    if let Some(output_text) = extract_output_text(&root) {
-        serde_json::from_str(output_text).map_err(|_| TranslationProviderError::Permanent)
+    let payload = if let Some(output_text) = extract_output_text(&root) {
+        serde_json::from_str(output_text).map_err(|_| TranslationProviderError::Permanent)?
     } else if root.get(direct_field).is_some() {
-        Ok(root)
+        root
     } else {
-        Err(TranslationProviderError::Permanent)
+        return Err(TranslationProviderError::Permanent);
+    };
+    Ok((payload, usage))
+}
+
+/// Reads token accounting out of the response envelope's `usage` object,
+/// which sits alongside `output_text`/`choices` rather than inside them — so
+/// this runs on `root`, before [`extract_output_text`] narrows to the
+/// schema-shaped payload.
+///
+/// Accepts both wire shapes this module parses: OpenAI Responses
+/// (`input_tokens`/`output_tokens`/`input_tokens_details.cached_tokens`) and
+/// OpenRouter's OpenAI-Chat-Completions-compatible envelope
+/// (`prompt_tokens`/`completion_tokens`/`prompt_tokens_details.cached_tokens`,
+/// plus a billed `cost` when the request asked for it). A missing or
+/// malformed `usage` object yields [`TokenUsage::default`] (every count
+/// zero, `cost_usd` `None`) rather than failing the response — bookkeeping is
+/// not a correctness gate on the translation itself.
+pub(crate) fn extract_usage(root: &Value) -> TokenUsage {
+    let Some(usage) = root.get("usage") else {
+        return TokenUsage::default();
+    };
+    let input_tokens = usage
+        .get("input_tokens")
+        .or_else(|| usage.get("prompt_tokens"))
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    let cached_input_tokens = usage
+        .get("input_tokens_details")
+        .or_else(|| usage.get("prompt_tokens_details"))
+        .and_then(|details| details.get("cached_tokens"))
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    let output_tokens = usage
+        .get("output_tokens")
+        .or_else(|| usage.get("completion_tokens"))
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    let cost_usd = usage.get("cost").and_then(Value::as_f64);
+    TokenUsage {
+        input_tokens,
+        cached_input_tokens,
+        output_tokens,
+        cost_usd,
     }
 }
 

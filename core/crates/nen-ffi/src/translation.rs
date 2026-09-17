@@ -48,6 +48,7 @@ use crate::remote_evidence::{adapt_http_client, ForeignHttpClient};
 use crate::subtitles::FfiSubtitleLibrary;
 use nen_app::domain::source::LanguageTag;
 use nen_app::ports::identity::MediaHash;
+use nen_app::ports::translation::TokenUsage;
 use nen_app::ports::translation::{TranslationProgress, TranslationProgressPhase};
 use nen_app::translation::{
     ProviderChoice, StartRefusal, TranslationCancelHandle, TranslationEnvironment,
@@ -106,13 +107,41 @@ impl From<TranslationProgress> for FfiTranslationProgress {
 /// ContentAddress`] and [`nen_ports::persistence::ArtifactRecord`] already
 /// redact both in their own `Debug`/`Display` (`<redacted>`) — a guarantee
 /// this crate's host language does not share, so neither crosses at all.
-/// `Debug` is derived: every field here is a bool, a count, or a language
-/// tag, none of them a K23 class.
-#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+/// `Debug` is derived: every field here is a bool, a count, a language tag or
+/// [`FfiTokenUsage`] (itself only counts and an optional dollar figure),
+/// none of them a K23 class.
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
 pub struct FfiTranslationSummary {
     pub from_cache: bool,
     pub cue_count: u32,
     pub target_language: String,
+    pub usage: FfiTokenUsage,
+}
+
+/// Tokens (and, when the provider itself reports one, a billed cost) every
+/// provider call a translation job made has reported so far (`NEN-138`).
+///
+/// `cost_usd` is `None` unless the provider's own response carried a billed
+/// figure (OpenRouter's `usage.cost`) — this never estimates a cost from a
+/// maintained price table. Payload-free: four numbers, nothing this crate
+/// redacts elsewhere.
+#[derive(Debug, Clone, Copy, PartialEq, Default, uniffi::Record)]
+pub struct FfiTokenUsage {
+    pub input_tokens: u64,
+    pub cached_input_tokens: u64,
+    pub output_tokens: u64,
+    pub cost_usd: Option<f64>,
+}
+
+impl From<TokenUsage> for FfiTokenUsage {
+    fn from(usage: TokenUsage) -> Self {
+        Self {
+            input_tokens: usage.input_tokens,
+            cached_input_tokens: usage.cached_input_tokens,
+            output_tokens: usage.output_tokens,
+            cost_usd: usage.cost_usd,
+        }
+    }
 }
 
 /// A real provider selected by the shell. The provider/model pair is kept
@@ -143,11 +172,16 @@ pub fn media_hash_for_windows(file_size: u64, head: Vec<u8>, tail: Vec<u8>) -> O
 }
 
 impl From<&TranslationOutcome> for FfiTranslationSummary {
+    /// `usage` is always [`FfiTokenUsage::default`] here — a
+    /// [`TranslationOutcome`] carries no usage of its own (a cache hit made
+    /// no provider call at all). [`FfiTranslationJob::join`] overwrites it
+    /// with the job's real total right after calling this.
     fn from(value: &TranslationOutcome) -> Self {
         Self {
             from_cache: value.from_cache,
             cue_count: u32::try_from(value.record.document.len()).unwrap_or(u32::MAX),
             target_language: value.record.target_language.as_str().to_owned(),
+            usage: FfiTokenUsage::default(),
         }
     }
 }
@@ -379,6 +413,15 @@ impl FfiTranslationJob {
         }
     }
 
+    /// Tokens (and cost, when the provider reports one) every provider call
+    /// this job has made has reported so far (`NEN-138`). Reads
+    /// `cancel_handle`, so it is safe to call at any time — before starting,
+    /// while running, or after [`Self::join`] returns either `Ok` or `Err`:
+    /// a provider that already billed tokens does not un-bill them.
+    pub fn total_usage(&self) -> FfiTokenUsage {
+        self.cancel_handle.total_usage().into()
+    }
+
     /// Blocks until the job's worker thread returns.
     ///
     /// ADR-0004 Karar 1 puts async ownership with the caller and opens no
@@ -400,7 +443,8 @@ impl FfiTranslationJob {
         let origin = handle.origin().clone();
         match handle.join() {
             Ok(outcome) => {
-                let summary = FfiTranslationSummary::from(&outcome);
+                let mut summary = FfiTranslationSummary::from(&outcome);
+                summary.usage = self.cancel_handle.total_usage().into();
                 *lock(&self.state) = JobState::Done(Box::new(FinishedJob { origin, outcome }));
                 Ok(summary)
             }

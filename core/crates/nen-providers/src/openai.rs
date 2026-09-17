@@ -156,7 +156,9 @@ impl TranslationProvider for OpenAiTranslationProvider<'_> {
             },
         )?;
         call.checkpoint()?;
-        translation_http::parse_analysis_response_body(&response.body)
+        let (analysis, usage) = translation_http::parse_analysis_response_body(&response.body)?;
+        call.report_usage(usage);
+        Ok(analysis)
     }
 
     fn translate(
@@ -204,7 +206,9 @@ impl TranslationProvider for OpenAiTranslationProvider<'_> {
         )?;
 
         call.checkpoint()?;
-        let translated = translation_http::parse_translation_response_body(&response.body)?;
+        let (translated, usage) =
+            translation_http::parse_translation_response_body(&response.body)?;
+        call.report_usage(usage);
         call.progress(TranslationProgress {
             phase: TranslationProgressPhase::Translating,
             done: total,

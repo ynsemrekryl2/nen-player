@@ -41,8 +41,8 @@ use nen_ports::persistence::{
     ResumeStore, ResumeStoreError,
 };
 use nen_ports::translation::{
-    TranslationCall, TranslationProgressSink, TranslationProvider, TranslationProviderError,
-    TranslationProviderIdentity,
+    TokenUsage, TranslationCall, TranslationProgressSink, TranslationProvider,
+    TranslationProviderError, TranslationProviderIdentity,
 };
 use nen_subtitle::fingerprint::SourceFingerprint;
 use nen_translate::artifact::{
@@ -348,6 +348,16 @@ impl TranslationCancelHandle {
     /// already finished.
     pub fn cancel(&self) {
         self.call.cancel();
+    }
+
+    /// Tokens (and, when the provider reports one, a billed cost) every
+    /// provider call this job has made has reported so far (`NEN-138`).
+    /// Safe to call at any time — before the job starts, while it runs, or
+    /// after [`TranslationJobHandle::join`] returns either `Ok` or `Err`: a
+    /// provider that already billed tokens does not un-bill them just
+    /// because the job was later cancelled or failed.
+    pub fn total_usage(&self) -> TokenUsage {
+        self.call.total_usage()
     }
 }
 

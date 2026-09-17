@@ -5,7 +5,7 @@
 > `tasks/done/` ve `history/`'de. Burada tekrar edilmez; **150 satırı aşamaz**
 > (`check-docs.sh` denetim 10).
 >
-> Son güncelleme: **2026-09-17** (**`NEN-137` tamamlandı; `NEN-126` READY**.)
+> Son güncelleme: **2026-09-17** (**`NEN-138` tamamlandı; `NEN-126`/`NEN-139` READY**.)
 
 ## Nerede duruyoruz
 
@@ -13,13 +13,15 @@
 |---|---|
 | **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı — `docs/milestones/M6-real-providers.md`) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-137`** — Align media identity with traffic lights. Ondan önce: `NEN-136` |
-| **Sıradaki READY** | **`NEN-126`** — Real providers acceptance |
-| **Task sayısı** | 137 · done 134 · active 0 · blocked 0 · canceled 2 · backlog 1 |
+| **Son tamamlanan** | **`NEN-138`** — Capture provider token usage in translation pipeline. Ondan önce: `NEN-137` |
+| **Sıradaki READY** | **`NEN-126`** — Real providers acceptance; **`NEN-139`** — Show translation token usage and cost in pipeline event log |
+| **Task sayısı** | 139 · done 135 · active 0 · blocked 0 · canceled 2 · backlog 2 |
 
-**Son kapanış — `NEN-137` (2026-09-17):** Medya kimliği ve dosya adı üst
-şeridi, başlığı trafik ışıklarıyla aynı satıra taşıyor; basename ve doğrulanmış
-kimlik sunumları aynı yerleşim sözleşmesini kullanıyor.
+**Son kapanış — `NEN-138` (2026-09-17):** OpenAI ve OpenRouter yanıtlarındaki
+`usage` alanı yakalanıp bir çeviri işinin tamamı (belge analizi + her blok +
+repair) için toplanıyor; iptal/hata sonrası bile tüketilen token kaybolmuyor;
+FFI özetine ve bağımsız bir okuma noktasına kadar taşınıyor. Gösterim
+(`NEN-139`) ayrı task.
 
 ## Toolchain
 
@@ -45,9 +47,9 @@ kurmaz (`scripts/tests/doctor.test.sh` S7). Kurulum geçmişi:
 
 ## Blocker'lar
 
-**Toolchain blocker'ı yok.** `NEN-137` doğrulanarak kapandı ve `NEN-126` gerçek
-provider kabul koşusu için READY. Çözülmüş B1–B4 kaydı:
-`history/status-archive-2026-09.md`.
+**Toolchain blocker'ı yok.** `NEN-138` doğrulanarak kapandı. `NEN-126` gerçek
+provider kabulü ve `NEN-139` (token/maliyet gösterimi) birbirinden bağımsız
+READY. Çözülmüş B1–B4 kaydı: `history/status-archive-2026-09.md`.
 
 ## Kullanıcı kararı bekleyenler
 
@@ -63,10 +65,12 @@ gerçek ağ koşusu ayrıca kullanıcı onayı ve kullanıcıya ait credential g
 
 ## Son doğrulama
 
-2026-09-17'de `NEN-137` tamamlandı. `bash scripts/test-macos.sh` ile 260
-shell/player, 57 playback/contract ve 4 Keychain macOS testi; `bash
-scripts/build-macos-app.sh`, `bash scripts/check-docs.sh`, `bash
-scripts/task-index.sh --check` ve `git diff --check` çıkış 0 verdi.
+2026-09-17'de `NEN-138` tamamlandı. `cargo test --workspace` (115 test
+binary'si) yeşil; `cargo fmt --all --check`, `cargo clippy --workspace
+--all-targets --all-features -- -D warnings`, `cargo deny check`, `bash
+scripts/check-docs.sh`, `bash scripts/task-index.sh --check` ve `git diff
+--check` çıkış 0 verdi. Bu task yalnız `core/` dokunuyor; `test-macos.sh`
+gerektirmedi.
 
 Önceki doğrulama girdileri ve toolchain kapısı geçmişi:
 `history/status-archive-2026-09.md`.

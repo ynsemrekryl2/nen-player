@@ -310,7 +310,9 @@ impl TranslationProvider for OpenRouterTranslationProvider<'_> {
             },
         )?;
         call.checkpoint()?;
-        translation_http::parse_analysis_response_body(&response.body)
+        let (analysis, usage) = translation_http::parse_analysis_response_body(&response.body)?;
+        call.report_usage(usage);
+        Ok(analysis)
     }
 
     fn translate(
@@ -350,7 +352,9 @@ impl TranslationProvider for OpenRouterTranslationProvider<'_> {
             },
         )?;
         call.checkpoint()?;
-        let translated = translation_http::parse_translation_response_body(&response.body)?;
+        let (translated, usage) =
+            translation_http::parse_translation_response_body(&response.body)?;
+        call.report_usage(usage);
         call.progress(TranslationProgress {
             phase: TranslationProgressPhase::Translating,
             done: total,
@@ -454,6 +458,15 @@ struct ChatRequest<'a> {
     messages: Vec<ChatMessage>,
     response_format: ChatResponseFormat,
     provider: ProviderRouting,
+    usage: UsageRequest,
+}
+
+/// Asks OpenRouter to include its own billed `usage.cost` in the response
+/// (NEN-138) — the only source of a real dollar figure this codebase uses;
+/// see `nen_ports::translation::TokenUsage` for why no price table exists.
+#[derive(Serialize)]
+struct UsageRequest {
+    include: bool,
 }
 
 #[derive(Serialize)]
@@ -541,6 +554,7 @@ fn build_request_body(
             allow_fallbacks: false,
             require_parameters: true,
         },
+        usage: UsageRequest { include: true },
     };
     serde_json::to_vec(&payload).map_err(|_| TranslationProviderError::Permanent)
 }

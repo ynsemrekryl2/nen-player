@@ -1,3 +1,9 @@
 {
-  "output_text": "{\"summary\":\"Two speakers discuss a fixture.\",\"characters\":[{\"name\":\"PrivateName\",\"description\":\"A concise speaker\"}],\"glossary\":[{\"source\":\"fixture\",\"target\":\"örnek\",\"note\":\"Keep the technical meaning\"}]}"
+  "output_text": "{\"summary\":\"Two speakers discuss a fixture.\",\"characters\":[{\"name\":\"PrivateName\",\"description\":\"A concise speaker\"}],\"glossary\":[{\"source\":\"fixture\",\"target\":\"örnek\",\"note\":\"Keep the technical meaning\"}]}",
+  "usage": {
+    "input_tokens": 400,
+    "input_tokens_details": { "cached_tokens": 0 },
+    "output_tokens": 90,
+    "total_tokens": 490
+  }
 }

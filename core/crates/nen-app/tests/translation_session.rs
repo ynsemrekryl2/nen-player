@@ -480,3 +480,97 @@ fn a_corrupt_resume_stops_before_any_provider_call() {
     assert_eq!(provider.calls(), 0);
     assert_eq!(files_in(&store_dir.path().join("resume")).len(), 1);
 }
+
+/// `NEN-138`: the whole-job token total is the sum of the analysis call's
+/// usage and every block's, not just the last call's — proving the shared
+/// [`nen_ports::translation::TranslationCall`] accounting actually
+/// accumulates rather than overwrites.
+#[test]
+fn a_completed_job_reports_usage_summed_across_analysis_and_every_block() {
+    let media = TempDir::new("usage-summed");
+    let store_dir = TempDir::new("usage-summed-store");
+    let (library, token) = library_with_file(media.path(), "Movie.en.srt", &srt(6, "usage"));
+    let provider = Arc::new(MockTranslationProvider::new());
+    let job = translation::prepare(
+        &library,
+        token,
+        tag("tr"),
+        BlockLayoutConfig::default(),
+        provider.identity(),
+        metadata_seed("usage-summed"),
+    )
+    .expect("a valid job");
+
+    let concrete_store = store(store_dir.path());
+    let artifact_store: Arc<dyn ArtifactStore> = concrete_store.clone();
+    let index: Arc<dyn ArtifactIndex> = concrete_store.clone();
+    let handle = translation::start(
+        job,
+        provider.clone(),
+        artifact_store,
+        index,
+        concrete_store,
+        None,
+    );
+    let usage_handle = handle.cancel_handle();
+    handle.join().expect("the job completes");
+
+    // MockTranslationProvider (NEN-138) reports a deterministic, non-real
+    // usage per call: `input = transcript_len * 10, output = 20` for
+    // analysis and `input = cue_count * 5, output = cue_count * 8` for a
+    // single-block translate of all 6 cues.
+    let usage = usage_handle.total_usage();
+    assert_eq!(
+        usage.input_tokens,
+        6 * 10 + 6 * 5,
+        "analysis + block, summed"
+    );
+    assert_eq!(usage.output_tokens, 20 + 6 * 8, "analysis + block, summed");
+    assert_eq!(usage.cached_input_tokens, 0);
+    assert_eq!(usage.cost_usd, None, "the mock never reports a billed cost");
+}
+
+/// `NEN-138`: a job that fails partway through still reports the tokens its
+/// earlier, successful provider calls already consumed — a provider that
+/// billed those tokens does not un-bill them just because a later block
+/// failed the whole job.
+#[test]
+fn a_failed_job_still_reports_the_usage_already_billed() {
+    let media = TempDir::new("usage-on-failure");
+    let store_dir = TempDir::new("usage-on-failure-store");
+    let (library, token) = library_with_file(media.path(), "Movie.en.srt", &srt(70, "usage-fail"));
+    let provider = Arc::new(FailAfterOneProvider::new());
+    let job = translation::prepare(
+        &library,
+        token,
+        tag("tr"),
+        BlockLayoutConfig::default(),
+        provider.identity(),
+        metadata_seed("usage-on-failure"),
+    )
+    .expect("a valid multi-block job");
+
+    let concrete_store = store(store_dir.path());
+    let artifact_store: Arc<dyn ArtifactStore> = concrete_store.clone();
+    let index: Arc<dyn ArtifactIndex> = concrete_store.clone();
+    let handle = translation::start(
+        job,
+        provider.clone(),
+        artifact_store,
+        index,
+        concrete_store,
+        None,
+    );
+    let usage_handle = handle.cancel_handle();
+    let result = handle.join();
+
+    assert!(
+        matches!(result, Err(translation::TranslationError::Failed(_))),
+        "the second block's provider call fails the whole job"
+    );
+    let usage = usage_handle.total_usage();
+    assert!(
+        usage.input_tokens > 0 && usage.output_tokens > 0,
+        "the analysis call and the first block's tokens are not discarded on failure"
+    );
+}

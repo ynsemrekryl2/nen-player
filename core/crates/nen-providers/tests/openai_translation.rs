@@ -694,3 +694,93 @@ fn sensitive_provider_surfaces_are_shape_only() {
         "negative guard twin exposes sentinel"
     );
 }
+
+#[test]
+fn translate_and_analyze_report_token_usage_from_the_response() {
+    let translate_client = SequenceClient::new(vec![Ok(response(
+        200,
+        include_str!("../../../../fixtures/providers/openai/response-success.json"),
+    ))]);
+    let translate_call = TranslationCall::without_progress();
+    provider(&translate_client, Arc::new(RecordingSleeper::default()))
+        .translate(&request(), &translate_call)
+        .expect("translation");
+    assert_eq!(
+        translate_call.total_usage(),
+        nen_ports::translation::TokenUsage {
+            input_tokens: 210,
+            cached_input_tokens: 50,
+            output_tokens: 60,
+            cost_usd: None,
+        },
+        "OpenAI does not report a billed cost — tokens only"
+    );
+
+    let analysis_client = SequenceClient::new(vec![Ok(response(
+        200,
+        include_str!("../../../../fixtures/providers/openai/response-analysis-success.json"),
+    ))]);
+    let analysis_call = TranslationCall::without_progress();
+    provider(&analysis_client, Arc::new(RecordingSleeper::default()))
+        .analyze_document(&analysis_request(), &analysis_call)
+        .expect("analysis");
+    assert_eq!(
+        analysis_call.total_usage(),
+        nen_ports::translation::TokenUsage {
+            input_tokens: 400,
+            cached_input_tokens: 0,
+            output_tokens: 90,
+            cost_usd: None,
+        }
+    );
+}
+
+#[test]
+fn repair_attempts_accumulate_usage_across_every_provider_call() {
+    let mut targeted = request();
+    targeted.output_cue_ids = vec![CueId::new(20)];
+    targeted.mode = TranslationMode::TargetedRepair;
+
+    let client = SequenceClient::new(vec![
+        Ok(response(
+            200,
+            include_str!("../../../../fixtures/providers/openai/response-success.json"),
+        )),
+        Ok(response(
+            200,
+            include_str!("../../../../fixtures/providers/openai/response-success.json"),
+        )),
+    ]);
+    let call = TranslationCall::without_progress();
+    let translated = provider(&client, Arc::new(RecordingSleeper::default()));
+    translated
+        .translate(&request(), &call)
+        .expect("initial translation");
+    translated
+        .translate(&targeted, &call.fork())
+        .expect("targeted repair translation");
+
+    let usage = call.total_usage();
+    assert_eq!(usage.input_tokens, 420, "two calls, usage summed");
+    assert_eq!(usage.output_tokens, 120, "two calls, usage summed");
+}
+
+#[test]
+fn missing_usage_defaults_to_zero_without_failing_the_call() {
+    let client = SequenceClient::new(vec![Ok(response(
+        200,
+        r#"{"output_text":"{\"translations\":[{\"cueId\":10,\"text\":\"x\"},{\"cueId\":20,\"text\":\"y\"}]}"}"#,
+    ))]);
+    let call = TranslationCall::without_progress();
+    let result =
+        provider(&client, Arc::new(RecordingSleeper::default())).translate(&request(), &call);
+    assert!(
+        result.is_ok(),
+        "a response with no usage field still succeeds"
+    );
+    assert_eq!(
+        call.total_usage(),
+        nen_ports::translation::TokenUsage::default(),
+        "no usage object means every counter stays at zero, not an error"
+    );
+}

@@ -7,5 +7,12 @@
         "refusal": null
       }
     }
-  ]
+  ],
+  "usage": {
+    "prompt_tokens": 300,
+    "prompt_tokens_details": { "cached_tokens": 0 },
+    "completion_tokens": 80,
+    "total_tokens": 380,
+    "cost": 0.0038
+  }
 }

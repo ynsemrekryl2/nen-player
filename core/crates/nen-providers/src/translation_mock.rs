@@ -1,7 +1,7 @@
 //! Deterministic, network-free translation provider used by M5.
 
 use nen_ports::translation::{
-    AnalysisGlossaryEntry, DocumentAnalysis, DocumentAnalysisRequest, TranslatedCue,
+    AnalysisGlossaryEntry, DocumentAnalysis, DocumentAnalysisRequest, TokenUsage, TranslatedCue,
     TranslationCall, TranslationProgress, TranslationProgressPhase, TranslationProvider,
     TranslationProviderError, TranslationProviderIdentity, TranslationRequest, TranslationResponse,
 };
@@ -124,6 +124,12 @@ impl TranslationProvider for MockTranslationProvider {
             .validate()
             .map_err(|_| TranslationProviderError::Permanent)?;
         call.checkpoint()?;
+        call.report_usage(TokenUsage {
+            input_tokens: u64::try_from(request.transcript.len()).unwrap_or(u64::MAX) * 10,
+            cached_input_tokens: 0,
+            output_tokens: 20,
+            cost_usd: None,
+        });
         Ok(analysis)
     }
 
@@ -174,6 +180,12 @@ impl TranslationProvider for MockTranslationProvider {
             done: total,
             total,
         })?;
+        call.report_usage(TokenUsage {
+            input_tokens: u64::from(total) * 5,
+            cached_input_tokens: 0,
+            output_tokens: u64::from(total) * 8,
+            cost_usd: None,
+        });
         call.finish(TranslationResponse { cues })
     }
 }

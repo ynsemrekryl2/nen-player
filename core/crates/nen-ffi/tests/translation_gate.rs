@@ -289,6 +289,42 @@ fn progress_events_arrive_in_order_and_the_summary_matches_the_source() {
     assert_eq!(ai_entries(&library), 1);
 }
 
+/// `NEN-138`: [`FfiTranslationSummary::usage`] and [`FfiTranslationJob::
+/// total_usage`] both cross the gate carrying the same real total — not just
+/// a default/zero record — and agree with each other.
+#[test]
+fn the_summary_and_total_usage_carry_the_jobs_real_token_total() {
+    let media = TempDir::new("usage-media");
+    let store = TempDir::new("usage-store");
+    let library = Arc::new(FfiSubtitleLibrary::new());
+    let token = add_file(
+        &library,
+        media.path(),
+        "Movie.en.srt",
+        &["Alpha line", "Bravo line", "Charlie line"],
+    );
+
+    let engine = FfiTranslationEngine::new(store.path().to_string_lossy().into_owned())
+        .expect("a fresh store opens");
+    let job = engine
+        .start(library.clone(), token, "tr".to_owned(), None)
+        .expect("the job starts");
+
+    let summary = job.join().expect("the job completes");
+    // MockTranslationProvider (NEN-138) reports a deterministic, non-real
+    // usage: analysis `input = transcript_len * 10, output = 20`, and a
+    // single-block translate of all 3 cues `input = 3 * 5, output = 3 * 8`.
+    assert_eq!(summary.usage.input_tokens, 3 * 10 + 3 * 5);
+    assert_eq!(summary.usage.output_tokens, 20 + 3 * 8);
+    assert_eq!(summary.usage.cached_input_tokens, 0);
+    assert_eq!(summary.usage.cost_usd, None);
+    assert_eq!(
+        job.total_usage(),
+        summary.usage,
+        "the standalone accessor agrees with the summary it was copied into"
+    );
+}
+
 #[test]
 fn a_second_run_against_the_same_store_root_is_served_from_cache() {
     let media = TempDir::new("cache-media");

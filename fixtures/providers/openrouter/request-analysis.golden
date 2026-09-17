@@ -54,5 +54,8 @@
     "order": ["OpenAI"],
     "allow_fallbacks": false,
     "require_parameters": true
+  },
+  "usage": {
+    "include": true
   }
 }
