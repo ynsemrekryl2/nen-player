@@ -174,11 +174,46 @@ final class TranslationCancellation: @unchecked Sendable {
 /// changed underneath it — `FfiTranslationJob`, `FfiTranslationSummary` and
 /// every error type here are all `Sendable` (generated bindings), so nothing
 /// here needs a manual `@unchecked`.
+extension FfiTokenUsage {
+    /// No provider call was ever made — every early-cancellation exit above
+    /// `FfiTranslationEngine.start` returns this rather than an ambiguous
+    /// zero built by hand at each call site.
+    static let zero = FfiTokenUsage(
+        inputTokens: 0,
+        cachedInputTokens: 0,
+        outputTokens: 0,
+        costUsd: nil
+    )
+
+    /// Combines two usages the way `nen_ports::translation::TokenUsage`
+    /// does on the Rust side: counts add, and `costUsd` stays `nil` only
+    /// when neither side reported one (`NEN-139`'s session-wide total).
+    func adding(_ other: FfiTokenUsage) -> FfiTokenUsage {
+        let combinedCost: Double? = switch (costUsd, other.costUsd) {
+        case let (.some(a), .some(b)): a + b
+        case let (.some(a), .none): a
+        case let (.none, .some(b)): b
+        case (.none, .none): nil
+        }
+        return FfiTokenUsage(
+            inputTokens: inputTokens + other.inputTokens,
+            cachedInputTokens: cachedInputTokens + other.cachedInputTokens,
+            outputTokens: outputTokens + other.outputTokens,
+            costUsd: combinedCost
+        )
+    }
+}
+
 enum TranslationJoinOutcome: Sendable {
     case succeeded(FfiTranslationJob)
     /// `prepare_embedded_document` (`NEN-044`) refused before a job could
     /// even be prepared — the engine was never asked to start.
     case prepareFailed(FfiEmbeddedDocumentError)
     case startFailed(FfiTranslationStartError)
-    case joinFailed(FfiTranslationError)
+    /// `usage` is whatever `FfiTranslationJob.totalUsage()` read at the
+    /// moment of failure (`NEN-138`/`NEN-139`) — zero when no job ever
+    /// started (every early-cancellation site above), otherwise the tokens
+    /// its provider calls already billed before the failure or the
+    /// cancellation, which are not un-billed by either.
+    case joinFailed(FfiTranslationError, usage: FfiTokenUsage)
 }

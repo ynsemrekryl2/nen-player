@@ -61,7 +61,7 @@ struct PipelineEventLogTests {
         let log = PipelineEventLog(capacity: 1)
         let gone = log.record(.playbackReady)
         log.record(.subtitlesTurnedOff)
-        log.update(gone, .translationFinished)
+        log.update(gone, .translationFinished(usage: .zero))
 
         #expect(log.events.map(\.kind) == [.subtitlesTurnedOff])
     }
@@ -116,6 +116,64 @@ struct PipelineEventLogTests {
                 == "OpenSubtitles: aday yok — denenen: hash"
         )
         #expect(PipelineEventPresentation.tone(for: .candidateSearchFinished(report: miss)) == .warning)
+    }
+
+    @Test("zero usage shows no token or cost detail at all (NEN-139)")
+    func zeroUsageShowsNoDetails() {
+        for kind: PipelineEventKind in [
+            .translationFinished(usage: .zero),
+            .translationCancelled(usage: .zero),
+            .translationFailed(error: "Failed", usage: .zero),
+        ] {
+            let details = PipelineEventPresentation.details(for: kind)
+            #expect(!details.contains { $0.label == "Girdi token" })
+            #expect(!details.contains { $0.label == "Cache'lenmiş girdi" })
+            #expect(!details.contains { $0.label == "Çıktı token" })
+            #expect(!details.contains { $0.label == "Tahmini maliyet" })
+        }
+    }
+
+    @Test("non-zero usage shows token counts; a missing cost hides the cost line (NEN-139)")
+    func tokenOnlyUsageHidesCostLine() {
+        let usage = FfiTokenUsage(inputTokens: 210, cachedInputTokens: 50, outputTokens: 60, costUsd: nil)
+        let details = PipelineEventPresentation.details(for: .translationFinished(usage: usage))
+        #expect(details.contains(.init("Girdi token", "210")))
+        #expect(details.contains(.init("Cache'lenmiş girdi", "50")))
+        #expect(details.contains(.init("Çıktı token", "60")))
+        #expect(!details.contains { $0.label == "Tahmini maliyet" }, "OpenAI-direct never invents a cost")
+    }
+
+    @Test("a provider-reported cost is shown, formatted to four decimals (NEN-139)")
+    func billedCostIsShownWhenReported() {
+        let usage = FfiTokenUsage(inputTokens: 150, cachedInputTokens: 30, outputTokens: 45, costUsd: 0.0021)
+        let details = PipelineEventPresentation.details(for: .translationFinished(usage: usage))
+        #expect(details.contains(.init("Tahmini maliyet", "$0.0021")))
+    }
+
+    @Test("the session total is absent until a provider call has been made, then sums every job (NEN-139)")
+    func sessionUsageSummarySumsTerminalRowsOnly() {
+        let log = PipelineEventLog()
+        #expect(PipelineEventPresentation.sessionUsageSummary(log.sessionTokenUsage) == nil)
+
+        log.record(.translationStarted(provider: "OpenRouter", model: "m", source: "en", target: "tr", label: "A"))
+        log.record(.translationPhase(phase: .translating, done: 1, total: 2))
+        #expect(
+            PipelineEventPresentation.sessionUsageSummary(log.sessionTokenUsage) == nil,
+            "an in-flight progress row carries no usage of its own"
+        )
+
+        log.record(.translationFinished(usage: FfiTokenUsage(
+            inputTokens: 100, cachedInputTokens: 0, outputTokens: 50, costUsd: 0.001
+        )))
+        log.record(.translationFailed(error: "Failed", usage: FfiTokenUsage(
+            inputTokens: 20, cachedInputTokens: 0, outputTokens: 5, costUsd: nil
+        )))
+
+        let total = log.sessionTokenUsage
+        #expect(total.inputTokens == 120)
+        #expect(total.outputTokens == 55)
+        #expect(total.costUsd == 0.001, "a failed job with no cost does not erase an earlier job's cost")
+        #expect(PipelineEventPresentation.sessionUsageSummary(total) != nil)
     }
 
     @Test("the identity outcome names the method, and a missing hash is not a provider miss")
@@ -349,7 +407,14 @@ struct PipelineEventLogTests {
         )))
         let phaseRows = kinds.filter { if case .translationPhase = $0 { true } else { false } }
         #expect(phaseRows.count <= 1, "progress is one row updated in place, not a row per callback")
-        #expect(kinds.contains(.translationFinished))
+        // NEN-138/NEN-139: a real (mock-provider) run reports non-zero usage
+        // end to end, not just a row whose case matches.
+        #expect(kinds.contains { kind in
+            if case let .translationFinished(usage) = kind {
+                return usage.inputTokens > 0 && usage.outputTokens > 0
+            }
+            return false
+        })
     }
 
     @Test("a translation cancelled before it starts records the cancellation, not a failure")
@@ -374,7 +439,10 @@ struct PipelineEventLogTests {
         await model.awaitTranslation()
 
         let kinds = model.events.events.map(\.kind)
-        #expect(kinds.contains(.translationCancelled))
+        // Cancelled before the engine ever started a job: no provider call
+        // was made, so the usage it carries is exactly zero (NEN-138) —
+        // not merely "small" or unmeasured.
+        #expect(kinds.contains(.translationCancelled(usage: .zero)))
         #expect(!kinds.contains { if case .translationFailed = $0 { true } else { false } })
     }
 
@@ -481,9 +549,11 @@ struct PipelineEventLogTests {
         .translationPhase(phase: .preparing, done: 0, total: 0),
         .translationPhase(phase: .translating, done: 4, total: 10),
         .translationPhase(phase: .finalizing, done: 10, total: 10),
-        .translationFinished,
-        .translationCancelled,
-        .translationFailed(error: "Failed"),
+        .translationFinished(usage: FfiTokenUsage(
+            inputTokens: 1200, cachedInputTokens: 300, outputTokens: 400, costUsd: 0.0042
+        )),
+        .translationCancelled(usage: .zero),
+        .translationFailed(error: "Failed", usage: .zero),
     ]
 
     private func makeModel(

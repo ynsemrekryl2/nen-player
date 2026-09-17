@@ -1056,7 +1056,7 @@ public final class PlayerModel: ObservableObject {
                 // must never reach the artifact store or a provider at all —
                 // `translationCancellation`'s own doc comment.
                 guard !cancellation.isCancelled else {
-                    return .joinFailed(.Cancelled)
+                    return .joinFailed(.Cancelled, usage: .zero)
                 }
                 // `NEN-044`: an embedded row has no document until something
                 // asks the engine to extract one. This is that ask, run here
@@ -1076,23 +1076,23 @@ public final class PlayerModel: ObservableObject {
                     cancellation.clearPreparationCancellation(preparationGeneration)
                 }
                 guard !cancellation.isCancelled else {
-                    return .joinFailed(.Cancelled)
+                    return .joinFailed(.Cancelled, usage: .zero)
                 }
                 do {
                     _ = try session.prepareEmbeddedDocument(library: library, token: token)
                 } catch let prepareError as FfiEmbeddedDocumentError {
                     if cancellation.isCancelled {
-                        return .joinFailed(.Cancelled)
+                        return .joinFailed(.Cancelled, usage: .zero)
                     }
                     return .prepareFailed(prepareError)
                 } catch {
                     if cancellation.isCancelled {
-                        return .joinFailed(.Cancelled)
+                        return .joinFailed(.Cancelled, usage: .zero)
                     }
                     return .prepareFailed(.EngineFailure)
                 }
                 guard !cancellation.isCancelled else {
-                    return .joinFailed(.Cancelled)
+                    return .joinFailed(.Cancelled, usage: .zero)
                 }
                 do {
                     // `FfiTranslationEngine` opens the root with `canonicalize`
@@ -1138,9 +1138,12 @@ public final class PlayerModel: ObservableObject {
                         _ = try job.join()
                         return .succeeded(job)
                     } catch let joinError as FfiTranslationError {
-                        return .joinFailed(joinError)
+                        // A provider that already billed tokens for a
+                        // completed block does not un-bill them because a
+                        // later block failed the whole job (`NEN-138`).
+                        return .joinFailed(joinError, usage: job.totalUsage())
                     } catch {
-                        return .joinFailed(.Failed)
+                        return .joinFailed(.Failed, usage: job.totalUsage())
                     }
                 } catch let startError as FfiTranslationStartError {
                     return .startFailed(startError)
@@ -1177,20 +1180,20 @@ public final class PlayerModel: ObservableObject {
             guard self.mediaPresentationRevision == revision else { return }
             switch result {
             case let .succeeded(job):
-                self.events.record(.translationFinished)
+                self.events.record(.translationFinished(usage: job.totalUsage()))
                 _ = job.catalogInto(library: library)
                 self.refreshSubtitleMenu()
             case let .prepareFailed(error):
-                self.events.record(.translationFailed(error: PipelineEventLog.errorName(error)))
+                self.events.record(.translationFailed(error: PipelineEventLog.errorName(error), usage: .zero))
                 self.presentTransient(PlaybackPresentation.prepareEmbeddedDocumentMessage(for: error))
             case let .startFailed(error):
-                self.events.record(.translationFailed(error: PipelineEventLog.errorName(error)))
+                self.events.record(.translationFailed(error: PipelineEventLog.errorName(error), usage: .zero))
                 self.presentTransient(PlaybackPresentation.translationStartMessage(for: error))
-            case let .joinFailed(error):
+            case let .joinFailed(error, usage):
                 if error == .Cancelled {
-                    self.events.record(.translationCancelled)
+                    self.events.record(.translationCancelled(usage: usage))
                 } else {
-                    self.events.record(.translationFailed(error: PipelineEventLog.errorName(error)))
+                    self.events.record(.translationFailed(error: PipelineEventLog.errorName(error), usage: usage))
                 }
                 self.presentTransient(PlaybackPresentation.translationJoinMessage(for: error))
             }

@@ -15,35 +15,48 @@ public struct PipelineEventLogView: View {
     }
 
     public var body: some View {
-        Group {
-            if log.events.isEmpty {
-                ContentUnavailableView {
-                    Label("Olay yok", systemImage: "list.bullet.rectangle")
-                } description: {
-                    Text(PipelineEventPresentation.emptyMessage)
-                }
-            } else {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 0) {
-                            ForEach(log.events) { event in
-                                PipelineEventRow(
-                                    event: event,
-                                    isExpanded: expanded.contains(event.id)
-                                ) {
-                                    toggle(event.id)
+        VStack(alignment: .leading, spacing: 0) {
+            // Session-cumulative token/cost total (NEN-139) — absent while
+            // no translation in the window has made a provider call yet,
+            // same "no measurement, no line" rule the row details use.
+            if let summary = PipelineEventPresentation.sessionUsageSummary(log.sessionTokenUsage) {
+                Text(summary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                Divider()
+            }
+            Group {
+                if log.events.isEmpty {
+                    ContentUnavailableView {
+                        Label("Olay yok", systemImage: "list.bullet.rectangle")
+                    } description: {
+                        Text(PipelineEventPresentation.emptyMessage)
+                    }
+                } else {
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            LazyVStack(alignment: .leading, spacing: 0) {
+                                ForEach(log.events) { event in
+                                    PipelineEventRow(
+                                        event: event,
+                                        isExpanded: expanded.contains(event.id)
+                                    ) {
+                                        toggle(event.id)
+                                    }
+                                    .id(event.id)
+                                    Divider()
                                 }
-                                .id(event.id)
-                                Divider()
                             }
                         }
-                    }
-                    .onChange(of: log.events.last?.id) { _, last in
-                        // A new row lands at the bottom; keep it in view. An
-                        // in-place update of the live translation row keeps
-                        // its id, so this does not fire for it.
-                        guard let last else { return }
-                        proxy.scrollTo(last, anchor: .bottom)
+                        .onChange(of: log.events.last?.id) { _, last in
+                            // A new row lands at the bottom; keep it in view. An
+                            // in-place update of the live translation row keeps
+                            // its id, so this does not fire for it.
+                            guard let last else { return }
+                            proxy.scrollTo(last, anchor: .bottom)
+                        }
                     }
                 }
             }

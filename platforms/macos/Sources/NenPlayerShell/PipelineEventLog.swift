@@ -67,9 +67,27 @@ public enum PipelineEventKind: Equatable, Sendable {
 
     case translationStarted(provider: String, model: String, source: String, target: String, label: String)
     case translationPhase(phase: FfiTranslationPhase, done: UInt32, total: UInt32)
-    case translationFinished
-    case translationCancelled
-    case translationFailed(error: String)
+    /// `usage` is `FfiTranslationJob.totalUsage()` at the moment each of
+    /// these landed (`NEN-138`/`NEN-139`) — the tokens (and, when the
+    /// provider itself reports one, the billed cost) that job's provider
+    /// calls consumed. `.zero` on `translationFailed`/`translationCancelled`
+    /// means no provider call was ever made, not that one was free.
+    case translationFinished(usage: FfiTokenUsage)
+    case translationCancelled(usage: FfiTokenUsage)
+    case translationFailed(error: String, usage: FfiTokenUsage)
+
+    /// The usage a terminal translation event carries, for
+    /// `PipelineEventLog.sessionTokenUsage` (`NEN-139`) to sum without
+    /// repeating this switch — `nil` for every other kind, including the
+    /// live `translationPhase` row, which never carries usage.
+    var terminalTranslationUsage: FfiTokenUsage? {
+        switch self {
+        case let .translationFinished(usage): usage
+        case let .translationCancelled(usage): usage
+        case let .translationFailed(_, usage): usage
+        default: nil
+        }
+    }
 }
 
 /// One row of the event window. `id` is assigned by the log, monotonically,
@@ -103,6 +121,20 @@ public final class PipelineEventLog: ObservableObject {
     }
 
     public var isEmpty: Bool { events.isEmpty }
+
+    /// Sum of every terminal translation event's usage currently in
+    /// `events` (`NEN-139`) — a job's usage is recorded exactly once, on
+    /// the row reporting it finished, failed or was cancelled, so this
+    /// never double-counts a live `translationPhase` row updated in place.
+    /// Follows `events`' own lifetime: `clear()` and capacity trimming
+    /// reduce it the same way they reduce the window, since this log is
+    /// session-only to begin with (see the type's own doc comment).
+    public var sessionTokenUsage: FfiTokenUsage {
+        events.reduce(FfiTokenUsage.zero) { total, event in
+            guard let usage = event.kind.terminalTranslationUsage else { return total }
+            return total.adding(usage)
+        }
+    }
 
     /// Appends a row and returns its id, for callers that will `update` it.
     @discardableResult
@@ -258,11 +290,11 @@ public enum PipelineEventPresentation {
             return "Çeviri başladı: \(source) → \(target) · \(provider)/\(model) · \(label)"
         case let .translationPhase(phase, done, total):
             return "Çeviri — \(phaseLabel(phase)) · \(done)/\(total)"
-        case .translationFinished:
+        case .translationFinished(_):
             return "Çeviri tamamlandı"
-        case .translationCancelled:
+        case .translationCancelled(_):
             return "Çeviri iptal edildi"
-        case let .translationFailed(error):
+        case let .translationFailed(error, _):
             return "Çeviri başarısız: \(error)"
         }
     }
@@ -347,13 +379,51 @@ public enum PipelineEventPresentation {
         case let .translationPhase(phase, done, total):
             let percent = total == 0 ? 0 : Int((Double(done) / Double(total) * 100).rounded())
             return [Detail("Faz", phaseLabel(phase)), Detail("İlerleme", "\(done)/\(total) · %\(percent)")]
-        case .translationFinished:
-            return [Detail("Sonuç", "çeviri menüye eklendi")]
-        case .translationCancelled:
-            return [Detail("Sonuç", "yarım artifact bırakılmadı")]
-        case let .translationFailed(error):
-            return [Detail("Hata", error)]
+        case let .translationFinished(usage):
+            return [Detail("Sonuç", "çeviri menüye eklendi")] + usageDetails(usage)
+        case let .translationCancelled(usage):
+            return [Detail("Sonuç", "yarım artifact bırakılmadı")] + usageDetails(usage)
+        case let .translationFailed(error, usage):
+            return [Detail("Hata", error)] + usageDetails(usage)
         }
+    }
+
+    /// "Girdi token" / "Cache'lenmiş girdi" / "Çıktı token" — and, only when
+    /// the provider itself reported a billed figure, "Tahmini maliyet"
+    /// (`NEN-139`). Empty when `usage` is `.zero`: that means no provider
+    /// call was ever made (every early-cancellation and prepare/start
+    /// failure path), not that one cost nothing — showing zeroes there
+    /// would misrepresent silence as measurement.
+    static func usageDetails(_ usage: FfiTokenUsage) -> [Detail] {
+        guard usage.inputTokens > 0 || usage.outputTokens > 0 else { return [] }
+        var details = [
+            Detail("Girdi token", "\(usage.inputTokens)"),
+            Detail("Cache'lenmiş girdi", "\(usage.cachedInputTokens)"),
+            Detail("Çıktı token", "\(usage.outputTokens)"),
+        ]
+        if let costUsd = usage.costUsd {
+            details.append(Detail("Tahmini maliyet", formattedCost(costUsd)))
+        }
+        return details
+    }
+
+    static func formattedCost(_ costUsd: Double) -> String {
+        String(format: "$%.4f", costUsd)
+    }
+
+    /// The small header line `PipelineEventLogView` shows above the list
+    /// (`NEN-139`) — `nil` while the session has made no provider call yet,
+    /// same "no measurement, no line" rule as `usageDetails`.
+    public static func sessionUsageSummary(_ usage: FfiTokenUsage) -> String? {
+        guard usage.inputTokens > 0 || usage.outputTokens > 0 else { return nil }
+        var text = "Bu oturumda: \(usage.inputTokens) girdi · \(usage.outputTokens) çıktı token"
+        if usage.cachedInputTokens > 0 {
+            text += " (\(usage.cachedInputTokens) cache'lenmiş)"
+        }
+        if let costUsd = usage.costUsd {
+            text += " · \(formattedCost(costUsd))"
+        }
+        return text
     }
 
     public static func tone(for kind: PipelineEventKind) -> Tone {
@@ -362,7 +432,7 @@ public enum PipelineEventPresentation {
              .translationStarted, .translationPhase, .subtitlesTurnedOff, .sidecarScanFinished,
              .embeddedTracksCataloged:
             return .info
-        case .playbackReady, .subtitleSelected, .downloadFinished, .translationFinished:
+        case .playbackReady, .subtitleSelected, .downloadFinished, .translationFinished(_):
             return .success
         case let .identityLookupFinished(status, _):
             return status == .match ? .success : .warning
@@ -371,10 +441,10 @@ public enum PipelineEventPresentation {
         case let .autoSelection(decision):
             if case .skipped = decision { return .warning }
             return .success
-        case .downloadUnavailable, .translationCancelled:
+        case .downloadUnavailable, .translationCancelled(_):
             return .warning
         case .playbackFailed, .identityLookupFailed, .candidateSearchFailed, .downloadFailed,
-             .translationFailed:
+             .translationFailed(_, _):
             return .failure
         }
     }
