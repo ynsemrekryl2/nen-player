@@ -188,11 +188,11 @@ public enum PipelineEventPresentation {
         case let .identityLookupFinished(status, label):
             switch status {
             case .match:
-                return "Kimlik bulundu: \(label ?? "?") — OpenSubtitles hash eşleşmesi"
+                return "Hash kimliği bulundu: \(label ?? "?") — OpenSubtitles eşleşmesi"
             case .noMatch:
-                return "Kimlik bulunamadı — OpenSubtitles hash eşleşmesi yok"
+                return "Hash kimliği eşleşmedi — aday araması diğer kanıtlarla sürecek"
             case .ambiguous:
-                return "Kimlik belirsiz — OpenSubtitles birden fazla eşleşme döndü"
+                return "Hash kimliği belirsiz — OpenSubtitles birden fazla eşleşme döndü"
             case .noCredential:
                 return "Kimlik araması yapılmadı — OpenSubtitles anahtarı yok"
             case .noHash:

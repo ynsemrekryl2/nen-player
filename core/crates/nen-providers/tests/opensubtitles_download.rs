@@ -133,6 +133,34 @@ fn selection_exchanges_a_private_id_then_gets_bounded_plaintext_without_reusing_
 }
 
 #[test]
+fn final_quota_download_uses_the_valid_link_before_the_remaining_count_reaches_zero() {
+    let client = SequenceClient::new(
+        vec![DOWNLOAD_ENDPOINT.into(), LINK.into()],
+        vec![
+            Ok(response(
+                200,
+                vec![HttpHeader {
+                    name: "Content-Type".into(),
+                    value: "application/json".into(),
+                }],
+                include_bytes!(
+                    "../../../../fixtures/providers/opensubtitles/download-link-final-quota.json"
+                )
+                .to_vec(),
+            )),
+            Ok(text_response(&srt())),
+        ],
+    );
+
+    let downloaded = downloader(&client)
+        .download(SubtitleDownloadRequest::new(7001))
+        .expect("the final allowed download");
+
+    assert_eq!(downloaded.bytes(), srt().as_slice());
+    assert_eq!(client.requests().len(), 2);
+}
+
+#[test]
 fn an_unapproved_link_host_never_receives_a_get() {
     let client = SequenceClient::new(
         vec![DOWNLOAD_ENDPOINT.into()],
@@ -286,7 +314,7 @@ fn archive_magic_is_rejected_before_app_attach() {
 }
 
 #[test]
-fn quota_is_typed_and_does_not_request_the_temporary_link() {
+fn quota_without_a_link_is_typed_and_does_not_make_a_second_request() {
     let client = SequenceClient::new(
         vec![DOWNLOAD_ENDPOINT.into()],
         vec![Ok(response(

@@ -5,7 +5,7 @@ milestone: M6
 size: S
 state: backlog
 closed:
-depends_on: [NEN-118, NEN-123, NEN-113, NEN-129, NEN-132, NEN-133]
+depends_on: [NEN-118, NEN-123, NEN-113, NEN-129, NEN-132, NEN-133, NEN-134]
 blocks: []
 adr: []
 ---
@@ -46,6 +46,14 @@ yeniden beklemededir.
 
 2026-09-17 — `NEN-133` doğrulanarak kapandı; remote range başarısızlığı artık
 filename/path kanıtını kesmiyor. Bu task yeniden READY.
+
+2026-09-17 — Canlı indirme yanıtındaki geçerli link, kalan kota sıfır diye
+yanlışlıkla reddediliyor; hash miss olay metni de filename fallback sonucuyla
+çelişkili görünüyor. `NEN-134` tamamlanana kadar kabul yeniden beklemededir.
+
+2026-09-17 — `NEN-134` doğrulanarak kapandı; geçerli link taşıyan son kota
+yanıtı artık indiriliyor ve olay metni hash kimliği ile aday bulmayı ayırıyor.
+Bu task yeniden READY.
 
 ## Kapsam
 

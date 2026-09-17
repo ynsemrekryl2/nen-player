@@ -172,3 +172,4 @@ Açık task görünümü: [tasks/INDEX.md](INDEX.md)
 | [NEN-131](done/NEN-131-pipeline-event-log-window.md) | Pipeline event log window | L | ✅ done | NEN-123 NEN-129 |
 | [NEN-132](done/NEN-132-filename-backed-provider-search.md) | Filename-backed provider search | L | ✅ done | NEN-034 NEN-120 NEN-121 NEN-123 NEN-131 |
 | [NEN-133](done/NEN-133-tolerate-unsupported-remote-ranges.md) | Tolerate unsupported remote ranges | S | ✅ done | NEN-132 |
+| [NEN-134](done/NEN-134-download-quota-and-identity-wording.md) | Accept final quota download and clarify hash identity events | L | ✅ done | NEN-122 NEN-131 |

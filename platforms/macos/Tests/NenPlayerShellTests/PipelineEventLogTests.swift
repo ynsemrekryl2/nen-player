@@ -123,7 +123,7 @@ struct PipelineEventLogTests {
         #expect(
             PipelineEventPresentation.summary(
                 for: .identityLookupFinished(status: .match, label: "Fixture Film (2020)")
-            ) == "Kimlik bulundu: Fixture Film (2020) — OpenSubtitles hash eşleşmesi"
+            ) == "Hash kimliği bulundu: Fixture Film (2020) — OpenSubtitles eşleşmesi"
         )
         #expect(
             PipelineEventPresentation.summary(for: .identityLookupFinished(status: .noHash, label: nil))
@@ -131,7 +131,18 @@ struct PipelineEventLogTests {
         )
         #expect(
             PipelineEventPresentation.summary(for: .identityLookupFinished(status: .noMatch, label: nil))
-                == "Kimlik bulunamadı — OpenSubtitles hash eşleşmesi yok"
+                == "Hash kimliği eşleşmedi — aday araması diğer kanıtlarla sürecek"
+        )
+
+        let fallback = FfiCandidateSearchReport(
+            status: .cataloged,
+            candidateCount: 2,
+            attempted: [.hash, .parsedIdentity],
+            foundBy: .parsedIdentity
+        )
+        #expect(
+            PipelineEventPresentation.summary(for: .candidateSearchFinished(report: fallback))
+                == "OpenSubtitles: 2 aday — ayrıştırılmış kimlik ile bulundu"
         )
     }
 

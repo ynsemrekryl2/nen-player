@@ -199,14 +199,14 @@ fn map_content_http_error(error: HttpError) -> SubtitleDownloadError {
 fn parse_download_link(body: &[u8]) -> Result<String, SubtitleDownloadError> {
     let root: Value =
         serde_json::from_slice(body).map_err(|_| SubtitleDownloadError::InvalidResponse)?;
-    if response_is_quota(&root) {
-        return Err(SubtitleDownloadError::QuotaExhausted);
-    }
-    let Some(link) = root
+    let link = root
         .get("link")
         .or_else(|| root.get("download_url"))
-        .and_then(Value::as_str)
-    else {
+        .and_then(Value::as_str);
+    let Some(link) = link else {
+        if response_is_quota(&root) {
+            return Err(SubtitleDownloadError::QuotaExhausted);
+        }
         return Err(SubtitleDownloadError::InvalidResponse);
     };
     if link.is_empty() || link.chars().count() > 2048 || link.chars().any(char::is_control) {
