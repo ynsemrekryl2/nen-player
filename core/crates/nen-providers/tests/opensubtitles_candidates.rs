@@ -1,5 +1,7 @@
 use nen_ports::http::{HttpClient, HttpError, HttpHeader, HttpMethod, HttpRequest, HttpResponse};
-use nen_ports::identity::{MediaHash, VerifiedMediaIdentity};
+use nen_ports::identity::{
+    CanonicalMediaIdentity, MediaHash, ParsedMediaIdentity, VerifiedMediaIdentity,
+};
 use nen_ports::subtitle_candidates::{
     contract, SubtitleCandidateSearch, SubtitleCandidateSearchError, SubtitleCandidateSearchQuery,
     SubtitleCandidateSearchRequest, MAX_RESPONSE_BYTES,
@@ -11,6 +13,9 @@ const HASH_ENDPOINT: &str = "https://api.opensubtitles.com/api/v1/subtitles?movi
 const HASH_LANG_ENDPOINT: &str = "https://api.opensubtitles.com/api/v1/subtitles?moviehash=0001020304050607&moviehash_match=only&languages=en,tr";
 const IDENTITY_ENDPOINT: &str =
     "https://api.opensubtitles.com/api/v1/subtitles?query=Synthetic%20Film&year=2020&languages=tr";
+const CANONICAL_ENDPOINT: &str =
+    "https://api.opensubtitles.com/api/v1/subtitles?imdb_id=tt1375666&languages=en";
+const PARSED_ENDPOINT: &str = "https://api.opensubtitles.com/api/v1/subtitles?query=Example%20Show&season_number=2&episode_number=3&languages=en";
 
 fn hash() -> MediaHash {
     MediaHash::from_bytes([0, 1, 2, 3, 4, 5, 6, 7])
@@ -123,6 +128,60 @@ fn verified_identity_search_uses_bounded_identity_coordinates() {
         nen_domain::source::LanguageTag::parse("tr").expect("language")
     ]);
     assert!(search(&client).search(&query).expect("search").is_empty());
+}
+
+#[test]
+fn canonical_identity_search_uses_imdb_without_title_or_filename_data() {
+    let client = SequenceClient::new(
+        vec![CANONICAL_ENDPOINT.into()],
+        vec![Ok(response(br#"{"data":[]}"#))],
+    );
+    let query = SubtitleCandidateSearchRequest::new(
+        SubtitleCandidateSearchQuery::by_canonical_identity(CanonicalMediaIdentity {
+            imdb_id: Some("tt1375666".into()),
+            parent_imdb_id: None,
+        }),
+    )
+    .with_languages(vec![
+        nen_domain::source::LanguageTag::parse("en").expect("language")
+    ]);
+    assert!(search(&client).search(&query).expect("search").is_empty());
+}
+
+#[test]
+fn parsed_identity_search_carries_episode_coordinates() {
+    let client = SequenceClient::new(
+        vec![PARSED_ENDPOINT.into()],
+        vec![Ok(response(br#"{"data":[]}"#))],
+    );
+    let query = SubtitleCandidateSearchRequest::new(
+        SubtitleCandidateSearchQuery::by_parsed_identity(ParsedMediaIdentity {
+            title: "Example Show".into(),
+            year: None,
+            season: Some(2),
+            episode: Some(3),
+        }),
+    )
+    .with_languages(vec![
+        nen_domain::source::LanguageTag::parse("en").expect("language")
+    ]);
+    assert!(search(&client).search(&query).expect("search").is_empty());
+}
+
+#[test]
+fn malformed_canonical_identity_is_rejected_before_http() {
+    let client = SequenceClient::new(Vec::new(), Vec::new());
+    let query = SubtitleCandidateSearchRequest::new(
+        SubtitleCandidateSearchQuery::by_canonical_identity(CanonicalMediaIdentity {
+            imdb_id: Some("private-id".into()),
+            parent_imdb_id: None,
+        }),
+    );
+    assert_eq!(
+        search(&client).search(&query),
+        Err(SubtitleCandidateSearchError::InvalidRequest)
+    );
+    assert!(client.requests().is_empty());
 }
 
 #[test]

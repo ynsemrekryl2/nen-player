@@ -5,7 +5,8 @@
 > `tasks/done/` ve `history/`'de. Burada tekrar edilmez; **150 satırı aşamaz**
 > (`check-docs.sh` denetim 10).
 >
-> Son güncelleme: **2026-09-16** (**`NEN-129` tamamlandı; NEN-126 READY**.)
+> Son güncelleme: **2026-09-17** (**`NEN-132` tamamlandı; `NEN-126` yeniden
+> READY**.)
 
 ## Nerede duruyoruz
 
@@ -13,15 +14,15 @@
 |---|---|
 | **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı — `docs/milestones/M6-real-providers.md`) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-129`** — Two-stage model-assisted subtitle translation. Ondan önce: `NEN-130` |
+| **Son tamamlanan** | **`NEN-132`** — Filename-backed provider search. Ondan önce: `NEN-131` |
 | **Sıradaki READY** | **`NEN-126`** — Real providers acceptance |
-| **Task sayısı** | 130 · done 127 · active 0 · blocked 0 · canceled 2 · backlog 1 |
+| **Task sayısı** | 132 · done 129 · active 0 · blocked 0 · canceled 2 · backlog 1 |
 
-**Son kapanış — `NEN-129` (2026-09-16):** OpenAI ve OpenRouter çevirileri
-bloklardan önce tek, doğrulanmış belge analizi üretiyor; aynı analysis restart,
-initial, targeted repair ve full retry boyunca korunuyor. Strict şema, yerel
-authoritative doğrulama, resume v2, cache invalidasyonu ve K23 negatifleri
-otomatik testlerle kapandı.
+**Son kapanış — `NEN-132` (2026-09-17):** Deterministik dosya adı ayrıştırma,
+kanonik IMDb/parent IMDb fan-in'i ve exact hash sonrası fallback zinciri
+OpenSubtitles aday aramasına bağlandı. Remote basename kanıtı query/fragment/host
+verisini dışarıda bırakıyor; AI filename normalizasyonu açık izin ve sanitize
+edilmiş basename ile sınırlı; kataloglama/indirme seçim kapıları korundu.
 
 ## Toolchain
 
@@ -47,9 +48,9 @@ kurmaz (`scripts/tests/doctor.test.sh` S7). Kurulum geçmişi:
 
 ## Blocker'lar
 
-**Toolchain veya task blocker'ı yok.** `NEN-129` kapandığı için `NEN-126`
-bağımlılık engelinden çıktı ve gerçek provider kabul koşusuna READY.
-Çözülmüş B1–B4 kaydı: `history/status-archive-2026-09.md`.
+**Toolchain blocker'ı yok.** `NEN-132` tamamlandı, ADR-0049 accepted ve
+`NEN-126` gerçek provider kabul koşusu için READY. Çözülmüş B1–B4 kaydı:
+`history/status-archive-2026-09.md`.
 
 ## Kullanıcı kararı bekleyenler
 
@@ -60,16 +61,16 @@ bağımlılık engelinden çıktı ve gerçek provider kabul koşusuna READY.
 | **S7** | Android TV minimum API seviyesi ve hedef cihaz sınıfı | M10 |
 | **S11** | İleride public dağıtım | M3 sonrası |
 | **S12** | Gerçek lisans seçimi | ADR-0012 sonrası |
-Hiçbiri sıradaki `NEN-126` kabul task'ının başlangıcını bloke etmiyor; task'ın
+S4/S6/S7/S11/S12 mevcut `NEN-132` implementasyonunu bloke etmiyor. `NEN-126`
 gerçek ağ koşusu ayrıca kullanıcı onayı ve kullanıcıya ait credential gerektiriyor.
 
 ## Son doğrulama
 
-2026-09-16'da `NEN-129` kapandı. `cargo test --workspace`, fmt, clippy ve
-`cargo deny check` çıkış 0; `bash scripts/test-macos.sh` player-shell
-**241/241**, gerçek libmpv **57/57**, Keychain **4/4** geçti.
-`bash scripts/check-docs.sh` (**10/10**), `bash scripts/task-index.sh --check`
-ve `git diff --check` çıkış 0 verdi.
+2026-09-17'de `NEN-132` tamamlandı. `cargo test --workspace`, fmt, clippy ve
+`cargo deny check` çıkış 0; `bash scripts/test-macos.sh` shell **258/258**,
+gerçek libmpv/contract **57/57**, Keychain **4/4** geçti. `bash
+scripts/check-docs.sh`, `bash scripts/task-index.sh --check` ve `git diff --check`
+çıkış 0 verdi.
 
 Önceki doğrulama girdileri ve toolchain kapısı geçmişi:
 `history/status-archive-2026-09.md`.

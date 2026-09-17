@@ -71,6 +71,8 @@ fn full_evidence() -> MediaEvidence {
             year: Some(2010),
             season: None,
             episode: None,
+            imdb_id: None,
+            parent_imdb_id: None,
         })
         .with_siblings(vec!["Inception.2010.1080p.BluRay.x264.mkv".into()])
 }
@@ -82,6 +84,8 @@ fn handoff_metadata_debug_is_redacted_and_shape_only() {
         year: Some(2010),
         season: Some(1),
         episode: Some(2),
+        imdb_id: None,
+        parent_imdb_id: None,
     };
     let printed = format!("{metadata:?}");
 

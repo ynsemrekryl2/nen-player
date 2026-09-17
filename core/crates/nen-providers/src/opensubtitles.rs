@@ -328,23 +328,33 @@ fn candidate_search_url(
             parameters.push("moviehash_match=only".to_owned());
         }
         SubtitleCandidateSearchQuery::VerifiedIdentity(identity) => {
-            let title = identity.title.trim();
-            if title.is_empty()
-                || title.chars().count() > 512
-                || title.chars().any(char::is_control)
-            {
+            push_parsed_identity_parameters(
+                &mut parameters,
+                &identity.title,
+                identity.year,
+                identity.season,
+                identity.episode,
+            )?;
+        }
+        SubtitleCandidateSearchQuery::CanonicalIdentity(identity) => {
+            let (parameter, value) = match (&identity.parent_imdb_id, &identity.imdb_id) {
+                (Some(parent), _) => ("parent_imdb_id", parent),
+                (None, Some(imdb)) => ("imdb_id", imdb),
+                (None, None) => return Err(SubtitleCandidateSearchError::InvalidRequest),
+            };
+            if !valid_imdb_id(value) {
                 return Err(SubtitleCandidateSearchError::InvalidRequest);
             }
-            parameters.push(format!("query={}", encode_query_component(title)));
-            if let Some(year) = identity.year {
-                parameters.push(format!("year={year}"));
-            }
-            if let Some(season) = identity.season {
-                parameters.push(format!("season_number={season}"));
-            }
-            if let Some(episode) = identity.episode {
-                parameters.push(format!("episode_number={episode}"));
-            }
+            parameters.push(format!("{parameter}={value}"));
+        }
+        SubtitleCandidateSearchQuery::ParsedIdentity(identity) => {
+            push_parsed_identity_parameters(
+                &mut parameters,
+                &identity.title,
+                identity.year,
+                identity.season,
+                identity.episode,
+            )?;
         }
     }
 
@@ -358,6 +368,40 @@ fn candidate_search_url(
         parameters.push(format!("languages={}", language_filters.join(",")));
     }
     Ok(format!("{SEARCH_ENDPOINT}?{}", parameters.join("&")))
+}
+
+fn push_parsed_identity_parameters(
+    parameters: &mut Vec<String>,
+    title: &str,
+    year: Option<u16>,
+    season: Option<u16>,
+    episode: Option<u16>,
+) -> Result<(), SubtitleCandidateSearchError> {
+    let title = title.trim();
+    if title.is_empty()
+        || title.chars().count() > MAX_TITLE_CHARS
+        || title.chars().any(char::is_control)
+    {
+        return Err(SubtitleCandidateSearchError::InvalidRequest);
+    }
+    parameters.push(format!("query={}", encode_query_component(title)));
+    if let Some(year) = year {
+        parameters.push(format!("year={year}"));
+    }
+    if let Some(season) = season {
+        parameters.push(format!("season_number={season}"));
+    }
+    if let Some(episode) = episode {
+        parameters.push(format!("episode_number={episode}"));
+    }
+    Ok(())
+}
+
+fn valid_imdb_id(value: &str) -> bool {
+    let Some(digits) = value.strip_prefix("tt") else {
+        return false;
+    };
+    (7..=32).contains(&digits.len()) && digits.bytes().all(|byte| byte.is_ascii_digit())
 }
 
 fn encode_query_component(value: &str) -> String {

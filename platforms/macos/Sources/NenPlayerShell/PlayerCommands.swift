@@ -9,10 +9,14 @@ public struct PlayerCommands: Commands {
     // proved it must bring the player window back and open the picker while
     // that window is fully closed, i.e. before any scene could hold focus.
     @ObservedObject private var model: PlayerModel
+    // Observed on its own: the log is a separate `ObservableObject`, so a
+    // row landing would not otherwise re-evaluate "Günlüğü Temizle".
+    @ObservedObject private var events: PipelineEventLog
     @FocusedValue(\.playerModel) private var focusedModel: PlayerModel?
 
     public init(model: PlayerModel) {
         self.model = model
+        self.events = model.events
     }
 
     public var body: some Commands {
@@ -94,11 +98,26 @@ public struct PlayerCommands: Commands {
                     .disabled(!model.canTranslateSelectedSubtitle)
             }
         }
+
+        // NEN-131: the background chain's own window. Gated on the log, not
+        // on focus — like "Son Açılanları Temizle", whether there is anything
+        // to show or clear does not depend on which window is key.
+        CommandMenu("Olaylar") {
+            Button("Olay Günlüğünü Göster", action: showEventLog)
+                .keyboardShortcut("l", modifiers: [.command, .option])
+            Divider()
+            Button("Günlüğü Temizle", action: events.clear)
+                .disabled(events.isEmpty)
+        }
     }
 
     private var translateLabel: String {
         guard let target = model.translationTargetLanguage else { return "AI ile Çevir" }
         return "AI ile \(SubtitleMenuPresentation.endonym(for: target)) Çevir"
+    }
+
+    private func showEventLog() {
+        openWindow(id: "events")
     }
 
     private func chooseMedia() {

@@ -345,10 +345,15 @@ struct OpenSubtitlesSelectionTests {
                 // has no provider candidates of its own; any row observed
                 // there would therefore be the old worker's mutation.
                 if noCandidates || url.lastPathComponent == "Second.mkv" {
-                    return FfiSubtitleLibrary()
+                    return SubtitleCandidateSearchResult(
+                        library: FfiSubtitleLibrary(),
+                        report: FfiCandidateSearchReport(
+                            status: .cataloged, candidateCount: 0, attempted: [], foundBy: nil
+                        )
+                    )
                 }
                 let library = FfiSubtitleLibrary()
-                _ = try searchOpensubtitlesCandidates(
+                let report = try searchOpensubtitlesCandidates(
                     mediaHash: nil,
                     identity: verifiedIdentity ?? identity,
                     languages: languages,
@@ -356,7 +361,7 @@ struct OpenSubtitlesSelectionTests {
                     httpClient: http,
                     library: library
                 )
-                return library
+                return SubtitleCandidateSearchResult(library: library, report: report)
             },
             subtitleDownloadRunner: { library, token in
                 if let downloadGate {

@@ -68,7 +68,7 @@ Kırılım üretilmeden önce dört soru kullanıcı kararıyla kapandı (2026-0
 `NEN-114` · `NEN-115` · `NEN-116` · `NEN-117` · `NEN-107` · `NEN-118` ·
 `NEN-119` · `NEN-120` · `NEN-064` · `NEN-121` · `NEN-122` · `NEN-123` ·
 `NEN-035` · `NEN-124` · `NEN-034` · `NEN-125` · `NEN-038` · `NEN-105` ·
-`NEN-109` · `NEN-129` · `NEN-126`
+`NEN-109` · `NEN-129` · `NEN-131` · `NEN-132` · `NEN-126`
 
 ```
 110 ADR-0020 ─▶ 111 port+fake ─┬─▶ 112 Keychain ─▶ 113 ayarlar UI ─────────────────────┐
@@ -84,11 +84,14 @@ Kırılım üretilmeden önce dört soru kullanıcı kararıyla kapandı (2026-0
 124 ADR-0046 ─┬─▶ 034 AI release-name
 116 ──────────┘
 044 ─▶ 109 uzak gömülü metin   (bağımsız)
+131 olay günlüğü ───────────────────────────────────────────────────────────────┐
+034/120/121/123 ─▶ 132 dosya adı fan-in + provider araması ─────────────────────┴─▶ 126 kabul
 ```
 
 Üç kol var ve üçü de credential kapısına (`NEN-110`/`NEN-111`) bağlanıyor:
 **kimlik** (120 → 064 → 121), **OpenSubtitles** (119 → 121 → 122 → 123) ve
-**çeviri** (114 → 115 → 116 → 117 → 118 → 129). `NEN-107` gerçek sağlayıcıdan
+**çeviri** (114 → 115 → 116 → 117 → 118 → 129). Kimlik/OpenSubtitles kusur
+giderimi `NEN-132` ile kabul öncesine bağlandı. `NEN-107` gerçek sağlayıcıdan
 **önce** gelir — dakikalarca süren bir işte kullanıcı blok sırası değil yüzde
 görmeli. `NEN-105`, `NEN-129` ile resume edilen analysis için kritik yola
 bağlanır; `NEN-109` ve `NEN-035` kritik yolun dışında.
@@ -118,9 +121,12 @@ bağlanır; `NEN-109` ve `NEN-035` kritik yolun dışında.
 | **0046** | Dosya adının AI normalizasyonuna gönderilmesi — gizlilik | `NEN-124` |
 | **0047** | Tercih dilinde otomatik altyazı indirme sözleşmesi (ADR-0010 Karar 9'un üçüncü basamağı) | `NEN-125` |
 | **0048** | Model destekli belge-geneli analiz, iki-aşamalı prompt ve resume/cache sınırı | `NEN-129` |
+| **0049** | Kanıt fan-in'i ve dosya adı destekli provider aday araması (`accepted`, 2026-09-17) | `NEN-132` |
 
 ADR-0048 `NEN-129` başlarken yazıldı ve kullanıcı onayıyla `accepted` oldu;
 üretim koduna bu onaydan sonra geçildi (Kural 4).
+ADR-0049 kullanıcı onayıyla `accepted` oldu; `NEN-132` dosya adı fan-in'ini ve
+provider fallback zincirini bu karara göre kapattı. `NEN-126` artık READY.
 
 ## Bağımlılıklar
 

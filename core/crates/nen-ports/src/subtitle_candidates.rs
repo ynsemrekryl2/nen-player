@@ -5,7 +5,9 @@
 //! private file id is retained only by the application/provider composition
 //! and has a redacted `Debug` surface.
 
-use crate::identity::{MediaHash, VerifiedMediaIdentity};
+use crate::identity::{
+    CanonicalMediaIdentity, MediaHash, ParsedMediaIdentity, VerifiedMediaIdentity,
+};
 use nen_domain::source::LanguageTag;
 use std::fmt;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -18,6 +20,8 @@ pub const MAX_RELEASE_NAME_CHARS: usize = 256;
 pub enum SubtitleCandidateSearchQuery {
     Hash(MediaHash),
     VerifiedIdentity(VerifiedMediaIdentity),
+    CanonicalIdentity(CanonicalMediaIdentity),
+    ParsedIdentity(ParsedMediaIdentity),
 }
 
 impl SubtitleCandidateSearchQuery {
@@ -27,6 +31,14 @@ impl SubtitleCandidateSearchQuery {
 
     pub fn by_verified_identity(identity: VerifiedMediaIdentity) -> Self {
         Self::VerifiedIdentity(identity)
+    }
+
+    pub fn by_canonical_identity(identity: CanonicalMediaIdentity) -> Self {
+        Self::CanonicalIdentity(identity)
+    }
+
+    pub fn by_parsed_identity(identity: ParsedMediaIdentity) -> Self {
+        Self::ParsedIdentity(identity)
     }
 }
 
@@ -42,6 +54,8 @@ impl fmt::Debug for SubtitleCandidateSearchQuery {
             .field(match self {
                 Self::Hash(_) => &"hash",
                 Self::VerifiedIdentity(_) => &"verified_identity",
+                Self::CanonicalIdentity(_) => &"canonical_identity",
+                Self::ParsedIdentity(_) => &"parsed_identity",
             })
             .finish()
     }

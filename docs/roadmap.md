@@ -3,7 +3,7 @@
 Üst görünüm. Task ayrıntısı için `tasks/INDEX.md`, milestone ayrıntısı için
 `docs/milestones/`.
 
-**Şu anki konum: M5 kapandı (2026-09-11), M6 kırılımı üretildi (aynı gün, 17 yeni task `NEN-110`…`NEN-126` — [`milestones/M6-real-providers.md`](milestones/M6-real-providers.md)).** M5'in 20 task'ı ve beş
+**Şu anki konum: M5 kapandı (2026-09-11), M6 kırılımı üretildi (aynı gün, 17 yeni task `NEN-110`…`NEN-126`; sonradan `NEN-131` ve `NEN-132` eklendi — [`milestones/M6-real-providers.md`](milestones/M6-real-providers.md)).** M5'in 20 task'ı ve beş
 ADR'si (0015 · 0016 · 0017 · 0018 · 0045, hepsi `accepted`) tamamlandı; altı
 çıkış kriteri gerçek `.app` üzerinde uçtan uca kanıtlandı — retro
 [`milestones/M5-translation-core.md`](milestones/M5-translation-core.md)'de.

@@ -10,7 +10,7 @@ use crate::remote_evidence::{adapt_http_client, ForeignHttpClient};
 use crate::subtitles::FfiSubtitleLibrary;
 use nen_app::domain::source::LanguageTag;
 use nen_app::identity::{
-    ProviderCandidateError, ProviderCandidateOutcome, ProviderIdentityError,
+    CandidateSearchMethod, ProviderCandidateError, ProviderCandidateOutcome, ProviderIdentityError,
     ProviderIdentityOutcome,
 };
 use nen_app::ports::identity::{MediaHash, VerifiedMediaIdentity};
@@ -69,6 +69,9 @@ pub enum FfiIdentityLookupStatus {
     NoMatch,
     Ambiguous,
     NoCredential,
+    /// No hash could be derived for the medium, so the provider was never
+    /// asked (NEN-131 shows this apart from a provider miss).
+    NoHash,
 }
 
 /// The bounded identity result consumed by the shell.
@@ -138,6 +141,38 @@ pub enum FfiCandidateSearchStatus {
     NoIdentity,
 }
 
+/// Which ADR-0021 query a candidate search issued — a method name only,
+/// never the hash or identity it carried.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum FfiCandidateSearchMethod {
+    Hash,
+    CanonicalIdentity,
+    VerifiedIdentity,
+    ParsedIdentity,
+}
+
+/// What a candidate search did and what it found, for the shell's event log
+/// (NEN-131). Counts and method names only: candidates themselves live in the
+/// receiving library, private file ids never leave the Rust side.
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+pub struct FfiCandidateSearchReport {
+    pub status: FfiCandidateSearchStatus,
+    pub candidate_count: u32,
+    pub attempted: Vec<FfiCandidateSearchMethod>,
+    pub found_by: Option<FfiCandidateSearchMethod>,
+}
+
+impl From<CandidateSearchMethod> for FfiCandidateSearchMethod {
+    fn from(value: CandidateSearchMethod) -> Self {
+        match value {
+            CandidateSearchMethod::Hash => Self::Hash,
+            CandidateSearchMethod::CanonicalIdentity => Self::CanonicalIdentity,
+            CandidateSearchMethod::VerifiedIdentity => Self::VerifiedIdentity,
+            CandidateSearchMethod::ParsedIdentity => Self::ParsedIdentity,
+        }
+    }
+}
+
 /// Flat failures from the optional OpenSubtitles metadata search.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Error)]
 pub enum FfiCandidateSearchError {
@@ -150,6 +185,14 @@ pub enum FfiCandidateSearchError {
     InvalidResponse,
     ResponseTooLarge,
     RedirectRejected,
+    RemoteInvalidUrl,
+    RemoteInsecureRedirect,
+    RemoteMissingRedirectLocation,
+    RemoteRedirectLimitExceeded,
+    RemoteHttpStatus,
+    RemoteInvalidResponse,
+    RemoteResponseTooLarge,
+    RemoteTransport,
 }
 
 impl fmt::Display for FfiCandidateSearchError {
@@ -164,6 +207,14 @@ impl fmt::Display for FfiCandidateSearchError {
             Self::InvalidResponse => "invalid_response",
             Self::ResponseTooLarge => "response_too_large",
             Self::RedirectRejected => "redirect_rejected",
+            Self::RemoteInvalidUrl => "remote_invalid_url",
+            Self::RemoteInsecureRedirect => "remote_insecure_redirect",
+            Self::RemoteMissingRedirectLocation => "remote_missing_redirect_location",
+            Self::RemoteRedirectLimitExceeded => "remote_redirect_limit_exceeded",
+            Self::RemoteHttpStatus => "remote_http_status",
+            Self::RemoteInvalidResponse => "remote_invalid_response",
+            Self::RemoteResponseTooLarge => "remote_response_too_large",
+            Self::RemoteTransport => "remote_transport",
         })
     }
 }
@@ -203,6 +254,30 @@ impl From<ProviderCandidateError> for FfiCandidateSearchError {
                 nen_app::ports::subtitle_candidates::SubtitleCandidateSearchError::RedirectRejected => {
                     Self::RedirectRejected
                 }
+            },
+            ProviderCandidateError::RemoteEvidence(error) => match error {
+                nen_app::remote_evidence::RemoteEvidenceError::InvalidUrl => {
+                    Self::RemoteInvalidUrl
+                }
+                nen_app::remote_evidence::RemoteEvidenceError::InsecureRedirect => {
+                    Self::RemoteInsecureRedirect
+                }
+                nen_app::remote_evidence::RemoteEvidenceError::MissingRedirectLocation => {
+                    Self::RemoteMissingRedirectLocation
+                }
+                nen_app::remote_evidence::RemoteEvidenceError::RedirectLimitExceeded => {
+                    Self::RemoteRedirectLimitExceeded
+                }
+                nen_app::remote_evidence::RemoteEvidenceError::HttpStatus => {
+                    Self::RemoteHttpStatus
+                }
+                nen_app::remote_evidence::RemoteEvidenceError::InvalidResponse => {
+                    Self::RemoteInvalidResponse
+                }
+                nen_app::remote_evidence::RemoteEvidenceError::ResponseTooLarge => {
+                    Self::RemoteResponseTooLarge
+                }
+                nen_app::remote_evidence::RemoteEvidenceError::Transport => Self::RemoteTransport,
             },
         }
     }
@@ -282,6 +357,10 @@ fn result(outcome: ProviderIdentityOutcome) -> FfiIdentityLookupResult {
             status: FfiIdentityLookupStatus::NoCredential,
             identity: None,
         },
+        ProviderIdentityOutcome::NoHash => FfiIdentityLookupResult {
+            status: FfiIdentityLookupStatus::NoHash,
+            identity: None,
+        },
     }
 }
 
@@ -339,7 +418,7 @@ pub fn search_opensubtitles_candidates(
     credential_store: Arc<FfiSecureCredentialStore>,
     http_client: Arc<dyn ForeignHttpClient>,
     library: Arc<FfiSubtitleLibrary>,
-) -> Result<FfiCandidateSearchStatus, FfiCandidateSearchError> {
+) -> Result<FfiCandidateSearchReport, FfiCandidateSearchError> {
     let media_hash = media_hash
         .map(|bytes| {
             bytes
@@ -365,12 +444,98 @@ pub fn search_opensubtitles_candidates(
     )
     .map_err(FfiCandidateSearchError::from)?;
 
+    let silent = |status| FfiCandidateSearchReport {
+        status,
+        candidate_count: 0,
+        attempted: Vec::new(),
+        found_by: None,
+    };
     match outcome {
-        ProviderCandidateOutcome::Candidates(candidates) => {
+        ProviderCandidateOutcome::Candidates {
+            candidates,
+            attempted,
+            found_by,
+        } => {
+            let candidate_count = u32::try_from(candidates.len()).unwrap_or(u32::MAX);
             library.with_mut(|library| library.add_opensubtitles(candidates));
-            Ok(FfiCandidateSearchStatus::Cataloged)
+            Ok(FfiCandidateSearchReport {
+                status: FfiCandidateSearchStatus::Cataloged,
+                candidate_count,
+                attempted: attempted.into_iter().map(Into::into).collect(),
+                found_by: found_by.map(Into::into),
+            })
         }
-        ProviderCandidateOutcome::NoCredential => Ok(FfiCandidateSearchStatus::NoCredential),
-        ProviderCandidateOutcome::NoIdentity => Ok(FfiCandidateSearchStatus::NoIdentity),
+        ProviderCandidateOutcome::NoCredential => {
+            Ok(silent(FfiCandidateSearchStatus::NoCredential))
+        }
+        ProviderCandidateOutcome::NoIdentity => Ok(silent(FfiCandidateSearchStatus::NoIdentity)),
+    }
+}
+
+/// Searches candidates after the core has collected the media locator's
+/// filename, URL path, redirect and Content-Disposition evidence. The raw
+/// locator is consumed inside the core and never appears in the returned
+/// report or its errors.
+#[uniffi::export]
+pub fn search_opensubtitles_candidates_for_media(
+    media_locator: String,
+    media_hash: Option<Vec<u8>>,
+    identity: Option<FfiVerifiedMediaIdentity>,
+    languages: Vec<String>,
+    credential_store: Arc<FfiSecureCredentialStore>,
+    http_client: Arc<dyn ForeignHttpClient>,
+    library: Arc<FfiSubtitleLibrary>,
+) -> Result<FfiCandidateSearchReport, FfiCandidateSearchError> {
+    let media_hash = media_hash
+        .map(|bytes| {
+            bytes
+                .try_into()
+                .map(MediaHash::from_bytes)
+                .map_err(|_| FfiCandidateSearchError::InvalidRequest)
+        })
+        .transpose()?;
+    let identity = identity.map(Into::into);
+    let languages = languages
+        .into_iter()
+        .filter_map(|tag| LanguageTag::parse(&tag).ok())
+        .collect();
+    let credentials =
+        credential_store.as_ref() as &dyn nen_app::ports::credentials::SecureCredentialStore;
+    let http = adapt_http_client(http_client);
+    let outcome = nen_app::identity::search_opensubtitles_candidates_for_media(
+        &media_locator,
+        media_hash,
+        identity,
+        languages,
+        credentials,
+        http.as_ref(),
+    )
+    .map_err(FfiCandidateSearchError::from)?;
+
+    let silent = |status| FfiCandidateSearchReport {
+        status,
+        candidate_count: 0,
+        attempted: Vec::new(),
+        found_by: None,
+    };
+    match outcome {
+        ProviderCandidateOutcome::Candidates {
+            candidates,
+            attempted,
+            found_by,
+        } => {
+            let candidate_count = u32::try_from(candidates.len()).unwrap_or(u32::MAX);
+            library.with_mut(|library| library.add_opensubtitles(candidates));
+            Ok(FfiCandidateSearchReport {
+                status: FfiCandidateSearchStatus::Cataloged,
+                candidate_count,
+                attempted: attempted.into_iter().map(Into::into).collect(),
+                found_by: found_by.map(Into::into),
+            })
+        }
+        ProviderCandidateOutcome::NoCredential => {
+            Ok(silent(FfiCandidateSearchStatus::NoCredential))
+        }
+        ProviderCandidateOutcome::NoIdentity => Ok(silent(FfiCandidateSearchStatus::NoIdentity)),
     }
 }

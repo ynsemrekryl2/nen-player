@@ -51,6 +51,49 @@ impl fmt::Debug for VerifiedMediaIdentity {
     }
 }
 
+/// A provider-canonical identifier collected from a trusted media declaration
+/// such as a handoff or `.nfo` sidecar. It is never a subtitle or download id.
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct CanonicalMediaIdentity {
+    pub imdb_id: Option<String>,
+    pub parent_imdb_id: Option<String>,
+}
+
+impl fmt::Debug for CanonicalMediaIdentity {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("CanonicalMediaIdentity")
+            .field("imdb_id", &self.imdb_id.as_ref().map(|_| "<present>"))
+            .field(
+                "parent_imdb_id",
+                &self.parent_imdb_id.as_ref().map(|_| "<present>"),
+            )
+            .finish()
+    }
+}
+
+/// A bounded title/year/season/episode provider query derived from weak or
+/// non-canonical evidence such as a release filename. It must remain distinct
+/// from [`VerifiedMediaIdentity`] so a parsed name can never be treated as an
+/// exact media identity.
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct ParsedMediaIdentity {
+    pub title: String,
+    pub year: Option<u16>,
+    pub season: Option<u16>,
+    pub episode: Option<u16>,
+}
+
+impl fmt::Debug for ParsedMediaIdentity {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ParsedMediaIdentity")
+            .field("title", &"<present>")
+            .field("year", &self.year.is_some())
+            .field("season", &self.season.is_some())
+            .field("episode", &self.episode.is_some())
+            .finish()
+    }
+}
+
 /// The provider's bounded answer to one hash lookup.
 #[derive(Clone, PartialEq, Eq)]
 pub enum IdentityLookup {
@@ -116,6 +159,18 @@ mod tests {
         };
         assert!(!format!("{identity:?}").contains("Private Filename"));
         assert!(!format!("{:?}", IdentityLookup::Match(identity)).contains("Private Filename"));
+        let canonical = CanonicalMediaIdentity {
+            imdb_id: Some("tt1375666".into()),
+            parent_imdb_id: Some("tt7654321".into()),
+        };
+        let parsed = ParsedMediaIdentity {
+            title: "Private Filename".into(),
+            year: Some(2020),
+            season: None,
+            episode: None,
+        };
+        assert!(!format!("{canonical:?}").contains("1375666"));
+        assert!(!format!("{parsed:?}").contains("Private Filename"));
         assert_eq!(
             IdentityLookupError::InvalidResponse.to_string(),
             "provider response was invalid"

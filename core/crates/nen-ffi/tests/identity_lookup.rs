@@ -128,7 +128,7 @@ fn missing_hash_returns_before_credential_or_http_access() {
     let answer = lookup_verified_identity_by_hash(None, credentials, http.clone())
         .expect("missing hash is an ordinary result");
 
-    assert_eq!(answer.status, FfiIdentityLookupStatus::NoMatch);
+    assert_eq!(answer.status, FfiIdentityLookupStatus::NoHash);
     assert_eq!(foreign.gets(), 0);
     assert_eq!(http.calls(), 0);
 }

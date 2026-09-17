@@ -169,3 +169,5 @@ Açık task görünümü: [tasks/INDEX.md](INDEX.md)
 | [NEN-128](done/NEN-128-split-task-index-archive.md) | Split the generated task index into open and archive tables | S | ✅ done | NEN-127 |
 | [NEN-129](done/NEN-129-two-stage-model-assisted-translation.md) | Two-stage model-assisted subtitle translation | L | ✅ done | NEN-105 NEN-118 NEN-130 |
 | [NEN-130](done/NEN-130-late-sidecar-auto-selection-regression.md) | Restore one-shot local subtitle auto-selection | S | ✅ done | NEN-038 |
+| [NEN-131](done/NEN-131-pipeline-event-log-window.md) | Pipeline event log window | L | ✅ done | NEN-123 NEN-129 |
+| [NEN-132](done/NEN-132-filename-backed-provider-search.md) | Filename-backed provider search | L | ✅ done | NEN-034 NEN-120 NEN-121 NEN-123 NEN-131 |

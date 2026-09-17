@@ -26,12 +26,13 @@ public final class PlayerModel: ObservableObject {
     public typealias IdentityLookupRunner = @Sendable (URL) throws -> FfiIdentityLookupResult
     /// Searches provider metadata into a worker-owned catalog. The catalog is
     /// merged only after the caller checks the media revision, so a late
-    /// response cannot populate the next medium.
+    /// response cannot populate the next medium. The report beside it says
+    /// what the search tried and found, for the event log (NEN-131).
     public typealias SubtitleCandidateSearchRunner = @Sendable (
         URL,
         FfiVerifiedMediaIdentity?,
         [String]
-    ) throws -> FfiSubtitleLibrary
+    ) throws -> SubtitleCandidateSearchResult
     /// Downloads one selected provider row in a worker-owned catalog.
     public typealias SubtitleDownloadRunner = @Sendable (FfiSubtitleLibrary, UInt32) throws -> Void
 
@@ -40,6 +41,11 @@ public final class PlayerModel: ObservableObject {
     /// construction injects the macOS Keychain-backed object (NEN-112), while
     /// settings remain unable to read a stored secret.
     public let credentialStore: FfiSecureCredentialStore?
+
+    /// What the background chain did for each medium, for the `Olaylar`
+    /// window (NEN-131). Session-long and in memory only; see
+    /// `PipelineEventLog` for why its rows can never carry K23 data.
+    public let events = PipelineEventLog()
 
     @Published public private(set) var mediaName: String?
     @Published public private(set) var recentMedia: [RecentMediaEntry] = []
@@ -285,6 +291,9 @@ public final class PlayerModel: ObservableObject {
     /// Whether the one-shot embedded/user selection window has already closed.
     /// Provider auto-download may still be waiting for its own async gates.
     private var hasAttemptedLocalAutoSelection = false
+    /// Whether the event log already has this medium's embedded-track row
+    /// (NEN-131); `catalogEmbeddedTracks` runs again on every resync.
+    private var hasReportedEmbeddedTracks = false
     private var controlsTask: Task<Void, Never>?
     private(set) var controlsPinned = false
     private var transientTask: Task<Void, Never>?
@@ -393,7 +402,8 @@ public final class PlayerModel: ObservableObject {
             let client = URLSessionRemoteEvidenceClient()
             self.subtitleCandidateSearchRunner = { url, identity, languages in
                 let library = FfiSubtitleLibrary()
-                _ = try searchOpensubtitlesCandidates(
+                let report = try searchOpensubtitlesCandidatesForMedia(
+                    mediaLocator: url.isFileURL ? url.path : url.absoluteString,
                     mediaHash: Self.mediaHash(for: url),
                     identity: identity,
                     languages: languages,
@@ -401,7 +411,7 @@ public final class PlayerModel: ObservableObject {
                     httpClient: client,
                     library: library
                 )
-                return library
+                return SubtitleCandidateSearchResult(library: library, report: report)
             }
         } else {
             self.subtitleCandidateSearchRunner = nil
@@ -503,6 +513,10 @@ public final class PlayerModel: ObservableObject {
         }
         currentMediaURL = url
         mediaPresentationRevision &+= 1
+        // The medium's own row, before anything the chain records for it.
+        // The basename only — the same word the window title shows; the URL
+        // and path stay in `currentMediaURL` (K23).
+        events.record(.mediaOpened(name: url.lastPathComponent, source: url.isFileURL ? .file : .remote))
         identityLookupTask?.cancel()
         identityLookupTask = nil
         candidateSearchTask?.cancel()
@@ -631,17 +645,27 @@ public final class PlayerModel: ObservableObject {
     /// the medium revision before it reaches shell state.
     private func startIdentityLookup(for url: URL, revision: UInt64) {
         guard let runner = identityLookupRunner else { return }
+        events.record(.identityLookupStarted(method: url.isFileURL ? .localHash : .remoteEvidenceThenHash))
         identityLookupTask = Task { [weak self] in
-            let result = try? await Task.detached(priority: .utility) {
-                try runner(url)
+            let result: Result<FfiIdentityLookupResult, any Error> = await Task.detached(priority: .utility) {
+                Result { try runner(url) }
             }.value
-            guard !Task.isCancelled,
-                let self,
-                self.mediaPresentationRevision == revision,
-                self.fatalMessage == nil,
-                let result,
-                result.status == .match,
-                let identity = result.identity
+            guard !Task.isCancelled, let self, self.mediaPresentationRevision == revision else { return }
+            // The event is the only place a lookup failure surfaces — it is
+            // evidence, so playback never hears about it (NEN-120).
+            switch result {
+            case let .success(answer):
+                self.events.record(.identityLookupFinished(
+                    status: answer.status,
+                    label: answer.identity.map(VerifiedMediaIdentityPresentation.label)
+                ))
+            case let .failure(error):
+                self.events.record(.identityLookupFailed(error: PipelineEventLog.errorName(error)))
+            }
+            guard self.fatalMessage == nil,
+                case let .success(answer) = result,
+                answer.status == .match,
+                let identity = answer.identity
             else { return }
             // The identity service's exact verified-hash match is its
             // strongest existing Automatic confidence result. We do not
@@ -670,12 +694,17 @@ public final class PlayerModel: ObservableObject {
                   self.mediaPresentationRevision == revision
             else { return }
             let identity = self.verifiedMediaIdentity
-            let catalog = try? await Task.detached(priority: .utility) {
-                try runner(url, identity, languages)
+            self.events.record(.candidateSearchStarted(languages: languages, hasIdentity: identity != nil))
+            let result: Result<SubtitleCandidateSearchResult, any Error> = await Task.detached(priority: .utility) {
+                Result { try runner(url, identity, languages) }
             }.value
             guard !Task.isCancelled, self.mediaPresentationRevision == revision else { return }
-            if let catalog {
-                self.subtitles.mergeOpensubtitles(source: catalog)
+            switch result {
+            case let .success(found):
+                self.events.record(.candidateSearchFinished(report: found.report))
+                self.subtitles.mergeOpensubtitles(source: found.library)
+            case let .failure(error):
+                self.events.record(.candidateSearchFailed(error: PipelineEventLog.errorName(error)))
             }
             self.hasCandidateSearchFinished = true
             self.refreshSubtitleMenu()
@@ -745,6 +774,7 @@ public final class PlayerModel: ObservableObject {
         browsedSubtitleGroup = .closed
         hasAutoSelected = false
         hasAttemptedLocalAutoSelection = false
+        hasReportedEmbeddedTracks = false
         isScanningSubtitles = false
         refreshSubtitleMenu()
     }
@@ -766,6 +796,7 @@ public final class PlayerModel: ObservableObject {
     private func startSidecarScan(besides url: URL) {
         let library = subtitles
         let path = url.path
+        let before = library.sourceCount()
         isScanningSubtitles = true
         sidecarScanTask = Task { [weak self] in
             _ = await Task.detached(priority: .utility) {
@@ -773,6 +804,7 @@ public final class PlayerModel: ObservableObject {
             }.value
             guard !Task.isCancelled, let self else { return }
             self.isScanningSubtitles = false
+            self.events.record(.sidecarScanFinished(found: max(0, Int(library.sourceCount()) - Int(before))))
             self.refreshSubtitleMenu()
             self.applyAutoSelectionIfNeeded()
         }
@@ -794,6 +826,13 @@ public final class PlayerModel: ObservableObject {
     private func catalogEmbeddedTracks() {
         guard let session, let tracks = try? session.tracks(kind: .subtitle) else { return }
         subtitles.addEmbedded(tracks: tracks)
+        // Once per medium: a resync re-reads the same tracks (the catalog
+        // upserts), and a second identical row would only say "still 2".
+        // Measured on the real .app — `ready` reaches here twice.
+        if !hasReportedEmbeddedTracks {
+            hasReportedEmbeddedTracks = true
+            events.record(.embeddedTracksCataloged(count: tracks.count))
+        }
         refreshSubtitleMenu()
         applyAutoSelectionIfNeeded()
     }
@@ -818,6 +857,7 @@ public final class PlayerModel: ObservableObject {
         guard isPlaybackReady else { return }
         if selectedSubtitleToken != nil {
             hasAutoSelected = true
+            events.record(.autoSelection(decision: .skipped(reason: .alreadySelected)))
             return
         }
 
@@ -825,6 +865,7 @@ public final class PlayerModel: ObservableObject {
             hasAttemptedLocalAutoSelection = true
             if let token = localAutoSelection() {
                 hasAutoSelected = true
+                events.record(.autoSelection(decision: .localSelected(label: subtitleLabel(for: token))))
                 selectSubtitle(token: token)
                 return
             }
@@ -833,6 +874,7 @@ public final class PlayerModel: ObservableObject {
             // outranks and suppresses a provider download, but ADR-0031's
             // one-shot rule forbids switching it on after playback started.
             hasAutoSelected = true
+            events.record(.autoSelection(decision: .skipped(reason: .localSourceArrivedLate)))
             return
         }
 
@@ -851,6 +893,9 @@ public final class PlayerModel: ObservableObject {
             // this medium. It must not become a later retry trigger.
             if hasCandidateSearchFinished {
                 hasAutoSelected = true
+                events.record(.autoSelection(decision: .skipped(
+                    reason: automaticOpenSubtitlesDownloadEnabled ? .identityNotVerified : .automaticDownloadDisabled
+                )))
             }
             return
         }
@@ -858,6 +903,7 @@ public final class PlayerModel: ObservableObject {
         let attemptKey = automaticDownloadAttemptKey(for: media)
         guard !automaticDownloadAttemptKeys.contains(attemptKey) else {
             hasAutoSelected = true
+            events.record(.autoSelection(decision: .skipped(reason: .alreadyAttemptedToday)))
             return
         }
         guard let token = subtitles.autoSelectionWithOpensubtitles(
@@ -866,6 +912,7 @@ public final class PlayerModel: ObservableObject {
             includeOpensubtitles: true
         ) else {
             hasAutoSelected = true
+            events.record(.autoSelection(decision: .skipped(reason: .noMatchingCandidate)))
             return
         }
         hasAutoSelected = true
@@ -874,7 +921,16 @@ public final class PlayerModel: ObservableObject {
             automaticDownloadAttemptKeys.sorted(),
             forKey: Self.automaticDownloadAttemptDefaultsKey
         )
+        events.record(.autoSelection(decision: .providerDownloadStarted(label: subtitleLabel(for: token))))
         startOpenSubtitlesDownload(token: token, automatic: true)
+    }
+
+    /// The menu's own words for a row (`SubtitleMenuPresentation`), for the
+    /// event log. A token the menu does not know yet gets the generic word,
+    /// never the token: it is an opaque identity, not text (NEN-026).
+    private func subtitleLabel(for token: UInt32) -> String {
+        guard let entry = subtitleMenuEntry(for: token) else { return "Altyazı" }
+        return SubtitleMenuPresentation.entryTitle(entry)
     }
 
     private func localAutoSelection() -> UInt32? {
@@ -962,6 +1018,14 @@ public final class PlayerModel: ObservableObject {
         let model = translationModel
         let mediaURL = currentMediaURL
         let credentialStore = self.credentialStore
+        events.record(.translationStarted(
+            provider: provider.title,
+            model: model,
+            source: subtitleMenuEntry(for: token)?.language ?? "?",
+            target: target,
+            label: subtitleLabel(for: token)
+        ))
+        var phaseEventID: PipelineEvent.ID?
         // A medium switch must not let a job started against the previous
         // medium's catalog silently add a row to the new one's menu — the
         // same revision guard `mediaPresentationRevision`'s own doc comment
@@ -1083,6 +1147,17 @@ public final class PlayerModel: ObservableObject {
                     done: progress.done,
                     total: progress.total
                 )
+                // One live row per job, not a row per callback.
+                let phaseKind = PipelineEventKind.translationPhase(
+                    phase: progress.phase,
+                    done: progress.done,
+                    total: progress.total
+                )
+                if let phaseEventID {
+                    self.events.update(phaseEventID, phaseKind)
+                } else {
+                    phaseEventID = self.events.record(phaseKind)
+                }
             }
 
             let result = await outcome
@@ -1092,13 +1167,21 @@ public final class PlayerModel: ObservableObject {
             guard self.mediaPresentationRevision == revision else { return }
             switch result {
             case let .succeeded(job):
+                self.events.record(.translationFinished)
                 _ = job.catalogInto(library: library)
                 self.refreshSubtitleMenu()
             case let .prepareFailed(error):
+                self.events.record(.translationFailed(error: PipelineEventLog.errorName(error)))
                 self.presentTransient(PlaybackPresentation.prepareEmbeddedDocumentMessage(for: error))
             case let .startFailed(error):
+                self.events.record(.translationFailed(error: PipelineEventLog.errorName(error)))
                 self.presentTransient(PlaybackPresentation.translationStartMessage(for: error))
             case let .joinFailed(error):
+                if error == .Cancelled {
+                    self.events.record(.translationCancelled)
+                } else {
+                    self.events.record(.translationFailed(error: PipelineEventLog.errorName(error)))
+                }
                 self.presentTransient(PlaybackPresentation.translationJoinMessage(for: error))
             }
         }
@@ -1191,6 +1274,9 @@ public final class PlayerModel: ObservableObject {
         if automaticDownloadInFlight {
             automaticDownloadUserOverride = true
         }
+        if selectedSubtitleToken != nil {
+            events.record(.subtitlesTurnedOff)
+        }
         selectedSubtitleToken = nil
         browsedSubtitleGroup = .closed
     }
@@ -1220,6 +1306,9 @@ public final class PlayerModel: ObservableObject {
         guard accepted({ shown = try $0.showSubtitle(library: self.subtitles, token: token) == .shown })
         else { return }
         guard shown else { return }
+        if selectedSubtitleToken != token {
+            events.record(.subtitleSelected(label: subtitleLabel(for: token)))
+        }
         selectedSubtitleToken = token
         // Column one's highlight is always what column two is showing, and the
         // row that is showing has to be reachable from it. Without this, a
@@ -1237,8 +1326,10 @@ public final class PlayerModel: ObservableObject {
     /// is still blocked in the platform HTTP adapter.
     private func startOpenSubtitlesDownload(token: UInt32, automatic: Bool) {
         guard subtitleDownloadTask == nil else { return }
+        let label = subtitleLabel(for: token)
         guard let runner = subtitleDownloadRunner
         else {
+            events.record(.downloadUnavailable(label: label))
             if !automatic {
                 presentTransient("OpenSubtitles için Ayarlar'dan API anahtarı girin.")
             }
@@ -1249,6 +1340,7 @@ public final class PlayerModel: ObservableObject {
             automaticDownloadInFlight = true
             automaticDownloadUserOverride = false
         }
+        events.record(.downloadStarted(label: label, automatic: automatic))
 
         let revision = mediaPresentationRevision
         // `copyOpensubtitles` intentionally contains exactly one row, so its
@@ -1273,6 +1365,7 @@ public final class PlayerModel: ObservableObject {
             self.subtitleDownloadTask = nil
             guard self.mediaPresentationRevision == revision else { return }
             if let failure {
+                self.events.record(.downloadFailed(label: label, error: PipelineEventLog.errorName(failure)))
                 self.automaticDownloadInFlight = false
                 self.automaticDownloadUserOverride = false
                 if !automatic {
@@ -1281,6 +1374,7 @@ public final class PlayerModel: ObservableObject {
                 return
             }
             self.automaticDownloadInFlight = false
+            self.events.record(.downloadFinished(label: label))
             self.subtitles.mergeOpensubtitles(source: workerLibrary)
             self.refreshSubtitleMenu()
             // The live library now owns the validated document. Calling the
@@ -1651,6 +1745,7 @@ public final class PlayerModel: ObservableObject {
         // first frame, with no scan having finished.
         if state == .ready {
             isPlaybackReady = true
+            events.record(.playbackReady)
             catalogEmbeddedTracks()
             // Every medium that opens gets one redraw, whether or not it has a
             // picture — because the one that has none would otherwise get no
@@ -1846,6 +1941,7 @@ public final class PlayerModel: ObservableObject {
 
     private func presentFatal(_ error: Error) {
         playbackState = .failed
+        events.record(.playbackFailed(error: PipelineEventLog.errorName(error)))
         fatalMessage = PlaybackPresentation.errorMessage(for: error)
         verifiedMediaIdentity = nil
         // Nothing is being shown, so nothing constrains the window: the fatal
@@ -1872,5 +1968,18 @@ public final class PlayerModel: ObservableObject {
         }
         accessedURL = nil
         hasSecurityScope = false
+    }
+}
+
+/// What a candidate search hands back: the worker-owned catalog to merge and
+/// the report the event log shows (NEN-131). The report carries counts and
+/// method names only — see `FfiCandidateSearchReport`.
+public struct SubtitleCandidateSearchResult: Sendable {
+    public let library: FfiSubtitleLibrary
+    public let report: FfiCandidateSearchReport
+
+    public init(library: FfiSubtitleLibrary, report: FfiCandidateSearchReport) {
+        self.library = library
+        self.report = report
     }
 }

@@ -61,6 +61,10 @@ pub struct HandoffMetadata {
     pub year: Option<u16>,
     pub season: Option<u16>,
     pub episode: Option<u16>,
+    /// Optional canonical media identifiers supplied by a launcher such as
+    /// Stremio. They are provider-media ids, never subtitle ids.
+    pub imdb_id: Option<String>,
+    pub parent_imdb_id: Option<String>,
 }
 
 impl HandoffMetadata {
@@ -89,6 +93,8 @@ impl fmt::Debug for HandoffMetadata {
             .field("year", &presence(self.year.is_some()))
             .field("season", &presence(self.season.is_some()))
             .field("episode", &presence(self.episode.is_some()))
+            .field("imdb_id", &presence(self.imdb_id.is_some()))
+            .field("parent_imdb_id", &presence(self.parent_imdb_id.is_some()))
             .finish()
     }
 }
@@ -219,6 +225,22 @@ impl MediaEvidence {
     /// evidence when present, and the only one that needs no matching at all.
     pub fn imdb_id(&self) -> Option<&str> {
         self.nfo.as_ref()?.imdb_id.as_deref()
+    }
+
+    /// The strongest canonical media id available to provider search. Handoff
+    /// metadata outranks a local sidecar; values remain inside the core and
+    /// have no user-facing/debug representation.
+    pub fn canonical_imdb_id(&self) -> Option<&str> {
+        self.handoff
+            .as_ref()
+            .and_then(|handoff| handoff.imdb_id.as_deref())
+            .or_else(|| self.nfo.as_ref()?.imdb_id.as_deref())
+    }
+
+    pub fn canonical_parent_imdb_id(&self) -> Option<&str> {
+        self.handoff
+            .as_ref()
+            .and_then(|handoff| handoff.parent_imdb_id.as_deref())
     }
 
     /// Adds an identity confirmed by an exact provider hash match.

@@ -8,7 +8,10 @@ use nen_ports::filename_normalization::{
     FilenameNormalizationRequest, FilenameNormalizationResult, FilenameNormalizer,
 };
 use nen_ports::http::HttpClient;
-use nen_ports::identity::{IdentityLookup, IdentityLookupError, MediaHash, MediaIdentityLookup};
+use nen_ports::identity::{
+    CanonicalMediaIdentity, IdentityLookup, IdentityLookupError, MediaHash, MediaIdentityLookup,
+    ParsedMediaIdentity, VerifiedMediaIdentity,
+};
 use nen_ports::subtitle_candidates::{
     SubtitleCandidate, SubtitleCandidateSearch, SubtitleCandidateSearchError,
     SubtitleCandidateSearchQuery, SubtitleCandidateSearchRequest,
@@ -27,6 +30,10 @@ pub enum ProviderIdentityOutcome {
     NoMatch,
     Ambiguous,
     NoCredential,
+    /// No provider-compatible hash could be derived, so no lookup was even
+    /// attempted. Distinct from `NoMatch` — the provider was never asked
+    /// (NEN-131 reports both to the user separately).
+    NoHash,
 }
 
 /// Why an identity lookup could not complete. All variants are payload-free;
@@ -38,12 +45,30 @@ pub enum ProviderIdentityError {
     RemoteEvidence(crate::remote_evidence::RemoteEvidenceError),
 }
 
+/// Which ADR-0021 query a candidate search issued. Carried on the outcome so
+/// the shell can say what was tried and what answered (NEN-131); it names a
+/// method only, never the hash or the identity behind it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CandidateSearchMethod {
+    Hash,
+    CanonicalIdentity,
+    VerifiedIdentity,
+    ParsedIdentity,
+}
+
 /// The optional OpenSubtitles candidate catalog result. An empty candidate
 /// list is a successful search with no subtitles; `NoCredential` and
 /// `NoIdentity` are ordinary keyless/unidentifiable states.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ProviderCandidateOutcome {
-    Candidates(Vec<SubtitleCandidate>),
+    Candidates {
+        candidates: Vec<SubtitleCandidate>,
+        /// Every query issued, in order.
+        attempted: Vec<CandidateSearchMethod>,
+        /// The query whose answer is `candidates`, or `None` when every
+        /// attempted query came back empty.
+        found_by: Option<CandidateSearchMethod>,
+    },
     NoCredential,
     NoIdentity,
 }
@@ -54,6 +79,7 @@ pub enum ProviderCandidateOutcome {
 pub enum ProviderCandidateError {
     CredentialStore(CredentialStoreError),
     Provider(SubtitleCandidateSearchError),
+    RemoteEvidence(crate::remote_evidence::RemoteEvidenceError),
 }
 
 /// The explicit, media-scoped consent gate required by ADR-0046.
@@ -182,6 +208,7 @@ impl std::fmt::Display for ProviderCandidateError {
         match self {
             Self::CredentialStore(error) => error.fmt(f),
             Self::Provider(error) => error.fmt(f),
+            Self::RemoteEvidence(error) => error.fmt(f),
         }
     }
 }
@@ -244,7 +271,7 @@ pub fn apply_provider_identity_with_credentials(
     lookup: &dyn MediaIdentityLookup,
 ) -> Result<(MediaEvidence, ProviderIdentityOutcome), ProviderIdentityError> {
     if evidence.os_hash().is_none() {
-        return Ok((evidence, ProviderIdentityOutcome::NoMatch));
+        return Ok((evidence, ProviderIdentityOutcome::NoHash));
     }
     if credentials
         .get(CredentialKind::OpenSubtitles)
@@ -265,7 +292,7 @@ pub fn lookup_opensubtitles_by_hash(
     http: &dyn HttpClient,
 ) -> Result<(MediaEvidence, ProviderIdentityOutcome), ProviderIdentityError> {
     let Some(hash) = hash else {
-        return Ok((MediaEvidence::default(), ProviderIdentityOutcome::NoMatch));
+        return Ok((MediaEvidence::default(), ProviderIdentityOutcome::NoHash));
     };
 
     let evidence = MediaEvidence::default().with_os_hash(OsHash::from_bytes(*hash.as_bytes()));
@@ -304,18 +331,107 @@ pub fn lookup_opensubtitles_for_remote_url(
     finish_provider_identity(evidence, &lookup)
 }
 
-/// Searches OpenSubtitles metadata using the ADR-0021 order: exact local hash
-/// first, then the already verified identity only when the exact search has no
-/// candidates. A missing hash and identity returns before credential or HTTP
-/// access. Search never downloads or attaches a subtitle document.
+/// Searches OpenSubtitles metadata using the ADR-0049 order. Exact hash wins;
+/// a canonical IMDb/parent IMDb declaration follows; an exact hash identity
+/// and finally the parsed title coordinates are fallback queries. A missing
+/// hash, identity and evidence returns before credential or HTTP access.
+/// Search never downloads or attaches a subtitle document.
 pub fn search_opensubtitles_candidates(
     hash: Option<MediaHash>,
-    identity: Option<nen_ports::identity::VerifiedMediaIdentity>,
+    identity: Option<VerifiedMediaIdentity>,
     languages: Vec<nen_domain::source::LanguageTag>,
     credentials: &dyn SecureCredentialStore,
     http: &dyn HttpClient,
 ) -> Result<ProviderCandidateOutcome, ProviderCandidateError> {
-    if hash.is_none() && identity.is_none() {
+    search_opensubtitles_candidates_with_evidence(
+        hash,
+        identity,
+        None,
+        languages,
+        credentials,
+        http,
+    )
+}
+
+/// Searches with all locally collected evidence already available. The
+/// evidence resolver supplies the canonical-id and parsed fallbacks without
+/// allowing a lower filename layer to replace a stronger declaration.
+pub fn search_opensubtitles_candidates_with_evidence(
+    hash: Option<MediaHash>,
+    identity: Option<VerifiedMediaIdentity>,
+    evidence: Option<&MediaEvidence>,
+    languages: Vec<nen_domain::source::LanguageTag>,
+    credentials: &dyn SecureCredentialStore,
+    http: &dyn HttpClient,
+) -> Result<ProviderCandidateOutcome, ProviderCandidateError> {
+    let canonical = evidence.and_then(canonical_provider_identity);
+    let parsed = evidence.and_then(parsed_provider_identity);
+    search_opensubtitles_candidates_with_inputs(
+        hash,
+        identity,
+        canonical,
+        parsed,
+        languages,
+        credentials,
+        http,
+    )
+}
+
+/// Collects the same bounded evidence used for remote identity lookup, then
+/// searches the provider with its fan-in result. Local paths stay entirely
+/// offline apart from the eventual provider search.
+pub fn search_opensubtitles_candidates_for_media(
+    locator: &str,
+    hash: Option<MediaHash>,
+    identity: Option<VerifiedMediaIdentity>,
+    languages: Vec<nen_domain::source::LanguageTag>,
+    credentials: &dyn SecureCredentialStore,
+    http: &dyn HttpClient,
+) -> Result<ProviderCandidateOutcome, ProviderCandidateError> {
+    if is_remote_locator(locator) {
+        // Do not issue remote evidence requests on a keyless install. This is
+        // the same credential-before-network rule as the existing identity
+        // path, and keeps a filename from becoming an accidental probe.
+        if credentials
+            .get(CredentialKind::OpenSubtitles)
+            .map_err(ProviderCandidateError::CredentialStore)?
+            .is_none()
+        {
+            return Ok(ProviderCandidateOutcome::NoCredential);
+        }
+        let evidence = crate::remote_evidence::collect_remote_evidence(http, locator)
+            .map_err(ProviderCandidateError::RemoteEvidence)?;
+        return search_opensubtitles_candidates_with_evidence(
+            hash,
+            identity,
+            Some(&evidence),
+            languages,
+            credentials,
+            http,
+        );
+    }
+
+    let evidence = MediaEvidence::for_local_file(locator);
+    search_opensubtitles_candidates_with_evidence(
+        hash,
+        identity,
+        Some(&evidence),
+        languages,
+        credentials,
+        http,
+    )
+}
+
+fn search_opensubtitles_candidates_with_inputs(
+    hash: Option<MediaHash>,
+    identity: Option<VerifiedMediaIdentity>,
+    canonical: Option<CanonicalMediaIdentity>,
+    parsed: Option<ParsedMediaIdentity>,
+    languages: Vec<nen_domain::source::LanguageTag>,
+    credentials: &dyn SecureCredentialStore,
+    http: &dyn HttpClient,
+) -> Result<ProviderCandidateOutcome, ProviderCandidateError> {
+    if hash.is_none() && identity.is_none() && canonical.is_none() && parsed.is_none() {
         return Ok(ProviderCandidateOutcome::NoIdentity);
     }
     let Some(key) = credentials
@@ -336,29 +452,112 @@ pub fn search_opensubtitles_candidates(
     })?;
     let search = OpenSubtitlesCandidateSearch::new(http, key);
 
+    let mut attempted = Vec::with_capacity(4);
     if let Some(hash) = hash {
         let request =
             SubtitleCandidateSearchRequest::new(SubtitleCandidateSearchQuery::by_hash(hash))
                 .with_languages(languages.clone());
+        attempted.push(CandidateSearchMethod::Hash);
         let candidates = search
             .search(&request)
             .map_err(ProviderCandidateError::Provider)?;
-        if !candidates.is_empty() || identity.is_none() {
-            return Ok(ProviderCandidateOutcome::Candidates(candidates));
+        if !candidates.is_empty() || (identity.is_none() && canonical.is_none() && parsed.is_none())
+        {
+            let found_by = (!candidates.is_empty()).then_some(CandidateSearchMethod::Hash);
+            return Ok(ProviderCandidateOutcome::Candidates {
+                candidates,
+                attempted,
+                found_by,
+            });
         }
     }
 
-    let Some(identity) = identity else {
-        return Ok(ProviderCandidateOutcome::Candidates(Vec::new()));
+    if let Some(canonical) = canonical {
+        let request = SubtitleCandidateSearchRequest::new(
+            SubtitleCandidateSearchQuery::by_canonical_identity(canonical),
+        )
+        .with_languages(languages.clone());
+        attempted.push(CandidateSearchMethod::CanonicalIdentity);
+        let candidates = search
+            .search(&request)
+            .map_err(ProviderCandidateError::Provider)?;
+        if !candidates.is_empty() {
+            return Ok(ProviderCandidateOutcome::Candidates {
+                candidates,
+                attempted,
+                found_by: Some(CandidateSearchMethod::CanonicalIdentity),
+            });
+        }
+    }
+
+    if let Some(identity) = identity {
+        let request = SubtitleCandidateSearchRequest::new(
+            SubtitleCandidateSearchQuery::by_verified_identity(identity),
+        )
+        .with_languages(languages.clone());
+        attempted.push(CandidateSearchMethod::VerifiedIdentity);
+        let candidates = search
+            .search(&request)
+            .map_err(ProviderCandidateError::Provider)?;
+        if !candidates.is_empty() {
+            return Ok(ProviderCandidateOutcome::Candidates {
+                candidates,
+                attempted,
+                found_by: Some(CandidateSearchMethod::VerifiedIdentity),
+            });
+        }
+    }
+
+    if let Some(parsed) = parsed {
+        let request = SubtitleCandidateSearchRequest::new(
+            SubtitleCandidateSearchQuery::by_parsed_identity(parsed),
+        )
+        .with_languages(languages);
+        attempted.push(CandidateSearchMethod::ParsedIdentity);
+        let candidates = search
+            .search(&request)
+            .map_err(ProviderCandidateError::Provider)?;
+        if !candidates.is_empty() {
+            return Ok(ProviderCandidateOutcome::Candidates {
+                candidates,
+                attempted,
+                found_by: Some(CandidateSearchMethod::ParsedIdentity),
+            });
+        }
+    }
+
+    Ok(ProviderCandidateOutcome::Candidates {
+        candidates: Vec::new(),
+        attempted,
+        found_by: None,
+    })
+}
+
+fn canonical_provider_identity(evidence: &MediaEvidence) -> Option<CanonicalMediaIdentity> {
+    let identity = CanonicalMediaIdentity {
+        imdb_id: evidence.canonical_imdb_id().map(str::to_owned),
+        parent_imdb_id: evidence.canonical_parent_imdb_id().map(str::to_owned),
     };
-    let request = SubtitleCandidateSearchRequest::new(
-        SubtitleCandidateSearchQuery::by_verified_identity(identity),
-    )
-    .with_languages(languages);
-    search
-        .search(&request)
-        .map(ProviderCandidateOutcome::Candidates)
-        .map_err(ProviderCandidateError::Provider)
+    (identity.imdb_id.is_some() || identity.parent_imdb_id.is_some()).then_some(identity)
+}
+
+fn parsed_provider_identity(evidence: &MediaEvidence) -> Option<ParsedMediaIdentity> {
+    let parsed = evidence.resolve();
+    Some(ParsedMediaIdentity {
+        title: parsed.title?,
+        year: parsed.year,
+        season: parsed.season,
+        episode: parsed.episode,
+    })
+}
+
+fn is_remote_locator(locator: &str) -> bool {
+    locator
+        .get(..7)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("http://"))
+        || locator
+            .get(..8)
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case("https://"))
 }
 
 fn finish_provider_identity(
@@ -544,7 +743,7 @@ mod tests {
             apply_provider_identity_with_credentials(evidence, &credentials, &provider)
                 .expect("missing hash is an ordinary outcome");
 
-        assert_eq!(outcome, ProviderIdentityOutcome::NoMatch);
+        assert_eq!(outcome, ProviderIdentityOutcome::NoHash);
         assert_eq!(provider.calls(), 0);
     }
 

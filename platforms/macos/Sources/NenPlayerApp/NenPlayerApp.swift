@@ -36,6 +36,13 @@ struct NenPlayerApp: App {
             PlayerCommands(model: model)
         }
 
+        // NEN-131: the event log is its own scene, beside the player, on the
+        // same terms as Settings — opened from the `Olaylar` menu (⌥⌘L).
+        Window("Olaylar", id: "events") {
+            PipelineEventLogView(log: model.events)
+        }
+        .defaultSize(width: 760, height: 460)
+
         Settings {
             SubtitlePreferencesSettingsView(model: model)
         }
