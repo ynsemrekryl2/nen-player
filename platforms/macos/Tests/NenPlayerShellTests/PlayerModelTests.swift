@@ -52,6 +52,27 @@ struct PlayerModelTests {
         #expect(model.verifiedMediaIdentity?.year == 2010)
     }
 
+    @Test("a parsed filename match is displayed without becoming exact identity")
+    func parsedFilenameIdentityIsDisplayOnly() async {
+        let fixture = FakeSession()
+        let identity = FfiVerifiedMediaIdentity(
+            title: "The Legend of Aang - The Last Airbender",
+            year: 2026,
+            season: nil,
+            episode: nil
+        )
+        let model = makeModel(session: fixture, identityLookupRunner: { _ in
+            FfiIdentityLookupResult(status: .parsedMatch, identity: identity)
+        })
+
+        model.openMedia(at: URL(fileURLWithPath: "/fixtures/media/identity-clip.mkv"))
+        await model.awaitIdentityLookup()
+
+        #expect(model.verifiedMediaIdentity == nil)
+        #expect(model.resolvedMediaIdentity == identity)
+        #expect(model.displayedMediaIdentity == identity)
+    }
+
     @Test("an old identity answer cannot overwrite a newer medium")
     func staleIdentityResultIsDiscarded() async throws {
         let fixture = FakeSession()

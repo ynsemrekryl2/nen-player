@@ -263,11 +263,11 @@ public struct PlayerRootView: View {
 
     @ViewBuilder
     private var mediaIdentityTitle: some View {
-        if let identity = model.verifiedMediaIdentity {
+        if let identity = model.displayedMediaIdentity {
             Text(VerifiedMediaIdentityPresentation.label(for: identity))
-                // The payload-free id makes basename → verified title an
+                // The payload-free id makes basename → provider title an
                 // insertion/removal, so the existing ease-out fade is used.
-                .id("verified-media-identity")
+                .id("provider-media-identity")
                 .transition(.opacity)
         } else if let mediaName = model.mediaName {
             Text(mediaName)
@@ -312,7 +312,7 @@ public struct PlayerRootView: View {
                     .allowsHitTesting(false)
                     .animation(
                         .easeOut(duration: VerifiedMediaIdentityPresentation.transitionDuration),
-                        value: model.verifiedMediaIdentity
+                        value: model.displayedMediaIdentity
                     )
             }
 

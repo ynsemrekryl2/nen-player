@@ -6,7 +6,8 @@
 
 use nen_ports::http::{HttpClient, HttpError, HttpHeader, HttpRequest};
 use nen_ports::identity::{
-    IdentityLookup, IdentityLookupError, MediaHash, MediaIdentityLookup, VerifiedMediaIdentity,
+    IdentityLookup, IdentityLookupError, MediaHash, MediaIdentityLookup, MediaIdentitySearch,
+    ParsedMediaIdentity, VerifiedMediaIdentity,
 };
 use nen_ports::subtitle_candidates::{
     SubtitleCandidate, SubtitleCandidateSearch, SubtitleCandidateSearchError,
@@ -78,6 +79,17 @@ impl MediaIdentityLookup for OpenSubtitlesIdentityLookup<'_> {
         let initial = format!("{SEARCH_ENDPOINT}?moviehash={hash}&moviehash_match=only");
         let response = request_following(self.http, &self.api_key, &initial)?;
         parse_response(&response.body)
+    }
+}
+
+impl MediaIdentitySearch for OpenSubtitlesIdentityLookup<'_> {
+    fn lookup_by_parsed_identity(
+        &self,
+        identity: ParsedMediaIdentity,
+    ) -> Result<IdentityLookup, IdentityLookupError> {
+        let initial = parsed_identity_url(&identity)?;
+        let response = request_following(self.http, &self.api_key, &initial)?;
+        parse_identity_response(&response.body, false)
     }
 }
 
@@ -367,6 +379,19 @@ fn candidate_search_url(
     if !language_filters.is_empty() {
         parameters.push(format!("languages={}", language_filters.join(",")));
     }
+    Ok(format!("{SEARCH_ENDPOINT}?{}", parameters.join("&")))
+}
+
+fn parsed_identity_url(identity: &ParsedMediaIdentity) -> Result<String, IdentityLookupError> {
+    let mut parameters = Vec::with_capacity(4);
+    push_parsed_identity_parameters(
+        &mut parameters,
+        &identity.title,
+        identity.year,
+        identity.season,
+        identity.episode,
+    )
+    .map_err(|_| IdentityLookupError::InvalidResponse)?;
     Ok(format!("{SEARCH_ENDPOINT}?{}", parameters.join("&")))
 }
 
@@ -661,6 +686,13 @@ fn map_http_error(error: HttpError) -> IdentityLookupError {
 }
 
 fn parse_response(body: &[u8]) -> Result<IdentityLookup, IdentityLookupError> {
+    parse_identity_response(body, true)
+}
+
+fn parse_identity_response(
+    body: &[u8],
+    exact_hash_only: bool,
+) -> Result<IdentityLookup, IdentityLookupError> {
     let root: Value =
         serde_json::from_slice(body).map_err(|_| IdentityLookupError::InvalidResponse)?;
     let rows = root
@@ -678,7 +710,7 @@ fn parse_response(body: &[u8]) -> Result<IdentityLookup, IdentityLookupError> {
             .or_else(|| attributes.get("movie_hash_match"))
             .and_then(Value::as_bool)
             .unwrap_or(false);
-        if !exact {
+        if exact_hash_only && !exact {
             continue;
         }
         let Some(details) = attributes.get("feature_details").and_then(Value::as_object) else {

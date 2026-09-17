@@ -145,6 +145,17 @@ pub trait MediaIdentityLookup: Send + Sync {
     fn lookup_by_hash(&self, hash: MediaHash) -> Result<IdentityLookup, IdentityLookupError>;
 }
 
+/// Searches provider metadata using a bounded identity derived from weaker
+/// evidence such as a release filename. The result is deliberately kept as
+/// [`IdentityLookup`] so callers can distinguish a single provider feature
+/// from an ambiguous search; it is not an exact hash match.
+pub trait MediaIdentitySearch: Send + Sync {
+    fn lookup_by_parsed_identity(
+        &self,
+        identity: ParsedMediaIdentity,
+    ) -> Result<IdentityLookup, IdentityLookupError>;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -538,7 +538,7 @@ fn clean_title(tokens: &[&str]) -> Option<String> {
     let joined = tokens
         .iter()
         .map(|token| trim_brackets(token))
-        .filter(|token| !token.is_empty() && *token != "-")
+        .filter(|token| !token.is_empty())
         .collect::<Vec<_>>()
         .join(" ");
 
@@ -648,6 +648,19 @@ mod tests {
         let p = t("Spider-Man.2002.1080p.BluRay.mkv");
         assert_eq!(p.title.as_deref(), Some("Spider-Man"));
         assert_eq!(p.year, Some(2002));
+    }
+
+    #[test]
+    fn spaced_title_hyphen_is_kept_before_the_release_year() {
+        let p = t(
+            "The Legend of Aang - The Last Airbender 2026 [INTERNAL] 1080p H.264 English AAC 2.0.mkv",
+        );
+        assert_eq!(
+            p.title.as_deref(),
+            Some("The Legend of Aang - The Last Airbender")
+        );
+        assert_eq!(p.year, Some(2026));
+        assert_eq!(p.kind, MediaKind::Movie);
     }
 
     #[test]

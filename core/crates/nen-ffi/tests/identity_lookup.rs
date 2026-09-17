@@ -4,8 +4,8 @@ use nen_ffi::credentials::{
     FfiCredentialError, FfiCredentialKind, FfiSecureCredentialStore, ForeignSecureCredentialStore,
 };
 use nen_ffi::identity::{
-    lookup_verified_identity_by_hash, FfiIdentityLookupError, FfiIdentityLookupResult,
-    FfiIdentityLookupStatus, FfiVerifiedMediaIdentity,
+    lookup_verified_identity_by_hash, lookup_verified_identity_for_media, FfiIdentityLookupError,
+    FfiIdentityLookupResult, FfiIdentityLookupStatus, FfiVerifiedMediaIdentity,
 };
 use nen_ffi::remote_evidence::{FfiHttpError, FfiHttpRequest, FfiHttpResponse, ForeignHttpClient};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -98,6 +98,29 @@ fn exact_match_maps_to_a_redacted_ffi_record() {
             season: None,
             episode: None,
         })
+    );
+    assert_eq!(http.calls(), 1);
+}
+
+#[test]
+fn parsed_media_match_maps_separately_after_filename_fallback() {
+    let (credentials, _) = store(Some(SENTINEL_KEY));
+    let http = Arc::new(FakeHttp {
+        calls: AtomicUsize::new(0),
+    });
+
+    let answer = lookup_verified_identity_for_media(
+        "The Legend of Aang - The Last Airbender 2026 [INTERNAL].mkv".into(),
+        None,
+        credentials,
+        http.clone(),
+    )
+    .expect("parsed media lookup");
+
+    assert_eq!(answer.status, FfiIdentityLookupStatus::ParsedMatch);
+    assert_eq!(
+        answer.identity.as_ref().map(|identity| identity.year),
+        Some(Some(2010))
     );
     assert_eq!(http.calls(), 1);
 }

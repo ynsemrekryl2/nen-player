@@ -1,7 +1,10 @@
 use nen_ports::http::{
     FakeHttpClient, HttpClient, HttpError, HttpHeader, HttpRequest, HttpResponse,
 };
-use nen_ports::identity::{IdentityLookup, MediaHash, MediaIdentityLookup, VerifiedMediaIdentity};
+use nen_ports::identity::{
+    IdentityLookup, MediaHash, MediaIdentityLookup, MediaIdentitySearch, ParsedMediaIdentity,
+    VerifiedMediaIdentity,
+};
 use nen_providers::opensubtitles::{OpenSubtitlesApiKey, OpenSubtitlesIdentityLookup};
 use std::sync::Mutex;
 
@@ -45,6 +48,33 @@ fn lookup(body: &str) -> Result<IdentityLookup, nen_ports::identity::IdentityLoo
     OpenSubtitlesIdentityLookup::new(&client, key).lookup_by_hash(hash())
 }
 
+fn parsed_lookup(
+    body: &str,
+    identity: ParsedMediaIdentity,
+) -> Result<IdentityLookup, nen_ports::identity::IdentityLookupError> {
+    let request = HttpRequest::get(
+        "https://api.opensubtitles.com/api/v1/subtitles?query=The%20Legend%20of%20Aang%20-%20The%20Last%20Airbender&year=2026",
+        vec![
+            HttpHeader {
+                name: "Api-Key".into(),
+                value: "fixture-key".into(),
+            },
+            HttpHeader {
+                name: "User-Agent".into(),
+                value: USER_AGENT.into(),
+            },
+            HttpHeader {
+                name: "Accept".into(),
+                value: "application/json".into(),
+            },
+        ],
+        MAX_RESPONSE_BYTES,
+    );
+    let client = FakeHttpClient::new(vec![(request, Ok(response(body)))]);
+    let key = OpenSubtitlesApiKey::new("fixture-key").expect("valid key");
+    OpenSubtitlesIdentityLookup::new(&client, key).lookup_by_parsed_identity(identity)
+}
+
 #[test]
 fn recorded_movie_fixture_becomes_a_match() {
     let result = lookup(include_str!(
@@ -77,6 +107,44 @@ fn recorded_episode_fixture_preserves_episode_coordinates() {
             episode: Some(7),
         })
     );
+}
+
+#[test]
+fn parsed_filename_query_resolves_one_provider_feature_without_hash_flag() {
+    let result = parsed_lookup(
+        r#"{"data":[{"attributes":{"feature_details":{"title":"The Legend of Aang - The Last Airbender","year":2026}}}]}"#,
+        ParsedMediaIdentity {
+            title: "The Legend of Aang - The Last Airbender".into(),
+            year: Some(2026),
+            season: None,
+            episode: None,
+        },
+    )
+    .expect("parsed identity lookup");
+    assert_eq!(
+        result,
+        IdentityLookup::Match(VerifiedMediaIdentity {
+            title: "The Legend of Aang - The Last Airbender".into(),
+            year: Some(2026),
+            season: None,
+            episode: None,
+        })
+    );
+}
+
+#[test]
+fn parsed_filename_query_keeps_different_provider_features_ambiguous() {
+    let result = parsed_lookup(
+        r#"{"data":[{"attributes":{"feature_details":{"title":"First","year":2026}}},{"attributes":{"feature_details":{"title":"Second","year":2026}}}]}"#,
+        ParsedMediaIdentity {
+            title: "The Legend of Aang - The Last Airbender".into(),
+            year: Some(2026),
+            season: None,
+            episode: None,
+        },
+    )
+    .expect("parsed identity lookup");
+    assert_eq!(result, IdentityLookup::Ambiguous);
 }
 
 #[test]

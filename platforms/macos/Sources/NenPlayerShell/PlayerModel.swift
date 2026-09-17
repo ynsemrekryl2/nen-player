@@ -95,6 +95,10 @@ public final class PlayerModel: ObservableObject {
     /// NEN-064 owns its presentation; this task only carries the bounded FFI
     /// result into the shell.
     @Published public private(set) var verifiedMediaIdentity: FfiVerifiedMediaIdentity?
+    /// A single provider feature resolved from parsed filename evidence after
+    /// the exact hash path missed. It is displayable, but never qualifies the
+    /// automatic-download gate.
+    @Published public private(set) var resolvedMediaIdentity: FfiVerifiedMediaIdentity?
     /// Whether a translation job started by `translateSelectedSubtitle()` is
     /// still running. The command's own gate — `NEN-102` adds progress and
     /// cancellation on top, not a second flag.
@@ -120,6 +124,9 @@ public final class PlayerModel: ObservableObject {
     public var hasMedia: Bool { mediaName != nil && fatalMessage == nil }
     public var isPlaying: Bool { playbackState == .playing }
     public var windowTitle: String { mediaName ?? "Nen Player" }
+    public var displayedMediaIdentity: FfiVerifiedMediaIdentity? {
+        verifiedMediaIdentity ?? resolvedMediaIdentity
+    }
     public var displayedPositionMilliseconds: UInt64 {
         seekPreviewMilliseconds ?? positionMilliseconds
     }
@@ -380,15 +387,9 @@ public final class PlayerModel: ObservableObject {
         } else if let credentialStore {
             let client = URLSessionRemoteEvidenceClient()
             self.identityLookupRunner = { url in
-                if url.isFileURL {
-                    return try lookupVerifiedIdentityByHash(
-                        mediaHash: Self.mediaHash(for: url),
-                        credentialStore: credentialStore,
-                        httpClient: client
-                    )
-                }
-                return try lookupVerifiedRemoteIdentity(
-                    url: url.absoluteString,
+                try lookupVerifiedIdentityForMedia(
+                    mediaLocator: url.isFileURL ? url.path : url.absoluteString,
+                    mediaHash: url.isFileURL ? Self.mediaHash(for: url) : nil,
                     credentialStore: credentialStore,
                     httpClient: client
                 )
@@ -525,6 +526,7 @@ public final class PlayerModel: ObservableObject {
         subtitleDownloadTask = nil
         isDownloadingSubtitle = false
         verifiedMediaIdentity = nil
+        resolvedMediaIdentity = nil
         identityAllowsAutomaticDownload = false
         hasCandidateSearchFinished = false
         isPlaybackReady = false
@@ -664,14 +666,22 @@ public final class PlayerModel: ObservableObject {
             }
             guard self.fatalMessage == nil,
                 case let .success(answer) = result,
-                answer.status == .match,
                 let identity = answer.identity
             else { return }
-            // The identity service's exact verified-hash match is its
-            // strongest existing Automatic confidence result. We do not
-            // widen this gate for a weaker title/year candidate.
-            self.identityAllowsAutomaticDownload = true
-            self.verifiedMediaIdentity = identity
+            switch answer.status {
+            case .match:
+                // Only the exact hash result qualifies for automatic
+                // download. Parsed filename matches remain display-only.
+                self.identityAllowsAutomaticDownload = true
+                self.verifiedMediaIdentity = identity
+                self.resolvedMediaIdentity = nil
+            case .parsedMatch:
+                self.identityAllowsAutomaticDownload = false
+                self.verifiedMediaIdentity = nil
+                self.resolvedMediaIdentity = identity
+            default:
+                break
+            }
         }
     }
 
@@ -1629,6 +1639,7 @@ public final class PlayerModel: ObservableObject {
         mediaName = nil
         currentMediaURL = nil
         verifiedMediaIdentity = nil
+        resolvedMediaIdentity = nil
         identityAllowsAutomaticDownload = false
         hasCandidateSearchFinished = false
         isPlaybackReady = false
@@ -1944,6 +1955,7 @@ public final class PlayerModel: ObservableObject {
         events.record(.playbackFailed(error: PipelineEventLog.errorName(error)))
         fatalMessage = PlaybackPresentation.errorMessage(for: error)
         verifiedMediaIdentity = nil
+        resolvedMediaIdentity = nil
         // Nothing is being shown, so nothing constrains the window: the fatal
         // state is one of the three ADR-0038 leaves free to resize.
         videoGeometry = nil

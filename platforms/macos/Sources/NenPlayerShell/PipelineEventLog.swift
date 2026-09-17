@@ -189,6 +189,8 @@ public enum PipelineEventPresentation {
             switch status {
             case .match:
                 return "Hash kimliği bulundu: \(label ?? "?") — OpenSubtitles eşleşmesi"
+            case .parsedMatch:
+                return "Dosya adıyla medya kimliği bulundu: \(label ?? "?") — otomatik indirme kapalı"
             case .noMatch:
                 return "Hash kimliği eşleşmedi — aday araması diğer kanıtlarla sürecek"
             case .ambiguous:
@@ -409,6 +411,7 @@ public enum PipelineEventPresentation {
     static func identityStatusLabel(_ status: FfiIdentityLookupStatus) -> String {
         switch status {
         case .match: "eşleşme"
+        case .parsedMatch: "dosya adı eşleşmesi"
         case .noMatch: "eşleşme yok"
         case .ambiguous: "belirsiz"
         case .noCredential: "anahtar yok"

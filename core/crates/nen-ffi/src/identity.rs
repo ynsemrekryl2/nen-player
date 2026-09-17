@@ -66,6 +66,9 @@ impl From<FfiVerifiedMediaIdentity> for VerifiedMediaIdentity {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
 pub enum FfiIdentityLookupStatus {
     Match,
+    /// A single provider feature matched the parsed title coordinates after
+    /// exact hash lookup missed. It is displayable, but not exact proof.
+    ParsedMatch,
     NoMatch,
     Ambiguous,
     NoCredential,
@@ -345,6 +348,10 @@ fn result(outcome: ProviderIdentityOutcome) -> FfiIdentityLookupResult {
             status: FfiIdentityLookupStatus::Match,
             identity: Some(identity.into()),
         },
+        ProviderIdentityOutcome::ParsedMatch(identity) => FfiIdentityLookupResult {
+            status: FfiIdentityLookupStatus::ParsedMatch,
+            identity: Some(identity.into()),
+        },
         ProviderIdentityOutcome::NoMatch => FfiIdentityLookupResult {
             status: FfiIdentityLookupStatus::NoMatch,
             identity: None,
@@ -386,6 +393,38 @@ pub fn lookup_verified_identity_by_hash(
     let (_, outcome) =
         nen_app::identity::lookup_opensubtitles_by_hash(media_hash, credentials, http.as_ref())
             .map_err(FfiIdentityLookupError::from)?;
+    Ok(result(outcome))
+}
+
+/// Looks up a complete media locator. Exact hash identity wins; if it misses,
+/// bounded filename/declared-name evidence may yield a non-exact parsed match.
+/// The locator is consumed inside the core and never appears in the result or
+/// errors.
+#[uniffi::export]
+pub fn lookup_verified_identity_for_media(
+    media_locator: String,
+    media_hash: Option<Vec<u8>>,
+    credential_store: Arc<FfiSecureCredentialStore>,
+    http_client: Arc<dyn ForeignHttpClient>,
+) -> Result<FfiIdentityLookupResult, FfiIdentityLookupError> {
+    let media_hash = media_hash
+        .map(|bytes| {
+            bytes
+                .try_into()
+                .map(MediaHash::from_bytes)
+                .map_err(|_| FfiIdentityLookupError::InvalidMediaHash)
+        })
+        .transpose()?;
+    let credentials =
+        credential_store.as_ref() as &dyn nen_app::ports::credentials::SecureCredentialStore;
+    let http = adapt_http_client(http_client);
+    let (_, outcome) = nen_app::identity::lookup_opensubtitles_for_media(
+        &media_locator,
+        media_hash,
+        credentials,
+        http.as_ref(),
+    )
+    .map_err(FfiIdentityLookupError::from)?;
     Ok(result(outcome))
 }
 

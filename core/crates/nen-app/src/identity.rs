@@ -10,7 +10,7 @@ use nen_ports::filename_normalization::{
 use nen_ports::http::HttpClient;
 use nen_ports::identity::{
     CanonicalMediaIdentity, IdentityLookup, IdentityLookupError, MediaHash, MediaIdentityLookup,
-    ParsedMediaIdentity, VerifiedMediaIdentity,
+    MediaIdentitySearch, ParsedMediaIdentity, VerifiedMediaIdentity,
 };
 use nen_ports::subtitle_candidates::{
     SubtitleCandidate, SubtitleCandidateSearch, SubtitleCandidateSearchError,
@@ -27,6 +27,10 @@ use nen_providers::opensubtitles::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ProviderIdentityOutcome {
     Match(nen_ports::identity::VerifiedMediaIdentity),
+    /// A single provider feature answered a title/year query derived from
+    /// parsed evidence. This may be shown as a resolved title, but it is not
+    /// the exact-hash proof required by automatic subtitle download.
+    ParsedMatch(nen_ports::identity::VerifiedMediaIdentity),
     NoMatch,
     Ambiguous,
     NoCredential,
@@ -329,6 +333,90 @@ pub fn lookup_opensubtitles_for_remote_url(
     let key = OpenSubtitlesApiKey::new(key.expose()).map_err(ProviderIdentityError::Provider)?;
     let lookup = OpenSubtitlesIdentityLookup::new(http, key);
     finish_provider_identity(evidence, &lookup)
+}
+
+/// Looks up identity for a complete media locator. An exact hash match stays
+/// authoritative; when it misses, a bounded parsed filename/declared-name
+/// query may resolve one provider feature. The latter is intentionally a
+/// separate outcome and never opens the exact-identity automatic-download
+/// gate.
+pub fn lookup_opensubtitles_for_media(
+    locator: &str,
+    hash: Option<MediaHash>,
+    credentials: &dyn SecureCredentialStore,
+    http: &dyn HttpClient,
+) -> Result<(MediaEvidence, ProviderIdentityOutcome), ProviderIdentityError> {
+    let remote = is_remote_locator(locator);
+    let Some(key) = credentials
+        .get(CredentialKind::OpenSubtitles)
+        .map_err(ProviderIdentityError::CredentialStore)?
+    else {
+        return Ok((
+            if remote {
+                MediaEvidence::for_remote_url(locator)
+            } else {
+                MediaEvidence::for_local_file(locator)
+            },
+            ProviderIdentityOutcome::NoCredential,
+        ));
+    };
+
+    let evidence = if remote {
+        crate::remote_evidence::collect_remote_evidence(http, locator)
+            .map_err(ProviderIdentityError::RemoteEvidence)?
+    } else {
+        MediaEvidence::for_local_file(locator)
+    };
+    let hash = hash.or_else(|| {
+        evidence
+            .os_hash()
+            .map(|hash| MediaHash::from_bytes(*hash.as_bytes()))
+    });
+    let had_hash = hash.is_some();
+    let key = OpenSubtitlesApiKey::new(key.expose()).map_err(ProviderIdentityError::Provider)?;
+    let lookup = OpenSubtitlesIdentityLookup::new(http, key);
+
+    if let Some(hash) = hash {
+        match lookup
+            .lookup_by_hash(hash)
+            .map_err(ProviderIdentityError::Provider)?
+        {
+            IdentityLookup::Match(identity) => {
+                let evidence = evidence.with_verified_identity(
+                    identity.title.clone(),
+                    identity.year,
+                    identity.season,
+                    identity.episode,
+                );
+                return Ok((evidence, ProviderIdentityOutcome::Match(identity)));
+            }
+            IdentityLookup::Ambiguous => {
+                return Ok((evidence, ProviderIdentityOutcome::Ambiguous));
+            }
+            IdentityLookup::NoMatch => {}
+        }
+    }
+
+    let Some(parsed) = parsed_provider_identity(&evidence) else {
+        return Ok((
+            evidence,
+            if had_hash {
+                ProviderIdentityOutcome::NoMatch
+            } else {
+                ProviderIdentityOutcome::NoHash
+            },
+        ));
+    };
+    match lookup
+        .lookup_by_parsed_identity(parsed)
+        .map_err(ProviderIdentityError::Provider)?
+    {
+        IdentityLookup::Match(identity) => {
+            Ok((evidence, ProviderIdentityOutcome::ParsedMatch(identity)))
+        }
+        IdentityLookup::NoMatch => Ok((evidence, ProviderIdentityOutcome::NoMatch)),
+        IdentityLookup::Ambiguous => Ok((evidence, ProviderIdentityOutcome::Ambiguous)),
+    }
 }
 
 /// Searches OpenSubtitles metadata using the ADR-0049 order. Exact hash wins;
@@ -677,6 +765,90 @@ mod tests {
         let (evidence, result) = apply_provider_identity(evidence(), &provider);
         assert_eq!(result, Err(IdentityLookupError::Transport));
         assert_eq!(evidence.resolve().title.as_deref(), Some("filename"));
+    }
+
+    #[test]
+    fn parsed_filename_provider_match_is_separate_from_exact_hash_identity() {
+        let credentials = InMemoryCredentialStore::new();
+        credentials
+            .set(
+                CredentialKind::OpenSubtitles,
+                ApiKey::new("fixture-key").expect("fixture key"),
+            )
+            .expect("credential store");
+        let http = RecordingHttpClient::with_responses(vec![HttpResponse {
+            status_code: 200,
+            headers: Vec::new(),
+            body: br#"{"data":[{"attributes":{"feature_details":{"title":"The Legend of Aang - The Last Airbender","year":2026}}}]}"#.to_vec(),
+        }]);
+
+        let (_, outcome) = lookup_opensubtitles_for_media(
+            "/library/The Legend of Aang - The Last Airbender 2026 [INTERNAL] 1080p H.264 English AAC 2.0.mkv",
+            None,
+            &credentials,
+            &http,
+        )
+        .expect("parsed provider identity");
+
+        assert_eq!(
+            outcome,
+            ProviderIdentityOutcome::ParsedMatch(VerifiedMediaIdentity {
+                title: "The Legend of Aang - The Last Airbender".into(),
+                year: Some(2026),
+                season: None,
+                episode: None,
+            })
+        );
+        assert_eq!(http.calls.load(Ordering::Relaxed), 1);
+        let request = http
+            .requests
+            .lock()
+            .expect("recording client lock")
+            .first()
+            .cloned()
+            .expect("provider request");
+        assert!(request
+            .url
+            .contains("query=The%20Legend%20of%20Aang%20-%20The%20Last%20Airbender"));
+        assert!(request.url.contains("year=2026"));
+        assert!(!request.url.contains("INTERNAL"));
+        assert!(!request.url.contains("/library/"));
+    }
+
+    #[test]
+    fn exact_hash_match_stops_before_parsed_filename_fallback() {
+        let credentials = InMemoryCredentialStore::new();
+        credentials
+            .set(
+                CredentialKind::OpenSubtitles,
+                ApiKey::new("fixture-key").expect("fixture key"),
+            )
+            .expect("credential store");
+        let http = RecordingHttpClient::with_responses(vec![HttpResponse {
+            status_code: 200,
+            headers: Vec::new(),
+            body: br#"{"data":[{"attributes":{"moviehash_match":true,"feature_details":{"title":"Exact Film","year":2026}}}]}"#.to_vec(),
+        }]);
+        let hash = MediaHash::from_bytes([0, 1, 2, 3, 4, 5, 6, 7]);
+
+        let (_, outcome) = lookup_opensubtitles_for_media(
+            "/library/Other.Film.2026.1080p.mkv",
+            Some(hash),
+            &credentials,
+            &http,
+        )
+        .expect("exact provider identity");
+
+        assert_eq!(
+            outcome,
+            ProviderIdentityOutcome::Match(VerifiedMediaIdentity {
+                title: "Exact Film".into(),
+                year: Some(2026),
+                season: None,
+                episode: None,
+            })
+        );
+        assert_eq!(http.calls.load(Ordering::Relaxed), 1);
     }
 
     #[test]

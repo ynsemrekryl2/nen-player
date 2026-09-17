@@ -5,8 +5,7 @@
 > `tasks/done/` ve `history/`'de. Burada tekrar edilmez; **150 satırı aşamaz**
 > (`check-docs.sh` denetim 10).
 >
-> Son güncelleme: **2026-09-17** (**`NEN-135` tamamlandı; `NEN-126` yeniden
-> READY**.)
+> Son güncelleme: **2026-09-17** (**`NEN-136` tamamlandı; `NEN-126` READY**.)
 
 ## Nerede duruyoruz
 
@@ -14,14 +13,14 @@
 |---|---|
 | **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı — `docs/milestones/M6-real-providers.md`) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-135`** — Accept official OpenSubtitles download host. Ondan önce: `NEN-134` |
+| **Son tamamlanan** | **`NEN-136`** — Filename-backed media identity fallback. Ondan önce: `NEN-135` |
 | **Sıradaki READY** | **`NEN-126`** — Real providers acceptance |
-| **Task sayısı** | 135 · done 132 · active 0 · blocked 0 · canceled 2 · backlog 1 |
+| **Task sayısı** | 136 · done 133 · active 0 · blocked 0 · canceled 2 · backlog 1 |
 
-**Son kapanış — `NEN-135` (2026-09-17):** OpenSubtitles'ın resmî
-`www.opensubtitles.com/download/...` geçici linki, yalnız tam host ve
-`/download/` path eşleşmesiyle kabul ediliyor; redirect, boyut, content-type,
-archive ve credential kapıları korunuyor.
+**Son kapanış — `NEN-136` (2026-09-17):** Hash eşleşmesi bulunamadığında
+release dosya adından bounded title/year evidence ile provider medya kimliği
+çözülüyor; tekil sonuç üst şeritte gösteriliyor, exact doğrulama ve otomatik
+indirme kapısı korunuyor.
 
 ## Toolchain
 
@@ -47,7 +46,7 @@ kurmaz (`scripts/tests/doctor.test.sh` S7). Kurulum geçmişi:
 
 ## Blocker'lar
 
-**Toolchain blocker'ı yok.** `NEN-135` tamamlandı ve `NEN-126` gerçek provider
+**Toolchain blocker'ı yok.** `NEN-136` tamamlandı ve `NEN-126` gerçek provider
 kabul koşusu için yeniden READY. Çözülmüş B1–B4 kaydı:
 `history/status-archive-2026-09.md`.
 
@@ -65,10 +64,10 @@ gerçek ağ koşusu ayrıca kullanıcı onayı ve kullanıcıya ait credential g
 
 ## Son doğrulama
 
-2026-09-17'de `NEN-135` tamamlandı. Hedefli OpenSubtitles indirme testleri
-17/17 ve tüm Rust workspace testleri geçti. Fmt, clippy ve `cargo deny check`;
-`bash scripts/test.sh`, `bash scripts/check-docs.sh`, `bash scripts/task-index.sh
---check` ve `git diff --check` çıkış 0 verdi.
+2026-09-17'de `NEN-136` tamamlandı. Tüm Rust workspace testleri, 259 shell/player,
+57 playback/contract ve 4 Keychain macOS testi geçti. Fmt, clippy ve `cargo deny
+check`; `bash scripts/test.sh`, `bash scripts/check-docs.sh`,
+`bash scripts/task-index.sh --check` ve `git diff --check` çıkış 0 verdi.
 
 Önceki doğrulama girdileri ve toolchain kapısı geçmişi:
 `history/status-archive-2026-09.md`.
