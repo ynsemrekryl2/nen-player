@@ -7,9 +7,29 @@ public extension Notification.Name {
 }
 
 enum PlayerChromeLayout {
-    /// The title starts beside the traffic lights, not below the hidden titlebar.
-    static let mediaIdentityTopPadding: CGFloat = 0
+    /// The titlebar label is laid out against the actual close-button frame,
+    /// rather than against SwiftUI's safe-area approximation.
     static let mediaIdentityLeadingPadding: CGFloat = 92
+    static let mediaIdentityTitlebarGap: CGFloat = 54
+    static let mediaIdentityTitlebarLabelHeight: CGFloat = 22
+    // NSTextField's visible glyphs sit slightly above its geometric center.
+    // Correct that half-point so the rendered text center matches the
+    // colored traffic-light center, not only the label frame.
+    static let mediaIdentityTitlebarOpticalYOffset: CGFloat = -1.0
+
+    static func mediaIdentityTitlebarLabelFrame(
+        trafficLightFrame: CGRect,
+        titlebarWidth: CGFloat
+    ) -> CGRect {
+        let x = trafficLightFrame.maxX + mediaIdentityTitlebarGap
+        return CGRect(
+            x: x,
+            y: trafficLightFrame.midY - mediaIdentityTitlebarLabelHeight / 2
+                + mediaIdentityTitlebarOpticalYOffset,
+            width: max(0, titlebarWidth - x - 22),
+            height: mediaIdentityTitlebarLabelHeight
+        )
+    }
 }
 
 public struct PlayerRootView: View {
@@ -61,7 +81,6 @@ public struct PlayerRootView: View {
     }
 
     public var body: some View {
-        let safeAreaOverheadBinding = $safeAreaOverhead
         let minimum = WindowGeometry.minimumLayoutSize(
             for: displaySize,
             safeAreaOverhead: safeAreaOverhead
@@ -172,7 +191,8 @@ public struct PlayerRootView: View {
             WindowTitleWriter(
                 title: model.windowTitle,
                 controlsVisible: model.controlsVisible,
-                hasMedia: model.hasMedia
+                hasMedia: model.hasMedia,
+                mediaIdentity: mediaIdentityTitleText
             )
         )
         // AppKit still owns the aspect lock and one-time opening size. The
@@ -183,8 +203,8 @@ public struct PlayerRootView: View {
                 geometry: model.videoGeometry,
                 mediaRevision: model.mediaPresentationRevision,
                 onSafeAreaOverheadChange: { overhead in
-                    guard safeAreaOverheadBinding.wrappedValue != overhead else { return }
-                    safeAreaOverheadBinding.wrappedValue = overhead
+                    guard safeAreaOverhead != overhead else { return }
+                    safeAreaOverhead = overhead
                 }
             )
         )
@@ -267,19 +287,11 @@ public struct PlayerRootView: View {
         return CGSize(width: CGFloat(geometry.width), height: CGFloat(geometry.height))
     }
 
-    @ViewBuilder
-    private var mediaIdentityTitle: some View {
+    private var mediaIdentityTitleText: String? {
         if let identity = model.displayedMediaIdentity {
-            Text(VerifiedMediaIdentityPresentation.label(for: identity))
-                // The payload-free id makes basename → provider title an
-                // insertion/removal, so the existing ease-out fade is used.
-                .id("provider-media-identity")
-                .transition(.opacity)
-        } else if let mediaName = model.mediaName {
-            Text(mediaName)
-                .id("media-basename")
-                .transition(.opacity)
+            return VerifiedMediaIdentityPresentation.label(for: identity)
         }
+        return model.mediaName
     }
 
     private func isPlayerWindow(_ object: Any?) -> Bool {
@@ -302,27 +314,6 @@ public struct PlayerRootView: View {
             .ignoresSafeArea(.container, edges: .top)
             .opacity(model.controlsVisible ? 1 : 0)
             .allowsHitTesting(false)
-
-            if model.mediaName != nil {
-                mediaIdentityTitle
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Color.white.opacity(0.96))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .shadow(color: .black.opacity(0.50), radius: 6, y: 1)
-                    .padding(.leading, PlayerChromeLayout.mediaIdentityLeadingPadding)
-                    .padding(.trailing, 22)
-                    .padding(.top, PlayerChromeLayout.mediaIdentityTopPadding)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .ignoresSafeArea(.container, edges: .top)
-                    .opacity(model.controlsVisible ? 1 : 0)
-                    .offset(y: model.controlsVisible ? 0 : -10)
-                    .allowsHitTesting(false)
-                    .animation(
-                        .easeOut(duration: VerifiedMediaIdentityPresentation.transitionDuration),
-                        value: model.displayedMediaIdentity
-                    )
-            }
 
             if presentedPanel != nil {
                 Color.clear
@@ -586,6 +577,7 @@ private struct WindowTitleWriter: NSViewRepresentable {
     let title: String
     let controlsVisible: Bool
     let hasMedia: Bool
+    let mediaIdentity: String?
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -595,9 +587,14 @@ private struct WindowTitleWriter: NSViewRepresentable {
         NSView()
     }
 
+    static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
+        coordinator.removeIdentityLabel()
+    }
+
     func updateNSView(_ nsView: NSView, context: Context) {
         let title = title
         let showButtons = !hasMedia || controlsVisible
+        let mediaIdentity = mediaIdentity
         DispatchQueue.main.async {
             guard let window = nsView.window else { return }
             window.title = title
@@ -606,6 +603,11 @@ private struct WindowTitleWriter: NSViewRepresentable {
             // Deliberately do not set `representedURL`: its proxy icon exposes
             // the full path, which ADR-0031 forbids on evidence surfaces.
             window.representedURL = nil
+            context.coordinator.updateIdentityLabel(
+                mediaIdentity,
+                in: window,
+                visible: showButtons
+            )
             context.coordinator.updateButtons(in: window, visible: showButtons)
         }
     }
@@ -613,6 +615,54 @@ private struct WindowTitleWriter: NSViewRepresentable {
     @MainActor
     final class Coordinator {
         private var generation = 0
+        private weak var identityLabel: NSTextField?
+        private weak var identityHost: NSView?
+
+        func updateIdentityLabel(_ text: String?, in window: NSWindow, visible: Bool) {
+            guard let closeButton = window.standardWindowButton(.closeButton),
+                  let host = closeButton.superview
+            else { return }
+
+            let label: NSTextField
+            if let identityLabel, identityHost === host {
+                label = identityLabel
+            } else {
+                identityLabel?.removeFromSuperview()
+                let newLabel = NSTextField(labelWithString: "")
+                host.addSubview(newLabel)
+                identityLabel = newLabel
+                identityHost = host
+                label = newLabel
+            }
+
+            label.font = .systemFont(ofSize: 15, weight: .semibold)
+            label.textColor = NSColor.white.withAlphaComponent(0.96)
+            label.alignment = .left
+            label.lineBreakMode = .byTruncatingMiddle
+            label.maximumNumberOfLines = 1
+            label.cell?.usesSingleLineMode = true
+            label.cell?.lineBreakMode = .byTruncatingMiddle
+            let shadow = NSShadow()
+            shadow.shadowColor = NSColor.black.withAlphaComponent(0.50)
+            shadow.shadowBlurRadius = 6
+            shadow.shadowOffset = NSSize(width: 0, height: -1)
+            label.shadow = shadow
+            label.stringValue = text ?? ""
+            label.frame = PlayerChromeLayout.mediaIdentityTitlebarLabelFrame(
+                trafficLightFrame: closeButton.convert(closeButton.bounds, to: host),
+                titlebarWidth: host.bounds.width
+            )
+            label.isHidden = !visible || text == nil
+            label.alphaValue = visible && text != nil ? 1 : 0
+            label.setAccessibilityRole(.staticText)
+            label.setAccessibilityLabel(text ?? "")
+        }
+
+        func removeIdentityLabel() {
+            identityLabel?.removeFromSuperview()
+            identityLabel = nil
+            identityHost = nil
+        }
 
         func updateButtons(in window: NSWindow, visible: Bool) {
             generation += 1

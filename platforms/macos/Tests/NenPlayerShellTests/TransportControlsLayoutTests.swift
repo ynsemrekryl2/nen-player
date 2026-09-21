@@ -11,8 +11,15 @@ import Testing
 struct TransportControlsLayoutTests {
     @Test("media identity shares the traffic-light titlebar row")
     func mediaIdentityUsesTitlebarRow() {
-        #expect(PlayerChromeLayout.mediaIdentityTopPadding == 0)
-        #expect(PlayerChromeLayout.mediaIdentityLeadingPadding == 92)
+        let frame = PlayerChromeLayout.mediaIdentityTitlebarLabelFrame(
+            trafficLightFrame: CGRect(x: 14, y: 0, width: 24, height: 24),
+            titlebarWidth: 600
+        )
+        #expect(frame.minX == PlayerChromeLayout.mediaIdentityLeadingPadding)
+        #expect(
+            frame.midY == 12 + PlayerChromeLayout.mediaIdentityTitlebarOpticalYOffset
+        )
+        #expect(frame.height == 22)
     }
 
     @Test("the player root advertises the aspect-correct chrome minimum")

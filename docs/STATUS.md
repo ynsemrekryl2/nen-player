@@ -5,7 +5,7 @@
 > `tasks/done/` ve `history/`'de. Burada tekrar edilmez; **150 satırı aşamaz**
 > (`check-docs.sh` denetim 10).
 >
-> Son güncelleme: **2026-09-17** (**`NEN-140` tamamlandı; `NEN-126` READY**.)
+> Son güncelleme: **2026-09-20** (**`NEN-137` tamamlandı; `NEN-126` READY**.)
 
 ## Nerede duruyoruz
 
@@ -13,13 +13,15 @@
 |---|---|
 | **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı — `docs/milestones/M6-real-providers.md`) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-140`** — Show translation duration in pipeline event log. Ondan önce: `NEN-139` |
+| **Son tamamlanan** | **`NEN-137`** — Align media identity with traffic lights. Ondan önce: `NEN-140` |
 | **Sıradaki READY** | **`NEN-126`** — Real providers acceptance |
-| **Task sayısı** | 140 · done 138 · active 0 · blocked 0 · canceled 2 · backlog 1 |
+| **Task sayısı** | 140 · done 137 · active 0 · blocked 0 · canceled 2 · backlog 1 |
 
-**Son kapanış — `NEN-140` (2026-09-17):** Olaylar penceresindeki çeviri
-satırı (tamamlandı/iptal/hata) artık işin ne kadar sürdüğünü de gösteriyor
-— duvar-saati süresi, `translationStarted`'dan terminal olaya kadar.
+**Son kapanış — `NEN-137` (2026-09-20):** Oynatıcıdaki medya kimliği başlığı
+artık trafik ışığı kapatma butonunun gerçek AppKit `midY` değerine bağlı; yazı
+merkezi trafik ışıklarıyla aynı dikey çizgide. Kullanıcı gerçek `.app` üzerinde
+basename ve doğrulanmış kimlik başlıklarını manuel doğrulayıp kapanışı onayladı;
+ekran görüntüsü alınamadığı için UI kanıtı checklist olarak kaydedildi.
 
 ## Toolchain
 
@@ -62,10 +64,12 @@ gerçek ağ koşusu ayrıca kullanıcı onayı ve kullanıcıya ait credential g
 
 ## Son doğrulama
 
-2026-09-17'de `NEN-140` tamamlandı. `bash scripts/test-macos.sh` ile 265
-shell/player testi (yeni 1'i dahil), 57 playback/contract ve 4 Keychain
-testi; `bash scripts/build-macos-app.sh`, `bash scripts/check-docs.sh`,
-`bash scripts/task-index.sh --check` ve `git diff --check` çıkış 0 verdi.
+2026-09-20'de `NEN-137` tamamlandı. `bash scripts/test-macos.sh` ile 265
+shell/player testi (26 suite), 57 playback/contract ve 4 Keychain testi;
+`bash scripts/check-docs.sh`, `bash scripts/task-index.sh --check` ve
+`git diff --check` çıkış 0 verdi. Gerçek `.app` üzerinde basename ve doğrulanmış
+kimlik hizası kullanıcı tarafından manuel doğrulandı; kanıt:
+`evidence/M6/NEN-137-checklist.md`.
 
 Önceki doğrulama girdileri ve toolchain kapısı geçmişi:
 `history/status-archive-2026-09.md`.
