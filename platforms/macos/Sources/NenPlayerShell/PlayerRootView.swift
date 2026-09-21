@@ -208,6 +208,16 @@ public struct PlayerRootView: View {
                 }
             )
         )
+        // `NEN-141`: closing the window does not reliably call `onDisappear`
+        // below — measured on the real app, the scene's content stays mounted,
+        // so the session outlived its window and kept playing. The cleanup
+        // hangs off the AppKit fact (`NSWindow.willClose`); `onDisappear`
+        // stays as the second, idempotent path for a genuine teardown.
+        .background(
+            WindowLifecycleWriter {
+                model.shutdown()
+            }
+        )
         .animation(.easeOut(duration: 0.24), value: model.controlsVisible)
         .animation(.easeOut(duration: 0.24), value: presentedPanel)
         .animation(.easeOut(duration: 0.16), value: model.transientMessage)
