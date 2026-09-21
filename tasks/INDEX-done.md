@@ -180,3 +180,4 @@ Açık task görünümü: [tasks/INDEX.md](INDEX.md)
 | [NEN-139](done/NEN-139-pipeline-log-token-usage-display.md) | Show translation token usage and cost in pipeline event log | M | ✅ done | NEN-131 NEN-138 |
 | [NEN-140](done/NEN-140-pipeline-log-translation-duration.md) | Show translation duration in pipeline event log | S | ✅ done | NEN-139 |
 | [NEN-141](done/NEN-141-player-window-close-stops-playback.md) | Stop playback when the player window closes | S | ✅ done | NEN-046 |
+| [NEN-142](done/NEN-142-remove-transport-focus-ring.md) | Remove focus ring from transport controls | S | ✅ done | — |

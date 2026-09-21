@@ -105,7 +105,6 @@ struct GlassSlider: View {
     let onEditingChanged: (Bool) -> Void
 
     @Environment(\.isEnabled) private var isEnabled
-    @FocusState private var isFocused: Bool
     @State private var isEditing = false
 
     var body: some View {
@@ -134,13 +133,6 @@ struct GlassSlider: View {
             }
             .frame(maxHeight: .infinity, alignment: .center)
             .contentShape(Rectangle())
-            .overlay {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(
-                        isFocused ? Color.accentColor.opacity(0.70) : .clear,
-                        lineWidth: 2
-                    )
-            }
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { gesture in
@@ -161,7 +153,7 @@ struct GlassSlider: View {
         }
         .opacity(isEnabled ? 1 : 0.45)
         .focusable(isEnabled)
-        .focused($isFocused)
+        .focusEffectDisabled()
         .onMoveCommand { direction in
             guard isEnabled else { return }
             switch direction {

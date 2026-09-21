@@ -5,7 +5,7 @@
 > `tasks/done/` ve `history/`'de. Burada tekrar edilmez; **150 satırı aşamaz**
 > (`check-docs.sh` denetim 10).
 >
-> Son güncelleme: **2026-09-20** (**`NEN-141` tamamlandı; `NEN-126` READY**.)
+> Son güncelleme: **2026-09-21** (**`NEN-142` tamamlandı; `NEN-126` READY**.)
 
 ## Nerede duruyoruz
 
@@ -13,17 +13,18 @@
 |---|---|
 | **Mevcut milestone** | **M6 — Real Providers** (M5 2026-09-11'de kapandı — `docs/milestones/M6-real-providers.md`) |
 | **Aktif task** | — |
-| **Son tamamlanan** | **`NEN-141`** — Stop playback when the player window closes. Ondan önce: `NEN-137` |
+| **Son tamamlanan** | **`NEN-142`** — Remove focus ring from transport controls. Ondan önce: `NEN-141` |
 | **Sıradaki READY** | **`NEN-126`** — Real providers acceptance |
-| **Task sayısı** | 141 · done 138 · active 0 · blocked 0 · canceled 2 · backlog 1 |
+| **Task sayısı** | 142 · done 139 · active 0 · blocked 0 · canceled 2 · backlog 1 |
 
-**Son kapanış — `NEN-141` (2026-09-20):** Oynatıcı penceresi kırmızı düğmeyle
-veya `⌘W` ile kapatıldığında oynatma artık duruyor. Temizlik SwiftUI
-`onDisappear`'a güvenmiyor; sahne içeriği kapanışta bağlı kaldığı için pencereyi
-`NSWindow.willCloseNotification` üzerinden dinleyen `WindowLifecycleWriter`
-`model.shutdown()` çağırıyor. Uygulama yaşamaya devam ediyor; Dock/`⌘O` pencereyi
-temiz boş durumla geri getiriyor. Kullanıcı gerçek `.app` checklist'ini
-doğruladı.
+**Son kapanış — `NEN-142` (2026-09-21):** Transport barındaki seek ve ses
+slider'larına tıklandığında/sürüklendiğinde beliren mavi odak halkası
+kaldırıldı. Halkayı `GlassSlider`'ın `.focusable` odak durumunda çizdiği özel
+overlay üretiyordu; overlay, kullanılmayan `@FocusState` bağı ve `.focused`
+kaldırıldı, sistem varsayılan odak efekti `.focusEffectDisabled()` ile
+kapatıldı. Klavye oku ve VoiceOver davranışı korundu; kullanıcı gerçek `.app`
+checklist'ini doğruladı (`tasks/done/NEN-142-remove-transport-focus-ring.md`,
+`evidence/M6/NEN-142-checklist.md`).
 
 ## Toolchain
 
@@ -66,13 +67,12 @@ gerçek ağ koşusu ayrıca kullanıcı onayı ve kullanıcıya ait credential g
 
 ## Son doğrulama
 
-2026-09-20'de `NEN-141` tamamlandı. `bash scripts/test-macos.sh` ile 267
+2026-09-21'de `NEN-142` tamamlandı. `bash scripts/test-macos.sh` ile 267
 shell/player testi (27 suite), 57 playback/contract ve 4 Keychain testi;
 `bash scripts/build-macos-app.sh`, `bash scripts/check-docs.sh`,
-`bash scripts/task-index.sh --check` ve `git diff --check` çıkış 0 verdi. Yeni
-lifecycle testi düzeltme öncesi kırmızı, negatif kontrolde yine kırmızı, sonra
-yeşil ölçüldü. Gerçek `.app` manuel kabulü kullanıcı tarafından doğrulandı;
-kanıt: `evidence/M6/NEN-141-checklist.md`.
+`bash scripts/task-index.sh --check` ve `git diff --check` çıkış 0 verdi.
+Gerçek `.app` manuel kabulü kullanıcı tarafından doğrulandı; kanıt:
+`evidence/M6/NEN-142-checklist.md`.
 
 Önceki doğrulama girdileri ve toolchain kapısı geçmişi:
 `history/status-archive-2026-09.md`.
